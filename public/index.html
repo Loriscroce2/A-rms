@@ -536,8 +536,8 @@
        =================================================================== */
     .myHandPanel{
       position:fixed; z-index:1700;
-      left:50%; bottom:8px; top:auto; transform:translateX(-50%);
-      width:min(94vw, 640px);
+      left:16px; bottom:8px; top:auto; transform:none;
+      width:min(90vw, 420px);
       display:flex; flex-direction:column;
       background:linear-gradient(180deg, rgba(9,22,28,.97), rgba(4,10,14,.98));
       border:1.5px solid rgba(125,249,255,.45);
@@ -5942,6 +5942,11 @@ function pushHistory(kind, html, opts = {}){
   // deux joueurs puisque pushHistory tourne en miroir des deux côtés.
   queueActionAnnounce(kind, html);
 }
+function escapeChatText(str){
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
 function postChat(who, text){
   const wasNearBottom = isNearBottom(chatMsgs);
   const row = document.createElement('div');
@@ -5949,7 +5954,7 @@ function postChat(who, text){
   const badge = who==='top' ? '<span class="who wTop">Joueur 2</span>' :
                 who==='bottom' ? '<span class="who wBottom">Joueur 1</span>' :
                 '<span class="who wSys">Système</span>';
-  row.innerHTML = `${badge}<div class="txt">${text}</div>`;
+  row.innerHTML = `${badge}<div class="txt">${escapeChatText(text)}</div>`;
   chatMsgs.appendChild(row);
   trimListForQuota(chatMsgs, 8, 2);
   if(wasNearBottom) chatMsgs.scrollTop = chatMsgs.scrollHeight;
@@ -5980,6 +5985,11 @@ tabBtns.forEach(b=>b.addEventListener('click', ()=>{
 chatSend.addEventListener('click', ()=>{
   const msg = chatText.value.trim(); if(!msg) return;
   const who = chatAsSel.value; postChat(who, msg); chatText.value=''; chatText.focus();
+  // Envoie le message à l'adversaire en ligne, pour une vraie conversation à
+  // double sens (jusqu'ici, chaque joueur ne voyait que ses propres messages).
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+    window.__socket.emit('chatMessage', { matchId: ONLINE_MATCH_ID, who, text: msg });
+  }
 });
 chatText.addEventListener('keydown', e=>{ if(e.key==='Enter') chatSend.click(); });
 
@@ -11840,6 +11850,12 @@ if (ONLINE_MODE) {
     // chacun voie le déroulé complet, pas seulement ses propres actions.
     socket.on('historyEntry', ({ kind, html, actorSeat }) => {
       pushHistory(kind, html, { fromRemote: true, actorSeat });
+    });
+
+    // Tchat : reçoit les messages de l'adversaire pour qu'une vraie
+    // conversation bidirectionnelle soit possible entre les deux joueurs.
+    socket.on('chatMessage', ({ who, text }) => {
+      postChat(who, text);
     });
 
     socket.on('vfx', ({ payload }) => {

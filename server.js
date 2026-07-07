@@ -654,6 +654,14 @@ io.on('connection', (socket) => {
     socket.to(matchId).emit('historyEntry', { kind, html, actorSeat });
   });
 
+  // Relais du tchat vers l'adversaire, pour une vraie conversation à double sens.
+  socket.on('chatMessage', ({ matchId, who, text }) => {
+    const st = liveMatches.get(matchId);
+    if (!st) return;
+    if (typeof text !== 'string' || !text.trim()) return;
+    socket.to(matchId).emit('chatMessage', { who, text: text.slice(0, 500) });
+  });
+
   socket.on('action', ({ matchId, seat, type, payload }) => {
     const st = liveMatches.get(matchId);
     if (!st || !st.gameState) return;
