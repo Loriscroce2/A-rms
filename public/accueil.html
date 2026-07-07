@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>A’rms — Accueil</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/sitenav.css" />
+  <style>
+    :root{
+      --bg1:#06131a; --bg2:#031017;
+      --ink:#e8fdff; --muted:#bfefff;
+      --cy:#7df9ff; --accent:#00e6ff;
+      --btn:#19e27a;
+
+      /* Réglage simple de la position du carrousel */
+      --gallery-shift-x: -160px; /* - = vers la gauche | + = à droite */
+      --gallery-shift-y:   18px; /* + = vers le bas | - = vers le haut */
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(900px 360px at 70% -120px, #123 0%, transparent 60%),
+        radial-gradient(800px 300px at 10% -160px, #0b3340 0%, transparent 60%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 60%);
+    }
+    a{ color:var(--cy); text-decoration:underline; text-decoration-style:dashed; }
+    .container{ max-width:1680px; margin:0 auto; padding:0 20px; }
+
+    .btn, .btn-secondary{
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding:10px 14px; border-radius:12px; font-weight:900; letter-spacing:.03em;
+      border:1px solid rgba(255,255,255,.15); text-decoration:none;
+      box-shadow:inset 0 0 10px rgba(255,255,255,.06);
+    }
+    .btn{ background:linear-gradient(180deg, var(--btn), #11985b); color:#052319; border-color:#4df7a8; }
+    .btn:hover{ filter:brightness(1.06) saturate(1.02); transform:translateY(-1px); }
+    .btn-secondary{ background:linear-gradient(180deg, #0d2d38, #0a2028); color:#dffbff; }
+    .btn-secondary:hover{ outline:2px solid rgba(125,249,255,.4); }
+
+    /* Hero */
+    .hero{
+      position:relative; overflow:hidden; min-height:72vh;
+      border-bottom:1px solid rgba(125,249,255,.12);
+      background:
+        url('/assets/hero-bg.webp') center/cover no-repeat,
+        radial-gradient(1200px 420px at 60% -180px, rgba(0,230,255,.20), transparent 60%),
+        linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.15));
+      isolation:isolate;
+    }
+    .hero::after{
+      content:""; position:absolute; inset:0; z-index:0;
+      background:
+        radial-gradient(800px 420px at 10% 0%, rgba(0,18,28,.65), rgba(0,18,28,.35) 55%, transparent),
+        linear-gradient(90deg, rgba(0,0,0,.20), transparent 45%);
+      pointer-events:none;
+    }
+    .hero-inner{
+      position:relative; z-index:1;
+      display:grid;
+      grid-template-columns: 1.12fr 0.88fr;
+      gap:28px; align-items:center;
+      padding:48px 0 30px; min-height:72vh;
+    }
+    @media (max-width:1100px){ .hero-inner{ grid-template-columns:1fr; padding:28px 0; } }
+
+    /* Le bloc de texte DOIT passer au-dessus du carrousel */
+    .hero-copy{
+      position:relative;
+      z-index:5;           /* au-dessus du carrousel (z-index 1) et du décor (z-index 0) */
+    }
+
+    .hero h1{
+      font-size:clamp(30px, 5.4vw, 56px);
+      line-height:1.05; margin:.1em 0 .25em 0;
+      letter-spacing:.01em; color:#d2fbff; text-shadow:0 0 22px rgba(0,230,255,.25);
+    }
+    .hero p{ font-size:clamp(15px, 2.1vw, 18px); color:var(--muted); }
+    .cta-row{ display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; }
+
+    /* Carrousel — placé derrière le texte */
+    .gallery{
+      position:relative; min-height:460px; display:grid; place-items:center;
+      perspective:1200px;
+      justify-self:start;
+      margin:0;
+      transform: translate(var(--gallery-shift-x), var(--gallery-shift-y));
+      align-self:start;
+      pointer-events:none; /* purement décoratif */
+      z-index:1;           /* en dessous du texte .hero-copy (z:5) */
+    }
+    @media (max-width:1100px){
+      .gallery{ transform:none; justify-self:center; pointer-events:auto; }
+    }
+    .spiral{
+      position:relative;
+      width:min(700px, 92%);
+      height:500px;
+      transform-style:preserve-3d;
+    }
+    .card-v{
+      position:absolute;
+      width:300px; /* MODIFIÉ */
+      height:430px; /* MODIFIÉ */
+      background-color: transparent; /* MODIFIÉ */
+      background-size: contain; /* MODIFIÉ */
+      background-repeat: no-repeat; /* MODIFIÉ */
+      background-position: center; /* MODIFIÉ */
+      border: none; /* MODIFIÉ */
+      box-shadow: none; /* MODIFIÉ */
+      will-change:transform, filter, opacity;
+    }
+    .card-v::after{
+      content:""; position:absolute; inset:0;
+      border-radius:14px;
+    }
+    .badge-hp,.badge-shield{
+      display:none; /* MODIFIÉ : Caché pour un look PNG pur */
+    }
+
+    section{ padding:32px 0; }
+    .sec-title{ font-size:clamp(20px, 3vw, 28px); color:#aefaff; margin:0 0 12px; text-shadow:0 0 14px rgba(0,230,255,.2); }
+    .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+    @media (max-width:980px){ .grid3{ grid-template-columns:1fr; } }
+    .card{ border:1px solid rgba(125,249,255,.18); border-radius:14px; background:linear-gradient(145deg,#051821,#072d38); padding:16px; box-shadow:inset 0 0 14px rgba(125,249,255,.06); }
+    .card h3{ margin:.2em 0 .3em; color:#d8fbff; }
+    .pill{ display:inline-block; padding:2px 8px; border-radius:999px; font-weight:800; letter-spacing:.02em; font-size:.85rem; border:1px solid rgba(255,255,255,.18); background:linear-gradient(180deg, #073b45,#052a31); color:#dffcff; margin-bottom:6px; }
+
+    /* ====== Factions ====== */
+    .raceGrid{
+      display:grid;
+      grid-template-columns:repeat(5, minmax(0, 1fr));
+      gap:16px;
+      align-items:stretch;
+    }
+    @media (max-width:1100px){ .raceGrid{ grid-template-columns:repeat(3,1fr); } }
+    @media (max-width:780px){ .raceGrid{ grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:520px){ .raceGrid{ grid-template-columns:1fr; } }
+
+    .raceCard{
+      --title-color:#c7f7ff;
+      --title-shadow:rgba(0,230,255,.18);
+      --fx1: rgba(125,249,255,.22);
+
+      position:relative;
+      border:1px solid rgba(125,249,255,.28);
+      border-radius:16px;
+
+      background:
+        radial-gradient(120% 140% at 50% 8%, rgba(255,255,255,.06), transparent 40%),
+        linear-gradient(145deg,#0a2a35,#102e3a);
+
+      box-shadow:
+        inset 0 0 20px rgba(255,255,255,.05),
+        inset 0 0 0 1px rgba(255,255,255,.06),
+        0 10px 22px rgba(0,0,0,.35);
+
+      padding:20px 20px 22px;
+      display:flex; flex-direction:column; align-items:center;
+      transition: transform .35s ease, box-shadow .35s ease, filter .35s ease;
+      overflow:hidden; cursor:pointer;
+    }
+
+    .raceName{
+      font-weight:900; letter-spacing:.12em; text-transform:uppercase;
+      color:var(--title-color);
+      text-shadow:0 0 12px var(--title-shadow);
+      margin:10px 0 16px; line-height:1;
+      font-size:clamp(16px,1.5vw,20px);
+    }
+    .raceImg{
+      width:100%;
+      max-height:760px;
+      aspect-ratio:3/4;
+      object-fit:contain; object-position:center bottom;
+      filter: drop-shadow(0 8px 14px rgba(0,0,0,.45));
+      transition: transform .4s ease, filter .4s ease, opacity .3s ease;
+      background:transparent;
+      pointer-events:none;
+    }
+
+    /* >>> Logo de faction (agrandi ×3 et collé dans le coin) <<< */
+    .raceLogo{
+      position:absolute;
+      right:0px;   /* déborde légèrement pour être plus “dans l’angle” */
+      bottom:0px;  /* idem */
+      width: clamp(90px, 10%, 150px); /* ≥ ~ x3 du 56px d’avant, reste responsive */
+      height:auto;
+      z-index:2;
+      border-radius:14px;
+      filter:
+        drop-shadow(0 4px 14px rgba(0,0,0,.55))
+        drop-shadow(0 0 18px rgba(0,230,255,.18));
+      pointer-events:none;      /* purement décoratif */
+      user-select:none;
+      opacity:.98;
+      transition: transform .25s ease, opacity .25s ease;
+    }
+    .raceCard:hover .raceLogo{ transform:scale(1.05); opacity:1; }
+    @media (max-width:780px){ .raceLogo{ width: clamp(120px, 40%, 190px); } }
+    @media (max-width:520px){ .raceLogo{ width: clamp(100px, 46%, 170px); } }
+
+    /* halo permanent discret */
+    .raceCard::before{
+      content:"";
+      position:absolute; inset:-1px; border-radius:inherit; pointer-events:none;
+      background:
+        radial-gradient(80% 60% at 50% -10%, rgba(125,249,255,.14), transparent 60%),
+        radial-gradient(90% 70% at 50% 112%, rgba(125,249,255,.10), transparent 70%);
+      opacity:.55;
+      transition:opacity .35s ease;
+    }
+    .raceCard:hover::before{ opacity:.85; }
+
+    .raceCard::before,
+    .raceCard::after{
+      content:""; position:absolute; inset:-1px; border-radius:inherit; pointer-events:none;
+      transition: opacity .4s ease, transform .4s ease;
+      opacity:0;
+    }
+    .raceCard:hover{ transform:translateY(-4px); box-shadow:0 14px 30px rgba(0,0,0,.35), 0 0 18px var(--fx1); }
+    .raceCard:hover .raceImg{ transform:translateY(-4px) scale(1.02); }
+
+    .race--krylls{ --title-color:#bffcff; --title-shadow:rgba(0,255,255,.35); --fx1:rgba(0,230,255,.25); }
+    .race--krylls .raceName{ letter-spacing:.16em; }
+    .race--krylls::after{
+      background:linear-gradient(to bottom, transparent 0%, rgba(0,255,255,.12) 48%, transparent 52%);
+      background-size:100% 12px; mix-blend-mode:screen; clip-path:inset(0 0 24% 0); opacity:0;
+    }
+    .race--krylls:hover::after{ opacity:.75; animation: scan 1.6s linear infinite; }
+    @keyframes scan{ to{ background-position-y:12px; } }
+
+    .race--impy{ --title-color:#ff3b3b; --title-shadow:rgba(255,46,46,.6); --fx1:rgba(255,30,30,.35); }
+    .race--impy .raceName{ letter-spacing:.08em; text-shadow:0 0 14px rgba(255,0,0,.55), 0 0 4px rgba(120,0,0,.8); }
+    .race--impy::before{
+      background:
+        radial-gradient(160px 80px at 70% 105%, rgba(255,0,0,.28), transparent 60%),
+        radial-gradient(200px 120px at 20% -10%, rgba(120,0,0,.25), transparent 60%),
+        repeating-linear-gradient(120deg, rgba(255,40,40,.12) 0 6px, transparent 6px 12px);
+      filter: blur(2px);
+    }
+    .race--impy::after{
+      background: conic-gradient(from 0deg, rgba(255,0,0,.0), rgba(255,0,0,.35), rgba(255,0,0,.0));
+      mask: radial-gradient(120px 60px at 80% 85%, #000 30%, transparent 70%);
+    }
+    .race--impy:hover{ animation: shakeHeavy .35s linear 1, pulseRed 1.4s ease-in-out infinite; }
+    .race--impy:hover::before, .race--impy:hover::after{ opacity:1; }
+
+    .race--savage{ --title-color:#f6c37a; --title-shadow:rgba(255,170,60,.55); --fx1:rgba(255,140,20,.32); }
+    .race--savage .raceName{ letter-spacing:.1em; text-shadow:0 0 14px rgba(255,170,60,.6); }
+    .race--savage::before{
+      background:
+        radial-gradient(260px 120px at 50% 112%, rgba(255,150,40,.35), transparent 90%),
+        radial-gradient(160px 80px  at 30% 110%, rgba(255,210,140,.25), transparent 90%);
+      filter:blur(6px);
+    }
+    .race--savage::after{
+      background:
+        radial-gradient(4px 10px at 20% 120%, rgba(255,210,120,.55), transparent 90%),
+        radial-gradient(3px 8px  at 40% 118%, rgba(255,170,60,.55), transparent 90%),
+        radial-gradient(4px 9px  at 60% 122%, rgba(255,140,20,.55), transparent 90%),
+        radial-gradient(3px 7px  at 80% 119%, rgba(255,210,140,.55), transparent %);
+      animation: ember 1.2s linear infinite; opacity:.0;
+    }
+    .race--savage:hover::before{ opacity:1; animation:flicker 1.1s ease-in-out infinite; }
+    .race--savage:hover::after{ opacity:.9; }
+
+    .race--chimeria{ --title-color:transparent; --title-shadow:rgba(170,200,255,.35); --fx1:rgba(190,230,255,.22); }
+    .race--chimeria .raceName{
+      background:linear-gradient(90deg,#ffd6e8,#e3e6ff,#ccfff0,#ffe6b3);
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      background-size:300% 100%;
+    }
+    .race--chimeria:hover .raceName{ animation: shimmer 2.2s linear infinite; }
+    .race--chimeria::after{
+      background:linear-gradient(120deg, rgba(255,255,255,.0) 20%, rgba(255,255,255,.35) 45%, rgba(255,255,255,.0) 60%);
+      transform:translateX(-120%);
+    }
+    .race--chimeria:hover::after{ opacity:1; transform:translateX(120%); transition:transform 1.2s ease; }
+
+    .race--wadoo{ --title-color:#b7ffb7; --title-shadow:rgba(110,255,170,.45); --fx1:rgba(140,255,120,.28); }
+    .race--wadoo::before{
+      background:
+        repeating-radial-gradient(circle at 50% 85%, rgba(120,255,160,.16) 0 8px, transparent 8px 16px),
+        radial-gradient(160px 80px at 70% 100%, rgba(120,80,255,.2), transparent 60%);
+      mix-blend-mode:screen;
+    }
+    .race--wadoo:hover::before{ opacity:1; }
+    .race--wadoo:hover{ box-shadow:0 16px 34px rgba(0,0,0,.35), 0 0 24px rgba(110,255,170,.32), 0 0 18px rgba(110,80,255,.24) inset; }
+
+    /* Modale */
+    .loreModal{
+      position:fixed; inset:0; display:none; place-items:center; z-index:60;
+      background: radial-gradient(1400px 800px at 50% -10%, rgba(0,230,255,.08), transparent 60%),
+                  rgba(0,0,0,.55);
+      backdrop-filter: blur(6px);
+    }
+    .loreModal[open]{ display:grid; }
+    .loreCard{
+      --accent: var(--accent, #00e6ff);
+      width:min(920px, 92vw); max-height:80vh; overflow:auto;
+      border-radius:18px; padding:18px 18px 14px;
+      background:
+        linear-gradient(180deg, rgba(7,25,32,.95), rgba(4,18,24,.92)),
+        radial-gradient(600px 180px at 50% 0%, rgba(0,230,255,.12), transparent 60%);
+      border:1px solid rgba(125,249,255,.25);
+      box-shadow: 0 20px 50px rgba(0,0,0,.5), 0 0 24px rgba(0,230,255,.18) inset;
+      position:relative;
+      color:#dffaff;
+    }
+    .loreCard::before{
+      content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+      background:
+        linear-gradient(90deg, transparent 45%, rgba(255,255,255,.15) 50%, transparent 55%);
+      background-size:220% 100%;
+      transform: translateX(-120%);
+      opacity:.0;
+    }
+    .loreCard.showShine::before{
+      opacity:.8; transform: translateX(120%);
+      transition: transform 1.2s ease;
+    }
+    .loreHeader{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+    .loreBadge{
+      font-weight:900; letter-spacing:.12em; text-transform:uppercase;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid currentColor; font-size:.8rem;
+    }
+    .closeBtn{
+      position:absolute; top:10px; right:10px;
+      border:1px solid rgba(255,255,255,.25);
+      background:linear-gradient(180deg,#0e2b35,#0a222b);
+      color:#dff; border-radius:10px; padding:6px 10px; font-weight:800;
+      cursor:pointer;
+    }
+    .loreTitle{
+      font-size:clamp(20px,2.4vw,26px); margin:0; color:#cfffff;
+      text-shadow:0 0 14px rgba(0,230,255,.3);
+    }
+    .loreBody{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media (max-width:860px){ .loreBody{ grid-template-columns:1fr; } }
+
+    .loreBlock{
+      border:1px solid rgba(125,249,255,.18); border-radius:12px; padding:12px;
+      background: linear-gradient(145deg,#081a21,#0a2832);
+      box-shadow:inset 0 0 12px rgba(125,249,255,.06);
+    }
+    .loreBlock h4{ margin:.2em 0 .4em; color:#bff7ff; }
+    .loreBlock p{ margin:.4em 0; color:#cfefff; }
+    .loreBlock ul{ margin:.4em 0 .2em 1.2em; }
+    .loreBlock li{ margin:.25em 0; }
+
+    .loreCard[data-race="krylls"]{ --accent:#00e6ff; }
+    .loreCard[data-race="impy"]  { --accent:#ff3b3b; }
+    .loreCard[data-race="savage"]{ --accent:#ff9a3c; }
+    .loreCard[data-race="chimeria"]{ --accent:#bfa1ff; }
+    .loreCard[data-race="wadoo"] { --accent:#8dffa6; }
+
+    .loreHeader .loreBadge{ color:var(--accent); }
+    .loreCard{ outline: 2px solid color-mix(in oklab, var(--accent) 40%, transparent); }
+  </style>
+</head>
+<body>
+  <div id="site-header-root"></div>
+
+  <section class="hero">
+    <div class="container hero-inner">
+      <div class="hero-copy">
+        <h1>Forgez, combattez, dominez.<br>Bienvenue dans <span style="color:#bff7ff;text-shadow:0 0 12px rgba(0,230,255,.35)">A’rms</span>.</h1>
+        <p class="hero-lead">
+          Jeu de cartes 1v1.<br>
+          Choisis une faction à chaque tour, optimise ton Mithril<br>
+          et <strong>forge 5 A’rms</strong> pour la victoire.<br>
+          <span class="muted">Des combats clairs, des décisions tendues,</span><br>
+          <span class="muted">un rythme punchy.</span>
+        </p>
+
+        <div class="cta-row">
+          <a class="btn" href="play.html">▶ Jouer maintenant</a>
+          <a class="btn-secondary" href="regles.html">❖ Lire les règles</a>
+        </div>
+        <p style="margin-top:10px; color:#a9ecff;">
+          Nouveau ? <em>Clique sur “Lire les règles”</em> (exemples de combat inclus) puis lance une partie !
+        </p>
+      </div>
+
+      <div class="gallery" aria-hidden="true">
+        <div class="spiral" id="spiral">
+          <div class="card-v" style="background-image:url('/cartes/0001.png');"></div>
+          <div class="card-v" style="background-image:url('/cartes/0003.png');"></div>
+          <div class="card-v" style="background-image:url('/cartes/0002.png');"></div>
+          <div class="card-v" style="background-image:url('/cartes/0007.png');"></div>
+          <div class="card-v" style="background-image:url('/cartes/0010.png');"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2 class="sec-title">Pourquoi jouer à A’rms ?</h2>
+      <div class="grid3">
+        <div class="card">
+          <span class="pill">Gameplay</span>
+          <h3>Des tours décisifs</h3>
+          <p>À chaque tour, <strong>choisis une faction</strong> : cela change tes cartes jouables et tes activations.
+          Tout est lisible, chaque action compte.</p>
+        </div>
+        <div class="card">
+          <span class="pill">Ressources</span>
+          <h3>Mithril & Forge</h3>
+          <p>Mine avec tes personnages (−1 PV → +1 Mithril), puis <strong>forge automatiquement 1 A’rms</strong> au début de TON tour si tu as ≥ 3 Mithril
+            (max. 1 forge par tour).</p>
+        </div>
+        <div class="card">
+          <span class="pill">Victoire</span>
+          <h3>Deux chemins pour gagner</h3>
+          <p>Forge <strong>5 A’rms</strong> pour la victoire… ou pousse ton adversaire à atteindre son <strong>3ᵉ Cycle</strong> lorsqu’il recycle son deck.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2 class="sec-title">Univers — L’Âge des Forges</h2>
+      <div class="card">
+        <p>
+          Après la <em>Ruée au Mithril</em>, un métal-mémoire qui répond au sang et aux serments, les Cités-Cargos, temples voodous
+          et royaumes lunaires se disputent le contrôle des <strong>Forges-Cœur</strong>. Le Mithril peut être “converti”
+          par le vivant : <strong>−1 PV → +1 Mithril</strong>. Avec <strong>3 Mithril</strong> au début de ton tour, la Forge-Cœur
+          façonne automatiquement <strong>1 A’rms</strong> — une pièce d’artefact consciente. <br>
+          <strong>5 A’rms</strong> complétés forment une arme-relique qui change le destin d’un peuple… ou met fin au tien.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2 class="sec-title">Factions</h2>
+
+      <div class="raceGrid" id="raceGrid">
+        <figure class="raceCard race--krylls" data-race="krylls">
+          <figcaption class="raceName">Krylls</figcaption>
+          <img class="raceImg" src="/assets/Krylls-race.png" alt="Krylls — duo en pied" loading="lazy">
+          <img class="raceLogo" src="/assets/logo-krylls.png" alt="Logo Krylls" loading="lazy" />
+        </figure>
+
+        <figure class="raceCard race--impy" data-race="impy">
+          <figcaption class="raceName">Impy</figcaption>
+          <img class="raceImg" src="/assets/Impy-race.png" alt="Impy — duo en pied" loading="lazy">
+          <img class="raceLogo" src="/assets/logo-impy.png" alt="Logo Impy" loading="lazy" />
+        </figure>
+
+        <figure class="raceCard race--savage" data-race="savage">
+          <figcaption class="raceName">Savage</figcaption>
+          <img class="raceImg" src="/assets/Savage-race.png" alt="Savage — duo en pied" loading="lazy">
+          <img class="raceLogo" src="/assets/logo-savage.png" alt="Logo Savage" loading="lazy" />
+        </figure>
+
+        <figure class="raceCard race--chimeria" data-race="chimeria">
+          <figcaption class="raceName">Chimeria</figcaption>
+          <img class="raceImg" src="/assets/Chimeria-race.png" alt="Chimeria — duo en pied" loading="lazy">
+          <img class="raceLogo" src="/assets/logo-chimeria.png" alt="Logo Chimeria" loading="lazy" />
+        </figure>
+
+        <figure class="raceCard race--wadoo" data-race="wadoo">
+          <figcaption class="raceName">Wadoo</figcaption>
+          <img class="raceImg" src="/assets/Wadoo-race.png" alt="Wadoo — duo en pied" loading="lazy">
+          <img class="raceLogo" src="/assets/logo-wadoo.png" alt="Logo Wadoo" loading="lazy" />
+        </figure>
+      </div>
+
+      <div style="margin-top:14px" class="cta-row">
+        <a class="btn" href="play.html">▶ Lancer une partie</a>
+        <a class="btn-secondary" href="regles.html">❖ Voir les règles</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+      <div>© A’rms — Tous droits réservés.</div>
+      <div style="display:flex; gap:10px;">
+        <a class="btn-secondary" href="login.html">Se connecter</a>
+        <a class="btn-secondary" href="register.html">Créer un compte</a>
+        <a class="btn-secondary" href="regles.html">Règles</a>
+      </div>
+    </div>
+  </footer>
+
+  <dialog class="loreModal" id="loreModal">
+    <div class="loreCard" id="loreCard" data-race="">
+      <button class="closeBtn" id="closeLore">✕</button>
+      <div class="loreHeader">
+        <span class="loreBadge" id="loreBadge">FACTION</span>
+        <h3 class="loreTitle" id="loreTitle">Titre</h3>
+      </div>
+      <div class="loreBody">
+        <div class="loreBlock">
+          <h4>Origines & Vision</h4>
+          <p id="loreOrigin"></p>
+        </div>
+        <div class="loreBlock">
+          <h4>Pourquoi forger 5 A’rms ?</h4>
+          <p id="loreReason"></p>
+        </div>
+        <div class="loreBlock">
+          <h4>Style de jeu</h4>
+          <ul id="loreStyle"></ul>
+        </div>
+        <div class="loreBlock">
+          <h4>Cartes signatures</h4>
+          <ul id="loreSign"></ul>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="/auth.js"></script>
+  <script src="/sitenav.js"></script>
+  <script>
+    (function(){
+      const spiral = document.getElementById('spiral');
+      if(!spiral) return;
+      const cards  = Array.from(spiral.querySelectorAll('.card-v'));
+      const RX = 220, RY = 90, DEPTH = 150; // MODIFIÉ
+      const SCALE_NEAR = 1.08, SCALE_FAR = 0.78;
+      const SPEED = 0.0006, LIFT = 10;
+      let t0 = performance.now();
+      cards.forEach((c,i)=> c._a = (i/cards.length)*Math.PI*2);
+      function frame(now){
+        const dt = now - t0; t0 = now;
+        cards.forEach((c,i)=>{
+          c._a += SPEED*dt;
+          const a = c._a, cos = Math.cos(a), sin = Math.sin(a);
+          const z = (sin+1)/2;
+          const scale = SCALE_FAR + (SCALE_NEAR-SCALE_FAR)*z;
+          const depth = -DEPTH + z*DEPTH*2;
+          const x = RX * cos;
+          const y = RY * sin + Math.sin(a*2 + i)*LIFT;
+          const opacity = 0.55 + 0.45*z;
+          c.style.transform = `translate3d(${x}px, ${y}px, ${depth}px) scale(${scale}) rotate(${cos*6}deg)`;
+          c.style.zIndex = (100 + Math.round(z*100));
+          c.style.opacity = opacity;
+          c.style.filter = `drop-shadow(0 8px 16px rgba(0,0,0,.45)) drop-shadow(0 0 ${8+z*10}px rgba(0,230,255,${0.18+z*0.22}))`;
+        });
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    })();
+
+    /* === Lore — réécrit pour correspondre aux vraies cartes du jeu === */
+    const LORE = {
+      krylls:{
+        title:"Krylls — Dockers des Cités-Cargos",
+        origin:"Peuple céphalopode bon vivant, élevé dans les soutes pressurisées des cargos dérivants. Ils bricolent l’impossible, troquent des modules et transforment des épaves en palais flottants. Chez les Krylls, tout se répare, tout se recycle — y compris les corps.",
+        reason:"Les 5 A’rms activent le Dôme-Pression « Thalassée », un bouclier mobile qui libère leurs cités des taxes des guildes et leur ouvre des routes commerciales sûres.",
+        style:[
+          "Beaucoup de <strong>petits soutiens à bas coût</strong> (Zykmu, Rat-Ky, Zcyvenger) pour tenir la cadence",
+          "Des <strong>artefacts utilitaires</strong> (Zwyffer, Rescelleur) qui optimisent durablement le champ de bataille",
+          "Des soigneurs dédiés (Narzbok, Zancredy) qui maintiennent l’équipage en vie tour après tour"
+        ],
+        sign:[
+          "Personnage — « Yzerta » : Diplomate-Esprit qui ouvre l’accès à une carte Wadoo depuis la main",
+          "Personnage — « Wyrz-M » : guerrier provocateur, il attire les coups pour protéger l’équipage",
+          "Action — « Kontinued » / « Mooltypazz » : ajustent la main au bon moment du tour"
+        ]
+      },
+      impy:{
+        title:"Impy — Sangs Maudits",
+        origin:"Créatures difformes nées d’un pacte brisé. Chacun est une punition vivante : un œil, trop de dents, corps tordu. Ils prospèrent dans l’odeur du fer et des braises, et n’hésitent jamais à faire couler leur propre sang pour obtenir ce qu’ils veulent.",
+        reason:"Les 5 A’rms complètent le Scellement du « Cœur Hémolithe ». Soit ils brisent leur malédiction, soit ils l’arment pour régner par la peur.",
+        style:[
+          "Du <strong>poison et de la provocation</strong> qui rongent l’adversaire sur la durée (Crassyopea, Pestrass)",
+          "Des <strong>artefacts corrompus</strong> (Idole de Fiel, Demon Core) qui accumulent une puissance sombre",
+          "Des frappes chirurgicales (Coupe-Jarret, Violence, Necrobsorb) qui achèvent ce que le poison a commencé"
+        ],
+        sign:[
+          "Personnage — « Malocux » : citoyen qui capture le Mithril généré par l’adversaire",
+          "Personnage — « Crassyopea » : provocatrice empoisonnée, difficile à ignorer et à abattre",
+          "Artefact — « Idole de Fiel » / « Demon Core » : le cœur sombre qui alimente toute la stratégie Impy"
+        ]
+      },
+      savage:{
+        title:"Savage — Meutes de la Lune Fendue",
+        origin:"Loups humanoïdes bardés de peaux, forgés par les blizzards. Leurs clans se rassemblent aux feux d’ambre et se défient pour l’honneur sous la Lune. Chez les Savage, la vitesse et la loyauté de meute comptent plus que la ruse.",
+        reason:"Les 5 A’rms reforgent la Hache-Totem « Lune-Scindée », symbole d’unité. Avec elle, ils réunissent les meutes et revendiquent les Routes de Neige.",
+        style:[
+          "Des guerriers <strong>rapides</strong> (Gaiany) qui frappent avant que l’adversaire ne s’organise",
+          "Un <strong>artefact totémique</strong> (Totemoon) qui accorde des permissions spéciales à la meute",
+          "Des soins de terrain (Dolly) et des Diplomates (Queeneptune, Salomon II) pour tenir la ligne sur la durée"
+        ],
+        sign:[
+          "Personnage — « Rocketurne » : Esprit citoyen qui lance les dés du hasard pour piocher davantage",
+          "Personnage — « Gaiany » : guerrière rapide, frappe dès son entrée en jeu",
+          "Artefact — « Totemoon » : accorde à un allié la permission d’agir hors des règles habituelles"
+        ]
+      },
+      chimeria:{
+        title:"Chimeria — Cour des Voiles Prismatiques",
+        origin:"Élégants papillons-mantes aux gestes de danseurs. Leur musique façonne la lumière ; leurs cités flottent sur des arches iridescentes. Rien chez les Chimeria n’est laissé au hasard — sauf quand ils décident délibérément d’y jouer.",
+        reason:"Les 5 A’rms forment l’« Archet Prismatique », un chef d’orchestre d’énergie capable de réparer leurs Voiles fracturées et d’accorder la tempête.",
+        style:[
+          "Des combos <strong>rapides et gracieux</strong> (Flavio VII, Harvey) qui frappent dès leur entrée en jeu",
+          "Du contrôle fin (Entraver, Liens, Hit & Run) pour désorganiser le plan de l’adversaire",
+          "Une pointe de <strong>hasard maîtrisé</strong> (Hasarder) qui peut faire basculer la pioche des deux joueurs"
+        ],
+        sign:[
+          "Artefact — « Miroir Papillon » : symbole de la Cour, reflète l’élégance prismatique",
+          "Personnage — « Flavio VII » : citoyen rapide, une menace dès qu’il touche le champ de bataille",
+          "Action — « Hasarder » : lance les dés pour distribuer des cartes aux deux joueurs"
+        ]
+      },
+      wadoo:{
+        title:"Wadoo — Poupées de Rituel",
+        origin:"Êtres aborigènes au corps piqué d’aiguilles, peints de symboles ésotériques. Demi-mécaniques, demi-spirituels, ils cousent le monde aux souvenirs et lient le destin de leurs Poupées à celui de leurs ennemis.",
+        reason:"Les 5 A’rms tissent l’« Aiguille-Mère », un totem-mécanisme qui rattache les âmes perdues à des enveloppes nouvelles… ou les libère.",
+        style:[
+          "Des <strong>Poupées</strong> (Petit Fétiche, Doudou Épineux, Linkrevable) qui se lient à une cible adverse pour partager son sort",
+          "Un familier fétiche (Chat Noir) qui s’accumule en puissance à chaque défausse forcée",
+          "Des rituels d’autel (Autel aux Ossements, Gousset) qui transforment le Mithril en avantages durables"
+        ],
+        sign:[
+          "Personnage — « Grand Baron Samedi » : invoque la mort elle-même, passif redoutable à l’entretien",
+          "Personnage — « Assiba » / « Négociateur des Brumes » : gagnent du Mithril dès leur entrée en jeu",
+          "Personnage — « Dégourat » : citoyen que l’on peut posséder jusqu’à 12 fois, pilier de la stratégie Wadoo"
+        ]
+      }
+    };
+
+    const modal = document.getElementById('loreModal');
+    const card  = document.getElementById('loreCard');
+    const badge = document.getElementById('loreBadge');
+    const title = document.getElementById('loreTitle');
+    const origin= document.getElementById('loreOrigin');
+    const reason= document.getElementById('loreReason');
+    const style = document.getElementById('loreStyle');
+    const sign  = document.getElementById('loreSign');
+    const close = document.getElementById('closeLore');
+
+    function openLore(key){
+      const data = LORE[key]; if(!data) return;
+      card.dataset.race = key;
+      badge.textContent = key.toUpperCase();
+      title.textContent = data.title;
+      origin.textContent = data.origin;
+      reason.textContent = data.reason;
+      style.innerHTML = data.style.map(i=>`<li>${i}</li>`).join('');
+      sign.innerHTML  = data.sign.map(i=>`<li>${i}</li>`).join('');
+      modal.setAttribute('open','');
+      card.classList.remove('showShine');
+      requestAnimationFrame(()=> card.classList.add('showShine'));
+    }
+
+    document.querySelectorAll('.raceCard[data-race]').forEach(el=>{
+      el.addEventListener('click', ()=> openLore(el.dataset.race));
+    });
+    close.addEventListener('click', ()=> modal.removeAttribute('open'));
+    modal.addEventListener('click', (e)=>{ if(e.target === modal) modal.removeAttribute('open'); });
+    window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') modal.removeAttribute('open'); });
+  </script>
+</body>
+</html>

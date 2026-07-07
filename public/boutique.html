@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>A’rms — Boutique</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/sitenav.css" />
+  <style>
+    :root{
+      --bg1:#06131a; --bg2:#031017; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff;
+      --accent:#00e6ff; --ok:#19e27a; --warn:#ffb84d; --err:#ff5252; --gold:#ffd93d;
+      --shadow: 0 10px 20px rgba(0,0,0,.35); --border: 1px solid rgba(125,249,255,.18);
+      --fac-krylls:#3ddc84; --fac-impy:#ff5a5f; --fac-savage:#ff9d3d; --fac-chimeria:#b06bff; --fac-wadoo:#ffd93d;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap');
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
+      background:radial-gradient(1200px 420px at 60% -180px, rgba(0,230,255,.14), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
+    a{color:var(--cy)} .container{max-width:1400px;margin:0 auto;padding:0 16px}
+    header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(3,16,23,.9),rgba(3,16,23,.65));backdrop-filter:blur(8px);border-bottom:1px solid rgba(125,249,255,.18)}
+    .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0}
+    .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:900;letter-spacing:.02em}
+    .logo{height:48px;width:auto;filter:drop-shadow(0 0 10px rgba(0,230,255,.45))}
+    .btn{background:linear-gradient(180deg,var(--ok),#11985b);color:#052319;border:1px solid #4df7a8;border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer;box-shadow:0 0 12px rgba(25,226,122,.35),inset 0 0 10px rgba(255,255,255,.08);text-decoration:none;display:inline-block}
+    .btn[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(.3)}
+    .btn-secondary{background:linear-gradient(180deg,#0e2e39,#0a222a);color:#dffbff;border:1px solid rgba(125,249,255,.3);border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-block}
+
+    .hero{padding:28px 0 10px;text-align:center}
+    .hero h1{font-family:'Cinzel',sans-serif;font-size:clamp(26px,4vw,38px);margin:0 0 6px;
+      background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px rgba(0,230,255,.3)}
+    .hero p{color:var(--muted);opacity:.9;margin:0}
+    .countdown{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:8px 16px;border-radius:999px;
+      background:linear-gradient(180deg,#0d2530,#061820);border:1px solid rgba(125,249,255,.25);font-weight:800;font-size:13px;color:#aefaff}
+    .heroCoinsDisplay{display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:12px 26px;border-radius:999px;
+      background:linear-gradient(180deg,#4a3c0d,#2a2208);border:1.5px solid rgba(255,217,61,.6);font-weight:900;font-size:22px;color:#ffd93d;
+      box-shadow:0 0 20px rgba(255,217,61,.35), inset 0 1px 0 rgba(255,255,255,.15);}
+
+    .section{padding:22px 0}
+    .section h2{font-family:'Cinzel',sans-serif;font-size:20px;color:#aefaff;text-shadow:0 0 12px rgba(0,230,255,.25);display:flex;align-items:center;gap:10px;margin-bottom:14px}
+
+    .shopGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:20px}
+    .shopSlot{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#08222b,#0a2d38);box-shadow:var(--shadow), inset 0 0 14px rgba(125,249,255,.06);
+      padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;transition:transform .18s ease, box-shadow .18s ease;}
+    .shopSlot:hover{transform:translateY(-6px)}
+    .shopSlot.sold{opacity:.4;filter:grayscale(.6)}
+    .shopSlot .cardImg{width:150px;height:207px;border-radius:10px;background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;box-shadow:0 10px 20px rgba(0,0,0,.45);cursor:pointer;transition:transform .18s ease, box-shadow .18s ease;position:relative;}
+    .shopSlot .cardImg:hover{transform:scale(1.04);}
+    .shopSlot[data-faction="Krylls"] .cardImg{box-shadow:0 0 16px rgba(61,220,132,.7)}
+    .shopSlot[data-faction="Impy"] .cardImg{box-shadow:0 0 16px rgba(255,90,95,.7)}
+    .shopSlot[data-faction="Savage"] .cardImg{box-shadow:0 0 16px rgba(255,157,61,.7)}
+    .shopSlot[data-faction="Chimeria"] .cardImg{box-shadow:0 0 16px rgba(176,107,255,.7)}
+    .shopSlot[data-faction="Wadoo"] .cardImg{box-shadow:0 0 16px rgba(255,217,61,.75)}
+    .stat{position:absolute;right:-8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;pointer-events:none;width:29px;height:29px;font-size:13px;z-index:5;font-family:'Manrope',system-ui,sans-serif;}
+    .stat.hp{top:36%;border-radius:50%;background:radial-gradient(circle at 30% 24%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #ff5c5c 55%, #8a0000);border:2px solid rgba(255,190,190,.95);box-shadow:0 0 12px rgba(255,40,40,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.35), inset 0 2px 3px rgba(255,255,255,.4);text-shadow:0 1px 2px rgba(0,0,0,.9);}
+    .stat.shield{top:64%;border-radius:50% 50% 22% 22% / 64% 64% 30% 30%;background:radial-gradient(circle at 30% 22%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #55d6ff 55%, #0a4f8a);border:2px solid rgba(195,238,255,.95);box-shadow:0 0 12px rgba(70,195,255,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.3), inset 0 2px 3px rgba(255,255,255,.4);color:#eafcff;font-size:12px;text-shadow:0 1px 2px rgba(0,0,0,.9);}
+    .price{font-weight:900;color:var(--gold);font-size:15px;display:flex;align-items:center;gap:4px}
+    .buyBtn{width:100%;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:10px;padding:7px 10px;font-weight:900;cursor:pointer}
+    .buyBtn:disabled{opacity:.4;cursor:not-allowed}
+    .soldLabel{font-weight:800;color:#ff8080;font-size:13px}
+
+    .boosterCard{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#0e2e39,#04141a);box-shadow:var(--shadow), inset 0 0 20px rgba(0,230,255,.1);
+      padding:30px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;justify-content:center;text-align:left;position:relative;overflow:hidden}
+    .boosterVisual{width:130px;height:180px;flex:none;position:relative;}
+    .boosterVisual .stackLayer{position:absolute;inset:0;border-radius:14px;background-image:url('/cartes/Versobasic.png');background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;
+      box-shadow:0 10px 24px rgba(0,0,0,.5);border:2px solid rgba(125,249,255,.45);}
+    .boosterVisual .stackLayer:nth-child(1){transform:translate(5px,7px) rotate(3deg);filter:brightness(.6);}
+    .boosterVisual .stackLayer:nth-child(2){transform:translate(2px,3px) rotate(-1.5deg);filter:brightness(.8);}
+    .boosterVisual .stackLayer:nth-child(3){transform:none;box-shadow:0 14px 30px rgba(0,0,0,.55), 0 0 20px rgba(0,230,255,.2);}
+    .seasonTag{position:absolute;top:16px;right:-38px;transform:rotate(40deg);background:linear-gradient(180deg,#ffe98a,#e0a800);color:#2a1c00;
+      font-family:'Cinzel',sans-serif;font-weight:800;font-size:11px;letter-spacing:.08em;padding:5px 46px;box-shadow:0 4px 10px rgba(0,0,0,.35);}
+    .boosterInfo{flex:1;min-width:220px}
+    .boosterInfo h3{margin:0 0 6px;font-family:'Cinzel',sans-serif;color:#dff;font-size:19px}
+    .boosterInfo p{margin:0 0 14px;color:var(--muted);opacity:.9;font-size:14px}
+
+    .surplusGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+    .surplusCard{border:var(--border);border-radius:14px;background:linear-gradient(145deg,#08222b,#0a2d38);padding:10px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+    .surplusCard .cardImg{width:90px;height:124px;border-radius:8px;background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;position:relative;}
+    .surplusCard .count{font-size:12px;color:var(--muted)}
+    .sellBtn{background:linear-gradient(180deg,#ff9a5a,#c85f1c);color:#2a1000;border:none;border-radius:8px;padding:6px 10px;font-weight:900;cursor:pointer;font-size:12px;width:100%}
+    .emptyMsg{color:var(--muted);opacity:.75;padding:20px;text-align:center}
+
+    .revealGrid{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:18px 0;min-height:130px}
+    .revealCard{width:112px;height:156px;border-radius:12px;position:relative;perspective:1000px;opacity:0;transform:translateY(20px) scale(.82);animation:cardDrop .42s cubic-bezier(.2,.9,.3,1.3) forwards;}
+    @keyframes cardDrop{to{opacity:1;transform:translateY(0) scale(1);}}
+    .revealCard .inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .65s cubic-bezier(.34,1.56,.64,1);}
+    .revealCard.flipped .inner{transform:rotateY(180deg);}
+    .revealCard .face{position:absolute;inset:0;border-radius:10px;backface-visibility:hidden;overflow:hidden;border:2px solid rgba(125,249,255,.4);background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;cursor:pointer;}
+    .revealCard .back{background-image:url('/cartes/Versobasic.png');box-shadow:0 6px 16px rgba(0,0,0,.5), 0 0 10px rgba(0,230,255,.25);}
+    @keyframes backShine{to{transform:translateX(140%);}}
+    .revealCard .front{transform:rotateY(180deg);box-shadow:0 0 14px rgba(0,230,255,.5), 0 10px 20px rgba(0,0,0,.5);}
+    .revealCard.flipped .front:hover{transform:rotateY(180deg) scale(1.06);}
+
+    .revealZoom{position:fixed;z-index:6500;pointer-events:none;display:none;width:min(340px,34vw);height:min(530px,60vh);
+      border-radius:16px;background-size:contain;background-repeat:no-repeat;background-position:center;background-color:#04141a;box-shadow:0 26px 50px rgba(0,0,0,.6), 0 0 34px rgba(0,230,255,.35);
+      border:2px solid rgba(125,249,255,.5);transform:scale(.92);opacity:0;transition:opacity .12s ease, transform .12s ease;}
+    .revealZoom.show{display:block;opacity:1;transform:scale(1);}
+
+    .luckyBanner{margin:14px auto 0;max-width:520px;padding:12px 18px;border-radius:14px;text-align:center;font-weight:700;font-size:14px;
+      background:linear-gradient(145deg,#3a2f0a,#1e1706);border:1px solid rgba(255,217,61,.5);color:#ffe98a;
+      box-shadow:0 0 24px rgba(255,217,61,.25);animation:luckyBannerIn .4s cubic-bezier(.2,.9,.3,1.3);}
+    @keyframes luckyBannerIn{from{opacity:0;transform:translateY(-8px) scale(.95);}to{opacity:1;transform:translateY(0) scale(1);}}
+    .confettiPiece{position:fixed;top:-16px;z-index:6400;pointer-events:none;border-radius:2px;}
+    @keyframes confettiFall{to{transform:translateY(105vh) rotate(var(--rot));opacity:.15;}}
+
+    .rayBurst{position:fixed;z-index:6250;pointer-events:none;width:6px;height:220px;transform-origin:top center;
+      background:linear-gradient(180deg, rgba(255,255,255,.9), transparent);animation:rayShoot .55s ease-out forwards;}
+    @keyframes rayShoot{0%{opacity:0;transform:scaleY(0) rotate(var(--rayrot));}30%{opacity:1;}100%{opacity:0;transform:scaleY(1) rotate(var(--rayrot));}}
+    .luckyVeil{position:fixed;inset:0;z-index:6200;pointer-events:none;background:rgba(2,8,11,0);transition:background .35s ease;}
+    .luckyVeil.active{background:rgba(2,8,11,.55);}
+    .luckyFlashScreen{position:fixed;inset:0;z-index:6260;pointer-events:none;background:radial-gradient(circle at 50% 50%, rgba(255,233,138,.85), transparent 65%);
+      opacity:0;animation:luckyScreenFlash .8s ease-out forwards;}
+    @keyframes luckyScreenFlash{0%{opacity:0;}15%{opacity:1;}100%{opacity:0;}}
+    .boosterVisual{cursor:pointer;transition:transform .15s ease;}
+    .boosterVisual:hover{transform:translateY(-4px) scale(1.03);}
+
+    .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2000;background:linear-gradient(180deg,#0e2e39,#0a222a);color:#dffbff;border:1px solid rgba(125,249,255,.35);padding:10px 12px;border-radius:10px;font-weight:800;box-shadow:0 10px 20px rgba(0,0,0,.45);display:none}
+    .toast.show{display:block;animation:fadein .15s ease,fadeout .25s ease 2.2s forwards}
+    @keyframes fadein{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+    @keyframes fadeout{to{opacity:0;transform:translate(-50%,8px)}}
+  </style>
+</head>
+<body>
+  <div id="site-header-root"></div>
+
+  <main class="container">
+    <div class="hero">
+      <h1>🏪 Boutique</h1>
+      <p>De nouvelles cartes arrivent chaque heure. Dépensez vos pièces, gagnées en jouant.</p>
+      <div class="heroCoinsDisplay">🪙 <span class="js-coins-amount">0</span> pièces</div>
+      <div class="countdown">⏳ Prochain arrivage dans <strong id="countdownText">--:--</strong></div>
+    </div>
+
+    <div class="section">
+      <h2>✨ Arrivage de l'heure — 1 exemplaire chacune</h2>
+      <div class="shopGrid" id="shopGrid"></div>
+    </div>
+
+    <div class="section">
+      <h2>📦 Booster de cartes</h2>
+      <div class="boosterCard">
+        <div class="seasonTag">Saison 1</div>
+        <div class="boosterVisual">
+          <div class="stackLayer"></div>
+          <div class="stackLayer"></div>
+          <div class="stackLayer"></div>
+        </div>
+        <div class="boosterInfo">
+          <h3>Booster Saison 1 — 7 cartes aléatoires</h3>
+          <p>Contient 7 cartes tirées au hasard dans tout le jeu, toutes factions confondues. Chance rare d'en recevoir 8 !</p>
+          <button class="btn" id="buyBoosterBtn">Acheter — 350 🪙</button>
+        </div>
+      </div>
+      <div class="revealGrid" id="boosterReveal"></div>
+    </div>
+
+    <div class="section">
+      <h2>💰 Revendre vos cartes en surplus <span style="font-size:12px;font-weight:400;opacity:.7;">— 20 🪙/unité</span></h2>
+      <div class="surplusGrid" id="surplusGrid"></div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <div id="revealZoom" class="revealZoom"></div>
+
+  <script src="/auth.js"></script>
+  <script src="/sitenav.js"></script>
+  <script src="/boosterViewer.js"></script>
+  <script>
+    const toast = document.getElementById('toast');
+
+    // PV/PB de toutes les cartes, chargés une fois (utilisé pour les badges)
+    let CARD_STATS = {};
+    const statsReady = fetch('/data/card-stats.json', { cache: 'no-store' })
+      .then(r => r.json()).then(obj => { CARD_STATS = obj || {}; }).catch(() => {});
+
+    function applyStatBadges(holderEl, code){
+      holderEl.querySelectorAll('.stat').forEach(n => n.remove());
+      const st = CARD_STATS[code];
+      if (!st || st.type !== 'personnage') return;
+      const hp = document.createElement('div');
+      hp.className = 'stat hp';
+      hp.textContent = st.hp ?? 0;
+      holderEl.appendChild(hp);
+      if (st.shield > 0) {
+        const sh = document.createElement('div');
+        sh.className = 'stat shield';
+        sh.textContent = st.shield;
+        holderEl.appendChild(sh);
+      }
+    }
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.classList.remove('show');
+      void toast.offsetWidth;
+      toast.classList.add('show');
+    }
+
+    function factionOf(num){
+      if(num<=50) return "Krylls";
+      if(num<=100) return "Impy";
+      if(num<=150) return "Savage";
+      if(num<=200) return "Chimeria";
+      return "Wadoo";
+    }
+
+    function updateCoinsPill(coins){
+      const el = document.getElementById('coinsAmount');
+      if (el) el.textContent = coins;
+      document.querySelectorAll('.js-coins-amount').forEach(e => { e.textContent = coins; });
+    }
+
+    let countdownTimer = null;
+    function startCountdown(ms){
+      clearInterval(countdownTimer);
+      let remaining = ms;
+      const el = document.getElementById('countdownText');
+      function tick(){
+        if (remaining <= 0) { loadShop(); return; }
+        const m = Math.floor(remaining / 60000);
+        const s = Math.floor((remaining % 60000) / 1000);
+        el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        remaining -= 1000;
+      }
+      tick();
+      countdownTimer = setInterval(tick, 1000);
+    }
+
+    async function loadShop(){
+      try{
+        await statsReady;
+        const res = await fetch('/api/shop/state');
+        const data = await res.json();
+        if (!data.ok) return;
+        updateCoinsPill(data.coins);
+        startCountdown(data.msUntilRefresh);
+        renderShop(data.slots, data.coins);
+      }catch(e){ console.error(e); }
+    }
+
+    function renderShop(slots, coins){
+      const grid = document.getElementById('shopGrid');
+      grid.innerHTML = '';
+      slots.forEach((slot, i) => {
+        const num = parseInt(slot.code, 10);
+        const fac = factionOf(num);
+        const el = document.createElement('div');
+        el.className = 'shopSlot' + (slot.sold ? ' sold' : '');
+        el.dataset.faction = fac;
+        el.innerHTML = `
+          <div class="cardImg" style="background-image:url('/cartes/${slot.code}.png')"></div>
+          <div class="price">🪙 ${slot.price}</div>
+          ${slot.sold ? `<div class="soldLabel">Vendu</div>` : `<button class="buyBtn" ${coins < slot.price ? 'disabled' : ''}>Acheter</button>`}
+        `;
+        if (!slot.sold) {
+          el.querySelector('.buyBtn').addEventListener('click', () => buyListing(i));
+        }
+        applyStatBadges(el.querySelector('.cardImg'), slot.code);
+        attachRevealZoom(el.querySelector('.cardImg'), slot.code);
+        grid.appendChild(el);
+      });
+    }
+
+    async function buyListing(slotIndex){
+      try{
+        const res = await fetch('/api/shop/buy-listing', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ slotIndex })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'not_enough_coins' ? 'Pas assez de pièces.' : data.error === 'already_sold' ? 'Déjà vendue !' : 'Erreur.');
+          return;
+        }
+        updateCoinsPill(data.coins);
+        showToast(`Carte ${data.code} achetée !`);
+        loadShop();
+      }catch(e){ showToast('Erreur de connexion.'); }
+    }
+
+    const revealZoomEl = document.getElementById('revealZoom');
+    function attachRevealZoom(cardEl, code){
+      cardEl.addEventListener('mousemove', (e) => {
+        revealZoomEl.style.backgroundImage = `url('/cartes/${code}.png')`;
+        let x = e.clientX + 26, y = e.clientY - 60;
+        if (x + 300 > window.innerWidth) x = e.clientX - 326;
+        if (y < 10) y = 10;
+        revealZoomEl.style.left = x + 'px';
+        revealZoomEl.style.top = y + 'px';
+        revealZoomEl.classList.add('show');
+      });
+      cardEl.addEventListener('mouseleave', () => revealZoomEl.classList.remove('show'));
+    }
+
+    document.getElementById('buyBoosterBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('buyBoosterBtn');
+      btn.disabled = true;
+      try{
+        const res = await fetch('/api/shop/buy-booster', { method:'POST' });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'not_enough_coins' ? 'Pas assez de pièces (350 requis).' : 'Erreur.');
+          btn.disabled = false;
+          return;
+        }
+        updateCoinsPill(data.coins);
+        window.openBoosterViewer(data.codes, {
+          isLucky: data.lucky,
+          onClose: () => { loadSurplus(); showToast('Booster ouvert !'); }
+        });
+      }catch(e){ showToast('Erreur de connexion.'); }
+      finally{ btn.disabled = false; }
+    });
+
+    function keepThresholdFor(code){ return (code === '0214') ? 12 : 2; }
+
+    async function loadSurplus(){
+      try{
+        await statsReady;
+        const res = await fetch('/api/collection');
+        const data = await res.json();
+        if (!data.ok) return;
+        const grid = document.getElementById('surplusGrid');
+        grid.innerHTML = '';
+        const surplusCards = data.cards.filter(c => c.count > keepThresholdFor(c.code));
+        if (surplusCards.length === 0) {
+          grid.innerHTML = `<div class="emptyMsg">Aucune carte en surplus revendable pour l'instant.</div>`;
+          return;
+        }
+        surplusCards.forEach(c => {
+          const surplus = c.count - keepThresholdFor(c.code);
+          const el = document.createElement('div');
+          el.className = 'surplusCard';
+          el.innerHTML = `
+            <div class="cardImg" style="background-image:url('/cartes/${c.code}.png')"></div>
+            <div class="count">${surplus} en trop</div>
+            <button class="sellBtn">Vendre ${surplus} — ${surplus * 20} 🪙</button>
+          `;
+          el.querySelector('.sellBtn').addEventListener('click', () => sellSurplus(c.code, surplus));
+          applyStatBadges(el.querySelector('.cardImg'), c.code);
+          grid.appendChild(el);
+        });
+      }catch(e){ console.error(e); }
+    }
+
+    async function sellSurplus(code, quantity){
+      try{
+        const res = await fetch('/api/collection/sell-surplus', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ code, quantity })
+        });
+        const data = await res.json();
+        if (!data.ok) { showToast('Erreur lors de la vente.'); return; }
+        updateCoinsPill(data.coins);
+        showToast(`+${data.gained} 🪙`);
+        loadSurplus();
+      }catch(e){ showToast('Erreur de connexion.'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadShop();
+      loadSurplus();
+    });
+  </script>
+</body>
+</html>

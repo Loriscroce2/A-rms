@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>A’rms — Se connecter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/sitenav.css" />
+  <style>
+    :root{ --bg:#06131a; --panel:#0b2028; --ink:#e8fdff; --muted:#bfefff; --cy:#00e6ff; --btn:#19e27a; }
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,#06131a,#031017);color:var(--ink);}
+    a.btn,button.btn{appearance:none;border:1px solid rgba(255,255,255,.15);padding:10px 14px;border-radius:12px;font-weight:800;text-decoration:none;cursor:pointer}
+    .btn-primary{background:linear-gradient(180deg,var(--btn),#11985b);color:#052319;border-color:#4df7a8}
+    .btn-secondary{background:linear-gradient(180deg,#0d2d38,#0a2028);color:#dffbff}
+    main{display:grid;place-items:center;min-height:calc(100vh - 100px);padding:22px}
+    .card{width:min(520px,92vw);background:linear-gradient(145deg,#081a21,#0a2832);border:1px solid rgba(125,249,255,.22);box-shadow:inset 0 0 14px rgba(125,249,255,.06);border-radius:16px;padding:18px}
+    h1{margin:.2em 0 .6em;font-size:clamp(22px,4vw,30px);text-shadow:0 0 16px rgba(0,230,255,.25)}
+    label{display:block;margin:.6em 0 .25em;color:var(--muted);font-weight:700}
+    input{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(125,249,255,.2);background:#0b2028;color:var(--ink)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .hint{margin-top:10px;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div id="site-header-root"></div>
+
+  <main>
+    <form class="card" id="loginForm">
+      <h1>Se connecter</h1>
+      <label for="email">Email</label>
+      <input id="email" type="email" required>
+      <label for="password">Mot de passe</label>
+      <input id="password" type="password" required>
+      <p id="errorMessage" style="color: #ff5252; text-align: center;"></p>
+  <div class="row">
+      <div class="row">
+        <button class="btn btn-primary" type="submit">Connexion</button>
+        <a class="btn btn-secondary" href="/register.html">Créer un compte</a>
+      </div>
+    </form>
+  </main>
+
+  <script src="/auth.js"></script>
+<script src="/sitenav.js"></script>
+<script>
+  const loginForm = document.getElementById('loginForm');
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  const errorMessage = document.getElementById('errorMessage');
+
+  loginForm.addEventListener('submit', async function(e) {
+    e.preventDefault(); // Empêche la page de se recharger
+    errorMessage.textContent = ''; // Vide les anciens messages d'erreur
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value.trim();
+
+    try {
+      // On envoie les données au serveur avec fetch() sur la route /api/login
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (data.ok) {
+        // Si le serveur répond "ok", la connexion a réussi !
+        alert('Connexion réussie !');
+        window.location.href = '/accueil.html'; // Redirection vers l'accueil
+      } else {
+        // Si le serveur renvoie une erreur, on l'affiche
+        if (data.error === 'invalid_credentials') {
+          errorMessage.textContent = 'Email ou mot de passe incorrect.';
+        } else {
+          errorMessage.textContent = 'Une erreur est survenue.';
+        }
+      }
+    } catch (error) {
+      console.error('Erreur de connexion:', error);
+      errorMessage.textContent = 'Impossible de contacter le serveur.';
+    }
+  });
+</script>
+</body>
+</html>

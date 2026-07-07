@@ -1,0 +1,61 @@
+/* ===================================================================
+   sitenav.css — Barre de navigation partagée par toutes les pages du
+   site (sauf la page de partie 1v1). Un seul fichier, modifiable en un
+   seul endroit pour que toutes les pages restent cohérentes entre elles.
+   =================================================================== */
+
+.siteHeader{
+  position:sticky; top:0; z-index:200;
+  background:linear-gradient(180deg, rgba(3,16,23,.92), rgba(3,16,23,.78));
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid rgba(125,249,255,.18);
+}
+.siteHeader .navRow{
+  max-width:1680px; margin:0 auto; padding:0 20px;
+  display:flex; align-items:center; gap:22px; height:74px;
+}
+.siteHeader .brand{ display:flex; align-items:center; flex:0 0 auto; text-decoration:none; }
+.siteHeader .brand img{
+  height:56px; width:auto; border-radius:12px;
+  filter: drop-shadow(0 0 10px rgba(0,230,255,.4));
+  transition: filter .2s ease;
+}
+.siteHeader .brand:hover img{ filter: drop-shadow(0 0 16px rgba(0,230,255,.65)); }
+
+.siteNav{ display:flex; align-items:center; gap:4px; flex:1 1 auto; }
+.siteNav a{
+  position:relative; display:inline-flex; align-items:center; gap:6px;
+  padding:9px 16px; border-radius:10px; text-decoration:none;
+  color:#bfefff; font-weight:800; font-size:14.5px; letter-spacing:.01em;
+  transition: color .18s ease, background .18s ease;
+}
+.siteNav a:hover{ color:#e8fdff; background:rgba(125,249,255,.08); }
+.siteNav a.active{ color:#7df9ff; background:rgba(0,230,255,.12); }
+.siteNav a.active::after{
+  content:''; position:absolute; left:14px; right:14px; bottom:3px; height:2px;
+  background:linear-gradient(90deg, transparent, #7df9ff, transparent);
+  border-radius:2px;
+}
+
+.navRight{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+
+.navToggle{
+  display:none; margin-left:auto; width:42px; height:42px; border-radius:10px;
+  background:rgba(125,249,255,.08); border:1px solid rgba(125,249,255,.25);
+  color:#aefaff; font-size:20px; cursor:pointer; align-items:center; justify-content:center;
+}
+
+@media (max-width: 900px){
+  .siteHeader .navRow{ height:64px; gap:12px; flex-wrap:wrap; }
+  .siteHeader .brand img{ height:44px; }
+  .siteNav{
+    display:none; position:absolute; top:64px; left:0; right:0; flex-direction:column;
+    background:linear-gradient(180deg, rgba(3,16,23,.98), rgba(3,16,23,.94));
+    border-bottom:1px solid rgba(125,249,255,.18); padding:8px; gap:2px;
+    box-shadow:0 14px 24px rgba(0,0,0,.45);
+  }
+  .siteNav.open{ display:flex; }
+  .siteNav a{ width:100%; padding:12px 14px; }
+  .navToggle{ display:flex; }
+  .navRight{ margin-left:auto; }
+}
