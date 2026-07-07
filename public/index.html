@@ -257,37 +257,55 @@
 .card.placed.exhausted.enemyTargetHint {
   cursor: grab;
 }
-    /* EXIL — zone regroupée : pierre tombale (repère visuel), pile de cartes
-       cliquable, et libellé. Remplace l'ancien cercle rouge "EXIL" jugé peu
-       lisible par un vrai décor intégré au thème du jeu. */
+    /* EXIL — zone regroupée : un petit portail mystique dessiné entièrement
+       en CSS (aucune image externe, donc aucun risque de rendu cassé), une
+       pile de cartes cliquable, et un libellé. Volontairement compact pour
+       ne jamais chevaucher quoi que ce soit autour. */
     #exileZone{
-      position:fixed; top:8px; left:10px; z-index:1000; width:104px;
+      position:fixed; top:10px; left:10px; z-index:1000; width:80px;
       display:flex; flex-direction:column; align-items:center; user-select:none;
-      cursor:pointer;
+      cursor:pointer; gap:4px;
     }
-    #exileTombstone{
-      width:66px; margin-bottom:-10px; pointer-events:none;
-      filter:drop-shadow(0 6px 12px rgba(0,0,0,.65)) drop-shadow(0 0 12px rgba(155,107,255,.35));
-      transition:filter .2s ease;
+    #exileRift{
+      width:42px; height:42px; border-radius:50%; position:relative; flex:none;
+      background:radial-gradient(circle at 35% 30%, #5a3a9a, #1c0c33 62%, #05020a 100%);
+      border:2px solid #9b6bff;
+      box-shadow:0 0 12px rgba(155,107,255,.55), inset 0 0 10px rgba(155,107,255,.4);
+      animation:exileRiftPulse 3s ease-in-out infinite;
+      transition:box-shadow .2s ease;
     }
-    #exileZone:hover #exileTombstone{ filter:drop-shadow(0 6px 14px rgba(0,0,0,.7)) drop-shadow(0 0 18px rgba(155,107,255,.6)); }
+    #exileRift::before{
+      content:''; position:absolute; inset:5px; border-radius:50%;
+      border:1px dashed rgba(205,180,255,.55);
+      animation:exileRiftSpin 9s linear infinite;
+    }
+    #exileRiftCore{
+      position:absolute; top:50%; left:50%; width:7px; height:7px; border-radius:50%;
+      background:#ecdfff; transform:translate(-50%,-50%);
+      box-shadow:0 0 9px 3px rgba(224,208,255,.85);
+      animation:exileRiftCorePulse 2s ease-in-out infinite;
+    }
+    @keyframes exileRiftPulse{ 0%,100%{ box-shadow:0 0 12px rgba(155,107,255,.5), inset 0 0 10px rgba(155,107,255,.4);} 50%{ box-shadow:0 0 18px rgba(155,107,255,.8), inset 0 0 13px rgba(155,107,255,.6);} }
+    @keyframes exileRiftSpin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
+    @keyframes exileRiftCorePulse{ 0%,100%{ opacity:.7; transform:translate(-50%,-50%) scale(1);} 50%{ opacity:1; transform:translate(-50%,-50%) scale(1.35);} }
+    #exileZone:hover #exileRift{ box-shadow:0 0 22px rgba(155,107,255,.85), inset 0 0 14px rgba(155,107,255,.65); }
     #exileStack{
-      position:relative; width:72px; height:104px; z-index:2;
+      position:relative; width:58px; height:84px; z-index:2;
       background-image:url("../cartes/Versobasic.png"); background-size:cover; background-position:center;
-      border:2px solid #9b6bff; border-radius:10px; box-shadow:2px 2px 0 #9b6bff, 5px 5px 0 rgba(155,107,255,.35); cursor:pointer;
+      border:2px solid #9b6bff; border-radius:9px; box-shadow:2px 2px 0 #9b6bff, 4px 4px 0 rgba(155,107,255,.35); cursor:pointer;
       transition:box-shadow .2s ease, transform .15s ease;
     }
-    #exileStack:hover{ box-shadow:2px 2px 0 #9b6bff, 5px 5px 0 rgba(155,107,255,.35), 0 0 16px rgba(155,107,255,.65); transform:translateY(-2px); }
-    #exileStack.open{ box-shadow:2px 2px 0 #7df9ff, 5px 5px 0 rgba(125,249,255,.4), 0 0 18px rgba(125,249,255,.7); border-color:#7df9ff; }
+    #exileStack:hover{ box-shadow:2px 2px 0 #9b6bff, 4px 4px 0 rgba(155,107,255,.35), 0 0 14px rgba(155,107,255,.65); transform:translateY(-2px); }
+    #exileStack.open{ box-shadow:2px 2px 0 #7df9ff, 4px 4px 0 rgba(125,249,255,.4), 0 0 16px rgba(125,249,255,.7); border-color:#7df9ff; }
     #exileStack::after{
       content:attr(data-count);
-      position:absolute; right:-10px; bottom:-10px; width:26px; height:26px;
-      background:#9b6bff; color:#1a0a2e; border-radius:50%; font-weight:800; font-size:12px;
-      display:flex; align-items:center; justify-content:center; box-shadow:0 0 10px #9b6bff; z-index:3;
+      position:absolute; right:-9px; bottom:-9px; width:23px; height:23px;
+      background:#9b6bff; color:#1a0a2e; border-radius:50%; font-weight:800; font-size:11px;
+      display:flex; align-items:center; justify-content:center; box-shadow:0 0 8px #9b6bff; z-index:3;
     }
     #exileLabel{
-      margin-top:5px; font-family:'Cinzel','Manrope',sans-serif; font-weight:800; letter-spacing:.16em;
-      text-transform:uppercase; font-size:11px; color:#c9b3ff; text-shadow:0 0 8px rgba(155,107,255,.55);
+      font-family:'Cinzel','Manrope',sans-serif; font-weight:800; letter-spacing:.14em;
+      text-transform:uppercase; font-size:10px; color:#c9b3ff; text-shadow:0 0 7px rgba(155,107,255,.55);
     }
     #exileCarousel{
       position:fixed; top:150px; left:20px; right:20px; height:200px; z-index:1100; display:none;
@@ -1779,10 +1797,10 @@ body.fusion-shake {
   #turnTimerWrap{ right:10px; bottom:10px; gap:3px; }
   #turnTimerBarTrack{ height:4px; }
   #turnTimerLabel{ font-size:8px; padding:0 6px; }
-  #exileZone{ width:78px; top:6px; left:8px; }
-  #exileTombstone{ width:48px; }
-  #exileStack{ width:54px; height:78px; }
-  #exileLabel{ font-size:9px; }
+  #exileZone{ width:60px; top:6px; left:8px; }
+  #exileRift{ width:32px; height:32px; }
+  #exileStack{ width:44px; height:64px; }
+  #exileLabel{ font-size:8.5px; }
   .centerDivider i{ font-size:9px; }
 }
 
@@ -1810,8 +1828,8 @@ body.fusion-shake {
 <body>
 <script src="/socket.io/socket.io.js"></script>
 
-  <div id="exileZone" title="Zone d'Exil — cliquez sur la pile pour voir son contenu">
-    <img id="exileTombstone" src="/assets/exil.png" alt="Exil" />
+  <div id="exileZone" title="Zone d'Exil — cliquez pour voir son contenu">
+    <div id="exileRift"><div id="exileRiftCore"></div></div>
     <div id="exileStack" data-count="0" title="Cartes exilées"></div>
     <div id="exileLabel">EXIL</div>
   </div>
