@@ -660,20 +660,20 @@
     #zoom .shield{ right:-14px; width:46px; height:46px; font-size:17px; top:calc(50% + 44px); }
 
     /* Bouton fin de tour + minuteur de tour */
-    #turnTimerWrap{ position:fixed; right:26px; bottom:26px; z-index:1200; width:150px; height:150px;
+    #turnTimerWrap{ position:fixed; right:26px; bottom:26px; z-index:1200; width:108px; height:108px;
       display:flex; align-items:center; justify-content:center; }
     #turnTimerWrap.hidden{ display:none; }
     #endTurn{ position:relative; background:linear-gradient(180deg,#2dffa0,#0aa860);
-      border:2px solid rgba(255,255,255,.4); color:#012016; font-weight:900; padding:17px 30px; border-radius:999px;
-      box-shadow:0 7px 0 #075c3a, 0 12px 26px rgba(10,168,96,.5), 0 0 0 4px rgba(45,255,160,.15); cursor:pointer;
-      letter-spacing:.06em; text-transform:uppercase; z-index:2; font-family:'Cinzel','Manrope',sans-serif; font-size:14.5px;
+      border:2px solid rgba(255,255,255,.4); color:#012016; font-weight:900; padding:11px 18px; border-radius:999px;
+      box-shadow:0 5px 0 #075c3a, 0 9px 18px rgba(10,168,96,.5), 0 0 0 3px rgba(45,255,160,.15); cursor:pointer;
+      letter-spacing:.04em; text-transform:uppercase; z-index:2; font-family:'Cinzel','Manrope',sans-serif; font-size:10.5px;
       transition:transform .12s ease, box-shadow .12s ease; }
     body.not-my-turn #endTurn:not(:disabled){ animation:none; }
     #endTurn:not(:disabled){ animation:endTurnBeacon 2.2s ease-in-out infinite; }
-    @keyframes endTurnBeacon{ 0%,100%{ box-shadow:0 7px 0 #075c3a, 0 12px 26px rgba(10,168,96,.5), 0 0 0 4px rgba(45,255,160,.15);} 50%{ box-shadow:0 7px 0 #075c3a, 0 16px 34px rgba(10,168,96,.65), 0 0 0 9px rgba(45,255,160,.05);} }
-    #endTurn:hover:not(:disabled){ transform:translateY(-2px); box-shadow:0 9px 0 #075c3a, 0 14px 28px rgba(10,168,96,.55); }
-    #endTurn:active:not(:disabled){ transform:translateY(1px); box-shadow:0 3px 0 #075c3a; }
-    #endTurn:disabled{ background:linear-gradient(180deg,#3a4a4a,#20302f); box-shadow:0 6px 0 #16201f; color:#9fb; cursor:not-allowed; animation:none; }
+    @keyframes endTurnBeacon{ 0%,100%{ box-shadow:0 5px 0 #075c3a, 0 9px 18px rgba(10,168,96,.5), 0 0 0 3px rgba(45,255,160,.15);} 50%{ box-shadow:0 5px 0 #075c3a, 0 12px 24px rgba(10,168,96,.65), 0 0 0 7px rgba(45,255,160,.05);} }
+    #endTurn:hover:not(:disabled){ transform:translateY(-2px); box-shadow:0 7px 0 #075c3a, 0 11px 20px rgba(10,168,96,.55); }
+    #endTurn:active:not(:disabled){ transform:translateY(1px); box-shadow:0 2px 0 #075c3a; }
+    #endTurn:disabled{ background:linear-gradient(180deg,#3a4a4a,#20302f); box-shadow:0 4px 0 #16201f; color:#9fb; cursor:not-allowed; animation:none; }
     #endTurn.hidden{ display:none; }
 
     /* Anneau de progression du minuteur de tour, dessiné en SVG autour du
@@ -693,10 +693,10 @@
 
     /* Petit badge numérique (secondes restantes), niché en haut du bouton. */
     #turnTimerLabel{
-      position:absolute; top:-6px; left:50%; transform:translateX(-50%); z-index:3;
+      position:absolute; top:-4px; left:50%; transform:translateX(-50%); z-index:3;
       background:linear-gradient(180deg,#0d2530,#061820); border:1.5px solid rgba(125,249,255,.5);
-      color:#aefaff; font-weight:900; font-size:12px; padding:2px 9px; border-radius:999px;
-      box-shadow:0 0 8px rgba(0,230,255,.35); font-family:'Manrope',sans-serif; min-width:26px; text-align:center;
+      color:#aefaff; font-weight:900; font-size:9.5px; padding:1px 7px; border-radius:999px;
+      box-shadow:0 0 8px rgba(0,230,255,.35); font-family:'Manrope',sans-serif; min-width:20px; text-align:center;
     }
     #turnTimerWrap.warn #turnTimerLabel{ color:#ffe19a; border-color:rgba(255,202,58,.6); }
     #turnTimerWrap.urgent #turnTimerLabel{ color:#ffbcbc; border-color:rgba(255,77,77,.7); }
@@ -1761,9 +1761,9 @@ body.fusion-shake {
   .mithrilBox{ font-size:11px; padding:5px 9px; }
   .cycleHUD{ font-size:10px; padding:4px 6px; }
   .cyclePip{ width:15px; height:15px; font-size:9px; }
-  #endTurn{ padding:10px 14px; font-size:12px; }
-  #turnTimerWrap{ width:110px; height:110px; right:14px; bottom:14px; }
-  #turnTimerLabel{ font-size:10.5px; padding:1px 7px; }
+  #endTurn{ padding:7px 10px; font-size:9px; }
+  #turnTimerWrap{ width:78px; height:78px; right:10px; bottom:10px; }
+  #turnTimerLabel{ font-size:8px; padding:1px 5px; top:-3px; }
   .centerDivider i{ font-size:9px; }
 }
 
@@ -3123,28 +3123,39 @@ const fpTitle = document.getElementById('fpTitle');
 
 // REMPLACEZ L'ANCIENNE FONCTION PAR CELLE-CI
 function openFactionPrompt(player, onChosen){
-  // --- DÉBUT DE LA NOUVELLE LOGIQUE DE DÉTERMINATION DES FACTIONS ---
+  // --- Détermination des factions proposées ---
+  // Une faction n'est proposée que si le joueur a AU MOINS une carte de cette
+  // faction quelque part d'immédiatement utilisable : sa main, sa zone de
+  // combat, ou sa zone d'Artefacts. Le deck construit (qui peut contenir des
+  // cartes de 3 factions) ne suffit plus à lui seul à débloquer un choix —
+  // il faut réellement avoir la carte sous la main ou déjà en jeu.
   const availableFactionSet = new Set();
-
-  // 1. On ajoute les factions de base du deck du joueur.
-  if (player === 'bottom' && window.__ACTIVE_DECK__ && window.__ACTIVE_DECK__.factions) {
-    Object.keys(window.__ACTIVE_DECK__.factions).forEach(f => availableFactionSet.add(f));
-  } else {
-    // Si pas de deck défini (ex: pour le Joueur 2), on autorise toutes les factions par défaut
-    // pour qu'il puisse au moins jouer les cartes qu'il a en main.
-    FACTIONS.forEach(f => availableFactionSet.add(f));
-  }
-
-  // 2. On examine la main du joueur et on ajoute les factions des cartes qu'il possède.
   const playerHand = getHandByOwner(player);
-  playerHand.forEach(card => {
-    const cardFactions = getTags(card.label).filter(tag => FACTIONS.includes(tag));
-    cardFactions.forEach(f => availableFactionSet.add(f));
-  });
+  const playerLine = getLineByOwner(player);
+  const playerArts = (player === 'top') ? topArts : botArts;
 
-  // 3. On convertit notre collection de factions (sans doublons) en un tableau.
+  const scanCardFactions = (card) => {
+    getTags(card.label).filter(tag => FACTIONS.includes(tag)).forEach(f => availableFactionSet.add(f));
+  };
+  playerHand.forEach(scanCardFactions);
+  playerLine.forEach(scanCardFactions);
+  playerArts.forEach(scanCardFactions);
+
   let availableFactions = Array.from(availableFactionSet);
-  // --- FIN DE LA NOUVELLE LOGIQUE ---
+
+  // Filet de sécurité : si le joueur n'a VRAIMENT aucune carte nulle part
+  // (main, plateau, artefacts) — cas extrême qui ne devrait normalement
+  // jamais arriver grâce au remplissage de main en fin de tour — on retombe
+  // sur les factions de son deck construit pour ne jamais le bloquer.
+  if (availableFactions.length === 0) {
+    if (player === 'bottom' && window.__ACTIVE_DECK__ && window.__ACTIVE_DECK__.factions) {
+      Object.keys(window.__ACTIVE_DECK__.factions).forEach(f => availableFactionSet.add(f));
+    } else {
+      FACTIONS.forEach(f => availableFactionSet.add(f));
+    }
+    availableFactions = Array.from(availableFactionSet);
+  }
+  // --- FIN de la détermination des factions ---
 
 
   // On conserve la logique spéciale pour l'Éventail (T01) qui peut débloquer Chimeria
@@ -3157,7 +3168,6 @@ function openFactionPrompt(player, onChosen){
   fpButtons.innerHTML = '';
 
   const blockedFactions = new Set();
-  const playerLine = getLineByOwner(player);
   playerLine.forEach(host => {
     const hasParadlex = getFamiliersOnHost(host).some(f => f.label === 'C54' && !isFamiliarEffectSuppressed(host, 'C54'));
     if (hasParadlex) {
