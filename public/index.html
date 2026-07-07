@@ -536,7 +536,10 @@
        =================================================================== */
     .myHandPanel{
       position:fixed; z-index:1700;
-      left:16px; bottom:8px; top:auto; transform:none;
+      /* Aligné avec le bord gauche RÉEL de la zone de combat : padding du
+         plateau (28px) + largeur de la colonne deck/Mithril (--sidebarW) +
+         l'espacement entre les deux (22px) — voir .board / .row / .deckWrap. */
+      left:calc(28px + var(--sidebarW) + 22px); bottom:8px; top:auto; transform:none;
       width:min(90vw, 420px);
       display:flex; flex-direction:column;
       background:linear-gradient(180deg, rgba(9,22,28,.97), rgba(4,10,14,.98));
@@ -5947,13 +5950,37 @@ function escapeChatText(str){
   div.textContent = String(str);
   return div.innerHTML;
 }
+function chatDisplayName(who){
+  if (who !== 'top' && who !== 'bottom') return 'Système';
+  const profiles = window.PLAYER_PROFILES;
+  const name = profiles && profiles[who] && profiles[who].name;
+  return name || (who === 'bottom' ? 'Joueur 1' : 'Joueur 2');
+}
+// Met à jour le sélecteur "écrire en tant que" avec les vrais pseudos dès
+// qu'on les connaît, et — en ligne — le restreint à SON PROPRE pseudo
+// uniquement (impossible d'écrire en usurpant l'identité de l'adversaire,
+// ce qui n'aurait plus de sens maintenant que le tchat est réellement envoyé
+// à l'autre joueur).
+function refreshChatAsSelector(){
+  if (!chatAsSel) return;
+  chatAsSel.innerHTML = '';
+  const seats = (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE) ? [MY_SEAT] : ['bottom', 'top'];
+  seats.forEach(seat => {
+    const opt = document.createElement('option');
+    opt.value = seat;
+    opt.textContent = chatDisplayName(seat);
+    chatAsSel.appendChild(opt);
+  });
+  chatAsSel.disabled = seats.length <= 1;
+}
+refreshChatAsSelector();
+
 function postChat(who, text){
   const wasNearBottom = isNearBottom(chatMsgs);
   const row = document.createElement('div');
   row.className='msg';
-  const badge = who==='top' ? '<span class="who wTop">Joueur 2</span>' :
-                who==='bottom' ? '<span class="who wBottom">Joueur 1</span>' :
-                '<span class="who wSys">Système</span>';
+  const cls = who==='top' ? 'wTop' : who==='bottom' ? 'wBottom' : 'wSys';
+  const badge = `<span class="who ${cls}">${escapeChatText(chatDisplayName(who))}</span>`;
   row.innerHTML = `${badge}<div class="txt">${escapeChatText(text)}</div>`;
   chatMsgs.appendChild(row);
   trimListForQuota(chatMsgs, 8, 2);
@@ -11787,7 +11814,7 @@ if (ONLINE_MODE) {
         }
         ONLINE_READY = true;
         waitOverlay.remove();
-        if (state.profiles) { window.PLAYER_PROFILES = state.profiles; }
+        if (state.profiles) { window.PLAYER_PROFILES = state.profiles; refreshChatAsSelector(); }
 
         const revealBoard = () => {
           // Musique de partie : démarrée ici pour les DEUX joueurs dès le tout
