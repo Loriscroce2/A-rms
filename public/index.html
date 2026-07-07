@@ -3542,6 +3542,11 @@ function playActionC16(owner, actionCard, doForge){
 
 function endAzpiryneSelection(owner) {
   setForceOpenExile(false);
+  // Ferme aussi l'Exil s'il avait été ouvert manuellement par un clic — sinon
+  // il restait ouvert malgré la fin de l'effet, puisque le clic manuel et le
+  // "forceOpen" sont deux mécanismes indépendants.
+  exileClickOpen = false;
+  refreshExilePanel();
   closeActionPrompt();
   const pickedCount = c18SelectMode ? c18SelectMode.picked : 0;
   pushHistory('défausse',
@@ -5334,19 +5339,27 @@ function resetAllShields(){
       if (fullShieldValue > 0 && before !== fullShieldValue) recharged.push(card);
     }
   });
+  recalcBlusyteBonuses();
+  return recharged;
+}
 
-  // WADOO 4e lot : Blusyte (C226) — recalcule le bonus de bouclier de chaque
-  // Blusyte attachée avec le Mithril ACTUEL de son propriétaire, après le
-  // reset de base ci-dessus (qui vient d'écraser le bouclier de son hôte).
+// WADOO 4e lot : Blusyte (C226) — recalcule le bonus de Bouclier de CHAQUE
+// Blusyte en jeu (alliée ou ennemie, peu importe qui héberge la carte) à
+// partir du Mithril ACTUEL de son propriétaire. Basé sur un delta (bonus
+// précédemment appliqué vs nouveau), donc sûr à appeler très souvent — y
+// compris à chaque rendu — sans jamais accumuler ni écraser un bouclier
+// gagné entre-temps par un autre effet (ex. Necrobsorb).
+function recalcBlusyteBonuses(){
+  const all = topLine.concat(botLine);
   getAllFamiliers().filter(f => f.label === 'C226').forEach(fam => {
     const host = all.find(c => c.id === fam.attachedTo);
     if (!host) return;
-    const bonus = mithril[fam.playOwner] || 0;
-    host.shield = (host.shield || 0) + bonus;
-    fam.appliedShieldBonus = bonus;
+    const newBonus = mithril[fam.playOwner] || 0;
+    const previousBonus = fam.appliedShieldBonus || 0;
+    if (newBonus === previousBonus) return;
+    host.shield = Math.max(0, (host.shield || 0) - previousBonus) + newBonus;
+    fam.appliedShieldBonus = newBonus;
   });
-
-  return recharged;
 }
 
 
@@ -6239,12 +6252,11 @@ function attachFamiliarToHost(owner, familiarCard, hostCard){
 
   // WADOO 4e lot : Blusyte (C226) — applique immédiatement son bonus de
   // Bouclier (+X, X = Mithril actuel de son propriétaire) dès l'attache,
-  // sans attendre le prochain reset de bouclier.
+  // sans attendre le prochain reset de bouclier. Fonctionne identiquement
+  // qu'elle soit attachée à un allié OU à un ennemi.
   if (familiarCard.label === 'C226') {
-    const bonus = mithril[owner] || 0;
-    hostCard.shield = (hostCard.shield || 0) + bonus;
-    familiarCard.appliedShieldBonus = bonus;
-    pushHistory('info', `${cardAnchor('C226')} donne +${bonus} Bouclier à ${cardAnchor(hostCard.label)} (Mithril actuel).`);
+    recalcBlusyteBonuses();
+    pushHistory('info', `${cardAnchor('C226')} donne +${familiarCard.appliedShieldBonus || 0} Bouclier à ${cardAnchor(hostCard.label)} (Mithril actuel).`);
   }
 
   fullRender();
@@ -8646,6 +8658,11 @@ function clearEligibleZones(){
 }
 
 function fullRender(){
+  // WADOO 4e lot : Blusyte (C226) — recalculé AVANT le rendu, à chaque appel
+  // (donc après quasiment toute action du jeu), pour que son bonus de
+  // Bouclier suive le Mithril de son propriétaire en temps réel, à la hausse
+  // comme à la baisse — pas seulement à l'attache ou en début de tour.
+  recalcBlusyteBonuses();
   updateHandsUI();
   renderLine(document.querySelector('#battleTop .battleInner'), topLine, 'top');
   renderLine(document.querySelector('#battleBottom .battleInner'), botLine, 'bottom');
