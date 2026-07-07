@@ -9199,7 +9199,6 @@ function updateTurnUI(){
 }
 endBtn.addEventListener('click', ()=>{
   if (ONLINE_MODE && currentTurn !== MY_SEAT) return; // en ligne : pas ton tour
-  if (isAnyTargetSelectionActive()) { denyBecauseSelectionPending(endBtn); return; }
   // Remet chaque main à sa position d'origine dès qu'on termine son tour.
   if (typeof window.__resetHandPositions === 'function') window.__resetHandPositions();
   // La logique qui suit est déclenchée lorsque le joueur clique sur "FIN DE TOUR"
