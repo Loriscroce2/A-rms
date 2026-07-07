@@ -9327,62 +9327,75 @@ function isTurnTimerRelevantForMe(){
 }
 
 function updateTurnTimerVisual(){
-  const wrap = document.getElementById('turnTimerWrap');
-  const ring = document.querySelector('#turnTimerRing .ttrFg');
-  const label = document.getElementById('turnTimerLabel');
-  if (!wrap || !ring || !label) return;
+  try{
+    const wrap = document.getElementById('turnTimerWrap');
+    const ring = document.querySelector('#turnTimerRing .ttrFg');
+    const label = document.getElementById('turnTimerLabel');
+    if (!wrap || !ring || !label) return;
 
-  if (!isTurnTimerRelevantForMe()) {
-    wrap.classList.add('hidden');
-    return;
+    if (!isTurnTimerRelevantForMe()) {
+      wrap.classList.add('hidden');
+      return;
+    }
+    wrap.classList.remove('hidden');
+
+    const ratio = Math.max(0, Math.min(1, turnTimerSecondsLeft / TURN_TIME_LIMIT));
+    ring.style.strokeDashoffset = String(TURN_TIME_RING_CIRCUMFERENCE * (1 - ratio));
+    label.textContent = String(Math.max(0, Math.ceil(turnTimerSecondsLeft)));
+
+    wrap.classList.remove('warn', 'urgent');
+    if (turnTimerSecondsLeft <= 15) wrap.classList.add('urgent');
+    else if (turnTimerSecondsLeft <= 30) wrap.classList.add('warn');
+  }catch(err){
+    console.error('[turnTimer] updateTurnTimerVisual a échoué :', err);
   }
-  wrap.classList.remove('hidden');
-
-  const ratio = Math.max(0, Math.min(1, turnTimerSecondsLeft / TURN_TIME_LIMIT));
-  ring.style.strokeDashoffset = String(TURN_TIME_RING_CIRCUMFERENCE * (1 - ratio));
-  label.textContent = String(Math.max(0, Math.ceil(turnTimerSecondsLeft)));
-
-  wrap.classList.remove('warn', 'urgent');
-  if (turnTimerSecondsLeft <= 15) wrap.classList.add('urgent');
-  else if (turnTimerSecondsLeft <= 30) wrap.classList.add('warn');
 }
 
 function setupTurnTimer(){
-  if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
-  turnTimerSecondsLeft = TURN_TIME_LIMIT;
-  turnTimerUrgentSfxPlayed = false;
-  updateTurnTimerVisual();
-
-  turnTimerInterval = setInterval(() => {
-    if (!isTurnTimerRelevantForMe()) {
-      // Le tour n'est plus (ou pas encore) le mien : le minuteur local n'a
-      // plus lieu d'être actif tant que ça reste vrai.
-      updateTurnTimerVisual();
-      return;
-    }
-    if (isAnyBlockingModalOpen()) {
-      // En pause : un choix obligatoire est affiché, on ne pénalise pas le
-      // joueur pour le temps que ça lui prend à décider.
-      return;
-    }
-    turnTimerSecondsLeft -= 1;
-    // Alerte sonore une seule fois par tour, au moment précis où on passe
-    // sous le seuil des 15 secondes restantes.
-    if (!turnTimerUrgentSfxPlayed && turnTimerSecondsLeft <= TURN_TIME_URGENT_SFX_AT && turnTimerSecondsLeft > 0) {
-      turnTimerUrgentSfxPlayed = true;
-      playTimerUrgentSfx();
-    }
-    if (turnTimerSecondsLeft <= 0) {
-      turnTimerSecondsLeft = 0;
-      updateTurnTimerVisual();
-      clearInterval(turnTimerInterval);
-      turnTimerInterval = null;
-      pushHistory('info', 'Temps écoulé — le tour passe automatiquement.');
-      performEndTurn();
-      return;
-    }
+  try{
+    if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
+    turnTimerSecondsLeft = TURN_TIME_LIMIT;
+    turnTimerUrgentSfxPlayed = false;
     updateTurnTimerVisual();
-  }, 1000);
+
+    turnTimerInterval = setInterval(() => {
+      try{
+        if (!isTurnTimerRelevantForMe()) {
+          // Le tour n'est plus (ou pas encore) le mien : le minuteur local n'a
+          // plus lieu d'être actif tant que ça reste vrai.
+          updateTurnTimerVisual();
+          return;
+        }
+        if (isAnyBlockingModalOpen()) {
+          // En pause : un choix obligatoire est affiché, on ne pénalise pas le
+          // joueur pour le temps que ça lui prend à décider.
+          return;
+        }
+        turnTimerSecondsLeft -= 1;
+        // Alerte sonore une seule fois par tour, au moment précis où on passe
+        // sous le seuil des 15 secondes restantes.
+        if (!turnTimerUrgentSfxPlayed && turnTimerSecondsLeft <= TURN_TIME_URGENT_SFX_AT && turnTimerSecondsLeft > 0) {
+          turnTimerUrgentSfxPlayed = true;
+          playTimerUrgentSfx();
+        }
+        if (turnTimerSecondsLeft <= 0) {
+          turnTimerSecondsLeft = 0;
+          updateTurnTimerVisual();
+          clearInterval(turnTimerInterval);
+          turnTimerInterval = null;
+          pushHistory('info', 'Temps écoulé — le tour passe automatiquement.');
+          performEndTurn();
+          return;
+        }
+        updateTurnTimerVisual();
+      }catch(err){
+        console.error('[turnTimer] Erreur dans le décompte, minuteur arrêté par sécurité :', err);
+        if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
+      }
+    }, 1000);
+  }catch(err){
+    console.error('[turnTimer] setupTurnTimer a échoué :', err);
+  }
 }
 
 /* --- Rideau global bloquant --- */
@@ -9655,8 +9668,10 @@ function upkeepCharactersFor(player) {
 }
 
 function startTurn(player){
-  // Minuteur de tour : redémarré à 90s à chaque nouveau tour.
-  setupTurnTimer();
+  // Minuteur de tour : redémarré à 90s à chaque nouveau tour. Enveloppé pour
+  // garantir qu'il ne puisse JAMAIS interrompre le reste de la mise en place
+  // du tour, même en cas d'erreur imprévue.
+  try{ setupTurnTimer(); }catch(err){ console.error('[turnTimer] démarrage impossible :', err); }
 
   // Musique de partie : démarrée une seule fois, dès que la partie démarre
   // vraiment (premier tour), qu'elle soit en ligne ou en local (hotseat).
