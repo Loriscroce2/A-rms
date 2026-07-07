@@ -659,15 +659,18 @@
     }
     #zoom .shield{ right:-14px; width:46px; height:46px; font-size:17px; top:calc(50% + 44px); }
 
-    /* Bouton fin de tour + minuteur de tour */
-    #turnTimerWrap{ position:fixed; right:26px; bottom:26px; z-index:1200; width:108px; height:108px;
-      display:flex; align-items:center; justify-content:center; }
+    /* Bouton fin de tour + minuteur de tour — conçu comme un petit bloc
+       compact (bouton + fine barre) plutôt qu'un anneau circulaire autour
+       d'un bouton ovale, qui prenait trop de place et débordait sur les
+       éléments voisins (compteur de Cycles). */
+    #turnTimerWrap{ position:fixed; right:26px; bottom:26px; z-index:1200;
+      display:flex; flex-direction:column; align-items:center; gap:5px; width:auto; }
     #turnTimerWrap.hidden{ display:none; }
     #endTurn{ position:relative; background:linear-gradient(180deg,#2dffa0,#0aa860);
-      border:2px solid rgba(255,255,255,.4); color:#012016; font-weight:900; padding:11px 18px; border-radius:999px;
+      border:2px solid rgba(255,255,255,.4); color:#012016; font-weight:900; padding:13px 22px; border-radius:999px;
       box-shadow:0 5px 0 #075c3a, 0 9px 18px rgba(10,168,96,.5), 0 0 0 3px rgba(45,255,160,.15); cursor:pointer;
-      letter-spacing:.04em; text-transform:uppercase; z-index:2; font-family:'Cinzel','Manrope',sans-serif; font-size:10.5px;
-      transition:transform .12s ease, box-shadow .12s ease; }
+      letter-spacing:.04em; text-transform:uppercase; font-family:'Cinzel','Manrope',sans-serif; font-size:11.5px;
+      transition:transform .12s ease, box-shadow .12s ease, background .4s ease; }
     body.not-my-turn #endTurn:not(:disabled){ animation:none; }
     #endTurn:not(:disabled){ animation:endTurnBeacon 2.2s ease-in-out infinite; }
     @keyframes endTurnBeacon{ 0%,100%{ box-shadow:0 5px 0 #075c3a, 0 9px 18px rgba(10,168,96,.5), 0 0 0 3px rgba(45,255,160,.15);} 50%{ box-shadow:0 5px 0 #075c3a, 0 12px 24px rgba(10,168,96,.65), 0 0 0 7px rgba(45,255,160,.05);} }
@@ -676,30 +679,31 @@
     #endTurn:disabled{ background:linear-gradient(180deg,#3a4a4a,#20302f); box-shadow:0 4px 0 #16201f; color:#9fb; cursor:not-allowed; animation:none; }
     #endTurn.hidden{ display:none; }
 
-    /* Anneau de progression du minuteur de tour, dessiné en SVG autour du
-       bouton — se vide au fil du temps et change de couleur selon l'urgence. */
-    #turnTimerRing{ position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg); pointer-events:none; z-index:1; }
-    #turnTimerRing .ttrBg{ fill:none; stroke:rgba(255,255,255,.08); stroke-width:6; }
-    #turnTimerRing .ttrFg{
-      fill:none; stroke:#2dffa0; stroke-width:6; stroke-linecap:round;
-      stroke-dasharray:339.29; stroke-dashoffset:0;
-      transition:stroke-dashoffset 1s linear, stroke .4s ease;
-      filter:drop-shadow(0 0 6px rgba(45,255,160,.7));
-    }
-    #turnTimerWrap.warn #turnTimerRing .ttrFg{ stroke:#ffca3a; filter:drop-shadow(0 0 8px rgba(255,202,58,.75)); }
-    #turnTimerWrap.urgent #turnTimerRing .ttrFg{ stroke:#ff4d4d; filter:drop-shadow(0 0 10px rgba(255,77,77,.85)); }
-    #turnTimerWrap.urgent #endTurn{ animation:endTurnUrgent .6s ease-in-out infinite !important; }
-    @keyframes endTurnUrgent{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.06); } }
+    /* Le bouton lui-même change de couleur selon l'urgence, pas seulement
+       une barre à côté — impossible à manquer. */
+    #turnTimerWrap.warn #endTurn{ background:linear-gradient(180deg,#ffd75e,#e0a300); box-shadow:0 5px 0 #7a5600, 0 9px 18px rgba(224,163,0,.5), 0 0 0 3px rgba(255,215,94,.18); }
+    #turnTimerWrap.warn #endTurn:not(:disabled){ animation:endTurnBeaconWarn 1.6s ease-in-out infinite; }
+    @keyframes endTurnBeaconWarn{ 0%,100%{ box-shadow:0 5px 0 #7a5600, 0 9px 18px rgba(224,163,0,.5), 0 0 0 3px rgba(255,215,94,.18);} 50%{ box-shadow:0 5px 0 #7a5600, 0 12px 26px rgba(224,163,0,.7), 0 0 0 8px rgba(255,215,94,.08);} }
+    #turnTimerWrap.urgent #endTurn{ background:linear-gradient(180deg,#ff6b6b,#c81e1e); color:#fff; box-shadow:0 5px 0 #6e0f0f, 0 9px 18px rgba(200,30,30,.55), 0 0 0 3px rgba(255,107,107,.2); }
+    #turnTimerWrap.urgent #endTurn:not(:disabled){ animation:endTurnUrgent .6s ease-in-out infinite !important; }
+    @keyframes endTurnUrgent{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.07); } }
 
-    /* Petit badge numérique (secondes restantes), niché en haut du bouton. */
+    /* Fine barre de progression, largeur = celle du bouton, sous celui-ci. */
+    #turnTimerBarTrack{ width:100%; height:5px; border-radius:999px; background:rgba(255,255,255,.1);
+      overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,.4); }
+    #turnTimerBarFill{ height:100%; width:100%; border-radius:999px; background:#2dffa0;
+      box-shadow:0 0 6px rgba(45,255,160,.7); transition:width 1s linear, background .4s ease; transform-origin:left center; }
+    #turnTimerWrap.warn #turnTimerBarFill{ background:#ffd75e; box-shadow:0 0 8px rgba(255,215,94,.75); }
+    #turnTimerWrap.urgent #turnTimerBarFill{ background:#ff4d4d; box-shadow:0 0 8px rgba(255,77,77,.85); }
+
+    /* Petit badge numérique (secondes restantes), sous la barre. */
     #turnTimerLabel{
-      position:absolute; top:-4px; left:50%; transform:translateX(-50%); z-index:3;
-      background:linear-gradient(180deg,#0d2530,#061820); border:1.5px solid rgba(125,249,255,.5);
-      color:#aefaff; font-weight:900; font-size:9.5px; padding:1px 7px; border-radius:999px;
-      box-shadow:0 0 8px rgba(0,230,255,.35); font-family:'Manrope',sans-serif; min-width:20px; text-align:center;
+      font-size:10.5px; font-weight:900; color:#aefaff; font-family:'Manrope',sans-serif;
+      background:rgba(6,24,32,.7); border:1px solid rgba(125,249,255,.4); border-radius:999px;
+      padding:1px 9px; letter-spacing:.02em;
     }
-    #turnTimerWrap.warn #turnTimerLabel{ color:#ffe19a; border-color:rgba(255,202,58,.6); }
-    #turnTimerWrap.urgent #turnTimerLabel{ color:#ffbcbc; border-color:rgba(255,77,77,.7); }
+    #turnTimerWrap.warn #turnTimerLabel{ color:#ffe9b0; border-color:rgba(255,215,94,.55); }
+    #turnTimerWrap.urgent #turnTimerLabel{ color:#ffc6c6; border-color:rgba(255,77,77,.65); }
     #turnTimerLabel.hidden{ display:none; }
 
     /* Ressources */
@@ -1761,9 +1765,10 @@ body.fusion-shake {
   .mithrilBox{ font-size:11px; padding:5px 9px; }
   .cycleHUD{ font-size:10px; padding:4px 6px; }
   .cyclePip{ width:15px; height:15px; font-size:9px; }
-  #endTurn{ padding:7px 10px; font-size:9px; }
-  #turnTimerWrap{ width:78px; height:78px; right:10px; bottom:10px; }
-  #turnTimerLabel{ font-size:8px; padding:1px 5px; top:-3px; }
+  #endTurn{ padding:8px 12px; font-size:9px; }
+  #turnTimerWrap{ right:10px; bottom:10px; gap:3px; }
+  #turnTimerBarTrack{ height:4px; }
+  #turnTimerLabel{ font-size:8px; padding:0 6px; }
   .centerDivider i{ font-size:9px; }
 }
 
@@ -1800,11 +1805,8 @@ body.fusion-shake {
 
   <div id="zoom"><div class="zoomCard" id="zoomCard"></div></div>
   <div id="turnTimerWrap">
-    <svg id="turnTimerRing" viewBox="0 0 120 120" aria-hidden="true">
-      <circle class="ttrBg" cx="60" cy="60" r="54"></circle>
-      <circle class="ttrFg" cx="60" cy="60" r="54"></circle>
-    </svg>
     <button id="endTurn">FIN DE TOUR</button>
+    <div id="turnTimerBarTrack"><div id="turnTimerBarFill"></div></div>
     <div id="turnTimerLabel">90</div>
   </div>
   <div id="aimLayer"></div>
@@ -2183,6 +2185,26 @@ function stopMatchMusic(){
   if (!matchMusic) return;
   try{ matchMusic.pause(); matchMusic.currentTime = 0; }catch(e){}
 }
+
+/* Certains navigateurs coupent la lecture audio en cours au moment précis où
+   la page passe en plein écran (ou en sort). On surveille cet événement et on
+   relance la musique de partie si elle s'est arrêtée alors qu'elle n'aurait
+   pas dû (partie toujours en cours, musique déjà démarrée). */
+function resumeMatchMusicIfNeeded(){
+  try{
+    if (matchMusic && matchMusic.paused && matchMusicStarted && (typeof GAME === 'undefined' || !GAME.over)) {
+      matchMusic.play().catch(()=>{});
+    }
+  }catch(err){}
+}
+['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    // Petit délai : sur certains navigateurs, la coupure audio se produit
+    // juste APRÈS l'événement, pas pendant — on laisse une fraction de
+    // seconde avant de vérifier/relancer.
+    setTimeout(resumeMatchMusicIfNeeded, 200);
+  });
+});
 
 /* iWon = true → jingle de victoire, false → jingle de défaite. */
 async function playEndGameJingle(iWon){
@@ -9242,8 +9264,22 @@ function ensureTurnBanner(){
   return b;
 }
 
+let lastSeenTurnForTimer = null;
 function updateTurnUI(){
   const banner = ensureTurnBanner();
+
+  // Minuteur de tour : redémarré dès qu'on détecte ICI un vrai changement de
+  // tour — que ce soit le mien qui commence, ou celui de l'adversaire — pour
+  // que le décompte défile en temps réel des DEUX côtés. Seul le joueur dont
+  // c'est réellement le tour peut le faire passer à zéro (voir performEndTurn
+  // et isTurnTimerRelevantForMe), l'autre le voit juste s'écouler.
+  if (currentTurn !== 'none' && currentTurn !== lastSeenTurnForTimer) {
+    lastSeenTurnForTimer = currentTurn;
+    try{ setupTurnTimer(); }catch(err){ console.error('[turnTimer] redémarrage impossible :', err); }
+  } else if (currentTurn === 'none') {
+    lastSeenTurnForTimer = null;
+  }
+
   if(currentTurn==='none'){
     endBtn.classList.add('hidden');
     banner.classList.remove('show');
@@ -9313,7 +9349,6 @@ endBtn.addEventListener('click', performEndTurn);
 // ne jamais pénaliser un joueur en train de résoudre un effet obligatoire.
 // ===================================================================
 const TURN_TIME_LIMIT = 90;
-const TURN_TIME_RING_CIRCUMFERENCE = 339.29; // 2 * π * r(54), doit matcher le SVG
 const TURN_TIME_URGENT_SFX_AT = 15;
 let turnTimerInterval = null;
 let turnTimerSecondsLeft = TURN_TIME_LIMIT;
@@ -9328,20 +9363,20 @@ function isAnyBlockingModalOpen(){
 }
 
 function isTurnTimerRelevantForMe(){
-  // En ligne : le minuteur ne s'affiche/anime que pour le joueur dont c'est
-  // réellement le tour sur SON écran. En local (hotseat) : toujours actif,
-  // l'écran est partagé par les deux joueurs.
-  if (currentTurn === 'none') return false;
-  if (!ONLINE_MODE) return true;
-  return currentTurn === MY_SEAT;
+  // Le minuteur s'affiche désormais pour LES DEUX joueurs, y compris celui
+  // qui n'est pas en train de jouer : il voit le décompte s'écouler en temps
+  // réel pour savoir combien de temps il reste avant que le tour ne change.
+  // Seul performEndTurn() vérifie séparément si c'est VRAIMENT mon tour avant
+  // de le faire réellement passer à zéro.
+  return currentTurn !== 'none';
 }
 
 function updateTurnTimerVisual(){
   try{
     const wrap = document.getElementById('turnTimerWrap');
-    const ring = document.querySelector('#turnTimerRing .ttrFg');
+    const barFill = document.getElementById('turnTimerBarFill');
     const label = document.getElementById('turnTimerLabel');
-    if (!wrap || !ring || !label) return;
+    if (!wrap || !barFill || !label) return;
 
     if (!isTurnTimerRelevantForMe()) {
       wrap.classList.add('hidden');
@@ -9350,7 +9385,7 @@ function updateTurnTimerVisual(){
     wrap.classList.remove('hidden');
 
     const ratio = Math.max(0, Math.min(1, turnTimerSecondsLeft / TURN_TIME_LIMIT));
-    ring.style.strokeDashoffset = String(TURN_TIME_RING_CIRCUMFERENCE * (1 - ratio));
+    barFill.style.width = (ratio * 100) + '%';
     label.textContent = String(Math.max(0, Math.ceil(turnTimerSecondsLeft)));
 
     wrap.classList.remove('warn', 'urgent');
