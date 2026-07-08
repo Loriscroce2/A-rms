@@ -5278,7 +5278,15 @@ function openMiningPrompt(owner, card, fromEl){
       title = 'Doolia';
       const opp = (owner === 'top') ? 'bottom' : 'top';
       const canUseAbility = getLineByOwner(opp).some(c => getType(c.label) === 'personnage');
-      buttons.push(mineButton, { label:'Capacité (Renvoyer un ennemi en main)', className:'confirm' + (canUseAbility ? '' : ' disabled'), disabled:!canUseAbility, onClick:()=>{ if(canUseAbility) startC231Targeting(owner, card); } });
+      // Chez Doolia, l'effet (renvoyer un ennemi en main) se déclenche EN
+      // MINANT — ce n'est pas une capacité alternative, donc un seul bouton
+      // "Miner" à la place du duo Miner/Capacité habituel.
+      buttons.push({
+        label: 'Miner (Renvoyer un ennemi en main)',
+        className: 'confirm' + (canUseAbility ? '' : ' disabled'),
+        disabled: !canUseAbility,
+        onClick: () => { if (canUseAbility) startC231Targeting(owner, card); }
+      });
     } else if (card.label === 'C120') {
         title = 'Salomon II';
         buttons.push(mineButton, { label: 'Capacité (Jouer Chimeria)', className: 'confirm', onClick: () => { useSalomonIIAbility(owner, card); } });
@@ -6493,7 +6501,8 @@ function hideChoiceNotice() {
 // est invité à décider s'il la dépense pour annuler l'Action. `resolveFn`
 // n'est appelé QUE si l'Action n'est pas contrée.
 // ===================================================================
-function attemptParactionCounter(actingOwner, actionLabel, resolveFn){
+function attemptParactionCounter(actingOwner, actionCard, resolveFn){
+  const actionLabel = actionCard.label;
   const opp = (actingOwner === 'top') ? 'bottom' : 'top';
   const oppArts = (opp === 'top') ? topArts : botArts;
   const paraction = oppArts.find(a => a.label === 'C227' && (a.charges || 0) > 0);
@@ -6505,7 +6514,7 @@ function attemptParactionCounter(actingOwner, actionLabel, resolveFn){
     showWaitOverlay(`Patientez : l'adversaire décide s'il contre ${cardName(actionLabel)} avec ${cardName('C227')}...`);
     requestOpponentChoice('paraction', { actionLabel }, (useCharge) => {
       hideWaitOverlay();
-      resolveParactionDecision(actingOwner, actionLabel, useCharge, resolveFn);
+      resolveParactionDecision(actingOwner, actionCard, useCharge, resolveFn);
     });
     return;
   }
@@ -6516,21 +6525,28 @@ function attemptParactionCounter(actingOwner, actionLabel, resolveFn){
     `L'adversaire joue ${cardName(actionLabel)}. Voulez-vous dépenser une charge de ${cardName('C227')} (${paraction.charges}) pour la contrer ?`,
     null,
     [
-      { label: 'Contrer (dépenser 1 charge)', className: 'confirm', onClick: () => resolveParactionDecision(actingOwner, actionLabel, true, resolveFn) },
-      { label: 'Laisser passer', className: 'cancel', onClick: () => resolveParactionDecision(actingOwner, actionLabel, false, resolveFn) },
+      { label: 'Contrer (dépenser 1 charge)', className: 'confirm', onClick: () => resolveParactionDecision(actingOwner, actionCard, true, resolveFn) },
+      { label: 'Laisser passer', className: 'cancel', onClick: () => resolveParactionDecision(actingOwner, actionCard, false, resolveFn) },
     ]
   );
 }
 
-function resolveParactionDecision(actingOwner, actionLabel, useCharge, resolveFn){
+function resolveParactionDecision(actingOwner, actionCard, useCharge, resolveFn){
+  const actionLabel = actionCard.label;
   const opp = (actingOwner === 'top') ? 'bottom' : 'top';
   const oppArts = (opp === 'top') ? topArts : botArts;
   const paraction = oppArts.find(a => a.label === 'C227' && (a.charges || 0) > 0);
   if (useCharge && paraction) {
     paraction.charges = Math.max(0, (paraction.charges || 0) - 1);
     pushHistory('artefact', `${cardAnchor('C227')} contre ${cardAnchor(actionLabel)} : l'action est annulée !`);
+    // Même contrée, l'action a bel et bien été JOUÉE : elle part en défausse
+    // au lieu de rester dans la main de son propriétaire.
+    const hand = getHandByOwner(actingOwner);
+    const idx = hand.findIndex(c => c.id === actionCard.id);
+    if (idx !== -1) hand.splice(idx, 1);
+    discardCard(actionCard, actingOwner, 'action');
     fullRender();
-    // resolveFn n'est volontairement PAS appelé : l'action est contrée.
+    // resolveFn n'est volontairement PAS appelé : l'EFFET de l'action est contré.
   } else {
     resolveFn();
   }
@@ -7383,27 +7399,27 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             // Écouteurs pour les cartes "Action" — chacune passe désormais par
             // attemptParactionCounter (WADOO : Paraction, C227), qui vérifie si
             // l'adversaire peut/veut la contrer avant de laisser son effet se résoudre.
-            if (card.label === 'C118') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC118Prompt(owner, card, el)); }); }
-            if (card.label === 'C104') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionLongVoyage(owner, card, el)); }); }
-            if (card.label === 'C21') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC21Prompt(owner, card, el)); }); }
-            if (card.label === 'C63') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC63Prompt(owner, card, el)); }); }
-            if (card.label === 'C51') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC51Prompt(owner, card, el)); }); }
-            if (card.label === 'C19') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC19Prompt(owner, card, el)); }); }
-            if (card.label === 'C5') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC5Prompt(owner, card, el)); }); }
-            if (card.label === 'C18') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC18Prompt(owner, card, el)); }); }
-            if (card.label === 'C16') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC16Prompt(owner, card)); }); }
-            if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionLiens(owner, card, el)); }); }
-            if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionHitAndRun(owner, card, el)); }); }
-            if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionPeinturlurer(owner, card, el)); }); }
-            if (card.label === 'C168') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionExploration(owner, card)); }); }
-            if (card.label === 'C171') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionHasarder(owner, card, el)); }); }
-            if (card.label === 'C172') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionEntraver(owner, card, el)); }); }
-            if (card.label === 'C204') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC204Prompt(owner, card, el)); }); }
-            if (card.label === 'C210') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC210Prompt(owner, card, el)); }); }
-            if (card.label === 'C219') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC219Prompt(owner, card, el)); }); }
-            if (card.label === 'C228') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionSororite(owner, card, el)); }); }
-            if (card.label === 'C233') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionTributPoupesque(owner, card)); }); }
-            if (card.label === 'C234') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionWagneto(owner, card, el)); }); }
+            if (card.label === 'C118') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC118Prompt(owner, card, el)); }); }
+            if (card.label === 'C104') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLongVoyage(owner, card, el)); }); }
+            if (card.label === 'C21') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC21Prompt(owner, card, el)); }); }
+            if (card.label === 'C63') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC63Prompt(owner, card, el)); }); }
+            if (card.label === 'C51') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC51Prompt(owner, card, el)); }); }
+            if (card.label === 'C19') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC19Prompt(owner, card, el)); }); }
+            if (card.label === 'C5') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC5Prompt(owner, card, el)); }); }
+            if (card.label === 'C18') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC18Prompt(owner, card, el)); }); }
+            if (card.label === 'C16') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC16Prompt(owner, card)); }); }
+            if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
+            if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
+            if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
+            if (card.label === 'C168') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionExploration(owner, card)); }); }
+            if (card.label === 'C171') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHasarder(owner, card, el)); }); }
+            if (card.label === 'C172') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionEntraver(owner, card, el)); }); }
+            if (card.label === 'C204') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC204Prompt(owner, card, el)); }); }
+            if (card.label === 'C210') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC210Prompt(owner, card, el)); }); }
+            if (card.label === 'C219') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC219Prompt(owner, card, el)); }); }
+            if (card.label === 'C228') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionSororite(owner, card, el)); }); }
+            if (card.label === 'C233') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionTributPoupesque(owner, card)); }); }
+            if (card.label === 'C234') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionWagneto(owner, card, el)); }); }
         }
 
         rowEl.appendChild(el);
