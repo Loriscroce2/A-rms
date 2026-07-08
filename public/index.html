@@ -958,6 +958,42 @@
       filter:saturate(1.5) hue-rotate(255deg) brightness(.5) blur(3px);
     }
 
+    /* Main du joueur du haut, repoussée hors de vue le temps du vagabondage
+       d'Ignominie, pour ne plus jamais chevaucher visuellement l'animation. */
+    #handTop.hiddenDuringIgnominieWander{
+      opacity:0; transform:translateY(-40px); pointer-events:none;
+      transition: opacity .4s ease, transform .4s ease;
+    }
+
+    /* Présentation finale d'Ignominie : carte zoomée au centre de l'écran
+       avec explication, une fois le vagabondage terminé. */
+    .ignominieReveal{
+      position:fixed; inset:0; z-index:9500; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:22px; text-align:center; padding:24px;
+      background:rgba(5,0,10,0); cursor:pointer;
+      opacity:0; transition:opacity .5s ease, background .5s ease;
+    }
+    .ignominieReveal.go{ opacity:1; background:rgba(5,0,10,.88); }
+    .ignominieReveal.leaving{ opacity:0; }
+    .ignominieRevealCard{
+      width:min(50vw,230px); height:min(72vw,332px); background-size:cover; background-position:center;
+      border-radius:16px; border:3px solid rgba(190,70,230,.9);
+      box-shadow:0 0 55px rgba(180,60,220,.7), 0 20px 50px rgba(0,0,0,.6);
+      transform:scale(.35) rotate(-10deg);
+      transition:transform .65s cubic-bezier(.2,.85,.25,1.15);
+    }
+    .ignominieReveal.go .ignominieRevealCard{ transform:scale(1) rotate(0deg); }
+    .ignominieRevealText{
+      max-width:520px; color:#f1e3ff; opacity:0; transform:translateY(14px);
+      transition:opacity .5s ease .2s, transform .5s ease .2s;
+    }
+    .ignominieReveal.go .ignominieRevealText{ opacity:1; transform:translateY(0); }
+    .ignominieRevealText h2{
+      font-family:'Cinzel','Manrope',sans-serif; font-size:26px; letter-spacing:.07em; text-transform:uppercase;
+      color:#dba8ff; text-shadow:0 0 18px rgba(180,60,220,.8); margin:0 0 10px;
+    }
+    .ignominieRevealText p{ font-size:14.5px; line-height:1.55; color:#e8d8f5; margin:0; }
+
     /* Invite/prompt générique */
     .actionPrompt{
       position:fixed; z-index:1500; min-width:180px; max-width:260px;
@@ -4358,6 +4394,12 @@ function startIgnominieWander(card, owner){
     if (!zoneEl) return;
     zoneEl.classList.add('ignominieZoneShake');
 
+    // La main du joueur du haut est repoussée hors de vue pendant tout le
+    // vagabondage : sa position pouvait sinon venir chevaucher visuellement
+    // l'animation (peu importe le côté où Ignominie apparaît).
+    const handTopEl = document.getElementById('handTop');
+    if (handTopEl) handTopEl.classList.add('hiddenDuringIgnominieWander');
+
     const findCardEl = () => document.querySelector(`[data-id="${card.id}"]`);
 
     const spawnTrailGhost = (el) => {
@@ -4396,6 +4438,7 @@ function startIgnominieWander(card, owner){
     setTimeout(()=>{
       clearInterval(wanderInterval);
       zoneEl.classList.remove('ignominieZoneShake');
+      if (handTopEl) handTopEl.classList.remove('hiddenDuringIgnominieWander');
       const el = findCardEl();
       if (el) {
         el.style.transition = 'transform .55s ease';
@@ -4403,7 +4446,43 @@ function startIgnominieWander(card, owner){
         el.style.zIndex = '';
         el.style.filter = '';
       }
+      // Présentation finale : Ignominie zoomée au centre de l'écran, avec
+      // une explication de ce qui vient de se passer.
+      showIgnominieReveal(card, owner);
     }, IGNOMINIE_SOUND_DURATION_MS);
+  }catch(e){ }
+}
+
+/* Grand plan de présentation d'Ignominie une fois le vagabondage terminé —
+   carte zoomée au centre de l'écran + explication, avec entrée/sortie
+   animées. Se ferme automatiquement après quelques secondes, ou au clic. */
+function showIgnominieReveal(card, owner){
+  try{
+    const overlay = document.createElement('div');
+    overlay.className = 'ignominieReveal';
+    const ownerLabel = owner === 'bottom' ? 'J1' : 'J2';
+    const mithrilNote = (typeof card.capturedMithril === 'number' && card.capturedMithril > 0)
+      ? ` Elle porte encore ${card.capturedMithril} Mithril capturé hérité de la fusion.`
+      : '';
+    overlay.innerHTML = `
+      <div class="ignominieRevealCard" style="background-image:url(${getCardImage(card.label)})"></div>
+      <div class="ignominieRevealText">
+        <h2>Ignominie s'éveille</h2>
+        <p>Les combattants de ${ownerLabel} viennent de fusionner en une seule et unique horreur à <strong>15 PV</strong>, appartenant à toutes les factions à la fois.${mithrilNote}</p>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(()=> overlay.classList.add('go'));
+
+    const dismiss = () => {
+      if (overlay.dataset.dismissed) return;
+      overlay.dataset.dismissed = '1';
+      overlay.classList.remove('go');
+      overlay.classList.add('leaving');
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); }, 500);
+    };
+    overlay.addEventListener('click', dismiss);
+    setTimeout(dismiss, 5000);
   }catch(e){ }
 }
 
