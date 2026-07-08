@@ -848,6 +848,40 @@
       filter:drop-shadow(0 0 12px rgba(0,230,255,.45));
     }
 
+    /* EXIL — la carte est "aspirée" : rétrécissement extrême + rotation
+       rapide + assombrissement, façon trou noir/portail, terminant pile sur
+       le portail violet. Courbe d'accélération marquée (ease-in) pour bien
+       vendre l'idée d'aspiration plutôt qu'un simple déplacement. */
+    .exileGhost{
+      position:fixed; width:86px; height:124px; border:2px solid rgba(155,107,255,.9);
+      border-radius:12px; background-size:cover; background-position:center;
+      box-shadow:0 0 20px rgba(155,107,255,.6), inset 0 0 10px rgba(155,107,255,.4);
+      pointer-events:none; z-index:1400;
+      transform:translate(0,0) scale(1) rotate(0deg); opacity:1;
+      transition: transform .5s cubic-bezier(.55,0,.85,.35), opacity .5s cubic-bezier(.55,0,.85,.35), filter .5s ease;
+      filter:drop-shadow(0 0 14px rgba(155,107,255,.6));
+    }
+    /* Pulse violet sur le portail au moment de l'impact, pour "sceller" l'absorption. */
+    #exileZone.exileImpact #exileRift{
+      animation:exileImpactPulse .5s ease-out;
+    }
+    @keyframes exileImpactPulse{
+      0%{ box-shadow:0 0 12px rgba(155,107,255,.5), inset 0 0 10px rgba(155,107,255,.4); }
+      35%{ box-shadow:0 0 34px rgba(200,170,255,1), inset 0 0 20px rgba(200,170,255,.9); transform:scale(1.35); }
+      100%{ box-shadow:0 0 12px rgba(155,107,255,.5), inset 0 0 10px rgba(155,107,255,.4); transform:scale(1); }
+    }
+
+    /* DÉFAUSSE — vol plus sobre et naturel vers la pile, la carte se retourne
+       légèrement de travers comme jetée sur un tas, sans effet spectaculaire
+       pour rester discret sur ce qui reste une action très fréquente. */
+    .discardGhost{
+      position:fixed; width:86px; height:124px; border:2px solid rgba(255,255,255,.35);
+      border-radius:12px; background-size:cover; background-position:center;
+      box-shadow:0 6px 16px rgba(0,0,0,.5); pointer-events:none; z-index:1400;
+      transform:translate(0,0) scale(1) rotate(0deg); opacity:.95;
+      transition: transform .45s cubic-bezier(.3,.6,.35,1), opacity .45s ease;
+    }
+
     /* Invite/prompt générique */
     .actionPrompt{
       position:fixed; z-index:1500; min-width:180px; max-width:260px;
@@ -1185,7 +1219,9 @@
     #zoom .zoomCard,
     .famMini,
     .vortexGhost,
-    .ghostClone {
+    .ghostClone,
+    .exileGhost,
+    .discardGhost {
       background-size: contain !important;   /* affiche l'image entière */
       background-position: center center;
       background-repeat: no-repeat;
@@ -5586,6 +5622,94 @@ function animateVortexTransfer(fromEl, toEl, label){
   }catch(e){ }
 }
 
+// ===================================================================
+// NOUVELLES ANIMATIONS — Exil & Défausse. Utilisent le même principe que
+// animateVortexTransfer ci-dessus (clone visuel qui vole vers sa
+// destination) SANS jamais toucher aux fonctions/animations déjà en place.
+// Point d'entrée unique par destination (addToExile / discardCard), donc
+// TOUTE carte du jeu en bénéficie automatiquement, sans exception à gérer
+// carte par carte.
+// ===================================================================
+
+/* Trouve l'élément DOM actuellement affiché pour une carte donnée, quelle
+   que soit sa zone (plateau, main, artefacts) — doit être appelé AVANT toute
+   mutation d'état, tant que le rendu précédent est encore à l'écran. */
+function findLiveCardElement(card){
+  if (!card || !card.id) return null;
+  return document.querySelector(`[data-id="${card.id}"]`);
+}
+
+/* EXIL — la carte est aspirée façon "trou noir" : elle rétrécit, se met à
+   tourbillonner et s'assombrit en fonçant vers le portail violet de l'Exil,
+   avec une traînée lumineuse qui matérialise l'absorption. */
+function animateCardToExile(card){
+  try{
+    const fromEl = findLiveCardElement(card);
+    const exileEl = document.getElementById('exileRift') || document.getElementById('exileZone');
+    if (!fromEl || !exileEl) return;
+
+    const start = centerOf(fromEl);
+    const target = centerOf(exileEl);
+
+    const ghost = document.createElement('div');
+    ghost.className = 'card exileGhost';
+    const url = getCardImage(card.label);
+    if (url) ghost.style.backgroundImage = `url(${url})`;
+    ghost.style.left = `${start.x}px`;
+    ghost.style.top = `${start.y}px`;
+    aimLayer.appendChild(ghost);
+
+    // Halo violet qui grandit brièvement autour du portail au moment de l'impact.
+    const impactPulse = () => {
+      exileEl.classList.add('exileImpact');
+      setTimeout(() => exileEl.classList.remove('exileImpact'), 500);
+    };
+
+    requestAnimationFrame(()=>{
+      const dx = target.x - start.x;
+      const dy = target.y - start.y;
+      ghost.style.transform = `translate(${dx}px, ${dy}px) scale(.08) rotate(620deg)`;
+      ghost.style.opacity = '0';
+      ghost.style.filter = 'brightness(.3) saturate(1.6) blur(1.5px)';
+    });
+    setTimeout(impactPulse, 520);
+    ghost.addEventListener('transitionend', ()=>{ ghost.remove(); }, {once:true});
+    setTimeout(()=>{ if (ghost.parentNode) ghost.remove(); }, 900); // filet de sécurité
+  }catch(e){ }
+}
+
+/* DÉFAUSSE — vol plus terre-à-terre vers la pile : la carte se retourne
+   (face cachée) et glisse jusqu'à la défausse, avec une légère rotation
+   aléatoire pour un rendu naturel, moins "spectaculaire" que l'Exil. */
+function animateCardToDiscard(card, owner){
+  try{
+    const fromEl = findLiveCardElement(card);
+    const discardEl = document.getElementById(owner === 'top' ? 'dumpTop' : 'dumpBottom');
+    if (!fromEl || !discardEl) return;
+
+    const start = centerOf(fromEl);
+    const target = centerOf(discardEl);
+
+    const ghost = document.createElement('div');
+    ghost.className = 'card discardGhost';
+    const url = getCardImage(card.label);
+    if (url) ghost.style.backgroundImage = `url(${url})`;
+    ghost.style.left = `${start.x}px`;
+    ghost.style.top = `${start.y}px`;
+    aimLayer.appendChild(ghost);
+
+    const randomTilt = (Math.random() * 50 - 25).toFixed(0);
+    requestAnimationFrame(()=>{
+      const dx = target.x - start.x;
+      const dy = target.y - start.y;
+      ghost.style.transform = `translate(${dx}px, ${dy}px) scale(.55) rotate(${randomTilt}deg)`;
+      ghost.style.opacity = '0';
+    });
+    ghost.addEventListener('transitionend', ()=>{ ghost.remove(); }, {once:true});
+    setTimeout(()=>{ if (ghost.parentNode) ghost.remove(); }, 700); // filet de sécurité
+  }catch(e){ }
+}
+
 /* --- Dégâts & bouclier --- */
 function applyDamageWithShield(card, incoming) {
   if (card.label === 'C62') { return { absorbed: incoming, hpLost: 0, hpBefore: getEffectiveHP(card) }; }
@@ -8546,6 +8670,13 @@ function checkForIdoleDeFielTrigger(exiledCard, hpBeforeExile) {
 }
 
 function addToExile(card, context = {}){
+    // Animation "absorption par le portail" — capturée ICI, avant toute
+    // mutation d'état, pendant que l'élément DOM de la carte existe encore
+    // réellement à l'écran (il ne sera retiré qu'au prochain fullRender()).
+    // Point d'entrée UNIQUE de toutes les cartes vers l'Exil : cette seule
+    // ligne couvre donc automatiquement absolument tous les cas du jeu.
+    animateCardToExile(card);
+
     // ===================================================================
     // DÉBUT DE LA LOGIQUE DE RESTITUTION GÉNÉRIQUE DU MITHRIL CAPTURÉ
     // ===================================================================
@@ -8923,6 +9054,9 @@ if (reason === 'manual') {
     addToExile(card, context);
     pushHistory('exil', `${cardAnchor(card.label)} est exilé${context.exileReason === 'C52' ? ` par l'effet de ${cardAnchor('C52')}` : ''} au lieu d'aller en défausse.`);
   } else {
+    // Capturé juste avant la mutation d'état, tant que l'élément DOM de la
+    // carte est encore affiché tel quel à l'écran.
+    animateCardToDiscard(card, owner);
     if(owner==='bottom') botDiscard.unshift(card); else topDiscard.unshift(card);
     updateDiscardUI(); refreshDiscardPanels();
     const why = (reason==='death')?'(détruite)': (reason==='zwyffer')?'(Zwyffer)':
