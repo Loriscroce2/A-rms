@@ -401,6 +401,8 @@
     .battleLabel::before{ content:'⚔'; font-size:11px; }
     .battleLabel.topRight{ top:-16px; right:14px; left:auto; text-align:right; position:absolute; }
     .battleLabel.bottomRight{ bottom:-16px; right:14px; left:auto; text-align:right; position:absolute; }
+    .zoneCount{ font-size:.82em; opacity:.65; font-weight:600; letter-spacing:.02em; }
+    .zoneCount.full{ color:#ff8a8a; opacity:1; }
 
     .deck{
       width:var(--slotSize); height:var(--slotSizeH); border:1px solid rgba(125,249,255,.55); border-radius:10px;
@@ -1883,13 +1885,13 @@ body.fusion-shake {
 </div>
       </div>
       <div class="zone" id="battleTop">
-        <div class="battleLabel topRight">ZONE DE COMBAT</div>
+        <div class="battleLabel topRight">ZONE DE COMBAT <span class="zoneCount" id="battleCountTop">(0/10)</span></div>
         <div class="battleInner">
           <div class="drop" id="dropTopLeft"></div>
           <div class="drop" id="dropTopRight"></div>
         </div>
         <div class="artifactZone top" id="artifactZoneTop">
-          <div class="artifactLabel topRight">ARTEFACTS</div>
+          <div class="artifactLabel topRight">ARTEFACTS <span class="zoneCount" id="artifactCountTop">(0/10)</span></div>
           <div class="artifactInner">
             <div class="aDrop" id="aDropTopLeft"></div>
             <div class="aDrop" id="aDropTopRight"></div>
@@ -1924,13 +1926,13 @@ body.fusion-shake {
   </div>
 </div>
       <div class="zone" id="battleBottom">
-        <div class="battleLabel bottomRight">ZONE DE COMBAT</div>
+        <div class="battleLabel bottomRight">ZONE DE COMBAT <span class="zoneCount" id="battleCountBottom">(0/10)</span></div>
         <div class="battleInner">
           <div class="drop" id="dropBottomLeft"></div>
           <div class="drop" id="dropBottomRight"></div>
         </div>
         <div class="artifactZone bottom" id="artifactZoneBottom">
-          <div class="artifactLabel bottomRight">ARTEFACTS</div>
+          <div class="artifactLabel bottomRight">ARTEFACTS <span class="zoneCount" id="artifactCountBottom">(0/10)</span></div>
           <div class="artifactInner">
             <div class="aDrop" id="aDropBottomLeft"></div>
             <div class="aDrop" id="aDropBottomRight"></div>
@@ -3564,7 +3566,7 @@ function playActionC21(owner, actionCard) {
 
   if (arms[owner] > 0) {
     arms[owner]--;
-    mithril[owner] += 5;
+    for (let i = 0; i < 5; i++) addMithril(owner);
     pushHistory('info', `${playerLabel} perd 1 A'rms et gagne 5 Mithril.`);
   } else {
     pushHistory('info', `${playerLabel} n'a pas d'A'rms à perdre.`);
@@ -3572,7 +3574,7 @@ function playActionC21(owner, actionCard) {
 
   if (arms[opp] > 0) {
     arms[opp]--;
-    mithril[opp] += 5;
+    for (let i = 0; i < 5; i++) addMithril(opp);
     pushHistory('info', `${oppLabel} perd 1 A'rms et gagne 5 Mithril.`);
   } else {
     pushHistory('info', `${oppLabel} n'a pas d'A'rms à perdre.`);
@@ -4013,7 +4015,7 @@ function playActionTributPoupesque(owner, actionCard){
   let stolen = 0;
   if (mithril[opp] > 0) {
     mithril[opp]--;
-    mithril[owner]++;
+    addMithril(owner); // respecte Malocux (C68) s'il est en jeu chez l'adversaire
     stolen = 1;
   }
 
@@ -8111,9 +8113,8 @@ if (card.label === 'C166') {
             
             // Gagner du Mithril
             const mithrilGained = poisonTargets.length;
-            mithril[owner] += mithrilGained;
+            for (let i = 0; i < mithrilGained; i++) addMithril(owner);
             pushHistory('mithril', `${owner === 'bottom' ? 'J1' : 'J2'} gagne ${mithrilGained} Mithril grâce à l'effet de ${cardAnchor('C170')}.`);
-            updateMithril();
 
         } else {
             pushHistory('info', `${cardAnchor('C170')} entre en jeu, mais aucun combattant avec POISON n'est sur le plateau.`);
@@ -8266,6 +8267,10 @@ playerLine.push(reanimatedCard);
   );
 }
 
+// Limites de zone : au maximum 10 combattants ET 10 artefacts par joueur.
+const MAX_COMBATANTS_PER_ZONE = 10;
+const MAX_ARTIFACTS_PER_ZONE = 10;
+
 function setupDrops(dropLeft, dropRight, lineArray, who){
   [dropLeft, dropRight].forEach(drop=>{
     drop.addEventListener('dragover', e=>{
@@ -8278,6 +8283,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
         flashDenied(drop);
         return;
       }
+      if (lineArray.length >= MAX_COMBATANTS_PER_ZONE) { flashDenied(drop); return; }
       if (!canPlayThisCardNow(who, card)) return;
       e.preventDefault();
       drop.classList.add('highlight');
@@ -8294,6 +8300,13 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
 
       const peek = findCardInSource(fromId, currentDragInfo.id);
       if (!peek) return;
+
+      // Limite de zone : 10 combattants maximum par joueur.
+      if (lineArray.length >= MAX_COMBATANTS_PER_ZONE) {
+        flashDenied(drop);
+        pushHistory('info', `Zone de combat pleine (${MAX_COMBATANTS_PER_ZONE} combattants maximum) : impossible de poser ${cardAnchor(peek.card.label)}.`);
+        return;
+      }
 
       if (!canPlayThisCardNow(who, peek.card)) { flashDenied(drop); return; }
 
@@ -8342,7 +8355,8 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       if (card.label === 'C109') {
         const playerLabel = (who === 'bottom') ? 'J1' : 'J2';
 
-        mithril[who] += 2;
+        addMithril(who);
+        addMithril(who);
         pushHistory('mithril', `${playerLabel} gagne 2 Mithril grâce à ${cardAnchor('C109')}.`);
 
         const allCombatants = topLine.concat(botLine);
@@ -8350,8 +8364,13 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
 
         if (diplomatsOnBoard.length > 1) {
           const opp = (who === 'top') ? 'bottom' : 'top';
-          mithril[who] *= 2;
-          mithril[opp] *= 2;
+          // "Doubler" le Mithril de chacun revient à lui ajouter un montant
+          // égal à ce qu'il possède déjà — en passant par addMithril() pour
+          // que Malocux (C68), si présent en face, capture bien ce gain.
+          const whoBefore = mithril[who];
+          const oppBefore = mithril[opp];
+          for (let i = 0; i < whoBefore; i++) addMithril(who);
+          for (let i = 0; i < oppBefore; i++) addMithril(opp);
           pushHistory('info', `Un autre diplomate est en jeu ! Le Mithril des deux joueurs est doublé.`);
         }
 
@@ -8382,9 +8401,8 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
           topLine.length = 0; topLine.push(...newTop);
           botLine.length = 0; botLine.push(...newBot);
 
-          mithril[who] += totalDestroyed;
+          for (let i = 0; i < totalDestroyed; i++) addMithril(who);
           pushHistory('mithril', `${playerLabel} gagne ${totalDestroyed} Mithril pour les Esprits détruits.`);
-          updateMithril();
 
         } else {
           pushHistory('info', `Aucun combattant Esprit n'est présent sur le terrain.`);
@@ -8445,6 +8463,7 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
       if (!currentDragInfo) return;
       if (!(currentDragInfo.fromId === 'handTop' || currentDragInfo.fromId === 'handBottom')) return;
       if (getType(currentDragInfo.label) !== 'artefact') return;
+      if (arr.length >= MAX_ARTIFACTS_PER_ZONE) { flashDenied(drop); return; }
       if (!canPlayThisCardNow(who, currentDragInfo.card)) return;
       e.preventDefault();
       drop.classList.add('highlight');
@@ -8462,6 +8481,14 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
       if (!peek) return;
       if (!(fromId === 'handTop' || fromId === 'handBottom')) return;
       if (getType(peek.card.label) !== 'artefact') return;
+
+      // Limite de zone : 10 artefacts maximum par joueur — vérifié AVANT de
+      // retirer la carte de la main, pour ne jamais la faire disparaître.
+      if (arr.length >= MAX_ARTIFACTS_PER_ZONE) {
+        flashDenied(drop);
+        pushHistory('info', `Zone d'Artefacts pleine (${MAX_ARTIFACTS_PER_ZONE} artefacts maximum) : impossible de poser ${cardAnchor(peek.card.label)}.`);
+        return;
+      }
 
       consumeAllowanceIfNeeded(who, peek.card);
       const card = takeCardFromSource(fromId, currentDragInfo.id);
@@ -8526,10 +8553,9 @@ function addToExile(card, context = {}){
         const owner = ownerOfCardOnBoard(card) || card.playOwner;
         if (owner) {
             const opp = (owner === 'top') ? 'bottom' : 'top';
-            mithril[opp] += card.capturedMithril;
+            for (let i = 0; i < card.capturedMithril; i++) addMithril(opp);
             pushHistory('info', `${cardAnchor(card.label)} quitte le jeu et restitue ${card.capturedMithril} Mithril à ${opp === 'bottom' ? 'J1' : 'J2'}.`);
             card.capturedMithril = 0;
-            updateMithril();
         }
     }
     // ===================================================================
@@ -8776,10 +8802,9 @@ function discardCard(card, owner, reason='other', context = {}){
   // Cette logique s'applique à Malocux (C68) ET à toute carte avec du Mithril via Scaracy (C163)
   if (typeof card.capturedMithril === 'number' && card.capturedMithril > 0) {
     const opp = (owner === 'top') ? 'bottom' : 'top';
-    mithril[opp] += card.capturedMithril;
+    for (let i = 0; i < card.capturedMithril; i++) addMithril(opp);
     pushHistory('info', `${cardAnchor(card.label)} quitte le jeu et restitue ${card.capturedMithril} Mithril à ${opp==='bottom'?'J1':'J2'}.`);
     card.capturedMithril = 0; // On réinitialise le compteur
-    updateMithril();
   }
 
 // ===================================================================
@@ -9057,6 +9082,24 @@ function clearEligibleZones(){
   document.querySelectorAll('.eligible').forEach(el => el.classList.remove('eligible'));
 }
 
+// Affiche discrètement, à côté de chaque libellé de zone, le nombre de
+// cartes actuellement posées sur les 10 maximum autorisées — passe en rouge
+// une fois la limite atteinte, pour bien montrer pourquoi un dépôt échoue.
+function updateZoneCounts(){
+  const pairs = [
+    ['battleCountTop', topLine.length, MAX_COMBATANTS_PER_ZONE],
+    ['battleCountBottom', botLine.length, MAX_COMBATANTS_PER_ZONE],
+    ['artifactCountTop', topArts.length, MAX_ARTIFACTS_PER_ZONE],
+    ['artifactCountBottom', botArts.length, MAX_ARTIFACTS_PER_ZONE],
+  ];
+  pairs.forEach(([id, count, max]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = `(${count}/${max})`;
+    el.classList.toggle('full', count >= max);
+  });
+}
+
 function fullRender(){
   // WADOO 4e lot : Blusyte (C226) — recalculé AVANT le rendu, à chaque appel
   // (donc après quasiment toute action du jeu), pour que son bonus de
@@ -9068,6 +9111,7 @@ function fullRender(){
   renderLine(document.querySelector('#battleBottom .battleInner'), botLine, 'bottom');
   renderArtifacts(document.getElementById('artifactZoneTop'), topArts, 'top');
   renderArtifacts(document.getElementById('artifactZoneBottom'), botArts, 'bottom');
+  updateZoneCounts();
   updateDeckCounters();
   updateDiscardUI();
   updateExileUI();
@@ -10013,8 +10057,11 @@ function upkeepCharactersFor(player) {
       
       // On vérifie si la main de l'adversaire a 7 cartes ou plus
       if (oppHand.length >= 7) {
-        mithril[player] += 2;
-        updateMithril(); // On met à jour l'affichage du Mithril
+        // On passe par addMithril() (et non une mutation directe) pour que
+        // Malocux (C68), s'il est en jeu chez l'adversaire, capture bien ce
+        // Mithril au lieu de nous le laisser gagner.
+        addMithril(player);
+        addMithril(player);
         pushHistory('mithril', `${cardAnchor('C158')} vous fait gagner 2 Mithril (main adverse >= 7 cartes).`);
       }
     }
