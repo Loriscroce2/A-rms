@@ -2357,6 +2357,14 @@ const CARD_IMAGES = {
  'C226': '../cartes/0226.png',
  'C227': '../cartes/0227.png',
  'C228': '../cartes/0228.png',
+
+ /* === FACTION WADOO — 5e lot === */
+ 'C229': '../cartes/0229.png',
+ 'C230': '../cartes/0230.png',
+ 'C231': '../cartes/0231.png',
+ 'C232': '../cartes/0232.png',
+ 'C233': '../cartes/0233.png',
+ 'C234': '../cartes/0234.png',
  'T05': '../cartes/T05.png',
  'T06': '../cartes/T06.png',
  'T07': '../cartes/T07.png',
@@ -2457,6 +2465,14 @@ const CARD_TYPES  = {
  'C226': 'familier',   // Blusyte
  'C227': 'artefact',   // Paraction
  'C228': 'action',     // Sororité
+
+ /* === FACTION WADOO — 5e lot === */
+ 'C229': 'personnage', // Glaraneith
+ 'C230': 'personnage', // Mburno
+ 'C231': 'personnage', // Doolia
+ 'C232': 'personnage', // Rking
+ 'C233': 'action',     // Tribut Poupesque
+ 'C234': 'personnage', // Wagneto
  'T05': 'personnage',  // Cousu
  'T06': 'personnage',  // Cousu
  'T07': 'personnage',  // Cousu
@@ -2556,6 +2572,14 @@ const CARD_NAMES = {
  'C226': 'Blusyte',
  'C227': 'Paraction',
  'C228': 'Sororité',
+
+ /* === FACTION WADOO — 5e lot === */
+ 'C229': 'Glaraneith',
+ 'C230': 'Mburno',
+ 'C231': 'Doolia',
+ 'C232': 'Rking',
+ 'C233': 'Tribut Poupesque',
+ 'C234': 'Wagneto',
  'T05': 'Cousu',
  'T06': 'Cousu',
  'T07': 'Cousu',
@@ -2623,6 +2647,13 @@ const CARD_HP_BASE = {
   'T05': 1,
   'T06': 1,
   'T07': 1,
+
+  /* WADOO — 5e lot */
+  'C229': 4,
+  'C230': 4,
+  'C231': 5,
+  'C232': 3,
+  'C234': 3,
 };
 
 const CARD_SHIELD_BASE = {
@@ -2664,6 +2695,10 @@ const CARD_SHIELD_BASE = {
 
   /* WADOO — 4e lot */
   'C225': 2,
+
+  /* WADOO — 5e lot */
+  'C229': 1,
+  'C234': 3,
 };
 
 /* Tags */
@@ -2766,6 +2801,14 @@ const CARD_TAGS = {
  'C226': ['familier', 'Wadoo'],           // Blusyte
  'C227': ['artefact', 'Wadoo'],           // Paraction
  'C228': ['action', 'Wadoo'],             // Sororité
+
+ /* === FACTION WADOO — 5e lot === */
+ 'C229': ['citoyen', 'Wadoo'],   // Glaraneith
+ 'C230': ['guerrier', 'Wadoo'],  // Mburno
+ 'C231': ['citoyen', 'Wadoo'],   // Doolia
+ 'C232': ['guerrier', 'Wadoo'],  // Rking
+ 'C233': ['action', 'Wadoo'],    // Tribut Poupesque
+ 'C234': ['guerrier', 'Wadoo'],  // Wagneto
  'T05': ['citoyen', 'Wadoo', 'token'],    // Cousu
  'T06': ['citoyen', 'Wadoo', 'token'],    // Cousu
  'T07': ['citoyen', 'Wadoo', 'token'],    // Cousu
@@ -3142,6 +3185,7 @@ let pendingFreePlay = { owner: null, cardId: null };
 let venusylvaDestroyMode = { active: false, venusylvaId: null };
 let c112TargetMode = null;
 let c114TargetMode = null;
+let c231TargetMode = null; // WADOO 5e lot : Doolia (C231) — capacité "renvoyer un ennemi en main"
 let wadooLinkMode = null; // WADOO : mode de ciblage pour lier une Poupée à un ennemi
 let dollyHealMode = null;
 let warzazathEffect = { top: false, bottom: false };
@@ -3952,6 +3996,95 @@ function playActionSororite(owner, actionCard){
   fullRender();
 }
 
+// WADOO 5e lot : Tribut Poupesque (C233) — vole 1 Mithril à l'adversaire,
+// PUIS détruit (sans les gagner) autant de Mithril adverse que de Poupées
+// dans votre propre zone de combat.
+function playActionTributPoupesque(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+
+  const hand = (owner === 'top') ? topHand : botHand;
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+
+  let stolen = 0;
+  if (mithril[opp] > 0) {
+    mithril[opp]--;
+    mithril[owner]++;
+    stolen = 1;
+  }
+
+  const dollCount = getLineByOwner(owner).filter(c => hasTag(c, 'poupée')).length;
+  const destroyed = Math.min(dollCount, mithril[opp]);
+  if (destroyed > 0) mithril[opp] -= destroyed;
+
+  updateMithril();
+  pushHistory('action',
+    `${cardAnchor('C233')} vole ${stolen} Mithril à l'adversaire` +
+    (destroyed > 0 ? ` et lui en détruit ${destroyed} de plus (${dollCount} Poupée${dollCount>1?'s':''} en zone de combat).` : `.`)
+  );
+  fullRender();
+}
+
+// WADOO 5e lot : Wagneto (C234) — renvoie un artefact d'UNE défausse (la
+// vôtre ou celle de l'adversaire) dans votre propre zone d'Artefacts.
+function playActionWagneto(owner, actionCard, anchorEl){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+
+  const ownDiscard = (owner === 'top') ? topDiscard : botDiscard;
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppDiscard = (opp === 'top') ? topDiscard : botDiscard;
+
+  const candidates = [];
+  ownDiscard.forEach((c) => { if (getType(c.label) === 'artefact') candidates.push({ card:c, pileRef: ownDiscard }); });
+  oppDiscard.forEach((c) => { if (getType(c.label) === 'artefact') candidates.push({ card:c, pileRef: oppDiscard }); });
+
+  if (candidates.length === 0) {
+    pushHistory('info', `${cardAnchor('C234')} ne trouve aucun artefact dans une défausse.`);
+    return;
+  }
+
+  const buttons = candidates.map(entry => ({
+    label: cardName(entry.card.label),
+    className: 'confirm',
+    onClick: () => resolveWagnetoChoice(owner, actionCard, entry)
+  }));
+  buttons.push({ label: 'Annuler', className: 'cancel', onClick: () => closeActionPrompt() });
+
+  openButtonsPrompt(
+    'Wagneto',
+    'Choisissez un artefact à récupérer depuis une défausse vers votre zone d\'Artefacts.',
+    anchorEl,
+    buttons
+  );
+}
+
+function resolveWagnetoChoice(owner, actionCard, entry){
+  closeActionPrompt();
+
+  const hand = (owner === 'top') ? topHand : botHand;
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const sourcePile = entry.pileRef;
+  const realIdx = sourcePile.findIndex(c => c.id === entry.card.id);
+  if (realIdx === -1) { fullRender(); return; }
+
+  const [recovered] = sourcePile.splice(realIdx, 1);
+  recovered.hp = getBaseHP(recovered.label);
+  recovered.shield = getBaseShield(recovered.label);
+  const ownArts = (owner === 'top') ? topArts : botArts;
+  ownArts.push(recovered);
+
+  pushHistory('action', `${cardAnchor('C234')} récupère ${cardAnchor(recovered.label)} depuis une défausse !`);
+  updateDiscardUI();
+  fullRender();
+}
+
 function updateForgeTaxUI() {
   ['top', 'bottom'].forEach(player => {
     // On nettoie les anciens effets "temporaires" (Éventail, Anomaly) pour recalculer
@@ -4561,6 +4694,69 @@ function endC114TargetingCleanup() {
   fullRender();
 }
 
+// === WADOO 5e lot : Doolia (C231) — Capacité (remplace Miner) : renvoie un
+// combattant ennemi dans la main de son propriétaire. ===
+function startC231Targeting(owner, card) {
+  c231TargetMode = { owner, cardId: card.id };
+  markAttacked(owner, card); // L'utilisation de la capacité compte comme son action
+  closeActionPrompt();
+
+  const promptEl = document.createElement('div');
+  promptEl.id = 'c231-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '2000';
+  promptEl.innerHTML = `
+    <div class="apTitle">Capacité : Doolia</div>
+    <div class="apMsg">Choisissez un combattant ennemi à renvoyer dans sa main.</div>
+    <div class="apRow">
+      <button id="c231-cancel" class="apBtn cancel">Annuler</button>
+    </div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+
+  promptEl.querySelector('#c231-cancel').addEventListener('click', () => {
+    exhausted[owner].delete(card.id); // "Rembourse" l'action si annulée
+    endC231TargetingCleanup();
+    pushHistory('info', 'L\'action de Doolia a été annulée.');
+  });
+
+  fullRender();
+}
+
+function handleC231TargetSelection(targetCard, targetOwner) {
+  if (!c231TargetMode || getType(targetCard.label) !== 'personnage') return;
+  if (targetOwner === c231TargetMode.owner) return; // uniquement un ennemi
+
+  const line = getLineByOwner(targetOwner);
+  const idx = line.findIndex(c => c.id === targetCard.id);
+  if (idx === -1) { endC231TargetingCleanup(); return; }
+
+  line.splice(idx, 1);
+  detachFamiliarsOnHost(targetCard, targetOwner);
+  cleanupPrismisLinksOnCardRemoval(targetCard);
+  cleanupWadooLinksOnCardRemoval(targetCard);
+
+  // Remise en main : PV/Bouclier reviennent à leur valeur de base, comme
+  // pour toute carte qui quitte le champ de bataille.
+  if (typeof targetCard.hp === 'number') targetCard.hp = getBaseHP(targetCard.label);
+  targetCard.shield = getBaseShield(targetCard.label);
+  const targetHand = getHandByOwner(targetOwner);
+  targetHand.push(targetCard);
+
+  pushHistory('action', `${cardAnchor('C231')} renvoie ${cardAnchor(targetCard.label)} dans la main de son propriétaire.`);
+  endC231TargetingCleanup();
+}
+
+function endC231TargetingCleanup() {
+  c231TargetMode = null;
+  closeActionPrompt();
+  fullRender();
+}
+
 // === WADOO : rituel de liaison (Petit Fétiche C202, Doudou Épineux C203) ===
 function startWadooLinkTargeting(owner, dollCard) {
   wadooLinkMode = { owner, dollId: dollCard.id };
@@ -5040,6 +5236,11 @@ function openMiningPrompt(owner, card, fromEl){
       title = 'Anamars';
       const canUseAbility = topLine.concat(botLine).some(c => getType(c.label) === 'personnage');
       buttons.push(mineButton, { label:'Action (Infliger -3PV)', className:'confirm' + (canUseAbility ? '' : ' disabled'), disabled:!canUseAbility, onClick:()=>{ if(canUseAbility) startC114Targeting(owner, card); } });
+    } else if (card.label === 'C231') {
+      title = 'Doolia';
+      const opp = (owner === 'top') ? 'bottom' : 'top';
+      const canUseAbility = getLineByOwner(opp).some(c => getType(c.label) === 'personnage');
+      buttons.push(mineButton, { label:'Capacité (Renvoyer un ennemi en main)', className:'confirm' + (canUseAbility ? '' : ' disabled'), disabled:!canUseAbility, onClick:()=>{ if(canUseAbility) startC231Targeting(owner, card); } });
     } else if (card.label === 'C120') {
         title = 'Salomon II';
         buttons.push(mineButton, { label: 'Capacité (Jouer Chimeria)', className: 'confirm', onClick: () => { useSalomonIIAbility(owner, card); } });
@@ -6104,7 +6305,7 @@ let remoteChoiceMode = null; // { requestId, kind, picks? }
 function isAnyTargetSelectionActive(){
   return !!(
     (venusylvaDestroyMode && venusylvaDestroyMode.active) ||
-    c112TargetMode || c114TargetMode || wadooLinkMode || dollyHealMode ||
+    c112TargetMode || c114TargetMode || c231TargetMode || wadooLinkMode || dollyHealMode ||
     prismisTargetMode || liensSelectionMode || freedaTargetMode || miroirTargetMode ||
     hitAndRunMode || peinturlurerMode || explorationMode || chargeboxTargetMode ||
     c59DestroyMode || c51SelectMode || c58HealingMode ||
@@ -6720,6 +6921,12 @@ function resolveFight(from, to){
   const isTargetFrozen = isFrozen(to.card);
   const atkB = isTargetFrozen ? 0 : getATK(to.card);
 
+  // WADOO 5e lot : Rking (C232) — ne perd jamais de PV en combat (ni en
+  // attaquant, ni en ripostant). On neutralise les dégâts REÇUS uniquement —
+  // ses propres dégâts infligés restent normaux.
+  const dmgToDefender = (to.card.label === 'C232') ? 0 : atkA;
+  const dmgToAttacker = (from.card.label === 'C232') ? 0 : atkB;
+
   // Snapshot "avant" pour l'animation Versus (avant toute mutation de PV/bouclier)
   const cvBefore = {
     attackerLabel: from.card.label,
@@ -6729,8 +6936,8 @@ function resolveFight(from, to){
     isTargetFrozen,
   };
 
-  const resTo   = applyDamageWithShield(to.card,   atkA);
-  const resFrom = applyDamageWithShield(from.card, atkB);
+  const resTo   = applyDamageWithShield(to.card,   dmgToDefender);
+  const resFrom = applyDamageWithShield(from.card, dmgToAttacker);
 
   if(resTo.hpLost > 0) {
     onHPDamaged(to.owner, to.card, resTo.hpLost, 'combat');
@@ -6738,12 +6945,20 @@ function resolveFight(from, to){
       to.card.hp = 0;
       pushHistory('pv', `${cardAnchor(to.card.label)} est anéanti par le <strong>POISON</strong> !`);
     }
+    // WADOO 5e lot : Glaraneith (C229) — gèle toute cible à qui elle inflige des dégâts.
+    if (from.card.label === 'C229') {
+      applyFreezeToCard(to.card);
+    }
   }
   if(resFrom.hpLost > 0) {
     onHPDamaged(from.owner, from.card, resFrom.hpLost, 'riposte');
     if (hasTag(to.card, 'poison')) {
       from.card.hp = 0;
       pushHistory('pv', `${cardAnchor(from.card.label)} est anéanti par le <strong>POISON</strong> !`);
+    }
+    // WADOO 5e lot : Glaraneith (C229) — gèle aussi en ripostant.
+    if (to.card.label === 'C229') {
+      applyFreezeToCard(from.card);
     }
   }
 
@@ -7061,6 +7276,8 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C210') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC210Prompt(owner, card, el)); }); }
             if (card.label === 'C219') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => openC219Prompt(owner, card, el)); }); }
             if (card.label === 'C228') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionSororite(owner, card, el)); }); }
+            if (card.label === 'C233') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionTributPoupesque(owner, card)); }); }
+            if (card.label === 'C234') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card.label, () => playActionWagneto(owner, card, el)); }); }
         }
 
         rowEl.appendChild(el);
@@ -7501,6 +7718,7 @@ if (hitAndRunMode) {
     if (prismisTargetMode) { handlePrismisTargetSelection(card); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
+    if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
     if (wadooLinkMode) { handleWadooLinkTargetSelection(card, owner); return; }
     if (c51SelectMode && c51SelectMode.owner !== owner) { handleC51TargetSelection(card); return; }
     if (c58HealingMode) { handleC58HealingSelection(card); return; }
@@ -7953,6 +8171,19 @@ if (card.label === 'C166') {
                     discardCard(t, tOwner, 'death');
                 }
             });
+        }
+    }
+
+    // === WADOO 5e lot : Mburno (C230) — JOUER : annule le gel de tous les
+    // combattants ALLIÉS (les siens uniquement, pas ceux de l'adversaire).
+    if (card.label === 'C230') {
+        const ownLine = getLineByOwner(owner);
+        const frozenAllies = ownLine.filter(c => c.id !== card.id && isFrozen(c) && c.isFrozenByEffect);
+        if (frozenAllies.length === 0) {
+            pushHistory('info', `${cardAnchor('C230')} entre en jeu, mais aucun allié n'était gelé.`);
+        } else {
+            frozenAllies.forEach(c => { c.isFrozenByEffect = false; });
+            pushHistory('action', `${cardAnchor('C230')} dégèle ${frozenAllies.length} combattant${frozenAllies.length>1?'s':''} allié${frozenAllies.length>1?'s':''} !`);
         }
     }
 

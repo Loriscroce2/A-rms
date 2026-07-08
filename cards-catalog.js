@@ -14,6 +14,7 @@ const IMPLEMENTED_CODES = [
   215,216,217,218,219,220,                                        // Wadoo (2e lot)
   221,222,223,224,                                                 // Wadoo (3e lot)
   225,226,227,228,                                                 // Wadoo (4e lot)
+  229,230,231,232,233,234,                                         // Wadoo (5e lot)
 ];
 
 function pad4(n) { return String(n).padStart(4, '0'); }

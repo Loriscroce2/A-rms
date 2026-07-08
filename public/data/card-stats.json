@@ -558,5 +558,35 @@
     "type": "action",
     "hp": 0,
     "shield": 0
+  },
+  "0229": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 1
+  },
+  "0230": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 0
+  },
+  "0231": {
+    "type": "personnage",
+    "hp": 5,
+    "shield": 0
+  },
+  "0232": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 0
+  },
+  "0233": {
+    "type": "action",
+    "hp": 0,
+    "shield": 0
+  },
+  "0234": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 3
   }
 }
