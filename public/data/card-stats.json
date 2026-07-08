@@ -588,5 +588,15 @@
     "type": "personnage",
     "hp": 3,
     "shield": 3
+  },
+  "0235": {
+    "type": "familier",
+    "hp": 0,
+    "shield": 0
+  },
+  "0236": {
+    "type": "action",
+    "hp": 0,
+    "shield": 0
   }
 }

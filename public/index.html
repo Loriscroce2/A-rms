@@ -882,6 +882,27 @@
       transition: transform .45s cubic-bezier(.3,.6,.35,1), opacity .45s ease;
     }
 
+    /* WADOO 6e lot : Fusionner les tous (C236) — chaque carte adverse est
+       aspirée façon vortex monstrueux (teinte pourpre/violette, saturée)
+       vers le centre de la zone, où une onde de choc marque l'apparition
+       d'Ignominie. */
+    .fusionGhost{
+      position:fixed; width:86px; height:124px; border:2px solid rgba(180,40,220,.85);
+      border-radius:12px; background-size:cover; background-position:center;
+      box-shadow:0 0 22px rgba(180,40,220,.65), inset 0 0 10px rgba(180,40,220,.5);
+      pointer-events:none; z-index:1450;
+      transform:translate(0,0) scale(1) rotate(0deg); opacity:1;
+      transition: transform .85s cubic-bezier(.6,0,.85,.35), opacity .85s cubic-bezier(.6,0,.85,.35), filter .85s ease;
+      filter:saturate(1.8) hue-rotate(270deg) brightness(.55) blur(1px);
+    }
+    .fusionFlash{
+      position:fixed; width:14px; height:14px; margin-left:-7px; margin-top:-7px;
+      border-radius:50%; background:radial-gradient(circle, #fff 0%, #c86bff 45%, transparent 72%);
+      pointer-events:none; z-index:1460; opacity:.95; transform:scale(1);
+      transition: transform .65s cubic-bezier(.15,.85,.3,1), opacity .65s ease;
+    }
+    .fusionFlash.go{ transform:scale(34); opacity:0; }
+
     /* Invite/prompt générique */
     .actionPrompt{
       position:fixed; z-index:1500; min-width:180px; max-width:260px;
@@ -955,6 +976,15 @@
       white-space:nowrap;
     }
     #zoom .provocateurBadge{ font-size:13px; padding:4px 12px 4px 9px; top:18px; }
+    /* Poupée (Scapoo, C235) : même bandeau, couleur violette distincte, et
+       décalé plus bas pour ne jamais chevaucher un badge Provocateur si les
+       deux s'appliquent en même temps à la même carte. */
+    .provocateurBadge.poupeeBadge{
+      top:26px;
+      background:linear-gradient(90deg, rgba(155,107,255,.92), rgba(155,107,255,.55));
+      box-shadow:0 0 10px rgba(155,107,255,.6);
+    }
+    #zoom .provocateurBadge.poupeeBadge{ top:44px; }
 
     .chargePip.compact {
       width: 22px; height: 22px; font-size: 11px; font-weight: 900;
@@ -1221,7 +1251,8 @@
     .vortexGhost,
     .ghostClone,
     .exileGhost,
-    .discardGhost {
+    .discardGhost,
+    .fusionGhost {
       background-size: contain !important;   /* affiche l'image entière */
       background-position: center center;
       background-repeat: no-repeat;
@@ -2403,6 +2434,11 @@ const CARD_IMAGES = {
  'C232': '../cartes/0232.png',
  'C233': '../cartes/0233.png',
  'C234': '../cartes/0234.png',
+
+ /* === FACTION WADOO — 6e lot === */
+ 'C235': '../cartes/0235.png',
+ 'C236': '../cartes/0236.png',
+ 'T08': '../cartes/T08.png',
  'T05': '../cartes/T05.png',
  'T06': '../cartes/T06.png',
  'T07': '../cartes/T07.png',
@@ -2511,6 +2547,11 @@ const CARD_TYPES  = {
  'C232': 'personnage', // Rking
  'C233': 'action',     // Tribut Poupesque
  'C234': 'personnage', // Wagneto
+
+ /* === FACTION WADOO — 6e lot === */
+ 'C235': 'familier',   // Scapoo
+ 'C236': 'action',     // Fusionner les tous
+ 'T08': 'personnage',  // Ignominie
  'T05': 'personnage',  // Cousu
  'T06': 'personnage',  // Cousu
  'T07': 'personnage',  // Cousu
@@ -2618,6 +2659,11 @@ const CARD_NAMES = {
  'C232': 'Rking',
  'C233': 'Tribut Poupesque',
  'C234': 'Wagneto',
+
+ /* === FACTION WADOO — 6e lot === */
+ 'C235': 'Scapoo',
+ 'C236': 'Fusionner les tous',
+ 'T08': 'Ignominie',
  'T05': 'Cousu',
  'T06': 'Cousu',
  'T07': 'Cousu',
@@ -2692,6 +2738,9 @@ const CARD_HP_BASE = {
   'C231': 5,
   'C232': 3,
   'C234': 3,
+
+  /* WADOO — 6e lot */
+  'T08': 15,
 };
 
 const CARD_SHIELD_BASE = {
@@ -2847,6 +2896,14 @@ const CARD_TAGS = {
  'C232': ['guerrier', 'Wadoo'],  // Rking
  'C233': ['action', 'Wadoo'],    // Tribut Poupesque
  'C234': ['guerrier', 'Wadoo'],  // Wagneto
+
+ /* === FACTION WADOO — 6e lot === */
+ 'C235': ['familier', 'Wadoo'],  // Scapoo
+ 'C236': ['action', 'Wadoo'],    // Fusionner les tous
+ // T08 "Ignominie" : Guerrier NEUTRE — appartient aux 5 factions à la fois
+ // (toute vérification de faction, quelle qu'elle soit, la considère comme
+ // valide), conformément à "de toutes les factions" imprimé sur la carte.
+ 'T08': ['guerrier', 'Krylls', 'Impy', 'Savage', 'Chimeria', 'Wadoo'],
  'T05': ['citoyen', 'Wadoo', 'token'],    // Cousu
  'T06': ['citoyen', 'Wadoo', 'token'],    // Cousu
  'T07': ['citoyen', 'Wadoo', 'token'],    // Cousu
@@ -2912,6 +2969,12 @@ function getEffectiveTags(cardOrLabel) {
         const isPoisonedByFamiliar = getFamiliersOnHost(cardOrLabel).some(f => f.label === 'C64' && !isFamiliarEffectSuppressed(cardOrLabel, 'C64'));
         if (isPoisonedByFamiliar) {
             baseTags.add('poison');
+        }
+        // WADOO 6e lot : Scapoo (C235) — tout combattant qui le porte est
+        // considéré comme une Poupée (compte pour Tribut Poupesque, etc.)
+        const hasScapoo = getFamiliersOnHost(cardOrLabel).some(f => f.label === 'C235' && !isFamiliarEffectSuppressed(cardOrLabel, 'C235'));
+        if (hasScapoo) {
+            baseTags.add('poupée');
         }
     }
 
@@ -3044,6 +3107,19 @@ function attachProvocateurBadge(el, card){
   badge.className = 'provocateurBadge';
   badge.title = 'PROVOCATEUR : les combattants voisins ne peuvent pas être attaqués directement.';
   badge.textContent = '⚑ PROVOCATEUR';
+  el.appendChild(badge);
+}
+
+// WADOO 6e lot : Scapoo (C235) — même bandeau visuel que Provocateur, mais
+// pour signaler qu'un combattant est considéré comme une Poupée.
+function attachPoupeeBadge(el, card){
+  const old = el.querySelector('.poupeeBadge'); if (old) old.remove();
+  if (!card || getType(card.label) !== 'personnage') return;
+  if (!hasTag(card, 'poupée')) return;
+  const badge = document.createElement('div');
+  badge.className = 'provocateurBadge poupeeBadge';
+  badge.title = 'POUPÉE : compte comme une Poupée pour les effets qui en dépendent (ex. Tribut Poupesque).';
+  badge.textContent = '🎎 POUPÉE';
   el.appendChild(badge);
 }
 
@@ -4121,6 +4197,98 @@ function resolveWagnetoChoice(owner, actionCard, entry){
   pushHistory('action', `${cardAnchor('C234')} récupère ${cardAnchor(recovered.label)} depuis une défausse !`);
   updateDiscardUI();
   fullRender();
+}
+
+// WADOO 6e lot : Fusionner les tous (C236) — TOUS les combattants adverses
+// fusionnent en une seule carte "Ignominie" (T08, 15PV, neutre = toutes
+// factions à la fois). Les cartes fusionnées disparaissent LITTÉRALEMENT du
+// jeu (ni exil, ni défausse) : pas de déclenchement de MORT, pas de
+// restitution de Mithril capturé, aucune trace.
+function playActionFusionnerLesTous(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+
+  if (oppLine.length === 0) {
+    pushHistory('info', `${cardAnchor('C236')} ne trouve aucun combattant adverse à fusionner.`);
+    return;
+  }
+
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  // Capture des éléments DOM AVANT toute suppression, pour l'animation.
+  const mergedEls = oppLine.map(c => findLiveCardElement(c)).filter(Boolean);
+  const mergedLabels = oppLine.map(c => c.label);
+
+  // Retrait complet et littéral des cartes fusionnées : nettoyage des
+  // références (familiers, liens) mais SANS passer par discardCard ni
+  // addToExile — elles ne meurent pas, elles cessent simplement d'exister.
+  oppLine.forEach(c => {
+    detachFamiliarsOnHost(c, opp);
+    cleanupPrismisLinksOnCardRemoval(c);
+    cleanupWadooLinksOnCardRemoval(c);
+  });
+  oppLine.length = 0;
+
+  const ignominie = createCard('T08', opp === 'top' ? 'T' : 'B');
+  ignominie.hp = getBaseHP('T08');
+  ignominie.shield = getBaseShield('T08');
+  getLineByOwner(opp).push(ignominie);
+
+  pushHistory('action', `${cardAnchor('C236')} fusionne ${mergedLabels.length} combattant${mergedLabels.length>1?'s':''} adverse${mergedLabels.length>1?'s':''} en ${cardAnchor('T08')} !`);
+
+  animateFusionFrenzy(mergedEls, opp);
+  fullRender();
+}
+
+/* Animation de fusion : chaque carte adverse est aspirée façon vortex vers
+   le centre de sa propre zone de combat (teinte violette/pourpre, en écho au
+   visuel de la carte), avec un léger décalage entre chacune pour un effet de
+   "convergence" progressive, puis une onde de choc marque l'apparition
+   d'Ignominie à l'endroit exact de l'impact. */
+function animateFusionFrenzy(mergedEls, targetOwner){
+  try{
+    if (!mergedEls || mergedEls.length === 0) return;
+    const zoneEl = document.querySelector(targetOwner === 'top' ? '#battleTop .battleInner' : '#battleBottom .battleInner');
+    if (!zoneEl) return;
+    const zoneRect = zoneEl.getBoundingClientRect();
+    const target = { x: zoneRect.left + zoneRect.width / 2, y: zoneRect.top + zoneRect.height / 2 };
+
+    mergedEls.forEach((el, i) => {
+      const start = centerOf(el);
+      const ghost = document.createElement('div');
+      ghost.className = 'card fusionGhost';
+      const url = el.style.backgroundImage;
+      if (url) ghost.style.backgroundImage = url;
+      ghost.style.left = `${start.x}px`;
+      ghost.style.top = `${start.y}px`;
+      ghost.style.transitionDelay = `${i * 70}ms`;
+      aimLayer.appendChild(ghost);
+      requestAnimationFrame(()=>{
+        const dx = target.x - start.x;
+        const dy = target.y - start.y;
+        ghost.style.transform = `translate(${dx}px, ${dy}px) scale(.06) rotate(${520 + i * 110}deg)`;
+        ghost.style.opacity = '0';
+      });
+      setTimeout(()=>{ if (ghost.parentNode) ghost.remove(); }, 900 + i * 70);
+    });
+
+    const shockDelay = 550 + mergedEls.length * 70;
+    setTimeout(()=>{
+      const flash = document.createElement('div');
+      flash.className = 'fusionFlash';
+      flash.style.left = `${target.x}px`;
+      flash.style.top = `${target.y}px`;
+      aimLayer.appendChild(flash);
+      requestAnimationFrame(()=> flash.classList.add('go'));
+      setTimeout(()=>{ if (flash.parentNode) flash.remove(); }, 700);
+    }, shockDelay);
+  }catch(e){ }
 }
 
 function updateForgeTaxUI() {
@@ -7420,6 +7588,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C228') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionSororite(owner, card, el)); }); }
             if (card.label === 'C233') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionTributPoupesque(owner, card)); }); }
             if (card.label === 'C234') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionWagneto(owner, card, el)); }); }
+            if (card.label === 'C236') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionFusionnerLesTous(owner, card)); }); }
         }
 
         rowEl.appendChild(el);
@@ -7624,6 +7793,8 @@ attachCapturedMithril(el, card);
     // Badge visuel pour le mot-clé Provocateur (qu'il soit imprimé sur la carte
     // ou accordé dynamiquement en cours de partie, ex. Golgoth, C115...)
     attachProvocateurBadge(el, card);
+    // WADOO 6e lot : badge Poupée pour tout combattant portant Scapoo (C235).
+    attachPoupeeBadge(el, card);
   };
 
   clearFallbackName(el);
@@ -10219,6 +10390,34 @@ function upkeepCharactersFor(player) {
   });
 }
 
+// WADOO 6e lot : Scapoo (C235) — au début du tour de son propriétaire,
+// CHAQUE Scapoo déjà en jeu se duplique une fois : la copie s'attache à un
+// combattant de la MÊME zone de combat choisi au hasard parmi ceux qui n'ont
+// pas encore de Scapoo. Se répète tour après tour tant qu'il reste des
+// combattants libres — la propagation s'accélère donc naturellement
+// (1 → 2 → 4...) à mesure que le nombre de Scapoo augmente.
+function processScapooDuplication(player){
+  const line = getLineByOwner(player);
+  const hasScapooAttached = (c) => getFamiliersOnHost(c).some(f => f.label === 'C235');
+
+  const sourceCount = line.filter(hasScapooAttached).length;
+  if (sourceCount === 0) return;
+
+  let createdCount = 0;
+  for (let i = 0; i < sourceCount; i++) {
+    const eligibleTargets = line.filter(c => !hasScapooAttached(c));
+    if (eligibleTargets.length === 0) break; // plus aucune cible libre
+    const target = eligibleTargets[Math.floor(Math.random() * eligibleTargets.length)];
+    const newScapoo = createCard('C235', player === 'top' ? 'T' : 'B');
+    attachFamiliarToHost(player, newScapoo, target);
+    createdCount++;
+  }
+
+  if (createdCount > 0) {
+    pushHistory('familier', `${cardAnchor('C235')} se duplique ${createdCount} fois et se propage sur la zone de combat de ${player==='bottom'?'J1':'J2'} !`);
+  }
+}
+
 function startTurn(player){
   // Minuteur de tour : redémarré à 90s à chaque nouveau tour. Enveloppé pour
   // garantir qu'il ne puisse JAMAIS interrompre le reste de la mise en place
@@ -10231,6 +10430,11 @@ function startTurn(player){
     matchMusicStarted = true;
     startMatchMusic();
   }
+
+  // WADOO 6e lot : Scapoo (C235) — se duplique en début de tour tant qu'il
+  // reste des combattants sans Scapoo. Enveloppé en sécurité pour ne jamais
+  // interrompre la mise en place du tour en cas d'erreur imprévue.
+  try{ processScapooDuplication(player); }catch(err){ console.error('[Scapoo] duplication impossible :', err); }
 
   // Remet chaque main à sa position d'origine à chaque nouveau tour.
   if (typeof window.__resetHandPositions === 'function') window.__resetHandPositions();
