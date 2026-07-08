@@ -4225,9 +4225,15 @@ function playActionFusionnerLesTous(owner, actionCard){
   const mergedEls = oppLine.map(c => findLiveCardElement(c)).filter(Boolean);
   const mergedLabels = oppLine.map(c => c.label);
 
+  // Le Mithril capturé (Malocux/Scaracy) par N'IMPORTE LAQUELLE des créatures
+  // fusionnées est cumulé et transmis à Ignominie — rien n'est perdu, même si
+  // plusieurs créatures en portaient chacune.
+  const totalCapturedMithril = oppLine.reduce((sum, c) => sum + (typeof c.capturedMithril === 'number' ? c.capturedMithril : 0), 0);
+
   // Retrait complet et littéral des cartes fusionnées : nettoyage des
   // références (familiers, liens) mais SANS passer par discardCard ni
-  // addToExile — elles ne meurent pas, elles cessent simplement d'exister.
+  // addToExile — elles ne meurent pas, elles cessent simplement d'exister
+  // (aucun effet de MORT ne se déclenche).
   oppLine.forEach(c => {
     detachFamiliarsOnHost(c, opp);
     cleanupPrismisLinksOnCardRemoval(c);
@@ -4238,9 +4244,13 @@ function playActionFusionnerLesTous(owner, actionCard){
   const ignominie = createCard('T08', opp === 'top' ? 'T' : 'B');
   ignominie.hp = getBaseHP('T08');
   ignominie.shield = getBaseShield('T08');
+  if (totalCapturedMithril > 0) {
+    ignominie.capturedMithril = totalCapturedMithril;
+  }
   getLineByOwner(opp).push(ignominie);
 
-  pushHistory('action', `${cardAnchor('C236')} fusionne ${mergedLabels.length} combattant${mergedLabels.length>1?'s':''} adverse${mergedLabels.length>1?'s':''} en ${cardAnchor('T08')} !`);
+  pushHistory('action', `${cardAnchor('C236')} fusionne ${mergedLabels.length} combattant${mergedLabels.length>1?'s':''} adverse${mergedLabels.length>1?'s':''} en ${cardAnchor('T08')} !` +
+    (totalCapturedMithril > 0 ? ` Elle hérite de ${totalCapturedMithril} Mithril capturé.` : ''));
 
   animateFusionFrenzy(mergedEls, opp);
   fullRender();
