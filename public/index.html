@@ -903,6 +903,34 @@
     }
     .fusionFlash.go{ transform:scale(34); opacity:0; }
 
+    /* Secousse d'écran au moment de l'impact de la fusion. */
+    @keyframes fusionShakeKeyframes{
+      0%{ transform:translate(0,0); }
+      10%{ transform:translate(-7px,5px); }
+      20%{ transform:translate(8px,-6px); }
+      30%{ transform:translate(-9px,-3px); }
+      40%{ transform:translate(7px,7px); }
+      50%{ transform:translate(-6px,4px); }
+      60%{ transform:translate(5px,-7px); }
+      70%{ transform:translate(-7px,2px); }
+      80%{ transform:translate(6px,3px); }
+      90%{ transform:translate(-3px,-2px); }
+      100%{ transform:translate(0,0); }
+    }
+    body.fusionShake{ animation:fusionShakeKeyframes .65s cubic-bezier(.36,.07,.19,.97) both; }
+
+    /* Assombrissement pourpre progressif de tout l'écran pendant la fusion,
+       pour une ambiance plus monstrueuse/oppressante. */
+    .fusionVignette{
+      position:fixed; inset:0; z-index:1440; pointer-events:none;
+      opacity:0; transition:opacity .45s ease, background .45s ease;
+      background:radial-gradient(ellipse at center, transparent 30%, rgba(60,10,90,0) 55%, rgba(10,0,20,0) 100%);
+    }
+    .fusionVignette.go{
+      opacity:1;
+      background:radial-gradient(ellipse at center, transparent 15%, rgba(90,15,140,.4) 55%, rgba(8,0,16,.8) 100%);
+    }
+
     /* Invite/prompt générique */
     .actionPrompt{
       position:fixed; z-index:1500; min-width:180px; max-width:260px;
@@ -2199,11 +2227,13 @@ const MATCH_MUSIC_URL = new URL('/assets/Arms.mp3', location.href).href;
 const VICTORY_SFX_URL = new URL('/assets/Armsvictory.mp3', location.href).href;
 const DEFEAT_SFX_URL  = new URL('/assets/Armsdefeat.mp3', location.href).href;
 const TIMER_SFX_URL   = new URL('/assets/timer.mp3', location.href).href;
+const IGNOMINIE_SFX_URL = new URL('/assets/Ignominie.mp3', location.href).href;
 
 let matchMusic = null;
 let victorySfx = null;
 let defeatSfx = null;
 let timerSfx = null;
+let ignominieSfx = null;
 let gameAudioUnlocked = false;
 let matchMusicStarted = false;
 
@@ -2226,9 +2256,13 @@ function initGameAudio(){
   timerSfx = new Audio();
   timerSfx.src = TIMER_SFX_URL;
   timerSfx.preload = 'auto';
+
+  ignominieSfx = new Audio();
+  ignominieSfx.src = IGNOMINIE_SFX_URL;
+  ignominieSfx.preload = 'auto';
 }
 
-/* Prime les 4 pistes au 1er geste utilisateur (indispensable iOS/Safari, dont
+/* Prime les 5 pistes au 1er geste utilisateur (indispensable iOS/Safari, dont
    la politique de lecture automatique bloque tout son avant une interaction).
    IMPORTANT : chaque piste est tentée indépendamment — si l'une d'elles
    échoue (fichier manquant, etc.), ça ne doit jamais empêcher les autres de
@@ -2237,7 +2271,7 @@ function initGameAudio(){
 async function unlockGameAudio(){
   initGameAudio();
   let atLeastOneOk = false;
-  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx]) {
+  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx]) {
     try{
       a.muted = true;
       await a.play();
@@ -2342,6 +2376,23 @@ async function playTimerUrgentSfx(){
     const retry = async () => {
       ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
       try{ timerSfx.currentTime = 0; await timerSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
+/* Se joue au moment où la fusion (Fusionner les tous, C236) démarre son
+   animation, pour accompagner l'aspiration monstrueuse des cartes. */
+async function playIgnominieSfx(){
+  initGameAudio();
+  if (!ignominieSfx) return;
+  try{
+    ignominieSfx.currentTime = 0;
+    await ignominieSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ ignominieSfx.currentTime = 0; await ignominieSfx.play(); }catch(e){}
     };
     ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
   }
@@ -4277,6 +4328,15 @@ function animateFusionFrenzy(mergedEls, targetOwner){
     const zoneRect = zoneEl.getBoundingClientRect();
     const target = { x: zoneRect.left + zoneRect.width / 2, y: zoneRect.top + zoneRect.height / 2 };
 
+    // Son + assombrissement progressif de tout l'écran dès le lancement,
+    // pour poser une ambiance monstrueuse avant même que les cartes ne
+    // commencent à converger.
+    playIgnominieSfx();
+    const vignette = document.createElement('div');
+    vignette.className = 'fusionVignette';
+    document.body.appendChild(vignette);
+    requestAnimationFrame(()=> vignette.classList.add('go'));
+
     mergedEls.forEach((el, i) => {
       const start = centerOf(el);
       const ghost = document.createElement('div');
@@ -4297,6 +4357,14 @@ function animateFusionFrenzy(mergedEls, targetOwner){
     });
 
     const shockDelay = 550 + mergedEls.length * 70;
+
+    // Secousse d'écran : déclenchée juste avant l'impact pour culminer
+    // exactement au moment du flash, façon "montée de tension → choc".
+    setTimeout(()=>{
+      document.body.classList.add('fusionShake');
+      setTimeout(()=> document.body.classList.remove('fusionShake'), 650);
+    }, Math.max(0, shockDelay - 150));
+
     setTimeout(()=>{
       const flash = document.createElement('div');
       flash.className = 'fusionFlash';
@@ -4306,6 +4374,12 @@ function animateFusionFrenzy(mergedEls, targetOwner){
       requestAnimationFrame(()=> flash.classList.add('go'));
       setTimeout(()=>{ if (flash.parentNode) flash.remove(); }, 700);
     }, shockDelay);
+
+    // La vignette se dissipe une fois l'impact passé.
+    setTimeout(()=>{
+      vignette.classList.remove('go');
+      setTimeout(()=>{ if (vignette.parentNode) vignette.remove(); }, 500);
+    }, shockDelay + 350);
   }catch(e){ }
 }
 
@@ -6011,6 +6085,30 @@ function recalcBlusyteBonuses(){
     if (newBonus === previousBonus) return;
     host.shield = Math.max(0, (host.shield || 0) - previousBonus) + newBonus;
     fam.appliedShieldBonus = newBonus;
+  });
+}
+
+// Decebale (C62) — ses PV sont TOUJOURS égaux au nombre de cartes dans
+// l'Exil, recalculés en direct à chaque rendu. Le combat garde priorité :
+// s'il la fait tomber à 0 PV pendant un échange, elle meurt normalement à
+// ce moment-là (retirée avant que ce recalcul ne s'applique de nouveau) ;
+// sinon, tant qu'elle est en vie, ses PV suivent la taille de l'Exil à la
+// hausse comme à la baisse.
+function recalcDecebaleHP(){
+  const all = topLine.concat(botLine);
+  all.forEach(card => {
+    if (card.label !== 'C62') return;
+    card.hp = exilePile.length;
+    if (card.hp <= 0) {
+      const owner = topLine.includes(card) ? 'top' : 'bottom';
+      const line = getLineByOwner(owner);
+      const idx = line.findIndex(c => c.id === card.id);
+      if (idx !== -1) {
+        line.splice(idx, 1);
+        detachFamiliarsOnHost(card, owner);
+        discardCard(card, owner, 'death', { hpBefore: 1 });
+      }
+    }
   });
 }
 
@@ -9446,6 +9544,8 @@ function fullRender(){
   // Bouclier suive le Mithril de son propriétaire en temps réel, à la hausse
   // comme à la baisse — pas seulement à l'attache ou en début de tour.
   recalcBlusyteBonuses();
+  // Decebale (C62) — ses PV suivent en direct la taille de l'Exil.
+  recalcDecebaleHP();
   updateHandsUI();
   renderLine(document.querySelector('#battleTop .battleInner'), topLine, 'top');
   renderLine(document.querySelector('#battleBottom .battleInner'), botLine, 'bottom');
