@@ -931,6 +931,33 @@
       background:radial-gradient(ellipse at center, transparent 15%, rgba(90,15,140,.4) 55%, rgba(8,0,16,.8) 100%);
     }
 
+    /* Ignominie (T08) errant dans sa zone pendant Ignominie.mp3 : la case
+       elle-même tremble en continu (distinct de la secousse ponctuelle de
+       la fusion), et chaque déplacement laisse un reflet éthéré qui s'estompe. */
+    @keyframes ignominieZoneShakeKeyframes{
+      0%,100%{ transform:translate(0,0) rotate(0deg); }
+      15%{ transform:translate(-2px,1px) rotate(-.3deg); }
+      30%{ transform:translate(2px,-2px) rotate(.3deg); }
+      45%{ transform:translate(-2px,-1px) rotate(-.2deg); }
+      60%{ transform:translate(2px,2px) rotate(.2deg); }
+      75%{ transform:translate(-1px,1px) rotate(-.15deg); }
+      90%{ transform:translate(1px,-1px) rotate(.15deg); }
+    }
+    .ignominieZoneShake{ animation:ignominieZoneShakeKeyframes .5s ease-in-out infinite; }
+
+    .ignominieTrailGhost{
+      position:fixed; border:2px solid rgba(180,60,220,.65); border-radius:10px;
+      background-size:cover; background-position:center;
+      box-shadow:0 0 16px rgba(180,60,220,.5); pointer-events:none; z-index:1420;
+      opacity:.7; transform:scale(1);
+      filter:saturate(1.5) hue-rotate(255deg) brightness(.72) blur(0px);
+      transition: opacity 1.2s ease, transform 1.2s ease, filter 1.2s ease;
+    }
+    .ignominieTrailGhost.fade{
+      opacity:0; transform:scale(.68);
+      filter:saturate(1.5) hue-rotate(255deg) brightness(.5) blur(3px);
+    }
+
     /* Invite/prompt générique */
     .actionPrompt{
       position:fixed; z-index:1500; min-width:180px; max-width:260px;
@@ -4313,6 +4340,71 @@ function playActionFusionnerLesTous(owner, actionCard){
 
   animateFusionFrenzy(mergedEls, opp);
   fullRender();
+
+  // Le vagabondage démarre une fois la carte réellement affichée dans le DOM
+  // (juste après ce fullRender), pour toute la durée du son Ignominie.mp3.
+  requestAnimationFrame(()=> requestAnimationFrame(()=> startIgnominieWander(ignominie, opp)));
+}
+
+/* Ignominie erre dans sa zone de combat pendant toute la durée du son
+   Ignominie.mp3 (13,08s) : la case tremble en continu, la carte se déplace
+   aléatoirement en laissant des reflets éthérés (traînée violette qui
+   s'estompe) derrière son passage, puis se stabilise à sa position normale
+   une fois le son terminé — ne restant alors QUE la carte Ignominie. */
+function startIgnominieWander(card, owner){
+  try{
+    const IGNOMINIE_SOUND_DURATION_MS = 13080;
+    const zoneEl = document.getElementById(owner === 'top' ? 'battleTop' : 'battleBottom');
+    if (!zoneEl) return;
+    zoneEl.classList.add('ignominieZoneShake');
+
+    const findCardEl = () => document.querySelector(`[data-id="${card.id}"]`);
+
+    const spawnTrailGhost = (el) => {
+      try{
+        const rect = el.getBoundingClientRect();
+        const ghost = document.createElement('div');
+        ghost.className = 'card ignominieTrailGhost';
+        const bg = el.style.backgroundImage || getComputedStyle(el).backgroundImage;
+        if (bg) ghost.style.backgroundImage = bg;
+        ghost.style.left = `${rect.left}px`;
+        ghost.style.top = `${rect.top}px`;
+        ghost.style.width = `${rect.width}px`;
+        ghost.style.height = `${rect.height}px`;
+        aimLayer.appendChild(ghost);
+        requestAnimationFrame(()=> ghost.classList.add('fade'));
+        setTimeout(()=>{ if (ghost.parentNode) ghost.remove(); }, 1300);
+      }catch(e){ }
+    };
+
+    const wanderStep = () => {
+      const el = findCardEl();
+      if (!el) return;
+      spawnTrailGhost(el);
+      const rx = (Math.random() * 2 - 1) * 26;
+      const ry = (Math.random() * 2 - 1) * 18;
+      const rot = (Math.random() * 2 - 1) * 12;
+      el.style.transition = 'transform .42s cubic-bezier(.4,0,.2,1)';
+      el.style.transform = `translate(${rx}px, ${ry}px) rotate(${rot}deg) scale(1.06)`;
+      el.style.zIndex = '60';
+      el.style.filter = 'drop-shadow(0 0 14px rgba(160,50,210,.75))';
+    };
+
+    wanderStep();
+    const wanderInterval = setInterval(wanderStep, 400);
+
+    setTimeout(()=>{
+      clearInterval(wanderInterval);
+      zoneEl.classList.remove('ignominieZoneShake');
+      const el = findCardEl();
+      if (el) {
+        el.style.transition = 'transform .55s ease';
+        el.style.transform = 'none';
+        el.style.zIndex = '';
+        el.style.filter = '';
+      }
+    }, IGNOMINIE_SOUND_DURATION_MS);
+  }catch(e){ }
 }
 
 /* Animation de fusion : chaque carte adverse est aspirée façon vortex vers
@@ -6600,7 +6692,13 @@ function postChat(who, text){
   row.className='msg';
   const cls = who==='top' ? 'wTop' : who==='bottom' ? 'wBottom' : 'wSys';
   const badge = `<span class="who ${cls}">${escapeChatText(chatDisplayName(who))}</span>`;
-  row.innerHTML = `${badge}<div class="txt">${escapeChatText(text)}</div>`;
+  // Seuls les messages saisis par un VRAI joueur (top/bottom) sont échappés
+  // (protection anti-injection). Les messages système ('sys') sont générés
+  // par le jeu lui-même, jamais par une entrée utilisateur — leur HTML (ex.
+  // <strong>) est donc fiable et doit s'afficher normalement, pas en texte brut.
+  const isRealPlayerMessage = (who === 'top' || who === 'bottom');
+  const safeText = isRealPlayerMessage ? escapeChatText(text) : text;
+  row.innerHTML = `${badge}<div class="txt">${safeText}</div>`;
   chatMsgs.appendChild(row);
   trimListForQuota(chatMsgs, 8, 2);
   if(wasNearBottom) chatMsgs.scrollTop = chatMsgs.scrollHeight;
@@ -12156,8 +12254,9 @@ if (window.__ACTIVE_DECK__ && window.__ACTIVE_DECK__.name){
   pushHistory('info', `Deck J1 chargé : <strong>${window.__ACTIVE_DECK__.name}</strong>.`);
 }
 
-logSysInfo("Bienvenue dans A'rms ! La partie va commencer.");
-logSysInfo("<strong>Règle :</strong> Un combattant atteignant 0 PV est immédiatement retiré du combat et placé dans la défausse (sauf effet contraire).");
+logSysInfo("Bienvenue dans A'rms ! Que le meilleur stratège l'emporte. 🍀");
+logSysInfo("<strong>Règle :</strong> un combattant atteignant 0 PV est immédiatement retiré du combat et placé dans la défausse (sauf effet contraire).");
+logSysInfo("<strong>Astuce :</strong> vous avez 90 secondes par tour — le bouton \"Fin de tour\" change de couleur à mesure que le temps s'écoule.");
 
 if (!ONLINE_MODE) { startTurn('bottom'); renderPlayerPanels(); }
 setTimeout(()=>{ chatPanel.classList.remove('collapsed'); }, 0);
