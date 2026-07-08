@@ -3793,17 +3793,17 @@ function playActionC21(owner, actionCard) {
   discardCard(actionCard, owner, 'action');
 
   const opp = (owner === 'top') ? 'bottom' : 'top';
-  const playerLabel = (owner === 'bottom') ? 'J1' : 'J2';
-  const oppLabel = (opp === 'bottom') ? 'J1' : 'J2';
+  const ownerLabelText = playerLabel(owner);
+  const oppLabel = playerLabel(opp);
 
   pushHistory('action', `${cardAnchor('C21')} est jouée...`);
 
   if (arms[owner] > 0) {
     arms[owner]--;
     for (let i = 0; i < 5; i++) addMithril(owner);
-    pushHistory('info', `${playerLabel} perd 1 A'rms et gagne 5 Mithril.`);
+    pushHistory('info', `${ownerLabelText} perd 1 A'rms et gagne 5 Mithril.`);
   } else {
-    pushHistory('info', `${playerLabel} n'a pas d'A'rms à perdre.`);
+    pushHistory('info', `${ownerLabelText} n'a pas d'A'rms à perdre.`);
   }
 
   if (arms[opp] > 0) {
@@ -3839,11 +3839,11 @@ function playActionC63(owner, actionCard) {
   discardCard(actionCard, owner, 'action');
 
   addMithril(owner);
-  pushHistory('action', `${cardAnchor('C63')} est jouée : +1 Mithril pour ${owner === 'bottom' ? 'J1' : 'J2'}.`);
+  pushHistory('action', `${cardAnchor('C63')} est jouée : +1 Mithril pour ${playerLabel(owner)}.`);
 
   const opp = (owner === 'top') ? 'bottom' : 'top';
   let oppDeck = (opp === 'top') ? topDeck : botDeck;
-  const oppPlayerLabel = (opp === 'bottom') ? 'J1' : 'J2';
+  const oppPlayerLabel = playerLabel(opp);
 
   if (oppDeck.length === 0) {
     pushHistory('info', `Le deck de ${oppPlayerLabel} est vide. Tentative de mélange de la défausse.`);
@@ -3936,7 +3936,7 @@ function playActionC16(owner, actionCard, doForge){
     if(mithril[owner] >= 5 && arms[owner] < 5){
       mithril[owner] -= 5;
       arms[owner] += 1;
-      pushHistory('artefact', `${owner==='bottom'?'J1':'J2'} forge 1 A’rms avec ${cardAnchor('C16')} (coût 5 Mithril).`);
+      pushHistory('artefact', `${playerLabel(owner)} forge 1 A’rms avec ${cardAnchor('C16')} (coût 5 Mithril).`);
       updateMithril();
       renderArms();
       checkWin(owner);
@@ -3961,7 +3961,7 @@ function endAzpiryneSelection(owner) {
   closeActionPrompt();
   const pickedCount = c18SelectMode ? c18SelectMode.picked : 0;
   pushHistory('défausse',
-    `${pickedCount} carte(s) déplacée(s) de l’EXIL vers la défausse de ${owner==='bottom'?'J1':'J2'} via ${cardAnchor('C18')}.`
+    `${pickedCount} carte(s) déplacée(s) de l’EXIL vers la défausse de ${playerLabel(owner)} via ${cardAnchor('C18')}.`
   );
   c18SelectMode = null;
   fullRender();
@@ -4460,7 +4460,7 @@ function showIgnominieReveal(card, owner){
   try{
     const overlay = document.createElement('div');
     overlay.className = 'ignominieReveal';
-    const ownerLabel = owner === 'bottom' ? 'J1' : 'J2';
+    const ownerLabel = playerLabel(owner);
     const mithrilNote = (typeof card.capturedMithril === 'number' && card.capturedMithril > 0)
       ? ` Elle porte encore ${card.capturedMithril} Mithril capturé hérité de la fusion.`
       : '';
@@ -4482,7 +4482,7 @@ function showIgnominieReveal(card, owner){
       setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); }, 500);
     };
     overlay.addEventListener('click', dismiss);
-    setTimeout(dismiss, 5000);
+    setTimeout(dismiss, 9000);
   }catch(e){ }
 }
 
@@ -6740,6 +6740,16 @@ function escapeChatText(str){
   div.textContent = String(str);
   return div.innerHTML;
 }
+// Retourne le VRAI pseudo du joueur (top/bottom) dès qu'il est connu, sinon
+// se replie sur "J1"/"J2" — à utiliser PARTOUT dans les messages du jeu à la
+// place d'un "J1"/"J2" codé en dur.
+function playerLabel(seat){
+  const profiles = window.PLAYER_PROFILES;
+  const name = profiles && profiles[seat] && profiles[seat].name;
+  if (name) return name;
+  return seat === 'bottom' ? 'J1' : 'J2';
+}
+
 function chatDisplayName(who){
   if (who !== 'top' && who !== 'bottom') return 'Système';
   const profiles = window.PLAYER_PROFILES;
@@ -7092,9 +7102,9 @@ function openPestrassChoicePrompt(familiars, onChosen) {
   const buttons = familiars.map(fam => {
     const { card: host, owner: hostOwner } = findHostOfFamiliar(fam);
     const hostName = host ? `(sur ${cardName(host.label)})` : '';
-    const playerLabel = hostOwner === 'bottom' ? '(J1)' : '(J2)';
+    const hostPlayerLabel = `(${playerLabel(hostOwner)})`;
     return {
-      label: `${cardName(fam.label)} ${hostName} ${playerLabel}`,
+      label: `${cardName(fam.label)} ${hostName} ${hostPlayerLabel}`,
       onClick: () => onChosen(fam.id)
     };
   });
@@ -7204,8 +7214,8 @@ function attachFamiliarToHost(owner, familiarCard, hostCard){
 
       hostCard.attachedFamiliarLabels.push(familiarCard.label);
 
-      const playerLabel = (owner === 'bottom') ? 'J1' : 'J2';
-      pushHistory('info', `Effet de Rocketurne : +2 PV. Une copie de ${cardAnchor(familiarCard.label)} est ajoutée à la main de ${playerLabel}.`);
+      const ownerLabelText = playerLabel(owner);
+      pushHistory('info', `Effet de Rocketurne : +2 PV. Une copie de ${cardAnchor(familiarCard.label)} est ajoutée à la main de ${ownerLabelText}.`);
 
     } else {
       pushHistory('info', `L'effet de Rocketurne ne se déclenche pas car un ${cardName(familiarCard.label)} a déjà été attaché.`);
@@ -7740,7 +7750,7 @@ function openDiscardForAttackPrompt(attackerOwner, onOk, onCancel){
       label, className:'', onClick:()=>{
         const chosen = hand.splice(idx,1)[0];
         discardCard(chosen, attackerOwner, 'manual');
-        pushHistory('info', `${attackerOwner==='bottom'?'J1':'J2'} défausse ${cardAnchor(chosen.label)} pour pouvoir attaquer ${cardAnchor('C15')}.`);
+        pushHistory('info', `${playerLabel(attackerOwner)} défausse ${cardAnchor(chosen.label)} pour pouvoir attaquer ${cardAnchor('C15')}.`);
         if(typeof onOk==='function') onOk();
       }
     });
@@ -8665,7 +8675,7 @@ if (card.label === 'C166') {
                         onClick: () => {
                             mithril[owner] -= currentForgeCost;
                             arms[owner]++;
-                            pushHistory('artefact', `${owner === 'bottom' ? 'J1' : 'J2'} forge 1 A’rm (${arms[owner]}/5) grâce à ${cardAnchor('C166')}.`);
+                            pushHistory('artefact', `${playerLabel(owner)} forge 1 A’rm (${arms[owner]}/5) grâce à ${cardAnchor('C166')}.`);
                             updateMithril();
                             renderArms();
                             checkWin(owner); // Vérifier si la forge mène à la victoire
@@ -8718,7 +8728,7 @@ if (card.label === 'C166') {
             // Gagner du Mithril
             const mithrilGained = poisonTargets.length;
             for (let i = 0; i < mithrilGained; i++) addMithril(owner);
-            pushHistory('mithril', `${owner === 'bottom' ? 'J1' : 'J2'} gagne ${mithrilGained} Mithril grâce à l'effet de ${cardAnchor('C170')}.`);
+            pushHistory('mithril', `${playerLabel(owner)} gagne ${mithrilGained} Mithril grâce à l'effet de ${cardAnchor('C170')}.`);
 
         } else {
             pushHistory('info', `${cardAnchor('C170')} entre en jeu, mais aucun combattant avec POISON n'est sur le plateau.`);
@@ -8931,7 +8941,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       if (card.label === 'C2' && (fromId==='handTop' || fromId==='handBottom')) { addMithril(who); }
       if (card.label === 'C6') { nonKryllsAllowance[who] = (nonKryllsAllowance[who]||0) + 1; }
       if (drop === dropLeft) lineArray.unshift(card); else lineArray.push(card);
-      pushHistory('jeu', `${cardAnchor(card.label)} joué en combat (${who==='bottom'?'J1':'J2'}).`);
+      pushHistory('jeu', `${cardAnchor(card.label)} joué en combat (${playerLabel(who)}).`);
 
       if (card.label === 'C119') {
         handleNoxrocEffect(who);
@@ -8957,11 +8967,11 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       }
 
       if (card.label === 'C109') {
-        const playerLabel = (who === 'bottom') ? 'J1' : 'J2';
+        const whoLabelText = playerLabel(who);
 
         addMithril(who);
         addMithril(who);
-        pushHistory('mithril', `${playerLabel} gagne 2 Mithril grâce à ${cardAnchor('C109')}.`);
+        pushHistory('mithril', `${whoLabelText} gagne 2 Mithril grâce à ${cardAnchor('C109')}.`);
 
         const allCombatants = topLine.concat(botLine);
         const diplomatsOnBoard = allCombatants.filter(c => hasTag(c, 'Diplomate'));
@@ -8982,7 +8992,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       }
 
       if (card.label === 'C110') {
-        const playerLabel = (who === 'bottom') ? 'J1' : 'J2';
+        const whoLabelText = playerLabel(who);
         pushHistory('jeu', `${cardAnchor('C110')} déchaîne son pouvoir contre les Esprits !`);
 
         const topEsprits = topLine.filter(c => hasTag(c, 'Esprit'));
@@ -9006,7 +9016,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
           botLine.length = 0; botLine.push(...newBot);
 
           for (let i = 0; i < totalDestroyed; i++) addMithril(who);
-          pushHistory('mithril', `${playerLabel} gagne ${totalDestroyed} Mithril pour les Esprits détruits.`);
+          pushHistory('mithril', `${whoLabelText} gagne ${totalDestroyed} Mithril pour les Esprits détruits.`);
 
         } else {
           pushHistory('info', `Aucun combattant Esprit n'est présent sur le terrain.`);
@@ -9109,7 +9119,7 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
       }
 
       if (drop === dropLeft) arr.unshift(card); else arr.push(card);
-      pushHistory('jeu', `${cardAnchor(card.label)} joué en zone Artefacts (${who==='bottom'?'J1':'J2'}).`);
+      pushHistory('jeu', `${cardAnchor(card.label)} joué en zone Artefacts (${playerLabel(who)}).`);
       fullRender();
     });
   });
@@ -9138,13 +9148,13 @@ function checkForIdoleDeFielTrigger(exiledCard, hpBeforeExile) {
   topArts.forEach(artifact => {
     if (artifact.label === 'C53') {
       addMithril('top');
-      pushHistory('artefact', `${cardAnchor('C53')} rapporte +1 Mithril à J2 (créature de ${hpBeforeExile} PV exilée).`);
+      pushHistory('artefact', `${cardAnchor('C53')} rapporte +1 Mithril à ${playerLabel('top')} (créature de ${hpBeforeExile} PV exilée).`);
     }
   });
   botArts.forEach(artifact => {
     if (artifact.label === 'C53') {
       addMithril('bottom');
-      pushHistory('artefact', `${cardAnchor('C53')} rapporte +1 Mithril à J1 (créature de ${hpBeforeExile} PV exilée).`);
+      pushHistory('artefact', `${cardAnchor('C53')} rapporte +1 Mithril à ${playerLabel('bottom')} (créature de ${hpBeforeExile} PV exilée).`);
     }
   });
 }
@@ -9165,7 +9175,7 @@ function addToExile(card, context = {}){
         if (owner) {
             const opp = (owner === 'top') ? 'bottom' : 'top';
             for (let i = 0; i < card.capturedMithril; i++) addMithril(opp);
-            pushHistory('info', `${cardAnchor(card.label)} quitte le jeu et restitue ${card.capturedMithril} Mithril à ${opp === 'bottom' ? 'J1' : 'J2'}.`);
+            pushHistory('info', `${cardAnchor(card.label)} quitte le jeu et restitue ${card.capturedMithril} Mithril à ${playerLabel(opp)}.`);
             card.capturedMithril = 0;
         }
     }
@@ -9415,7 +9425,7 @@ function discardCard(card, owner, reason='other', context = {}){
   if (typeof card.capturedMithril === 'number' && card.capturedMithril > 0) {
     const opp = (owner === 'top') ? 'bottom' : 'top';
     for (let i = 0; i < card.capturedMithril; i++) addMithril(opp);
-    pushHistory('info', `${cardAnchor(card.label)} quitte le jeu et restitue ${card.capturedMithril} Mithril à ${opp==='bottom'?'J1':'J2'}.`);
+    pushHistory('info', `${cardAnchor(card.label)} quitte le jeu et restitue ${card.capturedMithril} Mithril à ${playerLabel(opp)}.`);
     card.capturedMithril = 0; // On réinitialise le compteur
   }
 
@@ -9440,7 +9450,7 @@ if (reason === 'manual') {
                 }
             });
         });
-        pushHistory('pv', `Tous les combattants de ${opp === 'bottom' ? 'J1' : 'J2'} gagnent +${luciasInPlay.length} PV.`);
+        pushHistory('pv', `Tous les combattants de ${playerLabel(opp)} gagnent +${luciasInPlay.length} PV.`);
     }
 }
 // ===================================================================
@@ -9482,19 +9492,19 @@ if (reason === 'manual') {
       pushHistory('artefact', `${cardAnchor('C58')} quitte le jeu et libère ${card.charges} charges de soin.`);
   }
   if (card.label === 'C55') {
-    const playerLabel = (owner === 'bottom') ? 'J1' : 'J2';
+    const ownerLabelText = playerLabel(owner);
     const opp = (owner === 'top') ? 'bottom' : 'top';
     const discardPile = (owner === 'top') ? topDiscard : botDiscard;
     addMithril(owner);
     if (mithril[opp] > 0) mithril[opp]--;
     updateMithril();
-    pushHistory('défausse', `${cardAnchor('C55')} : ${playerLabel} gagne +1 Mithril, l'adversaire en perd 1.`);
+    pushHistory('défausse', `${cardAnchor('C55')} : ${ownerLabelText} gagne +1 Mithril, l'adversaire en perd 1.`);
     if (discardPile.length >= 2) {
       const toExile1 = discardPile.shift();
       const toExile2 = discardPile.shift();
       addToExile(toExile1);
       addToExile(toExile2);
-      pushHistory('exil', `${playerLabel} exile ${cardAnchor(toExile1.label)} et ${cardAnchor(toExile2.label)} via l'effet de Loloth.`);
+      pushHistory('exil', `${ownerLabelText} exile ${cardAnchor(toExile1.label)} et ${cardAnchor(toExile2.label)} via l'effet de Loloth.`);
     } else {
       pushHistory('info', `L'effet d'exil de ${cardAnchor('C55')} ne s'active pas (pas assez de cartes en défausse).`);
     }
@@ -9599,7 +9609,7 @@ function incrementCycle(player){
   cycles[player] = Math.min(3, (cycles[player]||0)+1);
   renderCycles();
   flashCycleHUD(player);
-  pushHistory('info', `${player==='bottom'?'J1':'J2'} atteint le cycle ${cycles[player]}/3.`);
+  pushHistory('info', `${playerLabel(player)} atteint le cycle ${cycles[player]}/3.`);
   checkCycleLoss(player);
 }
 
@@ -9892,7 +9902,7 @@ function addMithril(player){
       enemyMalocux.capturedMithril = 0;
     }
     enemyMalocux.capturedMithril++;
-    pushHistory('info', `Le Mithril de ${player==='bottom'?'J1':'J2'} est capturé par ${cardAnchor('C68')} !`);
+    pushHistory('info', `Le Mithril de ${playerLabel(player)} est capturé par ${cardAnchor('C68')} !`);
     fullRender();
     return;
   }
@@ -9949,7 +9959,7 @@ function checkForge(player){
   if(forged){
     updateMithril();
     renderArms();
-    let historyMsg = `${player==='bottom'?'J1':'J2'} forge 1 A’rms (${arms[player]}/5) pour ${cost} Mithril.`;
+    let historyMsg = `${playerLabel(player)} forge 1 A’rms (${arms[player]}/5) pour ${cost} Mithril.`;
     if (anomalyCount > 0) {
         historyMsg += ` (coût réduit par ${cardAnchor('T03')})`;
     }
@@ -9989,7 +9999,7 @@ function refillHand(player){
   // FIN DE LA LOGIQUE MODIFIÉE
 
   if (maluxCount > 0 && hand.length < targetHandSize) {
-      pushHistory('info', `L'effet de ${cardAnchor('C67')} réduit la taille de la main de ${player==='bottom'?'J1':'J2'} à ${6 - maluxCount} cartes (hors Buay).`);
+      pushHistory('info', `L'effet de ${cardAnchor('C67')} réduit la taille de la main de ${playerLabel(player)} à ${6 - maluxCount} cartes (hors Buay).`);
   }
 
   while(hand.length < targetHandSize){
@@ -9997,7 +10007,7 @@ function refillHand(player){
     if(deck.length === 0){
       const reshuffled = reshuffleDiscardIntoDeck(player);
       if(!reshuffled) {
-        pushHistory('info', `Le joueur ${player==='bottom'?'J1':'J2'} ne peut plus piocher (deck et défausse vides).`);
+        pushHistory('info', `Le joueur ${playerLabel(player)} ne peut plus piocher (deck et défausse vides).`);
         break;
       }
     }
@@ -10288,7 +10298,7 @@ function performEndTurn(){
     currentTurn='top'; // On passe au joueur du haut
     updateTurnUI();
     if (!ONLINE_MODE) startTurn('top'); // en local, on enchaîne directement le tour du joueur du haut
-    pushHistory('info', `Changement de tour → J2.`);
+    pushHistory('info', `Changement de tour → ${playerLabel('top')}.`);
 
   } else if(currentTurn==='top'){
     // Le joueur du haut termine son tour
@@ -10300,7 +10310,7 @@ function performEndTurn(){
     currentTurn='bottom'; // On passe au joueur du bas
     updateTurnUI();
     if (!ONLINE_MODE) startTurn('bottom'); // en local, on enchaîne directement le tour du joueur du bas
-    pushHistory('info', `Changement de tour → J1.`);
+    pushHistory('info', `Changement de tour → ${playerLabel('bottom')}.`);
   }
   if (ONLINE_MODE) fullRender(); // diffuse le changement de tour ; le nouveau joueur actif lancera son propre startTurn (voir bloc réseau)
 }
@@ -10710,7 +10720,7 @@ function processScapooDuplication(player){
   }
 
   if (createdCount > 0) {
-    pushHistory('familier', `${cardAnchor('C235')} se duplique ${createdCount} fois et se propage sur la zone de combat de ${player==='bottom'?'J1':'J2'} !`);
+    pushHistory('familier', `${cardAnchor('C235')} se duplique ${createdCount} fois et se propage sur la zone de combat de ${playerLabel(player)} !`);
   }
 }
 
@@ -10758,8 +10768,8 @@ function startTurn(player){
       targetCard.hp--; 
 
       // On notifie le joueur.
-      const playerLabel = (player === 'bottom') ? 'votre' : 'sa';
-      pushHistory('artefact', `Effet de ${cardAnchor('C156')} : ${cardAnchor(targetCard.label)} dans ${playerLabel} main subit -1 PV.`);
+      const possessive = (player === 'bottom') ? 'votre' : 'sa';
+      pushHistory('artefact', `Effet de ${cardAnchor('C156')} : ${cardAnchor(targetCard.label)} dans ${possessive} main subit -1 PV.`);
     }
   }
   // ===================================================================
@@ -10779,7 +10789,7 @@ function startTurn(player){
     const hostHand = getHandByOwner(hostOwner);
     const hairPrefix = (hostOwner === 'top') ? 'T' : 'B';
     hostHand.push(createCard('T04', hairPrefix));
-    const hostLabel = (hostOwner === 'bottom') ? 'J1' : 'J2';
+    const hostLabel = playerLabel(hostOwner);
     pushHistory('familier', `${cardAnchor('C217')} perd un poil : ${cardAnchor('T04')} apparaît dans la main de ${hostLabel}.`);
   });
 
@@ -10807,7 +10817,7 @@ function startTurn(player){
     const idx = Math.floor(Math.random() * oppDiscard.length);
     const [banished] = oppDiscard.splice(idx, 1);
     addToExile(banished);
-    const oppLabel = (oppOwner === 'bottom') ? 'J1' : 'J2';
+    const oppLabel = playerLabel(oppOwner);
     pushHistory('artefact', `${cardAnchor('C224')} bannit ${cardAnchor(banished.label)} de la défausse de ${oppLabel} vers l'Exil.`);
   });
 
@@ -11507,7 +11517,7 @@ function forceDiscardFromDeckBottom(victimOwner, count, sourceLabel) {
     actuallyDiscarded++;
   }
   if (actuallyDiscarded > 0) {
-    pushHistory('info', `${cardAnchor(sourceLabel)} force ${victimOwner === 'bottom' ? 'J1' : 'J2'} à défausser ${actuallyDiscarded} carte${actuallyDiscarded > 1 ? 's' : ''} du dessous de son deck.`);
+    pushHistory('info', `${cardAnchor(sourceLabel)} force ${playerLabel(victimOwner)} à défausser ${actuallyDiscarded} carte${actuallyDiscarded > 1 ? 's' : ''} du dessous de son deck.`);
     // WADOO : Chat Noir — le camp qui INFLIGE la défausse (l'adversaire de victimOwner) en profite
     const beneficiary = (victimOwner === 'top') ? 'bottom' : 'top';
     applyChatNoirBonus(beneficiary, actuallyDiscarded);
@@ -12330,7 +12340,7 @@ renderCycles();
 updateForgeTaxUI();
 
 if (window.__ACTIVE_DECK__ && window.__ACTIVE_DECK__.name){
-  pushHistory('info', `Deck J1 chargé : <strong>${window.__ACTIVE_DECK__.name}</strong>.`);
+  pushHistory('info', `Deck ${playerLabel('bottom')} chargé : <strong>${window.__ACTIVE_DECK__.name}</strong>.`);
 }
 
 logSysInfo("Bienvenue dans A'rms ! Que le meilleur stratège l'emporte. 🍀");
