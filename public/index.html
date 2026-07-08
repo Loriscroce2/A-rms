@@ -3509,6 +3509,11 @@ function openFactionPrompt(player, onChosen){
 
   const blockedFactions = new Set();
   playerLine.forEach(host => {
+    // Ignominie (T08) est "neutre" : elle appartient aux 5 factions à la
+    // fois, mais Paradlex ne doit PAS pouvoir en bloquer une pour autant —
+    // seul son soin (+4 PV en entretien, ailleurs dans le code) s'applique
+    // normalement sur elle.
+    if (host.label === 'T08') return;
     const hasParadlex = getFamiliersOnHost(host).some(f => f.label === 'C54' && !isFamiliarEffectSuppressed(host, 'C54'));
     if (hasParadlex) {
       const hostFaction = FACTIONS.find(fac => hasTag(host, fac));
@@ -7366,6 +7371,7 @@ function showCombatVersus(payload, onDone){
         <div class="cvHpRow"><div class="cvHp" data-role="atkHp">${Math.max(payload.attacker.hp,0)} PV</div></div>
         ${atkShieldBefore > 0 ? `<div class="cvShield" data-role="atkShield">🛡 ${atkShieldBefore}</div>` : ''}
         <div class="cvCaption" data-role="atkCaption"></div>
+        ${payload.newlyFrozenAttacker ? '<div class="cvTag appear frozen">Gelé par Glaraneith</div>' : ''}
       </div>
       <div class="cvMid"><div class="cvVs">VS</div></div>
       <div class="cvFighter right ${defFighterClass}">
@@ -7379,6 +7385,7 @@ function showCombatVersus(payload, onDone){
         ${defShieldBefore > 0 ? `<div class="cvShield" data-role="defShield">🛡 ${defShieldBefore}</div>` : ''}
         <div class="cvCaption" data-role="defCaption"></div>
         ${payload.isTargetFrozen ? '<div class="cvTag appear frozen">Gelé — pas de riposte</div>' : ''}
+        ${payload.newlyFrozenDefender ? '<div class="cvTag appear frozen">Gelé par Glaraneith</div>' : ''}
         ${(payload.poisonFromAttacker && payload.defenderDied) ? '<div class="cvTag appear poison">Anéanti par le Poison</div>' : ''}
       </div>
     </div>
@@ -7589,6 +7596,11 @@ function resolveFight(from, to){
     dmgToAttacker: resFrom.hpLost || 0,
     absorbedByDefender: resTo.absorbed || 0,
     absorbedByAttacker: resFrom.absorbed || 0,
+    // WADOO 5e lot : Glaraneith (C229) — gel infligé PENDANT ce combat même
+    // (à ne pas confondre avec isTargetFrozen, qui décrit un gel déjà présent
+    // AVANT le combat et qui a empêché la riposte).
+    newlyFrozenDefender: from.card.label === 'C229' && resTo.hpLost > 0 && getEffectiveHP(to.card) > 0,
+    newlyFrozenAttacker: to.card.label === 'C229' && resFrom.hpLost > 0 && getEffectiveHP(from.card) > 0,
   };
 
   const riposteMessage = isTargetFrozen
