@@ -2173,7 +2173,7 @@ function showZoom(label, card=null){
   const render = () => {
     const safeCard = card || { label };
     attachHP(zoomCard, safeCard);
-    if (safeCard.label === 'C7' || safeCard.label === 'C58' || safeCard.label === 'C112' || safeCard.label === 'C216' || safeCard.label === 'C227'){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
+    if (safeCard.label === 'C7' || safeCard.label === 'C58' || safeCard.label === 'C112' || safeCard.label === 'C216' || safeCard.label === 'C227' || safeCard.label === 'C212'){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
     if (safeCard.label === 'C8'){ attachSealedBadge(zoomCard, safeCard); }
     if (safeCard.label === 'C68'){ attachCapturedMithril(zoomCard, safeCard); }
     if (getType(safeCard.label) === 'personnage'){ attachFamiliersZoom(zoomCard, safeCard); }
@@ -3111,14 +3111,18 @@ function attachProvocateurBadge(el, card){
 }
 
 // WADOO 6e lot : Scapoo (C235) — même bandeau visuel que Provocateur, mais
-// pour signaler qu'un combattant est considéré comme une Poupée.
+// pour signaler qu'un combattant est considéré comme une Poupée À CAUSE DE
+// SCAPOO. Ne s'affiche PAS sur les cartes qui sont déjà des Poupées
+// imprimées (Golgoth, Mboria, etc.) — celles-ci n'ont pas besoin du rappel,
+// c'est déjà écrit sur leur carte.
 function attachPoupeeBadge(el, card){
   const old = el.querySelector('.poupeeBadge'); if (old) old.remove();
   if (!card || getType(card.label) !== 'personnage') return;
-  if (!hasTag(card, 'poupée')) return;
+  const hasScapooAttached = getFamiliersOnHost(card).some(f => f.label === 'C235' && !isFamiliarEffectSuppressed(card, 'C235'));
+  if (!hasScapooAttached) return;
   const badge = document.createElement('div');
   badge.className = 'provocateurBadge poupeeBadge';
-  badge.title = 'POUPÉE : compte comme une Poupée pour les effets qui en dépendent (ex. Tribut Poupesque).';
+  badge.title = 'POUPÉE : Scapoo est attaché — ce combattant compte comme une Poupée pour les effets qui en dépendent (ex. Tribut Poupesque).';
   badge.textContent = '🎎 POUPÉE';
   el.appendChild(badge);
 }
@@ -3169,7 +3173,11 @@ if (label === 'C154') {
   // WADOO : toute carte peut potentiellement porter un lien vaudou (mais seules les Poupées l'utilisent)
   c.wadooLink = null;
   if (label === 'C212') {
-    c.linkrevableCharges = 0;
+    // 4 "revenez-en" disponibles au départ, affichées via le système de
+    // charges standard (comme C7/C58/C112/C216/C227) — donc visibles sur la
+    // carte ET rechargeables par Chargbox (C174), ce qui n'était pas le cas
+    // avec l'ancien compteur interne dédié.
+    c.charges = 4;
   }
   // Initialisation des propriétés pour les tags dynamiques
   c.addedTags = [];
@@ -5275,7 +5283,7 @@ function useFreydAbility(owner, card) {
 // ===================================================================
 
 // Liste des cartes qui peuvent être rechargées
-const CHARGEABLE_CARDS = ['C7', 'C58', 'C112'];
+const CHARGEABLE_CARDS = ['C7', 'C58', 'C112', 'C216', 'C227', 'C212'];
 
 /**
  * Ouvre la fenêtre de confirmation pour l'action de Chargebox.
@@ -7788,7 +7796,7 @@ function applyCardFace(el, card){
 
   const afterFace = () => {
     attachHP(el, card);
-    if ((lbl === 'C7' || lbl === 'C58' || lbl === 'C112' || lbl === 'C216' || lbl === 'C227') && el.classList.contains('placed')) {
+    if ((lbl === 'C7' || lbl === 'C58' || lbl === 'C112' || lbl === 'C216' || lbl === 'C227' || lbl === 'C212') && el.classList.contains('placed')) {
       if (typeof card.charges !== 'number') card.charges = 0;
       attachCharges(el, card);
     }
@@ -8171,7 +8179,7 @@ function makeArtifactCard(card, owner){
   }
 
   applyCardFace(el, card);
-  if(card.label==='C7' || card.label === 'C58' || card.label === 'C112' || card.label === 'C227') attachCharges(el, card);
+  if(card.label==='C7' || card.label === 'C58' || card.label === 'C112' || card.label === 'C216' || card.label === 'C227' || card.label === 'C212') attachCharges(el, card);
   if(card.label==='C8') renderRescelleurUnderStack(el, card);
 
   if(artifactExhausted[owner].has(card.id)) el.classList.add('exhausted'); else el.classList.remove('exhausted');
@@ -9090,20 +9098,21 @@ function returnSealedToOpponentDeck(card, owner){
 }
 
 function discardCard(card, owner, reason='other', context = {}){
-  // WADOO : Linkrevable (C212) revient dans la zone de combat au lieu de mourir, jusqu'à 4 fois
+  // WADOO : Linkrevable (C212) revient dans la zone de combat au lieu de mourir, tant qu'il lui reste des charges
   if (card.label === 'C212' && reason === 'death') {
-    card.linkrevableCharges = (card.linkrevableCharges || 0) + 1;
-    if (card.linkrevableCharges < 4) {
+    if (typeof card.charges !== 'number') card.charges = 4;
+    card.charges = Math.max(0, card.charges - 1);
+    if (card.charges > 0) {
       card.hp = getBaseHP('C212');
       card.shield = getBaseShield('C212');
       card.wadooLink = null;
       const line = getLineByOwner(owner);
       line.push(card);
-      pushHistory('action', `${cardAnchor('C212')} gagne un marqueur charge (${card.linkrevableCharges}/4) et revient dans la zone de combat !`);
+      pushHistory('action', `${cardAnchor('C212')} revient dans la zone de combat ! (${card.charges} charge${card.charges>1?'s':''} restante${card.charges>1?'s':''})`);
       fullRender();
       return;
     } else {
-      pushHistory('action', `${cardAnchor('C212')} a atteint 4 marqueurs charge : elle ne revient plus cette fois.`);
+      pushHistory('action', `${cardAnchor('C212')} n'a plus de charges : elle ne revient plus cette fois.`);
     }
   }
 
