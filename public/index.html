@@ -13882,12 +13882,12 @@ function startTutorialCoach(){
       #tcDialogue{
         position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:9300;
         display:none; flex-direction:column; align-items:center; text-align:center; gap:10px;
-        width:min(92vw,480px); padding:26px 26px 22px;
+        width:min(92vw,560px); max-height:92vh; overflow-y:auto; padding:26px 26px 22px;
         background:linear-gradient(150deg,#0c2934,#051820); border:1.5px solid rgba(125,249,255,.55);
         border-radius:20px; box-shadow:0 20px 50px rgba(0,0,0,.65), 0 0 40px rgba(0,230,255,.22);
         font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:#e8fdff;
       }
-      #tcDialogue .tcdAvatar{ width:120px; height:120px; object-fit:contain; filter:drop-shadow(0 8px 16px rgba(0,0,0,.55)); margin-bottom:2px; }
+      #tcDialogue .tcdAvatar{ width:min(55vw,340px); height:min(55vw,340px); object-fit:contain; filter:drop-shadow(0 8px 16px rgba(0,0,0,.55)); margin-bottom:2px; flex:none; }
       #tcDialogue .tcdStepLabel{ font-size:10.5px; text-transform:uppercase; letter-spacing:.12em; color:#7df9ff; opacity:.8; }
       #tcDialogue .tcdText{ font-size:14.5px; line-height:1.6; }
       #tcDialogue .tcdText strong{ color:#ffd93d; }
@@ -13974,6 +13974,7 @@ function startTutorialCoach(){
     function hideBanner(){ banner.style.display = 'none'; }
 
     let tcArrowTimer = null;
+    let tcBoostedAncestors = [];
     function positionArrow(el){
       const arrowEl = document.getElementById('tcArrow');
       if (!el) { arrowEl.style.display = 'none'; return; }
@@ -13995,12 +13996,35 @@ function startTutorialCoach(){
       document.getElementById('tcArrow').style.display = 'none';
       if (dialogue.style.display !== 'flex') blocker.style.display = 'none';
       if (tcArrowTimer) { clearInterval(tcArrowTimer); tcArrowTimer = null; }
+      // Restaure le z-index de tout ancêtre temporairement remonté.
+      tcBoostedAncestors.forEach(a => {
+        if (a.dataset.tcOldZIndex === '') a.style.removeProperty('z-index');
+        else a.style.zIndex = a.dataset.tcOldZIndex;
+        delete a.dataset.tcOldZIndex;
+      });
+      tcBoostedAncestors = [];
     }
     function highlight(el){
       clearHighlight();
       if (!el) return;
       el.classList.add('tcSpotlight');
       blocker.style.display = 'block';
+      // Un ancêtre peut posséder son PROPRE contexte d'empilement (z-index
+      // déjà fixé, ex. le prompt de faction à z-index:2000) qui plafonne
+      // tout ce qu'il contient — le z-index forcé sur la cible elle-même ne
+      // suffit alors pas à passer au-dessus du calque de blocage. On
+      // remonte temporairement tout ancêtre concerné, et on le restaure
+      // ensuite dans clearHighlight().
+      let ancestor = el.parentElement;
+      while (ancestor && ancestor !== document.body) {
+        const cs = window.getComputedStyle(ancestor);
+        if (cs.zIndex !== 'auto' && parseInt(cs.zIndex, 10) < 9060) {
+          ancestor.dataset.tcOldZIndex = ancestor.style.zIndex || '';
+          ancestor.style.zIndex = '9080';
+          tcBoostedAncestors.push(ancestor);
+        }
+        ancestor = ancestor.parentElement;
+      }
       positionArrow(el);
       tcArrowTimer = setInterval(()=> positionArrow(el), 300);
     }
