@@ -13951,6 +13951,15 @@ function startTutorialCoach(){
         animation:tcArrowBounce .9s ease-in-out infinite;
       }
       @keyframes tcArrowBounce{ 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(12px); } }
+      /* La ligne de visée rouge du jeu (glisser pour attaquer) doit rester
+         visible par-dessus le calque de blocage du didacticiel, sinon elle
+         est invisible pendant qu'on maintient le clic pour attaquer. */
+      #aimLayer{ z-index:9120 !important; }
+      /* Idem pour TOUTE fenêtre de choix du jeu (ex. cible d'une Action comme
+         Why Me) : son z-index normal est bien plus bas que notre calque de
+         blocage, ce qui la rendrait invisible et inutilisable pendant le
+         didacticiel si on ne la remonte pas. */
+      .actionPrompt{ z-index:9120 !important; }
     `;
     document.head.appendChild(style);
 
@@ -14172,11 +14181,13 @@ function startTutorialCoach(){
         <strong>${myCard ? cardName(myCard.label) : 'votre combattant'}</strong> le possède, elle peut donc agir tout de suite.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
-          const el = myCard ? document.querySelector(`[data-id="${myCard.id}"]`) : null;
-          highlight(el);
+          const myEl = myCard ? document.querySelector(`[data-id="${myCard.id}"]`) : null;
+          const oppEl = document.querySelector(`[data-id="${dummy.id}"]`);
+          highlight([myEl, oppEl]);
           const startTopCount = topLine.length;
           const startMyHp = myCard ? getEffectiveHP(myCard) : 0;
-          showBanner('Attaquer', `Faites glisser votre combattant vers celui de l'adversaire. Les dégâts s'échangent des deux côtés.`);
+          showBanner('Attaquer', `<strong>Maintenez le clic</strong> sur votre combattant (repère du haut), puis faites glisser
+            vers le combattant adverse (repère du bas) et relâchez pour attaquer. Les dégâts s'échangent des deux côtés.`);
           waitForCondition(() => {
             const stillThere = botLine.find(c => myCard && c.id === myCard.id);
             const hpChanged = stillThere ? (getEffectiveHP(stillThere) !== startMyHp) : true;
@@ -14194,8 +14205,12 @@ function startTutorialCoach(){
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const startFamCount = famBottom.length;
-          highlightHandCard('C107');
-          showBanner('Les Familiers', `Faites glisser ${cardName('C107')} sur un de vos combattants.`);
+          const famCard = botHand.find(c => c.label === 'C107');
+          const famEl = famCard ? document.querySelector(`#handBottom [data-id="${famCard.id}"]`) : null;
+          const hostEl = botLine[0] ? document.querySelector(`[data-id="${botLine[0].id}"]`) : null;
+          highlight([famEl, hostEl]);
+          showBanner('Les Familiers', `Faites glisser <strong>${cardName('C107')}</strong> (repère du haut) sur votre combattant
+            (repère du bas) pour l'y rattacher.`);
           waitForCondition(() => famBottom.length > startFamCount, step8_Action);
         } }
       ]);
