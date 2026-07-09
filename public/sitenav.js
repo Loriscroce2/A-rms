@@ -11,6 +11,7 @@
   const links = [
     { href: '/accueil.html',  label: 'Accueil',  match: ['/accueil.html', '/', '/index.html'] },
     { href: '/play.html',     label: 'Jouer',     match: ['/play.html'] },
+    { href: '/classement.html', label: 'Classement', match: ['/classement.html'] },
     { href: '/boutique.html', label: 'Boutique',  match: ['/boutique.html'] },
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
   ];

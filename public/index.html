@@ -1142,7 +1142,8 @@
       transition:opacity .15s ease, transform .15s ease; z-index:90;
       box-shadow:0 4px 10px rgba(0,0,0,.5);
     }
-    .famBadge:hover .famBadgeTip, .famBadgeOverflow:hover .famBadgeTip{
+    .famBadge:hover .famBadgeTip, .famBadgeOverflow:hover .famBadgeTip,
+    .famBadge.pinned .famBadgeTip, .famBadgeOverflow.pinned .famBadgeTip{
       opacity:1; transform:translateX(-50%) translateY(0);
     }
 
@@ -7331,6 +7332,15 @@ function renderMiniFamiliersForHost(el, hostCard){
     tip.className = 'famBadgeTip';
     tip.textContent = cardName(f.label);
     badge.appendChild(tip);
+    // Clic pour figer/défiger l'info-bulle (en plus du survol) — utile au
+    // tactile, où il n'y a pas de survol, et fonctionne identiquement pour
+    // les combattants alliés ET adverses (même code des deux côtés).
+    badge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasOpen = badge.classList.contains('pinned');
+      dock.querySelectorAll('.famBadge.pinned, .famBadgeOverflow.pinned').forEach(b => b.classList.remove('pinned'));
+      if (!wasOpen) badge.classList.add('pinned');
+    });
     dock.appendChild(badge);
   });
 
@@ -7342,11 +7352,22 @@ function renderMiniFamiliersForHost(el, hostCard){
     tip.className = 'famBadgeTip';
     tip.textContent = overflow.map(f => cardName(f.label)).join(', ');
     badge.appendChild(tip);
+    badge.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasOpen = badge.classList.contains('pinned');
+      dock.querySelectorAll('.famBadge.pinned, .famBadgeOverflow.pinned').forEach(b => b.classList.remove('pinned'));
+      if (!wasOpen) badge.classList.add('pinned');
+    });
     dock.appendChild(badge);
   }
 
   el.appendChild(dock);
 }
+// Un clic n'importe où ailleurs sur la page referme toute info-bulle de
+// familier restée "épinglée" par un clic.
+document.addEventListener('click', () => {
+  document.querySelectorAll('.famBadge.pinned, .famBadgeOverflow.pinned').forEach(b => b.classList.remove('pinned'));
+});
 
 function attachFamiliersZoom(zoomEl, hostCard){
   const fams = getFamiliersOnHost(hostCard);
@@ -10597,19 +10618,26 @@ function endGame(winner, reason, opts = {}){
   playEndGameJingle(iWon);
   showVictoryOverlay(winner, reason);
 
-  // Récompense en pièces (uniquement en partie en ligne — le hotseat local n'a
-  // qu'un seul compte connecté des deux côtés, ça n'aurait pas de sens).
-  // Celui qui abandonne ne reçoit jamais de récompense, même la petite
-  // compensation habituelle d'une défaite classique.
-  if (ONLINE_MODE && ONLINE_MATCH_ID && !opts.noReward) {
-    const result = (winner === MY_SEAT) ? 'win' : 'loss';
+  // Récompense en pièces + points de Menace (uniquement en partie en ligne —
+  // le hotseat local n'a qu'un seul compte connecté des deux côtés, ça n'aurait
+  // pas de sens). Un abandon ne rapporte jamais de pièces, mais compte quand
+  // même comme une défaite pour le classement en partie CLASSÉE (pour ne pas
+  // encourager à fuir une partie mal engagée).
+  if (ONLINE_MODE && ONLINE_MATCH_ID) {
+    const result = opts.isForfeit ? 'forfeit' : ((winner === MY_SEAT) ? 'win' : 'loss');
     fetch('/api/match/result', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ matchId: ONLINE_MATCH_ID, result })
     }).then(r => r.json()).then(data => {
       if (data && data.ok && !data.alreadyRewarded) {
-        pushHistory('mithril', `+${data.gained} pièces créditées sur votre compte (${result === 'win' ? 'victoire' : 'défaite'}).`);
+        const resultLabel = result === 'win' ? 'victoire' : (result === 'loss' ? 'défaite' : 'abandon');
+        let msg = `+${data.gained} pièces créditées sur votre compte (${resultLabel}).`;
+        if (data.ranked && typeof data.pointsDelta === 'number' && data.pointsDelta !== 0 && data.rank) {
+          const sign = data.pointsDelta > 0 ? '+' : '';
+          msg += ` Menace ${sign}${data.pointsDelta} pts — rang actuel : <strong>${data.rank.label}</strong>.`;
+        }
+        pushHistory('mithril', msg);
       }
     }).catch(() => {});
   }
@@ -10624,7 +10652,7 @@ if (surrenderBtn) {
     if (GAME.over) return;
     openButtonsPrompt(
       'Abandonner la partie ?',
-      "Voulez-vous vraiment capituler ? La partie sera immédiatement <strong>gagnée par votre adversaire</strong>.",
+      "Voulez-vous vraiment capituler ? La partie sera immédiatement <strong>gagnée par votre adversaire</strong>. En partie classée, un abandon compte comme une défaite pour votre Menace.",
       null,
       [
         {
@@ -10639,7 +10667,7 @@ if (surrenderBtn) {
               window.__gameOverInfo = { winner: winnerSeat, reason: 'surrender' };
               window.__socket.emit('stateSync', { matchId: ONLINE_MATCH_ID, seat: MY_SEAT, state: serializeGameState() });
             }
-            endGame(winnerSeat, 'surrender', { noReward: true });
+            endGame(winnerSeat, 'surrender', { isForfeit: true });
           }
         },
         { label: 'Non, continuer', className: 'confirm', onClick: () => {} }

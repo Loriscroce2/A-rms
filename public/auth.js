@@ -16,12 +16,33 @@ function armsApplyAvatar(el, avatar) {
   el.textContent = '';
 }
 
+// Couleurs associées à chaque palier de Menace (du plus calme au plus terrifiant).
+function armsRankTierColor(tierName) {
+  switch (tierName) {
+    case 'Mineure':       return { c1:'#3ddc84', c2:'#1b7a45', glow:'rgba(61,220,132,.5)',  text:'#c8ffe0' };
+    case 'Hostile':       return { c1:'#ffd93d', c2:'#c98a00', glow:'rgba(255,217,61,.5)',  text:'#fff3c9' };
+    case 'Mortelle':      return { c1:'#ff5c5c', c2:'#8a0000', glow:'rgba(255,60,60,.55)',  text:'#ffd6d6' };
+    case 'Apocalyptique': return { c1:'#c86bff', c2:'#5a0d8a', glow:'rgba(180,60,255,.6)',  text:'#f0d6ff' };
+    case 'Extinction':    return { c1:'#ff3b3b', c2:'#120004', glow:'rgba(255,20,20,.9)',   text:'#ffdede' };
+    default:              return { c1:'#7df9ff', c2:'#0a4f5c', glow:'rgba(125,249,255,.4)', text:'#e8fdff' };
+  }
+}
+function armsRankBadgeHtml(rank, opts) {
+  opts = opts || {};
+  if (!rank) return '';
+  const colors = armsRankTierColor(rank.tierName);
+  const pad = opts.small ? '4px 11px' : '6px 15px';
+  const fs = opts.small ? '11.5px' : '14px';
+  return `<span class="rankPill" style="padding:${pad};font-size:${fs};background:linear-gradient(180deg,${colors.c1}30,${colors.c2}70);border:1.5px solid ${colors.c1};color:${colors.text};box-shadow:0 0 12px ${colors.glow}, inset 0 1px 0 rgba(255,255,255,.12);">⚔ ${rank.label}</span>`;
+}
+
 function armsInjectAccountStyles() {
   if (document.getElementById('armsAccountStyles')) return;
   const style = document.createElement('style');
   style.id = 'armsAccountStyles';
   style.textContent = `
     .coinsPill{display:inline-flex;align-items:center;gap:6px;}
+    .rankPill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;font-weight:900;font-family:'Manrope',sans-serif;letter-spacing:.02em;white-space:nowrap;}
     .accountBtn{display:inline-flex;align-items:center;gap:10px;padding:5px 14px 5px 5px;border-radius:999px;
       background:linear-gradient(180deg,#0e2e39,#0a222a);border:1.5px solid rgba(125,249,255,.35);cursor:pointer;
       color:#e8fdff;font-weight:800;font-size:14px;transition:border-color .15s ease, transform .15s ease;}
@@ -92,9 +113,14 @@ function armsBuildAccountModal(user) {
           <div class="profileName">${user.name}</div>
           <div class="profileEmail">${user.email}</div>
           <div class="profileCoins">🪙 ${user.coins ?? 0} pièces</div>
+          ${user.rank ? `<div style="margin-top:8px;">${armsRankBadgeHtml(user.rank)}</div>` : ''}
         </div>
 
         <div class="armsSectionTitle">Profil</div>
+        <div class="armsRowBtn" id="goRankingBtn">
+          <span class="lbl">🏆 Classement</span>
+          <span class="val">Ouvrir →</span>
+        </div>
         <div class="armsRowBtn" id="changeAvatarBtn">
           <span class="lbl">🖼️ Changer d'avatar</span>
           <span class="val">Modifier →</span>
@@ -120,6 +146,7 @@ function armsBuildAccountModal(user) {
     armsApplyAvatar(overlay.querySelector('#profileAvatarBig'), user.avatar);
     overlay.querySelector('#armsModalCloseBtn').addEventListener('click', closeModal);
     overlay.querySelector('#changeAvatarBtn').addEventListener('click', renderAvatarPicker);
+    overlay.querySelector('#goRankingBtn').addEventListener('click', () => { window.location.href = '/classement.html'; });
     overlay.querySelector('#goCollectionBtn').addEventListener('click', () => { window.location.href = '/play.html'; });
     overlay.querySelector('#goShopBtn').addEventListener('click', () => { window.location.href = '/boutique.html'; });
     overlay.querySelector('#reduceMotionToggle').addEventListener('click', (e) => {
@@ -223,6 +250,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const user = data.user;
       navMenu.innerHTML = `
         <span class="coinsPill" id="coinsPill" title="Vos pièces">🪙 <strong id="coinsAmount">${user.coins ?? 0}</strong></span>
+        ${user.rank ? `<a href="/classement.html" id="navRankPill" style="text-decoration:none;" title="Votre rang de Menace — cliquez pour voir le classement">${armsRankBadgeHtml(user.rank, { small:true })}</a>` : ''}
         <a class="btn shopBtn" id="shopNavBtn" href="/boutique.html">🏪 Boutique</a>
         <button class="accountBtn" id="accountMenuBtn">
           <span class="accountAvatarSm js-avatar-img" id="navAvatarImg"></span>

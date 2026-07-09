@@ -110,6 +110,78 @@ function coinsForResponse(req) {
 const qGetProfile = db.prepare('SELECT id, name, coins, avatar FROM users WHERE id = ?');
 const qSetAvatar = db.prepare('UPDATE users SET avatar = ? WHERE id = ?');
 
+// ===================================================================
+// CLASSEMENT "MENACE" (parties classées)
+// ===================================================================
+// 5 paliers de menace, chacun décliné en 3 niveaux (I/II/III) — 15 rangs au
+// total, du plus faible au plus terrifiant. 100 points de Menace séparent
+// chaque rang ; le dernier (Extinction III) n'a pas de plafond.
+const RANK_TIER_NAMES = ['Mineure', 'Hostile', 'Mortelle', 'Apocalyptique', 'Extinction'];
+const POINTS_PER_RANK = 100;
+const TOTAL_RANKS = RANK_TIER_NAMES.length * 3; // 15
+
+// Index (0-based) du premier rang de palier "Mortelle" — à partir de ce
+// palier, une défaite coûte de plus en plus cher.
+const PUNISHING_TIER_START_INDEX = RANK_TIER_NAMES.indexOf('Mortelle') * 3; // = 6
+
+function rankIndexForPoints(points) {
+  const idx = Math.floor(Math.max(0, points) / POINTS_PER_RANK);
+  return Math.min(idx, TOTAL_RANKS - 1);
+}
+
+function getRankInfo(points) {
+  const safePoints = Math.max(0, points || 0);
+  const idx = rankIndexForPoints(safePoints);
+  const tierIndex = Math.floor(idx / 3);
+  const subLevel = (idx % 3) + 1; // 1, 2 ou 3
+  const tierName = RANK_TIER_NAMES[tierIndex];
+  const romanSub = ['I', 'II', 'III'][subLevel - 1];
+  const rankMin = idx * POINTS_PER_RANK;
+  const isMaxRank = idx === TOTAL_RANKS - 1;
+  const rankMax = isMaxRank ? null : (rankMin + POINTS_PER_RANK - 1);
+  return {
+    points: safePoints,
+    rankIndex: idx,
+    tierName,
+    subLevel,
+    label: `${tierName} ${romanSub}`,
+    rankMin,
+    rankMax, // null = pas de plafond (Extinction III)
+    progressInRank: isMaxRank ? null : (safePoints - rankMin), // 0..99
+    isMaxRank,
+  };
+}
+
+// Combien de points sont retirés en cas de défaite, selon le palier ACTUEL
+// du joueur (calculé avant application de la perte) — de plus en plus
+// punitif à partir de "Mortelle I".
+function lossPenaltyForPoints(points) {
+  const idx = rankIndexForPoints(points);
+  if (idx < PUNISHING_TIER_START_INDEX) return 10;              // Mineure / Hostile
+  const tierIndex = Math.floor(idx / 3);
+  if (tierIndex === 2) return 18;  // Mortelle
+  if (tierIndex === 3) return 25;  // Apocalyptique
+  return 35;                        // Extinction
+}
+
+const RANKED_WIN_GAIN = 25;
+
+const qGetThreatPoints = db.prepare('SELECT threat_points FROM users WHERE id = ?');
+const qApplyRankedWin = db.prepare('UPDATE users SET threat_points = threat_points + ?, ranked_wins = ranked_wins + 1 WHERE id = ?');
+const qApplyRankedLoss = db.prepare('UPDATE users SET threat_points = MAX(0, threat_points - ?), ranked_losses = ranked_losses + 1 WHERE id = ?');
+const qLeaderboard = db.prepare(`
+  SELECT id, name, avatar, threat_points, ranked_wins, ranked_losses
+  FROM users
+  WHERE ranked_wins > 0 OR ranked_losses > 0
+  ORDER BY threat_points DESC, ranked_wins DESC
+  LIMIT ?
+`);
+const qMyRankPosition = db.prepare(`
+  SELECT COUNT(*) + 1 AS position FROM users
+  WHERE threat_points > (SELECT threat_points FROM users WHERE id = ?)
+    AND (ranked_wins > 0 OR ranked_losses > 0)
+`);
+
 // --- Requêtes SQL préparées (boutique horaire) ---
 const qGetShopState = db.prepare('SELECT * FROM shop_state WHERE id = 1');
 const qSetShopState = db.prepare(`
@@ -181,7 +253,41 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/me', authMiddleware, (req, res) => {
   const row = qGetProfile.get(req.user.id);
-  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '' } });
+  const tpRow = qGetThreatPoints.get(req.user.id);
+  const rank = getRankInfo(tpRow ? tpRow.threat_points : 0);
+  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '', rank } });
+});
+
+// Classement "Menace" : le haut du tableau (100 joueurs par défaut), plus la
+// position exacte du joueur connecté (utile même s'il est hors du top 100).
+app.get('/api/leaderboard', authMiddleware, (req, res) => {
+  try {
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 100));
+    const rows = qLeaderboard.all(limit);
+    const players = rows.map((r, i) => ({
+      rank: i + 1,
+      id: r.id,
+      name: r.name,
+      avatar: r.avatar,
+      threatInfo: getRankInfo(r.threat_points),
+      wins: r.ranked_wins,
+      losses: r.ranked_losses,
+    }));
+    const myTp = qGetThreatPoints.get(req.user.id);
+    const myPosition = qMyRankPosition.get(req.user.id);
+    res.json({
+      ok: true,
+      players,
+      me: {
+        id: req.user.id,
+        threatInfo: getRankInfo(myTp ? myTp.threat_points : 0),
+        position: myPosition ? myPosition.position : null,
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
 });
 
 app.post('/api/profile/avatar', authMiddleware, (req, res) => {
@@ -432,19 +538,48 @@ app.post('/api/shop/buy-booster', authMiddleware, (req, res) => {
 app.post('/api/match/result', authMiddleware, (req, res) => {
   try {
     const { matchId, result } = req.body || {};
-    if (!matchId || (result !== 'win' && result !== 'loss')) {
+    if (!matchId || (result !== 'win' && result !== 'loss' && result !== 'forfeit')) {
       return res.status(400).json({ ok: false, error: 'invalid_request' });
     }
     // Anti-doublon : un seul crédit par (joueur, partie), même en cas de reconnexion/refresh
     const inserted = qInsertMatchReward.run(req.user.id, matchId);
     if (inserted.changes === 0) {
       const coins = coinsForResponse(req);
-      return res.json({ ok: true, alreadyRewarded: true, coins, gained: 0 });
+      const tpRow = qGetThreatPoints.get(req.user.id);
+      return res.json({ ok: true, alreadyRewarded: true, coins, gained: 0, rank: getRankInfo(tpRow ? tpRow.threat_points : 0) });
     }
-    const gain = (result === 'win') ? 15 : 5;
-    qAddCoins.run(gain, req.user.id);
+
+    // Pièces : victoire 50, défaite normale 10, abandon 0.
+    const coinGain = (result === 'win') ? 50 : (result === 'loss') ? 10 : 0;
+    if (coinGain > 0) qAddCoins.run(coinGain, req.user.id);
     const coins = coinsForResponse(req);
-    res.json({ ok: true, gained: gain, coins });
+
+    // Points de Menace : uniquement en partie CLASSÉE. Un abandon compte
+    // comme une défaite pour la pénalité (pour décourager de fuir une
+    // partie perdue), mais ne rapporte jamais de pièces.
+    const matchData = mmMatches.get(matchId);
+    const isRanked = !!(matchData && matchData.mode === 'ranked');
+    let pointsDelta = 0;
+    let rank = null;
+    if (isRanked) {
+      const beforeRow = qGetThreatPoints.get(req.user.id);
+      const beforePoints = beforeRow ? beforeRow.threat_points : 0;
+      if (result === 'win') {
+        pointsDelta = RANKED_WIN_GAIN;
+        qApplyRankedWin.run(pointsDelta, req.user.id);
+      } else {
+        const penalty = lossPenaltyForPoints(beforePoints);
+        pointsDelta = -Math.min(penalty, beforePoints);
+        qApplyRankedLoss.run(penalty, req.user.id);
+      }
+      const afterRow = qGetThreatPoints.get(req.user.id);
+      rank = getRankInfo(afterRow ? afterRow.threat_points : 0);
+    } else {
+      const tpRow = qGetThreatPoints.get(req.user.id);
+      rank = getRankInfo(tpRow ? tpRow.threat_points : 0);
+    }
+
+    res.json({ ok: true, gained: coinGain, coins, ranked: isRanked, pointsDelta, rank });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -489,11 +624,15 @@ const mmTickets = new Map();
 const mmMatches = new Map();
 
 function tryMakeMatch() {
-  while (mmQueue.length >= 2) {
-    const a = mmQueue.shift();
-    const idx = mmQueue.findIndex(x => x.userId !== a.userId);
-    if (idx === -1) { mmQueue.unshift(a); break; }
-    const b = mmQueue.splice(idx, 1)[0];
+  // On ne fait jamais se rencontrer un joueur en Classée avec un joueur en
+  // Non classée : on cherche un adversaire du MÊME mode uniquement.
+  for (let i = 0; i < mmQueue.length; i++) {
+    const a = mmQueue[i];
+    const idx = mmQueue.findIndex((x, j) => j > i && x.userId !== a.userId && x.mode === a.mode);
+    if (idx === -1) continue;
+    const b = mmQueue[idx];
+    mmQueue.splice(idx, 1);
+    mmQueue.splice(i, 1);
 
     const matchId = randomUUID();
     const seatA = Math.random() < 0.5 ? 'bottom' : 'top';
@@ -511,7 +650,8 @@ function tryMakeMatch() {
     mmTickets.get(b.ticket).matchId = matchId;
     mmTickets.get(b.ticket).seat = seatB;
 
-    mmMatches.set(matchId, { createdAt: Date.now(), players, gameState: initialGameState });
+    mmMatches.set(matchId, { createdAt: Date.now(), players, gameState: initialGameState, mode: a.mode });
+    return tryMakeMatch(); // au cas où d'autres paires seraient possibles dans la file
   }
 }
 
@@ -519,6 +659,7 @@ app.post('/api/matchmaking/join', authMiddleware, (req, res) => {
   try {
     const deckId = req.body?.deckId;
     if (!deckId) return res.status(400).json({ ok: false, error: 'missing_deck' });
+    const mode = (req.body?.mode === 'ranked') ? 'ranked' : 'casual';
 
     const deck = qDeckById.get(deckId);
     if (!deck || deck.user_id !== req.user.id) {
@@ -538,12 +679,13 @@ app.post('/api/matchmaking/join', authMiddleware, (req, res) => {
 
     const ticket = randomUUID();
     const now = Date.now();
-    mmTickets.set(ticket, { userId: req.user.id, deckId, matched: false, matchId: null, seat: null, ts: now });
-    mmQueue.push({ ticket, userId: req.user.id, deckId, ts: now });
+    mmTickets.set(ticket, { userId: req.user.id, deckId, matched: false, matchId: null, seat: null, ts: now, mode });
+    mmQueue.push({ ticket, userId: req.user.id, deckId, ts: now, mode });
     tryMakeMatch();
 
-    const estimatedWait = mmQueue.length > 1 ? 1000 : 5000;
-    return res.json({ ok: true, ticket, estimatedWait });
+    const sameModeWaiting = mmQueue.filter(e => e.mode === mode).length;
+    const estimatedWait = sameModeWaiting > 1 ? 1000 : 5000;
+    return res.json({ ok: true, ticket, estimatedWait, mode });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ ok: false, error: 'join_failed' });

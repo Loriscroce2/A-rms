@@ -85,6 +85,18 @@
     .zoomCard{position:relative;background-color:transparent;border:none;box-shadow:none;background-size:contain;background-position:center;background-repeat:no-repeat;overflow:visible}
     #mmOverlay{position:fixed;inset:0;z-index:5000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)}
     .mmBox{width:min(520px,92vw);border:2px solid rgba(125,249,255,.35);background:linear-gradient(145deg,#051821,#072d38);border-radius:14px;box-shadow:0 0 28px rgba(125,249,255,.35),inset 0 0 12px rgba(255,255,255,.06);padding:16px;text-align:center;color:#e8fdff}
+    #modeChoiceOverlay{position:fixed;inset:0;z-index:5100;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)}
+    .modeChoiceBox{width:min(560px,94vw);}
+    .modeChoiceGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;}
+    .modeChoiceCard{display:flex;flex-direction:column;align-items:center;gap:8px;padding:20px 12px;border-radius:14px;cursor:pointer;
+      background:linear-gradient(160deg,#0a2530,#051820);border:2px solid rgba(125,249,255,.25);color:#e8fdff;transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;}
+    .modeChoiceCard:hover{transform:translateY(-3px);}
+    .modeChoiceCard.casual:hover{border-color:#7df9ff;box-shadow:0 0 20px rgba(125,249,255,.4);}
+    .modeChoiceCard.ranked{border-color:rgba(255,90,90,.35);}
+    .modeChoiceCard.ranked:hover{border-color:#ff5c5c;box-shadow:0 0 20px rgba(255,60,60,.45);}
+    .modeIcon{font-size:32px;}
+    .modeName{font-weight:900;font-family:'Cinzel',serif;font-size:16px;text-transform:uppercase;letter-spacing:.04em;}
+    .modeDesc{font-size:11.5px;color:#9fd6e6;line-height:1.45;text-align:center;}
     .mmTitle{font-weight:900;letter-spacing:.06em;color:#aefaff;margin-bottom:6px;text-transform:uppercase}
     .mmStatus{font-size:16px;opacity:.95;margin-bottom:12px}
     .mmSpinner{margin:8px auto 12px;width:42px;height:42px;border:3px solid rgba(125,249,255,.25);border-top-color:#7df9ff;border-radius:50%;animation:mmspin 1s linear infinite}
@@ -252,6 +264,25 @@
     </div>
   </div>
 
+  <div id="modeChoiceOverlay" role="dialog" aria-modal="true" aria-labelledby="modeChoiceTitle">
+    <div class="mmBox modeChoiceBox">
+      <div class="mmTitle" id="modeChoiceTitle">Choisissez votre mode de partie</div>
+      <div class="modeChoiceGrid">
+        <button class="modeChoiceCard casual" id="chooseCasualBtn">
+          <div class="modeIcon">🎲</div>
+          <div class="modeName">Non classée</div>
+          <div class="modeDesc">Pour s'entraîner ou s'amuser librement. Aucun impact sur votre Menace.</div>
+        </button>
+        <button class="modeChoiceCard ranked" id="chooseRankedBtn">
+          <div class="modeIcon">⚔</div>
+          <div class="modeName">Classée</div>
+          <div class="modeDesc">Affrontez les autres joueurs pour grimper au classement de Menace.</div>
+        </button>
+      </div>
+      <button class="mmBtn cancel" id="modeChoiceCancel" style="margin-top:14px;width:100%;">Annuler</button>
+    </div>
+  </div>
+
   <div id="welcomeOverlay" class="welcomeOverlay"></div>
 
   <script src="/auth.js"></script>
@@ -306,22 +337,54 @@
       COLLECTION = FULL_CATALOG;
     }
 
-    let MM = { polling: null, ticket: null, deckId: null };
+    let MM = { polling: null, ticket: null, deckId: null, mode: 'casual' };
+    let PENDING_DECK = null;
 
-    function openMatchmaking(deckId, deckName){
+    function openModeChoice(deckId, deckName){
+      PENDING_DECK = { id: deckId, name: deckName };
+      document.getElementById('modeChoiceOverlay').style.display = 'flex';
+    }
+    function closeModeChoice(){
+      document.getElementById('modeChoiceOverlay').style.display = 'none';
+    }
+    function goFullscreenThenPlay(deckId, deckName, mode){
+      try {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+        if (req) { const p = req.call(el); if (p && p.catch) p.catch(()=>{}); }
+      } catch(e){}
+      openMatchmaking(deckId, deckName, mode);
+    }
+    document.getElementById('chooseCasualBtn').addEventListener('click', () => {
+      closeModeChoice();
+      if (PENDING_DECK) goFullscreenThenPlay(PENDING_DECK.id, PENDING_DECK.name, 'casual');
+      PENDING_DECK = null;
+    });
+    document.getElementById('chooseRankedBtn').addEventListener('click', () => {
+      closeModeChoice();
+      if (PENDING_DECK) goFullscreenThenPlay(PENDING_DECK.id, PENDING_DECK.name, 'ranked');
+      PENDING_DECK = null;
+    });
+    document.getElementById('modeChoiceCancel').addEventListener('click', () => {
+      closeModeChoice();
+      PENDING_DECK = null;
+    });
+
+    function openMatchmaking(deckId, deckName, mode){
       const ov  = document.getElementById('mmOverlay');
       const st  = document.getElementById('mmStatus');
       const eta = document.getElementById('mmEta');
 
+      const modeLabel = (mode === 'ranked') ? 'Classée ⚔' : 'Non classée 🎲';
       ov.style.display = 'flex';
-      st.textContent   = `Recherche d’adversaire… (deck « ${deckName} »)`;
+      st.textContent   = `Recherche d’adversaire (${modeLabel})… (deck « ${deckName} »)`;
       eta.textContent  = '';
-      MM.deckId = deckId; MM.ticket = null;
+      MM.deckId = deckId; MM.ticket = null; MM.mode = mode;
 
       fetch('/api/matchmaking/join', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ deckId })
+        body:JSON.stringify({ deckId, mode })
       })
       .then(r=>r.json())
       .then(data=>{
@@ -489,12 +552,7 @@
           </div>
         `;
         pack.querySelector('.play-btn').addEventListener('click', () => {
-          try {
-            const el = document.documentElement;
-            const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-            if (req) { const p = req.call(el); if (p && p.catch) p.catch(()=>{}); }
-          } catch(e){}
-          openMatchmaking(d.id, d.name);
+          openModeChoice(d.id, d.name);
         });
         pack.querySelector('.delete-btn').addEventListener('click', () => {
           deleteDeckFromServer(d.id);

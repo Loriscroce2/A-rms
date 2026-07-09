@@ -98,5 +98,16 @@ if (!userCols.includes('coins')) {
 if (!userCols.includes('avatar')) {
   db.exec("ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''");
 }
+// Système de classement "Menace" (parties classées) : points de menace +
+// quelques statistiques affichées sur le profil/classement.
+if (!userCols.includes('threat_points')) {
+  db.exec('ALTER TABLE users ADD COLUMN threat_points INTEGER NOT NULL DEFAULT 0');
+}
+if (!userCols.includes('ranked_wins')) {
+  db.exec('ALTER TABLE users ADD COLUMN ranked_wins INTEGER NOT NULL DEFAULT 0');
+}
+if (!userCols.includes('ranked_losses')) {
+  db.exec('ALTER TABLE users ADD COLUMN ranked_losses INTEGER NOT NULL DEFAULT 0');
+}
 
 module.exports = db;

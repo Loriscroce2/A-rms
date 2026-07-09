@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>A’rms — Classement de Menace</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/sitenav.css" />
+  <style>
+    :root{
+      --bg1:#06131a; --bg2:#031017; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff;
+      --accent:#00e6ff; --ok:#19e27a; --warn:#ffb84d; --err:#ff5252; --gold:#ffd93d;
+      --shadow: 0 10px 20px rgba(0,0,0,.35); --border: 1px solid rgba(125,249,255,.18);
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap');
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
+      background:radial-gradient(1200px 420px at 60% -180px, rgba(0,230,255,.14), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
+    a{color:var(--cy)} .container{max-width:1100px;margin:0 auto;padding:0 16px}
+
+    .hero{padding:30px 0 14px;text-align:center}
+    .hero h1{font-family:'Cinzel',sans-serif;font-size:clamp(26px,4vw,38px);margin:0 0 8px;
+      background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px rgba(0,230,255,.3)}
+    .hero p{color:var(--muted);opacity:.9;margin:0 auto;max-width:640px;line-height:1.5}
+
+    .section{padding:20px 0}
+    .section h2{font-family:'Cinzel',sans-serif;font-size:19px;color:#aefaff;text-shadow:0 0 12px rgba(0,230,255,.25);display:flex;align-items:center;gap:10px;margin-bottom:14px}
+
+    /* Carte "mon rang" */
+    .myRankCard{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#08222b,#0a2d38);box-shadow:var(--shadow), inset 0 0 14px rgba(125,249,255,.06);
+      padding:22px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+    .myRankCard .avatarBig{width:72px;height:72px;border-radius:50%;background-size:cover;background-position:center;border:3px solid rgba(125,249,255,.55);box-shadow:0 0 18px rgba(0,230,255,.35);flex:none;}
+    .myRankInfo{flex:1;min-width:200px;}
+    .myRankInfo .nm{font-weight:900;font-size:18px;margin-bottom:6px;}
+    .myRankStats{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--muted);}
+    .myRankStats b{color:var(--ink);}
+    .rankPill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-weight:900;font-family:'Manrope',sans-serif;letter-spacing:.02em;white-space:nowrap;padding:7px 16px;font-size:15px;}
+
+    /* Barre de progression vers le rang suivant */
+    .progressTrack{width:100%;max-width:340px;height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5);}
+    .progressFill{height:100%;border-radius:999px;transition:width .4s ease;}
+    .progressLabel{font-size:11px;color:var(--muted);opacity:.8;margin-top:4px;}
+
+    /* Légende des paliers */
+    .tierLegend{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+    .tierLegendItem{border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.02);}
+    .tierDot{width:14px;height:14px;border-radius:50%;flex:none;}
+    .tierLegendItem .tn{font-weight:800;font-size:13px;}
+    .tierLegendItem .td{font-size:11px;color:var(--muted);opacity:.8;}
+
+    /* Tableau du classement */
+    .lbTable{width:100%;border-collapse:separate;border-spacing:0 8px;}
+    .lbTable thead th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);opacity:.7;padding:0 14px 4px;}
+    .lbRow{background:linear-gradient(145deg,#08222b,#0a2d38);}
+    .lbRow td{padding:12px 14px;border-top:1px solid rgba(125,249,255,.1);border-bottom:1px solid rgba(125,249,255,.1);}
+    .lbRow td:first-child{border-left:1px solid rgba(125,249,255,.1);border-radius:12px 0 0 12px;}
+    .lbRow td:last-child{border-right:1px solid rgba(125,249,255,.1);border-radius:0 12px 12px 0;}
+    .lbRow.me{outline:2px solid rgba(125,249,255,.6);outline-offset:-2px;}
+    .posCol{font-weight:900;font-size:15px;color:var(--muted);width:44px;}
+    .posCol.top1{color:#ffd93d;} .posCol.top2{color:#d6d6d6;} .posCol.top3{color:#e0a26a;}
+    .playerCol{display:flex;align-items:center;gap:10px;}
+    .playerCol .av{width:38px;height:38px;border-radius:50%;background-size:cover;background-position:center;border:2px solid rgba(125,249,255,.4);flex:none;}
+    .ptsCol{font-weight:900;color:var(--ink);}
+    .wlCol{font-size:12px;color:var(--muted);opacity:.85;}
+
+    .emptyState{text-align:center;padding:40px 16px;color:var(--muted);opacity:.8;}
+    .loadingState{text-align:center;padding:40px 16px;color:var(--muted);opacity:.7;}
+
+    @media (max-width:640px){
+      .lbTable thead{display:none;}
+      .lbRow{display:flex;flex-wrap:wrap;}
+      .lbRow td{border:none !important;border-radius:0 !important;padding:6px 10px;}
+    }
+  </style>
+</head>
+<body>
+  <div id="site-header-root"></div>
+
+  <main class="container">
+    <div class="hero">
+      <h1>⚔ Classement de Menace</h1>
+      <p>Chaque victoire en partie <strong>Classée</strong> vous fait grimper. Attention : passé le palier <strong>Mortelle</strong>, chaque défaite devient de plus en plus punitive — seuls les plus redoutables atteignent l'Extinction.</p>
+    </div>
+
+    <div class="section">
+      <div id="myRankZone" class="loadingState">Chargement de votre rang…</div>
+    </div>
+
+    <div class="section">
+      <h2>🗂 Les paliers de Menace</h2>
+      <div class="tierLegend" id="tierLegend"></div>
+    </div>
+
+    <div class="section">
+      <h2>🏆 Meilleurs joueurs</h2>
+      <div id="lbZone" class="loadingState">Chargement du classement…</div>
+    </div>
+  </main>
+
+  <script src="/auth.js"></script>
+  <script src="/sitenav.js"></script>
+  <script>
+    const TIER_ORDER = ['Mineure', 'Hostile', 'Mortelle', 'Apocalyptique', 'Extinction'];
+    const TIER_DESC = {
+      'Mineure': 'Premiers pas sur le champ de bataille.',
+      'Hostile': 'Un adversaire qui commence à se faire respecter.',
+      'Mortelle': 'À partir d\'ici, chaque défaite coûte cher.',
+      'Apocalyptique': 'Peu de joueurs osent s\'y frotter.',
+      'Extinction': 'Le sommet. Une légende vivante.',
+    };
+
+    function renderTierLegend(){
+      const zone = document.getElementById('tierLegend');
+      let html = '';
+      TIER_ORDER.forEach(tier => {
+        const colors = armsRankTierColor(tier);
+        ['I','II','III'].forEach(sub => {
+          html += `
+            <div class="tierLegendItem">
+              <div class="tierDot" style="background:${colors.c1};box-shadow:0 0 8px ${colors.glow};"></div>
+              <div>
+                <div class="tn" style="color:${colors.c1};">${tier} ${sub}</div>
+                ${sub === 'I' ? `<div class="td">${TIER_DESC[tier]}</div>` : ''}
+              </div>
+            </div>`;
+        });
+      });
+      zone.innerHTML = html;
+    }
+    renderTierLegend();
+
+    function renderMyRank(me, myProfile){
+      const zone = document.getElementById('myRankZone');
+      if (!me || !me.threatInfo) {
+        zone.innerHTML = `<div class="emptyState">Connectez-vous pour voir votre rang de Menace.</div>`;
+        return;
+      }
+      const rank = me.threatInfo;
+      const colors = armsRankTierColor(rank.tierName);
+      const pct = rank.isMaxRank ? 100 : Math.round((rank.progressInRank / 100) * 100);
+      const posText = me.position ? `#${me.position} au classement` : 'Pas encore classé';
+      zone.innerHTML = `
+        <div class="myRankCard">
+          <div class="avatarBig js-avatar-img" id="myRankAvatar"></div>
+          <div class="myRankInfo">
+            <div class="nm">${myProfile ? myProfile.name : 'Vous'}</div>
+            ${armsRankBadgeHtml(rank)}
+            <div class="progressTrack"><div class="progressFill" style="width:${pct}%;background:linear-gradient(90deg,${colors.c2},${colors.c1});"></div></div>
+            <div class="progressLabel">${rank.isMaxRank ? 'Rang maximum atteint !' : `${rank.progressInRank} / 100 pts vers le rang suivant`}</div>
+            <div class="myRankStats">
+              <span><b>${rank.points}</b> points de Menace</span>
+              <span>${posText}</span>
+            </div>
+          </div>
+        </div>
+      `;
+      if (myProfile) armsApplyAvatar(document.getElementById('myRankAvatar'), myProfile.avatar);
+    }
+
+    function renderLeaderboard(players, myId){
+      const zone = document.getElementById('lbZone');
+      if (!players || players.length === 0) {
+        zone.innerHTML = `<div class="emptyState">Personne n'a encore joué de partie classée — soyez le premier !</div>`;
+        return;
+      }
+      const rows = players.map(p => {
+        const colors = armsRankTierColor(p.threatInfo.tierName);
+        const posClass = p.rank === 1 ? 'top1' : p.rank === 2 ? 'top2' : p.rank === 3 ? 'top3' : '';
+        const medal = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : '';
+        return `
+          <tr class="lbRow ${p.id === myId ? 'me' : ''}">
+            <td class="posCol ${posClass}">${medal || ('#' + p.rank)}</td>
+            <td>
+              <div class="playerCol">
+                <div class="av" style="background-image:url('${armsAvatarUrl(p.avatar)}')"></div>
+                <span>${p.name}</span>
+              </div>
+            </td>
+            <td>${armsRankBadgeHtml(p.threatInfo, { small:true })}</td>
+            <td class="ptsCol">${p.threatInfo.points} pts</td>
+            <td class="wlCol">${p.wins}V / ${p.losses}D</td>
+          </tr>`;
+      }).join('');
+      zone.innerHTML = `
+        <table class="lbTable">
+          <thead><tr><th>Rang</th><th>Joueur</th><th>Palier</th><th>Points</th><th>Bilan</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    (async function init(){
+      try{
+        const meRes = await fetch('/api/me');
+        const meData = await meRes.json();
+        const myProfile = (meRes.ok && meData.user) ? meData.user : null;
+
+        const lbRes = await fetch('/api/leaderboard?limit=100');
+        const lbData = await lbRes.json();
+        if (!lbRes.ok || !lbData.ok) {
+          document.getElementById('myRankZone').innerHTML = `<div class="emptyState">Connectez-vous pour voir le classement.</div>`;
+          document.getElementById('lbZone').innerHTML = '';
+          return;
+        }
+        renderMyRank(lbData.me, myProfile);
+        renderLeaderboard(lbData.players, myProfile ? myProfile.id : null);
+      }catch(e){
+        console.error(e);
+        document.getElementById('myRankZone').innerHTML = `<div class="emptyState">Impossible de charger le classement pour le moment.</div>`;
+        document.getElementById('lbZone').innerHTML = '';
+      }
+    })();
+  </script>
+</body>
+</html>
