@@ -189,6 +189,83 @@
     @keyframes confettiFall{to{transform:translateY(105vh) rotate(var(--rot));opacity:.15;}}
 
     .welcomeStepLabel{font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:#7df9ff;opacity:.75;margin-bottom:8px;}
+
+    /* Célébration de rang (rejouée à l'accueil sur PLAY après une partie
+       classée ayant fait évoluer le rang du joueur) — même style que
+       l'écran de fin de partie, pour une continuité visuelle cohérente. */
+    .rankChangeOverlay{
+      position:fixed; inset:0; z-index:7500; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:14px; text-align:center; padding:24px;
+      background:rgba(4,6,10,0); cursor:pointer; opacity:0; overflow:hidden;
+      transition:opacity .5s ease, background .6s ease;
+    }
+    .rankChangeOverlay.go{
+      opacity:1;
+      background:radial-gradient(800px 600px at 50% 50%, color-mix(in srgb, var(--rcMainColor,#7df9ff) 18%, transparent), transparent), rgba(4,6,10,.92);
+    }
+    .rankChangeOverlay.leaving{ opacity:0; }
+    .rcConfettiLayer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:1; }
+    .rcConfetti{
+      position:absolute; top:-6%; border-radius:1px; opacity:.95;
+      animation-name: rcConfettiFall; animation-timing-function:ease-in; animation-fill-mode:forwards;
+    }
+    @keyframes rcConfettiFall{
+      0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+      100%{ transform:translateY(112vh) rotate(560deg); opacity:.15; }
+    }
+    .rcRays{
+      position:absolute; width:920px; height:920px; pointer-events:none; z-index:0;
+      background:conic-gradient(from 0deg,
+        transparent 0deg, var(--rcMainColor,#7df9ff) 3deg, transparent 9deg, transparent 30deg,
+        var(--rcMainColor,#7df9ff) 33deg, transparent 39deg, transparent 60deg,
+        var(--rcMainColor,#7df9ff) 63deg, transparent 69deg, transparent 90deg,
+        var(--rcMainColor,#7df9ff) 93deg, transparent 99deg, transparent 120deg,
+        var(--rcMainColor,#7df9ff) 123deg, transparent 129deg, transparent 150deg,
+        var(--rcMainColor,#7df9ff) 153deg, transparent 159deg, transparent 180deg,
+        var(--rcMainColor,#7df9ff) 183deg, transparent 189deg, transparent 210deg,
+        var(--rcMainColor,#7df9ff) 213deg, transparent 219deg, transparent 240deg,
+        var(--rcMainColor,#7df9ff) 243deg, transparent 249deg, transparent 270deg,
+        var(--rcMainColor,#7df9ff) 273deg, transparent 279deg, transparent 300deg,
+        var(--rcMainColor,#7df9ff) 303deg, transparent 309deg, transparent 330deg,
+        var(--rcMainColor,#7df9ff) 333deg, transparent 339deg, transparent 360deg);
+      opacity:.2; animation: rcRaysSpin 16s linear infinite;
+      -webkit-mask-image:radial-gradient(circle, black 0%, black 38%, transparent 70%);
+      mask-image:radial-gradient(circle, black 0%, black 38%, transparent 70%);
+    }
+    @keyframes rcRaysSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+    .rcSubtitle2{
+      position:relative; z-index:2;
+      font-family:'Cinzel',serif; font-size:16px; letter-spacing:.15em; text-transform:uppercase;
+      opacity:0; transform:translateY(10px); transition:opacity .5s ease .2s, transform .5s ease .2s;
+    }
+    .rankChangeOverlay.go .rcSubtitle2{ opacity:1; transform:translateY(0); }
+    .rcImgWrap{
+      position:relative; z-index:2; width:220px; height:220px; display:flex; align-items:center; justify-content:center;
+      transform:scale(.1) rotate(-30deg); opacity:0;
+      transition:transform .9s cubic-bezier(.17,.85,.3,1.4), opacity .5s ease;
+    }
+    .rankChangeOverlay.go .rcImgWrap{ transform:scale(1) rotate(0deg); opacity:1; }
+    .rcRankImg{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 10px 30px rgba(0,0,0,.6)); position:relative; z-index:2; }
+    .rcShine{
+      position:absolute; inset:-25%; z-index:3; pointer-events:none; overflow:hidden;
+      background:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.8) 50%, transparent 58%);
+      transform:translateX(-160%);
+    }
+    .rankChangeOverlay.go .rcShine{ animation: rcShineSweep 1.3s ease-in-out 1s; }
+    @keyframes rcShineSweep{ 0%{ transform:translateX(-160%); } 100%{ transform:translateX(160%); } }
+    .rcLabel{
+      position:relative; z-index:2;
+      font-family:'Cinzel',serif; font-weight:900; font-size:25px; letter-spacing:.06em;
+      opacity:0; transform:translateY(8px); transition:opacity .5s ease .55s, transform .5s ease .55s;
+      text-shadow:0 0 22px currentColor;
+    }
+    .rankChangeOverlay.go .rcLabel{ opacity:1; transform:translateY(0); }
+    .rcHint2{
+      position:relative; z-index:2;
+      font-size:12.5px; color:#9fd6e6; opacity:0; max-width:360px;
+      transition:opacity .5s ease .75s;
+    }
+    .rankChangeOverlay.go .rcHint2{ opacity:1; }
   </style>
 </head>
 <body>
@@ -868,7 +945,73 @@
       updateChipsAndButton();
       loadDecksFromServer();
       loadCollectionFromServer();
+      checkPendingRankCelebration();
     });
+
+    // Rejoue une célébration de changement de rang à l'accueil sur PLAY,
+    // si une partie classée vient de faire évoluer le rang du joueur — pour
+    // qu'il en profite une seconde fois en revenant sur ses pages, pas
+    // seulement pendant les quelques secondes où il était sur l'écran de
+    // fin de partie.
+    function checkPendingRankCelebration(){
+      try{
+        const raw = sessionStorage.getItem('arms_pending_rank_celebration');
+        if (!raw) return;
+        sessionStorage.removeItem('arms_pending_rank_celebration');
+        const data = JSON.parse(raw);
+        if (!data || !data.rank || (Date.now() - (data.ts||0)) > 120000) return; // périmé après 2 min
+        setTimeout(()=> showWelcomeBackRankCelebration(data.rank, data.promoted), 500);
+      }catch(e){}
+    }
+
+    function showWelcomeBackRankCelebration(rank, promoted){
+      const colors = armsRankTierColor(rank.tierName);
+      const imgUrl = armsRankImageUrl(rank);
+      const overlay = document.createElement('div');
+      overlay.className = 'rankChangeOverlay';
+      overlay.style.setProperty('--rcMainColor', colors.c1);
+
+      let confettiHtml = '';
+      if (promoted) {
+        const palette = ['#7df9ff','#ffd93d','#ff5c5c','#c86bff','#3ddc84','#ffffff'];
+        for (let i = 0; i < 46; i++) {
+          const left = Math.random() * 100;
+          const delay = (Math.random() * 0.7).toFixed(2);
+          const duration = (2.1 + Math.random() * 1.6).toFixed(2);
+          const color = palette[Math.floor(Math.random() * palette.length)];
+          const w = (5 + Math.random() * 6).toFixed(1);
+          const h = (w * 0.42).toFixed(1);
+          const rot = Math.round(Math.random() * 360);
+          confettiHtml += `<div class="rcConfetti" style="left:${left}%; animation-delay:${delay}s; animation-duration:${duration}s; background:${color}; width:${w}px; height:${h}px; transform:rotate(${rot}deg);"></div>`;
+        }
+      }
+
+      overlay.innerHTML = `
+        <div class="rcConfettiLayer">${confettiHtml}</div>
+        <div class="rcRays"></div>
+        <div class="rcSubtitle2" style="color:${promoted ? '#aefaff' : '#ffb0b0'};">
+          ${promoted ? '✦ Bienvenue au nouveau palier ✦' : 'Palier de Menace revu à la baisse'}
+        </div>
+        <div class="rcImgWrap">
+          <img src="${imgUrl}" alt="${rank.label}" class="rcRankImg">
+          <div class="rcShine"></div>
+        </div>
+        <div class="rcLabel" style="color:${colors.c1};">${rank.label}</div>
+        <div class="rcHint2">Rendez-vous sur le classement pour voir où vous vous situez désormais.</div>
+      `;
+      document.body.appendChild(overlay);
+      requestAnimationFrame(()=> requestAnimationFrame(()=> overlay.classList.add('go')));
+
+      const dismiss = () => {
+        if (overlay.dataset.dismissed) return;
+        overlay.dataset.dismissed = '1';
+        overlay.classList.remove('go');
+        overlay.classList.add('leaving');
+        setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); }, 500);
+      };
+      overlay.addEventListener('click', dismiss);
+      setTimeout(dismiss, 6000);
+    }
   </script>
 </body>
 </html>

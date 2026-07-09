@@ -40,12 +40,44 @@
     .progressFill{height:100%;border-radius:999px;transition:width .4s ease;}
     .progressLabel{font-size:11px;color:var(--muted);opacity:.8;margin-top:4px;}
 
-    /* Légende des paliers */
-    .tierLegend{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
-    .tierLegendItem{border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.02);}
-    .tierDot{width:14px;height:14px;border-radius:50%;flex:none;}
-    .tierLegendItem .tn{font-weight:800;font-size:13px;}
-    .tierLegendItem .td{font-size:11px;color:var(--muted);opacity:.8;}
+    /* Carrousel des paliers de Menace */
+    .rankCarouselWrap{ position:relative; padding:10px 0 6px; }
+    .rankCarousel{ position:relative; display:flex; align-items:center; gap:8px; }
+    .rcArrow{
+      flex:none; width:44px; height:44px; border-radius:50%; cursor:pointer; z-index:5;
+      background:linear-gradient(145deg,#0a2530,#051820); border:1.5px solid rgba(125,249,255,.35);
+      color:#aefaff; font-size:20px; display:flex; align-items:center; justify-content:center;
+      transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+    .rcArrow:hover{ transform:scale(1.08); border-color:#7df9ff; box-shadow:0 0 16px rgba(125,249,255,.45); }
+    .rcViewport{
+      flex:1; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none;
+      -ms-overflow-style:none; padding:18px 0 26px;
+      -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+      mask-image:linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+    }
+    .rcViewport::-webkit-scrollbar{ display:none; }
+    .rcTrack{ display:flex; gap:22px; width:max-content; }
+    .rcCard{
+      scroll-snap-align:center; flex:none; width:190px; border-radius:18px; cursor:pointer;
+      background:linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
+      border:1.5px solid rgba(255,255,255,.1); padding:18px 14px 16px; text-align:center;
+      display:flex; flex-direction:column; align-items:center; gap:10px;
+      transform:scale(.82); opacity:.45; filter:saturate(.5);
+      transition:transform .45s cubic-bezier(.2,.8,.25,1), opacity .45s ease, filter .45s ease, border-color .45s ease, box-shadow .45s ease;
+    }
+    .rcCard.active{
+      transform:scale(1.08); opacity:1; filter:saturate(1);
+      box-shadow:0 12px 34px rgba(0,0,0,.5), 0 0 30px var(--rcGlow, rgba(125,249,255,.35));
+      border-color:var(--rcColor, rgba(125,249,255,.5));
+    }
+    .rcCard img{ width:108px; height:108px; object-fit:contain; filter:drop-shadow(0 6px 12px rgba(0,0,0,.5)); }
+    .rcCard .rcName{ font-family:'Cinzel',sans-serif; font-weight:800; font-size:14.5px; letter-spacing:.03em; }
+    .rcCard .rcDesc{ font-size:11px; line-height:1.45; color:var(--muted); opacity:.85; min-height:47px; }
+    .rcCard .rcRange{ font-size:10px; opacity:.6; font-family:monospace; }
+    .rcDots{ display:flex; justify-content:center; gap:6px; margin-top:4px; flex-wrap:wrap; max-width:520px; margin-left:auto; margin-right:auto; }
+    .rcDot{ width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.2); cursor:pointer; transition:all .25s ease; flex:none; }
+    .rcDot.active{ background:var(--rcColor, #7df9ff); width:20px; border-radius:4px; box-shadow:0 0 8px var(--rcGlow, rgba(125,249,255,.5)); }
 
     /* Tableau du classement */
     .lbTable{width:100%;border-collapse:separate;border-spacing:0 8px;}
@@ -87,7 +119,16 @@
 
     <div class="section">
       <h2>🗂 Les paliers de Menace</h2>
-      <div class="tierLegend" id="tierLegend"></div>
+      <div class="rankCarouselWrap">
+        <div class="rankCarousel">
+          <button class="rcArrow" id="rcPrev" aria-label="Précédent">‹</button>
+          <div class="rcViewport" id="rcViewport">
+            <div class="rcTrack" id="rcTrack"></div>
+          </div>
+          <button class="rcArrow" id="rcNext" aria-label="Suivant">›</button>
+        </div>
+        <div class="rcDots" id="rcDots"></div>
+      </div>
     </div>
 
     <div class="section">
@@ -108,25 +149,105 @@
       'Extinction': 'Le sommet. Une légende vivante.',
     };
 
-    function renderTierLegend(){
-      const zone = document.getElementById('tierLegend');
-      let html = '';
-      TIER_ORDER.forEach(tier => {
-        const colors = armsRankTierColor(tier);
-        ['I','II','III'].forEach(sub => {
-          html += `
-            <div class="tierLegendItem">
-              <div class="tierDot" style="background:${colors.c1};box-shadow:0 0 8px ${colors.glow};"></div>
-              <div>
-                <div class="tn" style="color:${colors.c1};">${tier} ${sub}</div>
-                ${sub === 'I' ? `<div class="td">${TIER_DESC[tier]}</div>` : ''}
-              </div>
-            </div>`;
+    // Construit la liste ordonnée des 15 rangs (avec leurs bornes de points).
+    const ALL_RANKS = [];
+    TIER_ORDER.forEach((tier, tierIdx) => {
+      ['I','II','III'].forEach((sub, subIdx) => {
+        const rankIndex = tierIdx * 3 + subIdx;
+        ALL_RANKS.push({
+          tierName: tier, subLevel: subIdx + 1, label: `${tier} ${sub}`,
+          rankIndex, minPts: rankIndex * 100,
+          maxPts: (tierIdx === TIER_ORDER.length - 1 && subIdx === 2) ? null : (rankIndex * 100 + 99),
         });
       });
-      zone.innerHTML = html;
+    });
+
+    let rcActiveIndex = 0;
+    let rcAutoplayTimer = null;
+
+    function renderRankCarousel(){
+      const track = document.getElementById('rcTrack');
+      const dotsZone = document.getElementById('rcDots');
+      track.innerHTML = ALL_RANKS.map((r, i) => {
+        const colors = armsRankTierColor(r.tierName);
+        const imgUrl = armsRankImageUrl(r);
+        const rangeTxt = (r.maxPts === null) ? `${r.minPts}+ pts` : `${r.minPts}–${r.maxPts} pts`;
+        return `
+          <div class="rcCard" data-index="${i}" style="--rcColor:${colors.c1};--rcGlow:${colors.glow};">
+            <img src="${imgUrl}" alt="${r.label}" loading="lazy">
+            <div class="rcName" style="color:${colors.c1};">${r.label}</div>
+            <div class="rcDesc">${TIER_DESC[r.tierName]}</div>
+            <div class="rcRange">${rangeTxt}</div>
+          </div>`;
+      }).join('');
+
+      dotsZone.innerHTML = ALL_RANKS.map((r, i) => `<div class="rcDot" data-index="${i}"></div>`).join('');
+
+      // Padding dynamique pour que la 1re et la dernière carte puissent
+      // aussi se centrer dans le viewport (sinon elles restent coincées au bord).
+      const viewport = document.getElementById('rcViewport');
+      const sidePad = Math.max(20, Math.round(viewport.clientWidth / 2 - 95));
+      track.style.paddingLeft = sidePad + 'px';
+      track.style.paddingRight = sidePad + 'px';
+
+      track.querySelectorAll('.rcCard').forEach(card => {
+        card.addEventListener('click', () => scrollToRankIndex(parseInt(card.dataset.index, 10), true));
+      });
+      dotsZone.querySelectorAll('.rcDot').forEach(dot => {
+        dot.addEventListener('click', () => scrollToRankIndex(parseInt(dot.dataset.index, 10), true));
+      });
+
+      setActiveRankIndex(0);
+
+      // Repère la carte la plus proche du centre pendant un défilement manuel
+      // (glisser/scroller à la souris ou au doigt), pour garder l'affichage
+      // synchronisé même sans passer par les flèches ou les points.
+      let scrollDebounce = null;
+      viewport.addEventListener('scroll', () => {
+        clearTimeout(scrollDebounce);
+        scrollDebounce = setTimeout(() => {
+          const vpRect = viewport.getBoundingClientRect();
+          const centerX = vpRect.left + vpRect.width / 2;
+          let closest = 0, closestDist = Infinity;
+          track.querySelectorAll('.rcCard').forEach(card => {
+            const r = card.getBoundingClientRect();
+            const dist = Math.abs((r.left + r.width / 2) - centerX);
+            if (dist < closestDist) { closestDist = dist; closest = parseInt(card.dataset.index, 10); }
+          });
+          setActiveRankIndex(closest);
+        }, 100);
+      }, { passive: true });
     }
-    renderTierLegend();
+
+    function setActiveRankIndex(i){
+      rcActiveIndex = i;
+      document.querySelectorAll('.rcCard').forEach(c => c.classList.toggle('active', parseInt(c.dataset.index,10) === i));
+      document.querySelectorAll('.rcDot').forEach(d => d.classList.toggle('active', parseInt(d.dataset.index,10) === i));
+    }
+
+    function scrollToRankIndex(i, userInitiated){
+      i = Math.max(0, Math.min(ALL_RANKS.length - 1, i));
+      const card = document.querySelector(`.rcCard[data-index="${i}"]`);
+      if (card) card.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
+      setActiveRankIndex(i);
+      if (userInitiated) restartAutoplay();
+    }
+
+    function restartAutoplay(){
+      clearInterval(rcAutoplayTimer);
+      rcAutoplayTimer = setInterval(() => {
+        const next = (rcActiveIndex + 1) % ALL_RANKS.length;
+        scrollToRankIndex(next, false);
+      }, 3800);
+    }
+
+    document.getElementById('rcPrev').addEventListener('click', () => scrollToRankIndex(rcActiveIndex - 1, true));
+    document.getElementById('rcNext').addEventListener('click', () => scrollToRankIndex(rcActiveIndex + 1, true));
+    document.getElementById('rcViewport').addEventListener('mouseenter', () => clearInterval(rcAutoplayTimer));
+    document.getElementById('rcViewport').addEventListener('mouseleave', () => restartAutoplay());
+
+    renderRankCarousel();
+    restartAutoplay();
 
     function renderMyRank(me, myProfile){
       const zone = document.getElementById('myRankZone');
