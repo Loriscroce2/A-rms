@@ -38,6 +38,15 @@
 }
 
 .navRight{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+/* Le bouton Boutique de la nav dépendait du CSS local de chaque page
+   (incohérent selon la page visitée, d'où un désalignement vertical visible
+   à côté du badge de rang et du bouton de compte). Style dédié et partagé,
+   aligné exactement comme ses voisins flex. */
+.navRight .shopBtn{
+  display:inline-flex !important; align-items:center; justify-content:center; gap:6px;
+  padding:7px 16px !important; border-radius:999px !important; line-height:1.1;
+  box-sizing:border-box; vertical-align:middle;
+}
 
 .navToggle{
   display:none; margin-left:auto; width:42px; height:42px; border-radius:10px;

@@ -115,15 +115,37 @@ const qMarkTutorialSeen = db.prepare('UPDATE users SET has_seen_tutorial = 1 WHE
 // CLASSEMENT "MENACE" (parties classées)
 // ===================================================================
 // 5 paliers de menace, chacun décliné en 3 niveaux (I/II/III) — 15 rangs au
-// total, du plus faible au plus terrifiant. 100 points de Menace séparent
-// chaque rang ; le dernier (Extinction III) n'a pas de plafond.
+// total, du plus faible au plus terrifiant. La quantité de points requise
+// pour avancer d'un rang N'EST PAS constante : on progresse VITE au début
+// (peu de points par rang) et de plus en plus LENTEMENT vers la fin (chaque
+// rang coûte davantage) — les tout premiers paliers se débloquent en
+// quelques victoires, l'Extinction se mérite sur la durée.
 const RANK_TIER_NAMES = ['Mineure', 'Hostile', 'Mortelle', 'Apocalyptique', 'Extinction'];
-const POINTS_PER_RANK = 100;
 const TOTAL_RANKS = RANK_TIER_NAMES.length * 3; // 15
 
+// Points nécessaires pour FRANCHIR chaque rang (index 0 = Mineure I → II,
+// ... index 13 = Extinction II → III). Croissant par palier.
+const RANK_STEP_POINTS = [
+  60, 60, 60,       // Mineure   — progression rapide, on prend goût au jeu
+  75, 75, 75,       // Hostile
+  95, 95, 95,       // Mortelle
+  120, 120, 120,    // Apocalyptique
+  150, 150, 150,    // Extinction — le sommet se mérite
+];
+// Seuil cumulé de points pour ATTEINDRE chaque rang.
+const RANK_CUM_START = (() => {
+  const arr = []; let acc = 0;
+  for (let i = 0; i < TOTAL_RANKS; i++) { arr.push(acc); acc += RANK_STEP_POINTS[i]; }
+  return arr;
+})();
+
 function rankIndexForPoints(points) {
-  const idx = Math.floor(Math.max(0, points) / POINTS_PER_RANK);
-  return Math.min(idx, TOTAL_RANKS - 1);
+  const safePoints = Math.max(0, points || 0);
+  let idx = 0;
+  for (let i = TOTAL_RANKS - 1; i >= 0; i--) {
+    if (safePoints >= RANK_CUM_START[i]) { idx = i; break; }
+  }
+  return idx;
 }
 
 function getRankInfo(points) {
@@ -133,9 +155,10 @@ function getRankInfo(points) {
   const subLevel = (idx % 3) + 1; // 1, 2 ou 3
   const tierName = RANK_TIER_NAMES[tierIndex];
   const romanSub = ['I', 'II', 'III'][subLevel - 1];
-  const rankMin = idx * POINTS_PER_RANK;
+  const rankMin = RANK_CUM_START[idx];
   const isMaxRank = idx === TOTAL_RANKS - 1;
-  const rankMax = isMaxRank ? null : (rankMin + POINTS_PER_RANK - 1);
+  const rankMax = isMaxRank ? null : (RANK_CUM_START[idx + 1] - 1);
+  const stepSize = RANK_STEP_POINTS[idx];
   return {
     points: safePoints,
     rankIndex: idx,
@@ -144,14 +167,16 @@ function getRankInfo(points) {
     label: `${tierName} ${romanSub}`,
     rankMin,
     rankMax, // null = pas de plafond (Extinction III)
-    progressInRank: isMaxRank ? null : (safePoints - rankMin), // 0..99
+    progressInRank: isMaxRank ? null : (safePoints - rankMin),
+    stepSize,
     isMaxRank,
   };
 }
 
-// Facteur K (volatilité) selon le palier ACTUEL du joueur — amplitude
-// maximale d'un calcul Elo, pas un montant fixe. Valeurs modérées pour que
-// même les échanges les plus déséquilibrés restent lisibles.
+// Facteur d'intensité selon le palier ACTUEL du joueur — amplitude du
+// Différentiel de Menace (notre propre calcul, voir plus bas). Valeurs
+// modérées pour que même les échanges les plus déséquilibrés restent
+// lisibles et jamais décourageants.
 function kFactorForPoints(points) {
   const idx = rankIndexForPoints(points);
   const tierIndex = Math.floor(idx / 3);
@@ -161,31 +186,32 @@ function kFactorForPoints(points) {
   return 32;                        // Extinction
 }
 
-const MIN_WIN_GAIN = 10;   // toute victoire rapporte au moins ça — jamais frustrant
-const MAX_LOSS_CAP  = 28;  // aucune défaite ne peut coûter plus que ça, même un norme écart
+const MIN_WIN_GAIN = 20;    // toute victoire rapporte au moins ça — jamais frustrant
+const MAX_LOSS_CAP  = 28;   // aucune défaite ne peut coûter plus que ça, même un norme écart
+const WIN_GENEROSITY = 2;   // les gains positifs sont amplifiés (généreux sur les exploits)
 
-// Calcul façon Elo (échecs) : le gain/perte dépend de l'ÉCART DE NIVEAU entre
-// les deux adversaires, pas d'un montant fixe.
-// - Battre un adversaire largement plus fort rapporte gros ; battre un
-//   adversaire largement plus faible rapporte quand même un minimum garanti
-//   (jamais l'impression de "gagner pour rien").
+// Le "Différentiel de Menace" — NOTRE calcul propre à A'rms : le gain/perte
+// dépend de l'ÉCART DE NIVEAU entre les deux adversaires, pas d'un montant
+// fixe identique pour tout le monde.
+// - Battre un adversaire largement plus fort rapporte GROS (généreux) ;
+//   battre un adversaire largement plus faible rapporte quand même un
+//   minimum garanti (jamais l'impression de "gagner pour rien").
 // - Perdre contre un adversaire largement plus fort coûte presque rien (voire
 //   rien du tout) ; perdre contre un adversaire largement plus faible coûte
 //   cher, mais toujours plafonné pour rester supportable.
 // myPoints/oppPoints = points de Menace des DEUX joueurs au moment où la
 // partie a démarré (figés en début de partie, pas recalculés après coup).
-function computeEloDelta(myPoints, oppPoints, won) {
+function computeThreatDifferential(myPoints, oppPoints, won) {
   const expectedScore = 1 / (1 + Math.pow(10, (oppPoints - myPoints) / 400));
-  const actualScore = won ? 1 : 0;
   const K = kFactorForPoints(myPoints);
-  let delta = Math.round(K * (actualScore - expectedScore));
   if (won) {
-    delta = Math.max(delta, MIN_WIN_GAIN);
+    let delta = Math.round(K * (1 - expectedScore) * WIN_GENEROSITY);
+    return Math.max(delta, MIN_WIN_GAIN);
   } else {
-    delta = Math.min(delta, 0);           // une défaite ne peut jamais faire gagner des points
-    delta = Math.max(delta, -MAX_LOSS_CAP);
+    let delta = Math.round(K * (0 - expectedScore));
+    delta = Math.min(delta, 0);
+    return Math.max(delta, -MAX_LOSS_CAP);
   }
-  return delta;
 }
 
 const qGetThreatPoints = db.prepare('SELECT threat_points FROM users WHERE id = ?');
@@ -613,8 +639,9 @@ app.post('/api/match/result', authMiddleware, (req, res) => {
     if (coinGain > 0) qAddCoins.run(coinGain, req.user.id);
     const coins = coinsForResponse(req);
 
-    // Points de Menace : uniquement en partie CLASSÉE, calculés façon Elo
-    // (échecs) — l'écart de niveau entre les DEUX joueurs au moment où la
+    // Points de Menace : uniquement en partie CLASSÉE, calculés via NOTRE
+    // Différentiel de Menace — l'écart de niveau entre les DEUX joueurs au
+    // moment où la
     // partie a démarré détermine l'ampleur du gain/de la perte. Un abandon
     // compte comme une défaite pour ce calcul (pour décourager de fuir une
     // partie perdue), mais ne rapporte jamais de pièces.
@@ -630,7 +657,7 @@ app.post('/api/match/result', authMiddleware, (req, res) => {
       const oppPoints = opponentEntry ? (matchData.ratingsAtStart[opponentEntry.userId] ?? 0) : myPoints;
 
       previousRank = getRankInfo(myPoints);
-      pointsDelta = computeEloDelta(myPoints, oppPoints, won);
+      pointsDelta = computeThreatDifferential(myPoints, oppPoints, won);
       qApplyRankedResult.run(pointsDelta, won ? 1 : 0, won ? 0 : 1, req.user.id);
 
       const afterRow = qGetThreatPoints.get(req.user.id);
@@ -753,7 +780,7 @@ function tryMakeMatch() {
 
     // En Classée, on fige les points de Menace de CHAQUE joueur au moment
     // précis où la partie démarre — indispensable pour calculer un gain/perte
-    // à la façon des échecs (Elo), basé sur l'écart de niveau entre les deux
+    // via notre Différentiel de Menace, basé sur l'écart de niveau entre les deux
     // adversaires plutôt que sur un montant fixe.
     let ratingsAtStart = null;
     if (a.mode === 'ranked') {
