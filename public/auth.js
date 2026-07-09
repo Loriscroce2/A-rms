@@ -43,9 +43,9 @@ function armsRankBadgeHtml(rank, opts) {
   opts = opts || {};
   if (!rank) return '';
   const colors = armsRankTierColor(rank.tierName);
-  const pad = opts.large ? '6px 26px 6px 6px' : (opts.small ? '3px 14px 3px 3px' : '4px 18px 4px 4px');
-  const fs = opts.large ? '19px' : (opts.small ? '12.5px' : '15px');
-  const imgSize = opts.large ? '58px' : (opts.small ? '30px' : '42px');
+  const pad = opts.large ? '10px 34px 10px 10px' : (opts.small ? '5px 20px 5px 5px' : '7px 26px 7px 7px');
+  const fs = opts.large ? '24px' : (opts.small ? '15px' : '18px');
+  const imgSize = opts.large ? '116px' : (opts.small ? '60px' : '84px');
   const imgUrl = armsRankImageUrl(rank);
   return `<span class="rankPill" style="padding:${pad};font-size:${fs};background:linear-gradient(180deg,${colors.c1}30,${colors.c2}70);border:1.5px solid ${colors.c1};color:${colors.text};box-shadow:0 0 12px ${colors.glow}, inset 0 1px 0 rgba(255,255,255,.12);"><img src="${imgUrl}" alt="" style="width:${imgSize};height:${imgSize};border-radius:50%;object-fit:cover;flex:none;" onerror="this.style.display='none'">${rank.label}</span>`;
 }

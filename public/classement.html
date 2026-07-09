@@ -71,10 +71,10 @@
     .rcViewport::-webkit-scrollbar{ display:none; }
     .rcTrack{ display:flex; gap:22px; width:max-content; }
     .rcCard{
-      scroll-snap-align:center; flex:none; width:190px; border-radius:18px; cursor:pointer;
+      scroll-snap-align:center; flex:none; width:270px; border-radius:20px; cursor:pointer;
       background:linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
-      border:1.5px solid rgba(255,255,255,.1); padding:18px 14px 16px; text-align:center;
-      display:flex; flex-direction:column; align-items:center; gap:10px;
+      border:1.5px solid rgba(255,255,255,.1); padding:22px 16px 18px; text-align:center;
+      display:flex; flex-direction:column; align-items:center; gap:12px;
       transform:scale(.82); opacity:.45; filter:saturate(.5);
       transition:transform .45s cubic-bezier(.2,.8,.25,1), opacity .45s ease, filter .45s ease, border-color .45s ease, box-shadow .45s ease;
     }
@@ -83,10 +83,10 @@
       box-shadow:0 12px 34px rgba(0,0,0,.5), 0 0 30px var(--rcGlow, rgba(125,249,255,.35));
       border-color:var(--rcColor, rgba(125,249,255,.5));
     }
-    .rcCard img{ width:108px; height:108px; object-fit:contain; filter:drop-shadow(0 6px 12px rgba(0,0,0,.5)); }
-    .rcCard .rcName{ font-family:'Cinzel',sans-serif; font-weight:800; font-size:14.5px; letter-spacing:.03em; }
-    .rcCard .rcDesc{ font-size:11px; line-height:1.45; color:var(--muted); opacity:.85; min-height:47px; }
-    .rcCard .rcRange{ font-size:10px; opacity:.6; font-family:monospace; }
+    .rcCard img{ width:216px; height:216px; object-fit:contain; filter:drop-shadow(0 6px 12px rgba(0,0,0,.5)); }
+    .rcCard .rcName{ font-family:'Cinzel',sans-serif; font-weight:800; font-size:15.5px; letter-spacing:.03em; }
+    .rcCard .rcDesc{ font-size:11.5px; line-height:1.45; color:var(--muted); opacity:.85; min-height:47px; }
+    .rcCard .rcRange{ font-size:10.5px; opacity:.6; font-family:monospace; }
     .rcDots{ display:flex; justify-content:center; gap:6px; margin-top:4px; flex-wrap:wrap; max-width:520px; margin-left:auto; margin-right:auto; }
     .rcDot{ width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.2); cursor:pointer; transition:all .25s ease; flex:none; }
     .rcDot.active{ background:var(--rcColor, #7df9ff); width:20px; border-radius:4px; box-shadow:0 0 8px var(--rcGlow, rgba(125,249,255,.5)); }
@@ -260,7 +260,7 @@
       // Padding dynamique pour que la 1re et la dernière carte puissent
       // aussi se centrer dans le viewport (sinon elles restent coincées au bord).
       const viewport = document.getElementById('rcViewport');
-      const sidePad = Math.max(20, Math.round(viewport.clientWidth / 2 - 95));
+      const sidePad = Math.max(20, Math.round(viewport.clientWidth / 2 - 135));
       track.style.paddingLeft = sidePad + 'px';
       track.style.paddingRight = sidePad + 'px';
 
