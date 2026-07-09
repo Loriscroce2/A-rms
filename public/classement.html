@@ -62,34 +62,30 @@
       transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
     }
     .rcArrow:hover{ transform:scale(1.08); border-color:#7df9ff; box-shadow:0 0 16px rgba(125,249,255,.45); }
-    .rcViewport{
-      flex:1; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none;
-      -ms-overflow-style:none; padding:18px 0 26px;
-      -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
-      mask-image:linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%);
+
+    /* Carrousel ORBITAL 3D — même principe que la page d'accueil (anneau de
+       médaillons en orbite continue), avec un panneau d'info synchronisé sur
+       le médaillon le plus proche du spectateur, et un clic pour figer le
+       focus sur un rang précis. */
+    .rankOrbitWrap{
+      position:relative; min-height:340px; display:grid; place-items:center; perspective:1300px;
+      margin:0 auto;
     }
-    .rcViewport::-webkit-scrollbar{ display:none; }
-    .rcTrack{ display:flex; gap:22px; width:max-content; }
-    .rcCard{
-      scroll-snap-align:center; flex:none; width:270px; border-radius:20px; cursor:pointer;
-      background:linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,.01));
-      border:1.5px solid rgba(255,255,255,.1); padding:22px 16px 18px; text-align:center;
-      display:flex; flex-direction:column; align-items:center; gap:12px;
-      transform:scale(.82); opacity:.45; filter:saturate(.5);
-      transition:transform .45s cubic-bezier(.2,.8,.25,1), opacity .45s ease, filter .45s ease, border-color .45s ease, box-shadow .45s ease;
+    .rankOrbit{ position:relative; width:min(760px,94%); height:320px; transform-style:preserve-3d; }
+    .orbitMedal{
+      position:absolute; top:50%; left:50%; width:120px; height:120px; margin:-60px 0 0 -60px;
+      cursor:pointer; will-change:transform, filter, opacity;
     }
-    .rcCard.active{
-      transform:scale(1.08); opacity:1; filter:saturate(1);
-      box-shadow:0 12px 34px rgba(0,0,0,.5), 0 0 30px var(--rcGlow, rgba(125,249,255,.35));
-      border-color:var(--rcColor, rgba(125,249,255,.5));
+    .orbitMedal img{ width:100%; height:100%; object-fit:contain; }
+    .orbitMedal.focused img{ filter:drop-shadow(0 0 18px var(--medColor,#7df9ff)); }
+    .rankOrbitInfo{
+      max-width:480px; margin:14px auto 0; text-align:center; min-height:120px;
+      display:flex; flex-direction:column; align-items:center; gap:8px;
     }
-    .rcCard img{ width:216px; height:216px; object-fit:contain; filter:drop-shadow(0 6px 12px rgba(0,0,0,.5)); }
-    .rcCard .rcName{ font-family:'Cinzel',sans-serif; font-weight:800; font-size:15.5px; letter-spacing:.03em; }
-    .rcCard .rcDesc{ font-size:11.5px; line-height:1.45; color:var(--muted); opacity:.85; min-height:47px; }
-    .rcCard .rcRange{ font-size:10.5px; opacity:.6; font-family:monospace; }
-    .rcDots{ display:flex; justify-content:center; gap:6px; margin-top:4px; flex-wrap:wrap; max-width:520px; margin-left:auto; margin-right:auto; }
-    .rcDot{ width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.2); cursor:pointer; transition:all .25s ease; flex:none; }
-    .rcDot.active{ background:var(--rcColor, #7df9ff); width:20px; border-radius:4px; box-shadow:0 0 8px var(--rcGlow, rgba(125,249,255,.5)); }
+    .rankOrbitInfo .roiName{ font-family:'Cinzel',sans-serif; font-weight:900; font-size:20px; letter-spacing:.03em; transition:color .3s ease; }
+    .rankOrbitInfo .roiDesc{ font-size:13px; line-height:1.55; color:var(--muted); opacity:.9; }
+    .rankOrbitInfo .roiRange{ font-size:11.5px; opacity:.65; font-family:monospace; }
+    .rankOrbitHint{ text-align:center; font-size:11px; color:var(--muted); opacity:.55; margin-top:6px; }
 
     /* Diagramme en anneau de répartition des joueurs */
     .distWrap{ display:flex; align-items:center; gap:36px; flex-wrap:wrap; justify-content:center; }
@@ -186,16 +182,11 @@
 
     <div class="section">
       <h2>🗂 Les paliers de Menace</h2>
-      <div class="rankCarouselWrap">
-        <div class="rankCarousel">
-          <button class="rcArrow" id="rcPrev" aria-label="Précédent">‹</button>
-          <div class="rcViewport" id="rcViewport">
-            <div class="rcTrack" id="rcTrack"></div>
-          </div>
-          <button class="rcArrow" id="rcNext" aria-label="Suivant">›</button>
-        </div>
-        <div class="rcDots" id="rcDots"></div>
+      <div class="rankOrbitWrap">
+        <div class="rankOrbit" id="rankOrbit"></div>
       </div>
+      <div class="rankOrbitInfo" id="rankOrbitInfo"></div>
+      <div class="rankOrbitHint">Cliquez sur un médaillon pour figer le focus dessus — cliquez à nouveau pour reprendre la rotation.</div>
     </div>
 
     <div class="section">
@@ -236,92 +227,87 @@
       });
     });
 
-    let rcActiveIndex = 0;
-    let rcAutoplayTimer = null;
+    // Carrousel orbital 3D — anneau de médaillons en rotation continue,
+    // même principe physique que le décor de la page d'accueil (RX/RY,
+    // profondeur, échelle selon la profondeur), avec un panneau d'info qui
+    // suit automatiquement le médaillon le plus proche du spectateur, et un
+    // clic pour figer le focus sur un rang précis.
+    let orbitPaused = false;
+    let orbitFocusIndex = null; // index figé au clic, ou null = suivi automatique
+    let lastShownIndex = -1;
 
-    function renderRankCarousel(){
-      const track = document.getElementById('rcTrack');
-      const dotsZone = document.getElementById('rcDots');
-      track.innerHTML = ALL_RANKS.map((r, i) => {
+    function renderRankOrbit(){
+      const orbit = document.getElementById('rankOrbit');
+      orbit.innerHTML = ALL_RANKS.map((r, i) => {
         const colors = armsRankTierColor(r.tierName);
         const imgUrl = armsRankImageUrl(r);
-        const rangeTxt = (r.maxPts === null) ? `${r.minPts}+ pts` : `${r.minPts}–${r.maxPts} pts`;
-        return `
-          <div class="rcCard" data-index="${i}" style="--rcColor:${colors.c1};--rcGlow:${colors.glow};">
-            <img src="${imgUrl}" alt="${r.label}" loading="lazy">
-            <div class="rcName" style="color:${colors.c1};">${r.label}</div>
-            <div class="rcDesc">${TIER_DESC[r.tierName]}</div>
-            <div class="rcRange">${rangeTxt}</div>
-          </div>`;
+        return `<div class="orbitMedal" data-index="${i}" style="--medColor:${colors.c1};">
+                  <img src="${imgUrl}" alt="${r.label}" loading="lazy">
+                </div>`;
       }).join('');
 
-      dotsZone.innerHTML = ALL_RANKS.map((r, i) => `<div class="rcDot" data-index="${i}"></div>`).join('');
-
-      // Padding dynamique pour que la 1re et la dernière carte puissent
-      // aussi se centrer dans le viewport (sinon elles restent coincées au bord).
-      const viewport = document.getElementById('rcViewport');
-      const sidePad = Math.max(20, Math.round(viewport.clientWidth / 2 - 135));
-      track.style.paddingLeft = sidePad + 'px';
-      track.style.paddingRight = sidePad + 'px';
-
-      track.querySelectorAll('.rcCard').forEach(card => {
-        card.addEventListener('click', () => scrollToRankIndex(parseInt(card.dataset.index, 10), true));
+      orbit.querySelectorAll('.orbitMedal').forEach(medal => {
+        medal.addEventListener('click', () => {
+          const i = parseInt(medal.dataset.index, 10);
+          if (orbitFocusIndex === i) {
+            // Reclique sur le même médaillon : reprend la rotation normale.
+            orbitFocusIndex = null;
+            orbitPaused = false;
+          } else {
+            orbitFocusIndex = i;
+            orbitPaused = true;
+            updateOrbitInfo(i);
+          }
+        });
       });
-      dotsZone.querySelectorAll('.rcDot').forEach(dot => {
-        dot.addEventListener('click', () => scrollToRankIndex(parseInt(dot.dataset.index, 10), true));
-      });
 
-      setActiveRankIndex(0);
+      const medals = Array.from(orbit.querySelectorAll('.orbitMedal'));
+      const RX = 260, RY = 60, DEPTH = 170;
+      const SCALE_NEAR = 1.25, SCALE_FAR = 0.62;
+      const SPEED = 0.00045;
+      let t0 = performance.now();
+      medals.forEach((m, i) => { m._a = (i / medals.length) * Math.PI * 2; });
 
-      // Repère la carte la plus proche du centre pendant un défilement manuel
-      // (glisser/scroller à la souris ou au doigt), pour garder l'affichage
-      // synchronisé même sans passer par les flèches ou les points.
-      let scrollDebounce = null;
-      viewport.addEventListener('scroll', () => {
-        clearTimeout(scrollDebounce);
-        scrollDebounce = setTimeout(() => {
-          const vpRect = viewport.getBoundingClientRect();
-          const centerX = vpRect.left + vpRect.width / 2;
-          let closest = 0, closestDist = Infinity;
-          track.querySelectorAll('.rcCard').forEach(card => {
-            const r = card.getBoundingClientRect();
-            const dist = Math.abs((r.left + r.width / 2) - centerX);
-            if (dist < closestDist) { closestDist = dist; closest = parseInt(card.dataset.index, 10); }
-          });
-          setActiveRankIndex(closest);
-        }, 100);
-      }, { passive: true });
+      function frame(now){
+        const dt = now - t0; t0 = now;
+        let bestI = 0, bestZ = -1;
+        medals.forEach((m, i) => {
+          if (!orbitPaused) m._a += SPEED * dt;
+          const a = m._a, cos = Math.cos(a), sin = Math.sin(a);
+          const z = (sin + 1) / 2;
+          const scale = SCALE_FAR + (SCALE_NEAR - SCALE_FAR) * z;
+          const depth = -DEPTH + z * DEPTH * 2;
+          const x = RX * cos;
+          const y = RY * sin;
+          const opacity = 0.35 + 0.65 * z;
+          m.style.transform = `translate3d(${x}px, ${y}px, ${depth}px) scale(${scale})`;
+          m.style.zIndex = 100 + Math.round(z * 100);
+          m.style.opacity = opacity;
+          m.classList.toggle('focused', orbitFocusIndex === i);
+          if (z > bestZ) { bestZ = z; bestI = i; }
+        });
+        if (orbitFocusIndex === null && bestI !== lastShownIndex) {
+          updateOrbitInfo(bestI);
+        }
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
     }
 
-    function setActiveRankIndex(i){
-      rcActiveIndex = i;
-      document.querySelectorAll('.rcCard').forEach(c => c.classList.toggle('active', parseInt(c.dataset.index,10) === i));
-      document.querySelectorAll('.rcDot').forEach(d => d.classList.toggle('active', parseInt(d.dataset.index,10) === i));
+    function updateOrbitInfo(i){
+      lastShownIndex = i;
+      const r = ALL_RANKS[i];
+      const colors = armsRankTierColor(r.tierName);
+      const rangeTxt = (r.maxPts === null) ? `${r.minPts}+ pts` : `${r.minPts}–${r.maxPts} pts`;
+      const zone = document.getElementById('rankOrbitInfo');
+      zone.innerHTML = `
+        <div class="roiName" style="color:${colors.c1};">${r.label}</div>
+        <div class="roiDesc">${TIER_DESC[r.tierName]}</div>
+        <div class="roiRange">${rangeTxt}</div>
+      `;
     }
 
-    function scrollToRankIndex(i, userInitiated){
-      i = Math.max(0, Math.min(ALL_RANKS.length - 1, i));
-      const card = document.querySelector(`.rcCard[data-index="${i}"]`);
-      if (card) card.scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
-      setActiveRankIndex(i);
-      if (userInitiated) restartAutoplay();
-    }
-
-    function restartAutoplay(){
-      clearInterval(rcAutoplayTimer);
-      rcAutoplayTimer = setInterval(() => {
-        const next = (rcActiveIndex + 1) % ALL_RANKS.length;
-        scrollToRankIndex(next, false);
-      }, 3800);
-    }
-
-    document.getElementById('rcPrev').addEventListener('click', () => scrollToRankIndex(rcActiveIndex - 1, true));
-    document.getElementById('rcNext').addEventListener('click', () => scrollToRankIndex(rcActiveIndex + 1, true));
-    document.getElementById('rcViewport').addEventListener('mouseenter', () => clearInterval(rcAutoplayTimer));
-    document.getElementById('rcViewport').addEventListener('mouseleave', () => restartAutoplay());
-
-    renderRankCarousel();
-    restartAutoplay();
+    renderRankOrbit();
 
     function renderMyRank(me, myProfile){
       const zone = document.getElementById('myRankZone');

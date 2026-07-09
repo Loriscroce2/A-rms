@@ -120,10 +120,6 @@ const RANK_TIER_NAMES = ['Mineure', 'Hostile', 'Mortelle', 'Apocalyptique', 'Ext
 const POINTS_PER_RANK = 100;
 const TOTAL_RANKS = RANK_TIER_NAMES.length * 3; // 15
 
-// Index (0-based) du premier rang de palier "Mortelle" — à partir de ce
-// palier, une défaite coûte de plus en plus cher.
-const PUNISHING_TIER_START_INDEX = RANK_TIER_NAMES.indexOf('Mortelle') * 3; // = 6
-
 function rankIndexForPoints(points) {
   const idx = Math.floor(Math.max(0, points) / POINTS_PER_RANK);
   return Math.min(idx, TOTAL_RANKS - 1);
@@ -152,23 +148,40 @@ function getRankInfo(points) {
   };
 }
 
-// Combien de points sont retirés en cas de défaite, selon le palier ACTUEL
-// du joueur (calculé avant application de la perte) — de plus en plus
-// punitif à partir de "Mortelle I".
-function lossPenaltyForPoints(points) {
+// Facteur K (volatilité) selon le palier ACTUEL du joueur — reprend l'esprit
+// de la règle précédente ("de plus en plus punitif à partir de Mortelle"),
+// mais s'applique désormais comme amplitude MAXIMALE d'un calcul Elo, pas
+// comme un montant fixe.
+function kFactorForPoints(points) {
   const idx = rankIndexForPoints(points);
-  if (idx < PUNISHING_TIER_START_INDEX) return 10;              // Mineure / Hostile
   const tierIndex = Math.floor(idx / 3);
-  if (tierIndex === 2) return 18;  // Mortelle
-  if (tierIndex === 3) return 25;  // Apocalyptique
-  return 35;                        // Extinction
+  if (tierIndex <= 1) return 20;   // Mineure / Hostile — débuts cléments
+  if (tierIndex === 2) return 28;  // Mortelle
+  if (tierIndex === 3) return 34;  // Apocalyptique
+  return 40;                        // Extinction
 }
 
-const RANKED_WIN_GAIN = 25;
+// Calcul façon Elo (échecs) : le gain/perte dépend de l'ÉCART DE NIVEAU entre
+// les deux adversaires, pas d'un montant fixe.
+// - Battre un adversaire largement plus fort rapporte gros ; battre un
+//   adversaire largement plus faible rapporte presque rien.
+// - Perdre contre un adversaire largement plus fort coûte presque rien (voire
+//   rien du tout) ; perdre contre un adversaire largement plus faible coûte
+//   très cher.
+// myPoints/oppPoints = points de Menace des DEUX joueurs au moment où la
+// partie a démarré (figés en début de partie, pas recalculés après coup).
+function computeEloDelta(myPoints, oppPoints, won) {
+  const expectedScore = 1 / (1 + Math.pow(10, (oppPoints - myPoints) / 400));
+  const actualScore = won ? 1 : 0;
+  const K = kFactorForPoints(myPoints);
+  let delta = Math.round(K * (actualScore - expectedScore));
+  if (won && delta < 1) delta = 1; // une victoire rapporte toujours au moins 1 point
+  if (!won && delta > 0) delta = 0; // une défaite ne peut jamais faire gagner des points
+  return delta;
+}
 
 const qGetThreatPoints = db.prepare('SELECT threat_points FROM users WHERE id = ?');
-const qApplyRankedWin = db.prepare('UPDATE users SET threat_points = threat_points + ?, ranked_wins = ranked_wins + 1 WHERE id = ?');
-const qApplyRankedLoss = db.prepare('UPDATE users SET threat_points = MAX(0, threat_points - ?), ranked_losses = ranked_losses + 1 WHERE id = ?');
+const qApplyRankedResult = db.prepare('UPDATE users SET threat_points = MAX(0, threat_points + ?), ranked_wins = ranked_wins + ?, ranked_losses = ranked_losses + ? WHERE id = ?');
 const qLeaderboard = db.prepare(`
   SELECT id, name, avatar, threat_points, ranked_wins, ranked_losses
   FROM users
@@ -579,28 +592,31 @@ app.post('/api/match/result', authMiddleware, (req, res) => {
     if (coinGain > 0) qAddCoins.run(coinGain, req.user.id);
     const coins = coinsForResponse(req);
 
-    // Points de Menace : uniquement en partie CLASSÉE. Un abandon compte
-    // comme une défaite pour la pénalité (pour décourager de fuir une
+    // Points de Menace : uniquement en partie CLASSÉE, calculés façon Elo
+    // (échecs) — l'écart de niveau entre les DEUX joueurs au moment où la
+    // partie a démarré détermine l'ampleur du gain/de la perte. Un abandon
+    // compte comme une défaite pour ce calcul (pour décourager de fuir une
     // partie perdue), mais ne rapporte jamais de pièces.
     const matchData = mmMatches.get(matchId);
-    const isRanked = !!(matchData && matchData.mode === 'ranked');
+    const isRanked = !!(matchData && matchData.mode === 'ranked' && matchData.ratingsAtStart);
     let pointsDelta = 0;
     let rank = null;
     let previousRank = null;
     if (isRanked) {
-      const beforeRow = qGetThreatPoints.get(req.user.id);
-      const beforePoints = beforeRow ? beforeRow.threat_points : 0;
-      previousRank = getRankInfo(beforePoints);
-      if (result === 'win') {
-        pointsDelta = RANKED_WIN_GAIN;
-        qApplyRankedWin.run(pointsDelta, req.user.id);
-      } else {
-        const penalty = lossPenaltyForPoints(beforePoints);
-        pointsDelta = -Math.min(penalty, beforePoints);
-        qApplyRankedLoss.run(penalty, req.user.id);
-      }
+      const won = (result === 'win');
+      const myPoints = matchData.ratingsAtStart[req.user.id] ?? 0;
+      const opponentEntry = (matchData.players || []).find(p => p.userId !== req.user.id);
+      const oppPoints = opponentEntry ? (matchData.ratingsAtStart[opponentEntry.userId] ?? 0) : myPoints;
+
+      previousRank = getRankInfo(myPoints);
+      pointsDelta = computeEloDelta(myPoints, oppPoints, won);
+      qApplyRankedResult.run(pointsDelta, won ? 1 : 0, won ? 0 : 1, req.user.id);
+
       const afterRow = qGetThreatPoints.get(req.user.id);
       rank = getRankInfo(afterRow ? afterRow.threat_points : 0);
+      // Le delta AFFICHÉ doit refléter ce qui a vraiment été appliqué (le
+      // plancher à 0 point peut réduire une perte théorique plus grande).
+      pointsDelta = rank.points - previousRank.points;
     } else {
       const tpRow = qGetThreatPoints.get(req.user.id);
       rank = getRankInfo(tpRow ? tpRow.threat_points : 0);
@@ -677,7 +693,21 @@ function tryMakeMatch() {
     mmTickets.get(b.ticket).matchId = matchId;
     mmTickets.get(b.ticket).seat = seatB;
 
-    mmMatches.set(matchId, { createdAt: Date.now(), players, gameState: initialGameState, mode: a.mode });
+    // En Classée, on fige les points de Menace de CHAQUE joueur au moment
+    // précis où la partie démarre — indispensable pour calculer un gain/perte
+    // à la façon des échecs (Elo), basé sur l'écart de niveau entre les deux
+    // adversaires plutôt que sur un montant fixe.
+    let ratingsAtStart = null;
+    if (a.mode === 'ranked') {
+      const tpA = qGetThreatPoints.get(a.userId);
+      const tpB = qGetThreatPoints.get(b.userId);
+      ratingsAtStart = {
+        [a.userId]: tpA ? tpA.threat_points : 0,
+        [b.userId]: tpB ? tpB.threat_points : 0,
+      };
+    }
+
+    mmMatches.set(matchId, { createdAt: Date.now(), players, gameState: initialGameState, mode: a.mode, ratingsAtStart });
     return tryMakeMatch(); // au cas où d'autres paires seraient possibles dans la file
   }
 }

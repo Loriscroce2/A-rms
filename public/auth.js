@@ -21,7 +21,7 @@ function armsApplyAvatar(el, avatar) {
 // fichier est remplacé plus tard (les PNG sont mis en cache très
 // agressivement par les navigateurs et Railway sinon, invisible en dev mais
 // gênant en production).
-const RANK_IMG_VERSION = '3';
+const RANK_IMG_VERSION = '4';
 function armsRankImageUrl(rank){
   if (!rank) return '';
   const slug = rank.tierName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
