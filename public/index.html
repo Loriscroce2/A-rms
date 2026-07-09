@@ -994,6 +994,52 @@
     }
     .ignominieRevealText p{ font-size:14.5px; line-height:1.55; color:#e8d8f5; margin:0; }
 
+    /* KRYLLS (nouveau lot) : Krouzpier (C25) — choix Cœur/Pique + tirage animé. */
+    .krouzpierOverlay{
+      position:fixed; inset:0; z-index:8200; display:flex; align-items:center; justify-content:center;
+      background:rgba(4,6,10,0); opacity:0; transition:opacity .35s ease, background .35s ease; padding:20px;
+    }
+    .krouzpierOverlay.go{ opacity:1; background:rgba(4,6,10,.85); }
+    .krouzpierBox{
+      display:flex; flex-direction:column; align-items:center; gap:18px; text-align:center;
+      max-width:420px;
+    }
+    .krouzpierTitle{
+      font-family:'Cinzel',serif; font-size:20px; color:#dba8ff; letter-spacing:.04em;
+      text-shadow:0 0 14px rgba(180,60,220,.6);
+    }
+    .krouzpierSub{ font-size:13.5px; color:#c9b8e0; opacity:.9; }
+    .krouzpierChoices{ display:flex; gap:20px; }
+    .krouzpierChoiceBtn{
+      display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer;
+      background:linear-gradient(160deg,#1a0d28,#0d0616); border:2px solid rgba(180,60,220,.4);
+      border-radius:14px; padding:16px 22px; color:#e8d8f5; font-weight:800; font-size:13px;
+      transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+    }
+    .krouzpierChoiceBtn:hover{ transform:translateY(-4px); border-color:#c86bff; box-shadow:0 0 22px rgba(180,60,220,.5); }
+    .krouzpierChoiceBtn img{ width:64px; height:auto; filter:drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
+    .krouzpierFlipCard{
+      width:110px; height:150px; perspective:600px;
+      animation: krouzpierSpin 0.9s linear;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:12px; background:#0d0616; border:2px solid rgba(180,60,220,.5);
+      box-shadow:0 0 24px rgba(180,60,220,.4);
+    }
+    .krouzpierFlipCard img{ width:80%; height:auto; }
+    @keyframes krouzpierSpin{
+      0%{ transform:rotateY(0deg) scale(1); }
+      70%{ transform:rotateY(1080deg) scale(1.05); }
+      100%{ transform:rotateY(1440deg) scale(1); }
+    }
+    .krouzpierFlipCard.landed{ animation:none; transition:box-shadow .3s ease, border-color .3s ease; }
+    .krouzpierFlipCard.landed.correct{ border-color:#19e27a; box-shadow:0 0 28px rgba(25,226,122,.6); }
+    .krouzpierFlipCard.landed.wrong{ border-color:#ff5252; box-shadow:0 0 28px rgba(255,82,82,.55); }
+    .krouzpierResultText{
+      font-size:16px; font-weight:900; opacity:0; transform:translateY(6px);
+      transition:opacity .35s ease, transform .35s ease;
+    }
+    .krouzpierResultText.show{ opacity:1; transform:translateY(0); }
+
     /* Invite/prompt générique */
     .actionPrompt{
       position:fixed; z-index:1500; min-width:180px; max-width:260px;
@@ -2581,6 +2627,11 @@ const CARD_IMAGES = {
  'C235': '../cartes/0235.png',
  'C236': '../cartes/0236.png',
  'T08': '../cartes/T08.png',
+
+ /* === FACTION KRYLLS — nouveau lot === */
+ 'C23': '../cartes/0023.png',
+ 'C24': '../cartes/0024.png',
+ 'C25': '../cartes/0025.png',
  'T05': '../cartes/T05.png',
  'T06': '../cartes/T06.png',
  'T07': '../cartes/T07.png',
@@ -2694,6 +2745,11 @@ const CARD_TYPES  = {
  'C235': 'familier',   // Scapoo
  'C236': 'action',     // Fusionner les tous
  'T08': 'personnage',  // Ignominie
+
+ /* === FACTION KRYLLS — nouveau lot === */
+ 'C23': 'action',      // Réveillez vous
+ 'C24': 'familier',    // Tentacuz
+ 'C25': 'personnage',  // Krouzpier
  'T05': 'personnage',  // Cousu
  'T06': 'personnage',  // Cousu
  'T07': 'personnage',  // Cousu
@@ -2806,6 +2862,11 @@ const CARD_NAMES = {
  'C235': 'Scapoo',
  'C236': 'Fusionner les tous',
  'T08': 'Ignominie',
+
+ /* === FACTION KRYLLS — nouveau lot === */
+ 'C23': 'Réveillez vous',
+ 'C24': 'Tentacuz',
+ 'C25': 'Krouzpier',
  'T05': 'Cousu',
  'T06': 'Cousu',
  'T07': 'Cousu',
@@ -2883,6 +2944,9 @@ const CARD_HP_BASE = {
 
   /* WADOO — 6e lot */
   'T08': 15,
+
+  /* KRYLLS — nouveau lot */
+  'C25': 3,
 };
 
 const CARD_SHIELD_BASE = {
@@ -3049,6 +3113,11 @@ const CARD_TAGS = {
  'T05': ['citoyen', 'Wadoo', 'token'],    // Cousu
  'T06': ['citoyen', 'Wadoo', 'token'],    // Cousu
  'T07': ['citoyen', 'Wadoo', 'token'],    // Cousu
+
+ /* === FACTION KRYLLS — nouveau lot === */
+ 'C23': ['action', 'Krylls'],    // Réveillez vous
+ 'C24': ['familier', 'Krylls'],  // Tentacuz
+ 'C25': ['citoyen', 'Krylls'],   // Krouzpier
 
 };
 const FACTIONS = ["Krylls","Impy","Savage","Chimeria","Wadoo"];
@@ -4351,6 +4420,92 @@ function resolveWagnetoChoice(owner, actionCard, entry){
 
   pushHistory('action', `${cardAnchor('C234')} récupère ${cardAnchor(recovered.label)} depuis une défausse !`);
   updateDiscardUI();
+  fullRender();
+}
+
+// WADOO 6e lot : Fusionner les tous (C236) — TOUS les combattants adverses
+// fusionnent en une seule carte "Ignominie" (T08, 15PV, neutre = toutes
+// factions à la fois). Les cartes fusionnées disparaissent LITTÉRALEMENT du
+// jeu (ni exil, ni défausse) : pas de déclenchement de MORT, pas de
+// restitution de Mithril capturé, aucune trace.
+// KRYLLS (nouveau lot) : Réveillez vous (C23) — révèle les decks des DEUX
+// joueurs jusqu'à trouver un combattant chacun (toute carte non-combattante
+// révélée au passage part en défausse), puis les fait combattre (dégâts
+// mutuels égaux à leurs PV actuels). Les survivants rejoignent leur zone de
+// combat. Si un seul camp révèle un combattant (deck adverse épuisé), il
+// rejoint sa zone sans opposition.
+function playActionReveillezVous(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  function revealUntilCombattant(sideOwner){
+    const deck = getDeckByOwner(sideOwner);
+    let revealed = null;
+    while (deck.length > 0) {
+      const c = deck.shift();
+      if (getType(c.label) === 'personnage') { revealed = c; break; }
+      discardCard(c, sideOwner, 'other');
+    }
+    return revealed;
+  }
+
+  pushHistory('action', `${cardAnchor('C23')} réveille les deux decks…`);
+  const topCard = revealUntilCombattant('top');
+  const botCard = revealUntilCombattant('bottom');
+
+  if (topCard) pushHistory('jeu', `${playerLabel('top')} révèle ${cardAnchor(topCard.label)}.`);
+  if (botCard) pushHistory('jeu', `${playerLabel('bottom')} révèle ${cardAnchor(botCard.label)}.`);
+
+  if (!topCard && !botCard) {
+    pushHistory('info', `${cardAnchor('C23')} : aucun combattant n'a pu être révélé (decks épuisés).`);
+    fullRender();
+    return;
+  }
+
+  // Un seul camp a pu révéler un combattant : il rejoint sa zone directement.
+  if (topCard && !botCard) {
+    getLineByOwner('top').push(topCard);
+    pushHistory('jeu', `${cardAnchor(topCard.label)} rejoint la zone de combat sans opposition.`);
+    fullRender();
+    return;
+  }
+  if (botCard && !topCard) {
+    getLineByOwner('bottom').push(botCard);
+    pushHistory('jeu', `${cardAnchor(botCard.label)} rejoint la zone de combat sans opposition.`);
+    fullRender();
+    return;
+  }
+
+  // Les deux combattants s'affrontent : dégâts mutuels simultanés égaux à
+  // leurs PV actuels (comme un combat classique).
+  const topDmg = getEffectiveHP(topCard);
+  const botDmg = getEffectiveHP(botCard);
+  applyDamageWithShield(botCard, topDmg);
+  applyDamageWithShield(topCard, botDmg);
+
+  const topSurvived = getEffectiveHP(topCard) > 0;
+  const botSurvived = getEffectiveHP(botCard) > 0;
+
+  pushHistory('jeu', `${cardAnchor(topCard.label)} et ${cardAnchor(botCard.label)} s'affrontent !`);
+
+  if (topSurvived) {
+    getLineByOwner('top').push(topCard);
+    pushHistory('jeu', `${cardAnchor(topCard.label)} survit et rejoint la zone de combat !`);
+  } else {
+    discardCard(topCard, 'top', 'death', { hpBefore: 1 });
+  }
+  if (botSurvived) {
+    getLineByOwner('bottom').push(botCard);
+    pushHistory('jeu', `${cardAnchor(botCard.label)} survit et rejoint la zone de combat !`);
+  } else {
+    discardCard(botCard, 'bottom', 'death', { hpBefore: 1 });
+  }
+
   fullRender();
 }
 
@@ -6316,6 +6471,132 @@ function recalcDecebaleHP(){
   });
 }
 
+// KRYLLS (nouveau lot) : Tentacuz (C24) — tant qu'il est rattaché, son hôte
+// gagne +X Bouclier, X = nombre de combattants dans LES DEUX zones de combat
+// (les deux joueurs confondus). Recalculé en direct à chaque rendu, comme
+// Blusyte — delta-based pour pouvoir être appelé autant de fois que voulu.
+function recalcTentacuzBonuses(){
+  const all = topLine.concat(botLine);
+  const totalCombatants = topLine.length + botLine.length;
+  getAllFamiliers().filter(f => f.label === 'C24').forEach(fam => {
+    const host = all.find(c => c.id === fam.attachedTo);
+    if (!host) return;
+    const previousBonus = fam.appliedShieldBonus || 0;
+    if (totalCombatants === previousBonus) return;
+    host.shield = Math.max(0, (host.shield || 0) - previousBonus) + totalCombatants;
+    fam.appliedShieldBonus = totalCombatants;
+  });
+}
+
+// KRYLLS (nouveau lot) : Krouzpier (C25) — MORT : lance une carte en l'air ;
+// le joueur choisit Cœur ou Pique AVANT le tirage. Bonne pioche = détruit un
+// combattant ennemi et RECOMMENCE l'opération (chaîne potentiellement
+// longue) ; mauvaise pioche = l'opération s'arrête là.
+function startKrouzpierChain(owner){
+  showKrouzpierChoicePrompt(owner);
+}
+
+function showKrouzpierChoicePrompt(owner){
+  const overlay = document.createElement('div');
+  overlay.className = 'krouzpierOverlay';
+  overlay.innerHTML = `
+    <div class="krouzpierBox">
+      <div class="krouzpierTitle">💀 ${cardName('C25')}</div>
+      <div class="krouzpierSub">Une carte va être lancée en l'air… Cœur ou Pique ?</div>
+      <div class="krouzpierChoices">
+        <button class="krouzpierChoiceBtn" data-choice="coeur"><img src="/assets/coeur.png" alt="Cœur"><span>Cœur</span></button>
+        <button class="krouzpierChoiceBtn" data-choice="pique"><img src="/assets/pique.png" alt="Pique"><span>Pique</span></button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(()=> overlay.classList.add('go'));
+  overlay.querySelectorAll('.krouzpierChoiceBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const choice = btn.dataset.choice;
+      overlay.classList.remove('go');
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); resolveKrouzpierFlip(owner, choice); }, 300);
+    });
+  });
+}
+
+function resolveKrouzpierFlip(owner, choice){
+  const result = Math.random() < 0.5 ? 'coeur' : 'pique';
+  const wasCorrect = (choice === result);
+  showKrouzpierRevealAnimation(result, wasCorrect, () => {
+    const resultLabel = (result === 'coeur') ? 'Cœur' : 'Pique';
+    if (!wasCorrect) {
+      pushHistory('jeu', `${cardAnchor('C25')} : mauvaise pioche (${resultLabel}) — l'opération s'arrête là.`);
+      return;
+    }
+    pushHistory('jeu', `${cardAnchor('C25')} : bonne pioche (${resultLabel}) !`);
+    const opp = (owner === 'top') ? 'bottom' : 'top';
+    const oppLine = getLineByOwner(opp);
+    if (oppLine.length === 0) {
+      pushHistory('info', `${cardAnchor('C25')} ne trouve plus aucun combattant ennemi à détruire — l'opération s'arrête là.`);
+      return;
+    }
+    openButtonsPrompt(
+      cardName('C25'),
+      'Choisissez un combattant ennemi à détruire.',
+      null,
+      oppLine.map(target => ({
+        label: cardName(target.label),
+        className: 'confirm',
+        onClick: () => {
+          detachFamiliarsOnHost(target, opp);
+          const line = getLineByOwner(opp);
+          const idx = line.findIndex(c => c.id === target.id);
+          if (idx !== -1) line.splice(idx, 1);
+          discardCard(target, opp, 'destroyed');
+          pushHistory('jeu', `${cardAnchor('C25')} détruit ${cardAnchor(target.label)} !`);
+          fullRender();
+          // L'opération recommence entièrement (nouveau choix, nouveau tirage).
+          startKrouzpierChain(owner);
+        }
+      })).concat([{ label: 'Arrêter là', className: 'cancel', onClick: () => {} }])
+    );
+  });
+}
+
+/* Animation de tirage : la carte choisie tournoie plusieurs fois avant de
+   se stabiliser sur le résultat réel (coeur.png ou pique.png), avec un halo
+   vert (bonne pioche) ou rouge (mauvaise pioche). */
+function showKrouzpierRevealAnimation(result, wasCorrect, onDone){
+  try{
+    const overlay = document.createElement('div');
+    overlay.className = 'krouzpierOverlay krouzpierReveal';
+    overlay.innerHTML = `
+      <div class="krouzpierBox">
+        <div class="krouzpierFlipCard" id="krouzpierFlipCard">
+          <img src="/assets/${result}.png" alt="${result}">
+        </div>
+        <div class="krouzpierResultText" id="krouzpierResultText"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(()=> overlay.classList.add('go'));
+
+    setTimeout(()=>{
+      const flipEl = document.getElementById('krouzpierFlipCard');
+      const resultText = document.getElementById('krouzpierResultText');
+      if (flipEl) {
+        flipEl.classList.add('landed', wasCorrect ? 'correct' : 'wrong');
+      }
+      if (resultText) {
+        resultText.textContent = wasCorrect ? '✓ Bonne pioche !' : '✗ Mauvaise pioche…';
+        resultText.classList.add('show');
+        resultText.style.color = wasCorrect ? '#7dffb0' : '#ff8080';
+      }
+    }, 900);
+
+    setTimeout(()=>{
+      overlay.classList.remove('go');
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); onDone(); }, 350);
+    }, 2200);
+  }catch(e){ onDone(); }
+}
+
 
 /* ===================== TCHAT + HISTORIQUE ===================== */
 const chatPanel  = document.getElementById('chatPanel');
@@ -7968,6 +8249,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C233') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionTributPoupesque(owner, card)); }); }
             if (card.label === 'C234') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionWagneto(owner, card, el)); }); }
             if (card.label === 'C236') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionFusionnerLesTous(owner, card)); }); }
+            if (card.label === 'C23') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionReveillezVous(owner, card)); }); }
         }
 
         rowEl.appendChild(el);
@@ -9583,6 +9865,9 @@ if (reason === 'manual') {
   if (card.label === 'C61' && reason === 'death') {
     handlePestrassDeathrattle(owner);
   }
+  if (card.label === 'C25' && reason === 'death') {
+    startKrouzpierChain(owner);
+  }
   if (card.label === 'C58' && typeof card.charges === 'number' && card.charges > 0) {
       startC58HealingSelection(owner, card.charges);
       pushHistory('artefact', `${cardAnchor('C58')} quitte le jeu et libère ${card.charges} charges de soin.`);
@@ -9829,6 +10114,8 @@ function fullRender(){
   recalcBlusyteBonuses();
   // Decebale (C62) — ses PV suivent en direct la taille de l'Exil.
   recalcDecebaleHP();
+  // KRYLLS (nouveau lot) : Tentacuz (C24) — bonus de Bouclier en direct.
+  recalcTentacuzBonuses();
   updateHandsUI();
   renderLine(document.querySelector('#battleTop .battleInner'), topLine, 'top');
   renderLine(document.querySelector('#battleBottom .battleInner'), botLine, 'bottom');

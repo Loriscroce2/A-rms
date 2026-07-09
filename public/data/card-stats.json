@@ -598,5 +598,20 @@
     "type": "action",
     "hp": 0,
     "shield": 0
+  },
+  "0023": {
+    "type": "action",
+    "hp": 0,
+    "shield": 0
+  },
+  "0024": {
+    "type": "familier",
+    "hp": 0,
+    "shield": 0
+  },
+  "0025": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 0
   }
 }
