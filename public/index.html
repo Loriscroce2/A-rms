@@ -3621,7 +3621,7 @@ if (ONLINE_MODE) {
 } else if (TUTORIAL_MODE) {
   // Didacticiel : main de départ FIXE et connue à l'avance, pour que le
   // coach puisse s'appuyer dessus de façon fiable (aucun aléa).
-  const tutorialLabels = ['C1','C64','C4', 'C2','C3','C5','C6','C7','C8','C9','C10'];
+  const tutorialLabels = ['C116','C107','C102', 'C101','C105','C108','C110','C111','C113','C114'];
   botDeck = tutorialLabels.map(label => createCard(label, 'B'));
   const fillerLabels = Array.from({length:30}, (_,i)=> 'C'+(i+11));
   botDeck = botDeck.concat(fillerLabels.map(label => createCard(label, 'B')));
@@ -14009,8 +14009,8 @@ function startTutorialCoach(){
     // ---- Étape 2 : jouer un Personnage ----
     function tcStep2_PlayCard(){
       const startCount = botLine.length;
-      highlightHandCard('C1');
-      setCoachText('Étape 3 / 8 — Jouer une carte', `Faction choisie ! Voici votre main. <strong>${cardName('C1')}</strong> est un
+      highlightHandCard('C116');
+      setCoachText('Étape 3 / 8 — Jouer une carte', `Faction choisie ! Voici votre main. <strong>${cardName('C116')}</strong> est un
         Personnage : une fois en jeu, il peut combattre pour vous. Faites-le glisser vers votre <strong>zone de combat</strong>,
         juste en dessous.`, []);
       waitForCondition(() => botLine.length > startCount, tcStep3_Mithril);
@@ -14044,10 +14044,11 @@ function startTutorialCoach(){
         highlight(el);
         const startTopCount = topLine.length;
         const startMyHp = myCard ? getEffectiveHP(myCard) : 0;
-        setCoachText('Étape 5 / 8 — Attaquer', `L'adversaire place un combattant en face du vôtre. Dans A’rms, un combattant peut
-          attaquer <strong>dès le tour où il est joué</strong> — pas besoin d'attendre. Faites glisser votre
-          <strong>${myCard ? cardName(myCard.label) : 'combattant'}</strong> vers lui pour l'attaquer — les dégâts s'échangent
-          des <strong>deux côtés</strong>.`, []);
+        setCoachText('Étape 5 / 8 — Attaquer', `L'adversaire place un combattant en face du vôtre. <strong>Règle importante :</strong>
+          normalement, un combattant qui vient d'être posé est <strong>épuisé</strong> — il ne peut ni attaquer, ni miner, le tour
+          même où il est joué. Seul le trait <strong>RAPIDE</strong> permet d'agir immédiatement, et c'est justement le cas de
+          <strong>${myCard ? cardName(myCard.label) : 'ce combattant'}</strong>. Faites-la glisser vers l'adversaire pour
+          l'attaquer — les dégâts s'échangent des <strong>deux côtés</strong>.`, []);
         waitForCondition(() => {
           const stillThere = botLine.find(c => myCard && c.id === myCard.id);
           const hpChanged = stillThere ? (getEffectiveHP(stillThere) !== startMyHp) : true;
@@ -14059,20 +14060,21 @@ function startTutorialCoach(){
     // ---- Étape 5 : familier ----
     function tcStep5_Familiar(){
       setCoachText('Étape 6 / 8 — Les Familiers', `Le combat s'est déroulé exactement comme un vrai combat, car
-        <strong>c'en était un</strong>. Renforçons maintenant votre équipe : <strong>${cardName('C64')}</strong> est un Familier.
+        <strong>c'en était un</strong>. Renforçons maintenant votre équipe : <strong>${cardName('C107')}</strong> est un Familier.
         Faites-le glisser sur un de vos combattants pour l'y rattacher.`, []);
       const startFamCount = famBottom.length;
-      highlightHandCard('C64');
+      highlightHandCard('C107');
       waitForCondition(() => famBottom.length > startFamCount, tcStep6_Action);
     }
 
     // ---- Étape 6 : action ----
     function tcStep6_Action(){
       clearHighlight();
-      highlightHandCard('C4');
+      highlightHandCard('C102');
       setCoachText('Étape 7 / 8 — Les Actions', `Il vous reste une carte <strong>Action</strong> : elle produit un effet
-        immédiat, puis part directement en défausse. Jouez <strong>${cardName('C4')}</strong> pour la découvrir.`, []);
-      waitForCondition(() => !botHand.find(c => c.label === 'C4'), tcStep7_ForgeAndEnd);
+        immédiat, puis part directement en défausse. Jouez <strong>${cardName('C102')}</strong> — elle vous demandera de choisir
+        un combattant pour lui donner un bonus temporaire.`, []);
+      waitForCondition(() => !botHand.find(c => c.label === 'C102'), tcStep7_ForgeAndEnd);
     }
 
     // ---- Étape 7 : forge auto + fin de tour ----
