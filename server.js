@@ -181,6 +181,11 @@ const qMyRankPosition = db.prepare(`
   WHERE threat_points > (SELECT threat_points FROM users WHERE id = ?)
     AND (ranked_wins > 0 OR ranked_losses > 0)
 `);
+// Pour le diagramme de répartition : TOUS les joueurs classés, pas
+// seulement le haut du tableau affiché.
+const qAllRankedThreatPoints = db.prepare(`
+  SELECT threat_points FROM users WHERE ranked_wins > 0 OR ranked_losses > 0
+`);
 
 // --- Requêtes SQL préparées (boutique horaire) ---
 const qGetShopState = db.prepare('SELECT * FROM shop_state WHERE id = 1');
@@ -275,9 +280,29 @@ app.get('/api/leaderboard', authMiddleware, (req, res) => {
     }));
     const myTp = qGetThreatPoints.get(req.user.id);
     const myPosition = qMyRankPosition.get(req.user.id);
+
+    // Répartition des joueurs par PALIER (Mineure/Hostile/Mortelle/
+    // Apocalyptique/Extinction, tous niveaux I/II/III confondus), sur
+    // l'ensemble des joueurs classés — pas seulement le top affiché.
+    const allPoints = qAllRankedThreatPoints.all();
+    const distributionCounts = {};
+    RANK_TIER_NAMES.forEach(t => { distributionCounts[t] = 0; });
+    allPoints.forEach(row => {
+      const info = getRankInfo(row.threat_points);
+      distributionCounts[info.tierName] = (distributionCounts[info.tierName] || 0) + 1;
+    });
+    const totalRankedPlayers = allPoints.length;
+    const distribution = RANK_TIER_NAMES.map(tier => ({
+      tierName: tier,
+      count: distributionCounts[tier],
+      pct: totalRankedPlayers > 0 ? Math.round((distributionCounts[tier] / totalRankedPlayers) * 1000) / 10 : 0,
+    }));
+
     res.json({
       ok: true,
       players,
+      distribution,
+      totalRankedPlayers,
       me: {
         id: req.user.id,
         threatInfo: getRankInfo(myTp ? myTp.threat_points : 0),

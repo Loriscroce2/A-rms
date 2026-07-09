@@ -17,10 +17,15 @@ function armsApplyAvatar(el, avatar) {
 }
 
 // Chemin du logo officiel (fourni par l'utilisateur) pour un rang donné.
+// Le "?v=" force le navigateur à recharger la bonne version si jamais le
+// fichier est remplacé plus tard (les PNG sont mis en cache très
+// agressivement par les navigateurs et Railway sinon, invisible en dev mais
+// gênant en production).
+const RANK_IMG_VERSION = '3';
 function armsRankImageUrl(rank){
   if (!rank) return '';
   const slug = rank.tierName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return `/assets/${slug}${rank.subLevel}.png`;
+  return `/assets/${slug}${rank.subLevel}.png?v=${RANK_IMG_VERSION}`;
 }
 
 // Couleurs associées à chaque palier de Menace (du plus calme au plus terrifiant).
@@ -38,9 +43,9 @@ function armsRankBadgeHtml(rank, opts) {
   opts = opts || {};
   if (!rank) return '';
   const colors = armsRankTierColor(rank.tierName);
-  const pad = opts.small ? '3px 12px 3px 3px' : '4px 16px 4px 4px';
-  const fs = opts.small ? '11.5px' : '14px';
-  const imgSize = opts.small ? '22px' : '30px';
+  const pad = opts.large ? '6px 26px 6px 6px' : (opts.small ? '3px 14px 3px 3px' : '4px 18px 4px 4px');
+  const fs = opts.large ? '19px' : (opts.small ? '12.5px' : '15px');
+  const imgSize = opts.large ? '58px' : (opts.small ? '30px' : '42px');
   const imgUrl = armsRankImageUrl(rank);
   return `<span class="rankPill" style="padding:${pad};font-size:${fs};background:linear-gradient(180deg,${colors.c1}30,${colors.c2}70);border:1.5px solid ${colors.c1};color:${colors.text};box-shadow:0 0 12px ${colors.glow}, inset 0 1px 0 rgba(255,255,255,.12);"><img src="${imgUrl}" alt="" style="width:${imgSize};height:${imgSize};border-radius:50%;object-fit:cover;flex:none;" onerror="this.style.display='none'">${rank.label}</span>`;
 }
@@ -122,7 +127,7 @@ function armsBuildAccountModal(user) {
           <div class="profileName">${user.name}</div>
           <div class="profileEmail">${user.email}</div>
           <div class="profileCoins">🪙 ${user.coins ?? 0} pièces</div>
-          ${user.rank ? `<div style="margin-top:8px;">${armsRankBadgeHtml(user.rank)}</div>` : ''}
+          ${user.rank ? `<div style="margin-top:8px;">${armsRankBadgeHtml(user.rank, { large:true })}</div>` : ''}
         </div>
 
         <div class="armsSectionTitle">Profil</div>
