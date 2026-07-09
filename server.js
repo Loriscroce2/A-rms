@@ -806,6 +806,15 @@ io.on('connection', (socket) => {
     socket.to(matchId).emit('chatMessage', { who, text: text.slice(0, 500) });
   });
 
+  // Relais des étapes de Krouzpier (choix Cœur/Pique + résultat) vers
+  // l'adversaire, pour qu'il voie en direct chaque décision et son issue,
+  // même si ce n'est pas lui qui choisit.
+  socket.on('krouzpierStep', ({ matchId, step }) => {
+    const st = liveMatches.get(matchId);
+    if (!st) return;
+    socket.to(matchId).emit('krouzpierStep', { step });
+  });
+
   socket.on('action', ({ matchId, seat, type, payload }) => {
     const st = liveMatches.get(matchId);
     if (!st || !st.gameState) return;
