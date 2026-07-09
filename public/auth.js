@@ -20,7 +20,7 @@ function armsApplyAvatar(el, avatar) {
 function armsRankImageUrl(rank){
   if (!rank) return '';
   const slug = rank.tierName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return `/assets/ranks/${slug}${rank.subLevel}.png`;
+  return `/assets/${slug}${rank.subLevel}.png`;
 }
 
 // Couleurs associées à chaque palier de Menace (du plus calme au plus terrifiant).
