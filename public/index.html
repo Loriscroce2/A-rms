@@ -3596,6 +3596,15 @@ const MY_SEAT = __urlParams.get('seat') === 'top' ? 'top' : 'bottom';
 // le VRAI plateau. Totalement isolé du reste du moteur (aucune fonction
 // existante n'est modifiée) — activé uniquement via ?tutorial=1.
 const TUTORIAL_MODE = __urlParams.get('tutorial') === '1';
+// Le minuteur de tour est désactivé par défaut PENDANT tout le didacticiel
+// (aucune pression de temps pendant qu'on apprend) — le coach peut le
+// réactiver ponctuellement s'il a besoin de l'expliquer, via
+// setTutorialTimerEnabled(true), puis le redésactiver ensuite.
+let TUTORIAL_TIMER_DISABLED = TUTORIAL_MODE;
+function setTutorialTimerEnabled(enabled){
+  TUTORIAL_TIMER_DISABLED = !enabled;
+  setupTurnTimer();
+}
 // Chaque joueur doit toujours se voir en bas de SON écran, quel que soit son
 // siège logique ('top' ou 'bottom'). Si on est 'top', on retourne visuellement
 // l'affichage du plateau (CSS uniquement, aucune donnée de jeu n'est touchée).
@@ -11100,6 +11109,12 @@ function updateTurnTimerVisual(){
 
 function setupTurnTimer(){
   try{
+    if (TUTORIAL_TIMER_DISABLED) {
+      if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
+      const wrap = document.getElementById('turnTimerWrap');
+      if (wrap) wrap.classList.add('hidden');
+      return;
+    }
     if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
     turnTimerSecondsLeft = TURN_TIME_LIMIT;
     turnTimerUrgentSfxPlayed = false;
@@ -13877,6 +13892,11 @@ function startTutorialCoach(){
     arrow.textContent = '▼';
     document.body.appendChild(arrow);
 
+    const arrow2 = document.createElement('div');
+    arrow2.id = 'tcArrow2';
+    arrow2.textContent = '▼';
+    document.body.appendChild(arrow2);
+
     const style = document.createElement('style');
     style.textContent = `
       #tcDialogue{
@@ -13925,7 +13945,7 @@ function startTutorialCoach(){
       }
       @keyframes tcSpotPulse{ 0%,100%{ outline-color:#ffd93d; } 50%{ outline-color:#fff6cf; } }
       #tcBlocker{ position:fixed; inset:0; z-index:9050; background:rgba(3,7,11,.5); cursor:not-allowed; display:none; }
-      #tcArrow{
+      #tcArrow, #tcArrow2{
         position:fixed; z-index:9150; font-size:38px; color:#ff2b2b; pointer-events:none; display:none;
         text-shadow:0 0 14px rgba(255,30,30,.9), 0 2px 3px rgba(0,0,0,.8);
         animation:tcArrowBounce .9s ease-in-out infinite;
@@ -13975,25 +13995,29 @@ function startTutorialCoach(){
 
     let tcArrowTimer = null;
     let tcBoostedAncestors = [];
-    function positionArrow(el){
-      const arrowEl = document.getElementById('tcArrow');
-      if (!el) { arrowEl.style.display = 'none'; return; }
-      const rect = el.getBoundingClientRect();
-      arrowEl.style.display = 'block';
-      const cx = rect.left + rect.width / 2;
-      if (rect.top < 170) {
-        arrowEl.textContent = '▲';
-        arrowEl.style.left = (cx - 19) + 'px';
-        arrowEl.style.top = (rect.bottom + 8) + 'px';
-      } else {
-        arrowEl.textContent = '▼';
-        arrowEl.style.left = (cx - 19) + 'px';
-        arrowEl.style.top = (rect.top - 48) + 'px';
-      }
+    function positionArrows(els){
+      const arrowEls = [document.getElementById('tcArrow'), document.getElementById('tcArrow2')];
+      arrowEls.forEach((arrowEl, i) => {
+        const el = els[i];
+        if (!el) { arrowEl.style.display = 'none'; return; }
+        const rect = el.getBoundingClientRect();
+        arrowEl.style.display = 'block';
+        const cx = rect.left + rect.width / 2;
+        if (rect.top < 170) {
+          arrowEl.textContent = '▲';
+          arrowEl.style.left = (cx - 19) + 'px';
+          arrowEl.style.top = (rect.bottom + 8) + 'px';
+        } else {
+          arrowEl.textContent = '▼';
+          arrowEl.style.left = (cx - 19) + 'px';
+          arrowEl.style.top = (rect.top - 48) + 'px';
+        }
+      });
     }
     function clearHighlight(){
       document.querySelectorAll('.tcSpotlight').forEach(el => el.classList.remove('tcSpotlight'));
       document.getElementById('tcArrow').style.display = 'none';
+      document.getElementById('tcArrow2').style.display = 'none';
       if (dialogue.style.display !== 'flex') blocker.style.display = 'none';
       if (tcArrowTimer) { clearInterval(tcArrowTimer); tcArrowTimer = null; }
       // Restaure le z-index de tout ancêtre temporairement remonté.
@@ -14004,29 +14028,34 @@ function startTutorialCoach(){
       });
       tcBoostedAncestors = [];
     }
-    function highlight(el){
+    // Accepte un seul élément OU un tableau d'éléments (ex. la carte en main
+    // ET la zone de combat où la déposer, illuminées simultanément).
+    function highlight(elOrArr){
       clearHighlight();
-      if (!el) return;
-      el.classList.add('tcSpotlight');
+      const els = (Array.isArray(elOrArr) ? elOrArr : [elOrArr]).filter(Boolean);
+      if (els.length === 0) return;
       blocker.style.display = 'block';
-      // Un ancêtre peut posséder son PROPRE contexte d'empilement (z-index
-      // déjà fixé, ex. le prompt de faction à z-index:2000) qui plafonne
-      // tout ce qu'il contient — le z-index forcé sur la cible elle-même ne
-      // suffit alors pas à passer au-dessus du calque de blocage. On
-      // remonte temporairement tout ancêtre concerné, et on le restaure
-      // ensuite dans clearHighlight().
-      let ancestor = el.parentElement;
-      while (ancestor && ancestor !== document.body) {
-        const cs = window.getComputedStyle(ancestor);
-        if (cs.zIndex !== 'auto' && parseInt(cs.zIndex, 10) < 9060) {
-          ancestor.dataset.tcOldZIndex = ancestor.style.zIndex || '';
-          ancestor.style.zIndex = '9080';
-          tcBoostedAncestors.push(ancestor);
+      els.forEach(el => {
+        el.classList.add('tcSpotlight');
+        // Un ancêtre peut posséder son PROPRE contexte d'empilement (z-index
+        // déjà fixé, ex. le prompt de faction à z-index:2000) qui plafonne
+        // tout ce qu'il contient — le z-index forcé sur la cible elle-même ne
+        // suffit alors pas à passer au-dessus du calque de blocage. On
+        // remonte temporairement tout ancêtre concerné, et on le restaure
+        // ensuite dans clearHighlight().
+        let ancestor = el.parentElement;
+        while (ancestor && ancestor !== document.body) {
+          const cs = window.getComputedStyle(ancestor);
+          if (cs.zIndex !== 'auto' && parseInt(cs.zIndex, 10) < 9060 && !tcBoostedAncestors.includes(ancestor)) {
+            ancestor.dataset.tcOldZIndex = ancestor.style.zIndex || '';
+            ancestor.style.zIndex = '9080';
+            tcBoostedAncestors.push(ancestor);
+          }
+          ancestor = ancestor.parentElement;
         }
-        ancestor = ancestor.parentElement;
-      }
-      positionArrow(el);
-      tcArrowTimer = setInterval(()=> positionArrow(el), 300);
+      });
+      positionArrows(els);
+      tcArrowTimer = setInterval(()=> positionArrows(els), 300);
     }
     function highlightHandCard(label){
       const card = botHand.find(c => c.label === label);
@@ -14099,12 +14128,16 @@ function startTutorialCoach(){
     function step4_PlayCard(){
       hideBanner(); clearHighlight();
       showDialogue('5 / 12 — Jouer un Personnage', `<strong>${cardName('C116')}</strong> est un Personnage : une fois en jeu,
-        il peut combattre pour vous.`, [
+        elle peut combattre pour vous.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const startCount = botLine.length;
-          highlightHandCard('C116');
-          showBanner('Jouer un Personnage', `Faites glisser ${cardName('C116')} vers votre zone de combat.`);
+          const card = botHand.find(c => c.label === 'C116');
+          const cardEl = card ? document.querySelector(`#handBottom [data-id="${card.id}"]`) : null;
+          const zoneEl = document.getElementById('battleBottom');
+          highlight([cardEl, zoneEl]);
+          showBanner('Jouer un Personnage', `Faites glisser <strong>${cardName('C116')}</strong> (repère rouge du haut) jusque
+            dans votre <strong>zone de combat</strong> (repère rouge du bas), puis relâchez-la.`);
           waitForCondition(() => botLine.length > startCount, step5_Mithril);
         } }
       ]);
@@ -14136,7 +14169,7 @@ function startTutorialCoach(){
       const myCard = botLine[0];
       showDialogue('7 / 12 — Attaquer', `Un combattant qui vient d'être joué est normalement <strong>épuisé</strong> : il ne
         peut ni attaquer, ni miner, ce tour-ci. Seul le trait <strong>RAPIDE</strong> permet d'agir immédiatement —
-        <strong>${myCard ? cardName(myCard.label) : 'votre combattant'}</strong> le possède.`, [
+        <strong>${myCard ? cardName(myCard.label) : 'votre combattant'}</strong> le possède, elle peut donc agir tout de suite.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const el = myCard ? document.querySelector(`[data-id="${myCard.id}"]`) : null;
