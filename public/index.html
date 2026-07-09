@@ -1081,9 +1081,24 @@
       100%{ transform:rotateY(0deg); opacity:1; }
     }
     .rvCardSlot.rvLocked{ border-color:#19e27a; box-shadow:0 0 30px rgba(25,226,122,.6); }
-    .rvCardSlot.rvDiscarding{ transition:opacity .35s ease, transform .35s ease; opacity:.15; transform:scale(.85) translateY(14px); }
+    .rvCardSlot.rvDiscarding{
+      transition:opacity .55s ease, transform .55s cubic-bezier(.4,0,.7,1);
+      opacity:.1; transform:translateY(90px) scale(.35) rotate(-8deg);
+    }
     .rvStatus{ font-size:13px; color:#9fd6e6; opacity:.9; text-align:center; max-width:200px; min-height:34px; line-height:1.4; }
     .rvFooter{ font-size:15px; font-weight:800; text-align:center; min-height:20px; }
+    .rvDiscardPile{
+      display:flex; align-items:center; gap:7px; padding:6px 14px; border-radius:999px;
+      background:rgba(255,184,77,.08); border:1px solid rgba(255,184,77,.3);
+      font-size:12px; color:#ffd9a0; font-weight:700;
+    }
+    .rvDiscardIcon{ font-size:15px; }
+    .rvDiscardPile.rvPulse{ animation: rvDiscardPulseKeyframes .5s ease; }
+    @keyframes rvDiscardPulseKeyframes{
+      0%{ transform:scale(1); box-shadow:0 0 0 rgba(255,184,77,0); }
+      40%{ transform:scale(1.15); box-shadow:0 0 16px rgba(255,184,77,.6); }
+      100%{ transform:scale(1); box-shadow:0 0 0 rgba(255,184,77,0); }
+    }
 
     /* Invite/prompt générique */
     .actionPrompt{
@@ -4108,7 +4123,7 @@ function endAzpiryneSelection(owner) {
   closeActionPrompt();
   const pickedCount = c18SelectMode ? c18SelectMode.picked : 0;
   pushHistory('défausse',
-    `${pickedCount} carte(s) déplacée(s) de l’EXIL vers la défausse de ${playerLabel(owner)} via ${cardAnchor('C18')}.`
+    `${pickedCount} carte(s) déplacée(s) de l'EXIL vers la défausse de ${playerLabel(owner)} via ${cardAnchor('C18')} (+${pickedCount} Mithril).`
   );
   c18SelectMode = null;
   fullRender();
@@ -4119,7 +4134,7 @@ function openC18Prompt(owner, card, anchorEl){
   if(!canPlayThisCardNow(owner, card)) return;
   openButtonsPrompt(
     'Azpiryne',
-    "Jouer l’action <strong>Azpiryne</strong> ?<br><small>Effet : compte les <strong>Citoyen</strong> sur toutes les zones de combat. Le joueur gagne autant de <strong>Mithril</strong> puis doit déplacer autant de cartes de <strong>l’EXIL</strong> vers <strong>sa défausse</strong>.</small>",
+    "Jouer l'action <strong>Azpiryne</strong> ?<br><small>Effet : compte les <strong>Citoyen</strong> sur toutes les zones de combat — ce nombre détermine combien de cartes vous pouvez récupérer de l'<strong>EXIL</strong> vers votre défausse. Vous gagnez <strong>1 Mithril par carte effectivement récupérée</strong> (0 si vous n'en récupérez aucune).</small>",
     anchorEl,
     [
       { label:'Valider', className:'confirm', onClick:()=>playActionC18(owner, card, anchorEl) },
@@ -4137,7 +4152,6 @@ function playActionC18(owner, actionCard, anchorEl){
   if(idx!==-1) hand.splice(idx,1);
 
   const nCit = countCitizensOnBoard();
-  for(let i=0;i<nCit;i++) addMithril(owner);
   discardCard(actionCard, owner, 'action');
 
   if(nCit <= 0){
@@ -4148,7 +4162,7 @@ function playActionC18(owner, actionCard, anchorEl){
 
   const toPick = Math.min(nCit, exilePile.length);
   if (toPick <= 0) {
-    pushHistory('action', `${cardAnchor('C18')} : ${nCit} Citoyen(s) détecté(s), mais l'EXIL est vide. +${nCit} Mithril.`);
+    pushHistory('action', `${cardAnchor('C18')} : ${nCit} Citoyen(s) détecté(s), mais l'EXIL est vide. +0 Mithril.`);
     fullRender();
     return;
   }
@@ -4158,14 +4172,14 @@ function playActionC18(owner, actionCard, anchorEl){
 
   openButtonsPrompt(
     'Azpiryne en cours...',
-    `+${nCit} Mithril. <br>Veuillez sélectionner <strong>${toPick} carte(s)</strong> depuis l'EXIL.`,
+    `Veuillez sélectionner jusqu'à <strong>${toPick} carte(s)</strong> depuis l'EXIL — vous gagnez <strong>1 Mithril par carte récupérée</strong>.`,
     anchorEl,
     [{ label: 'Terminer la sélection', className: 'confirm', onClick: () => endAzpiryneSelection(owner) }],
     { nonCancellable: true }
   );
 
   pushHistory('action',
-    `${cardAnchor('C18')} : ${nCit} Citoyen(s) → choisissez ${toPick} carte(s) à sortir de l’EXIL. +${nCit} Mithril.`
+    `${cardAnchor('C18')} : ${nCit} Citoyen(s) → choisissez jusqu'à ${toPick} carte(s) à sortir de l'EXIL (1 Mithril par carte récupérée).`
   );
 
   refreshExilePanel();
@@ -4523,7 +4537,7 @@ async function playActionReveillezVous(owner, actionCard){
     }
   }
 
-  await sleep(1400);
+  await sleep(2000);
   overlay.classList.remove('go');
   await sleep(350);
   if (overlay.parentNode) overlay.remove();
@@ -4581,12 +4595,20 @@ function buildReveillezVousOverlay(){
           <div class="rvLabel">${playerLabel('top')}</div>
           <div class="rvCardSlot" id="rvSlotTop"><div class="rvCardBack"></div></div>
           <div class="rvStatus" id="rvStatusTop">Révélation en cours…</div>
+          <div class="rvDiscardPile" id="rvDiscardTop">
+            <div class="rvDiscardIcon">🗂</div>
+            <div class="rvDiscardText">Défausse : <span id="rvDiscardCountTop">0</span></div>
+          </div>
         </div>
         <div class="rvVs">VS</div>
         <div class="rvColumn">
           <div class="rvLabel">${playerLabel('bottom')}</div>
           <div class="rvCardSlot" id="rvSlotBottom"><div class="rvCardBack"></div></div>
           <div class="rvStatus" id="rvStatusBottom">Révélation en cours…</div>
+          <div class="rvDiscardPile" id="rvDiscardBottom">
+            <div class="rvDiscardIcon">🗂</div>
+            <div class="rvDiscardText">Défausse : <span id="rvDiscardCountBottom">0</span></div>
+          </div>
         </div>
       </div>
       <div class="rvFooter" id="rvFooter"></div>
@@ -4600,8 +4622,11 @@ async function revealUntilCombattantAnimated(sideOwner, overlay){
   const suffix = (sideOwner === 'top') ? 'Top' : 'Bottom';
   const slotEl = overlay.querySelector(`#rvSlot${suffix}`);
   const statusEl = overlay.querySelector(`#rvStatus${suffix}`);
+  const discardCountEl = overlay.querySelector(`#rvDiscardCount${suffix}`);
+  const discardPileEl = overlay.querySelector(`#rvDiscard${suffix}`);
   let revealed = null;
   let cardsSeen = 0;
+  let discardedCount = 0;
 
   while (deck.length > 0) {
     const c = deck.shift();
@@ -4609,22 +4634,27 @@ async function revealUntilCombattantAnimated(sideOwner, overlay){
     slotEl.innerHTML = `<img src="${getCardImage(c.label)}" alt="${cardName(c.label)}">`;
     slotEl.classList.remove('rvFlip'); void slotEl.offsetWidth; slotEl.classList.add('rvFlip');
     if (statusEl) { statusEl.textContent = `Carte n°${cardsSeen} : ${cardName(c.label)}`; statusEl.style.color = ''; }
-    await sleep(650); // le joueur a le temps de bien voir la carte révélée
+    await sleep(950); // le joueur a largement le temps de bien voir la carte révélée
 
     if (getType(c.label) === 'personnage') {
       revealed = c;
       slotEl.classList.add('rvLocked');
       if (statusEl) { statusEl.textContent = `✓ ${cardName(c.label)} est un combattant !`; statusEl.style.color = '#7dffb0'; }
-      await sleep(700);
+      await sleep(900);
       break;
     } else {
-      if (statusEl) { statusEl.textContent = `${cardName(c.label)} n'est pas un combattant → défaussé.`; statusEl.style.color = '#ffb84d'; }
-      await sleep(500);
+      if (statusEl) { statusEl.textContent = `${cardName(c.label)} n'est pas un combattant → part en défausse.`; statusEl.style.color = '#ffb84d'; }
+      await sleep(700);
+      // La carte glisse visiblement vers la pile de défausse juste en dessous.
       slotEl.classList.add('rvDiscarding');
+      if (discardPileEl) { discardPileEl.classList.remove('rvPulse'); void discardPileEl.offsetWidth; discardPileEl.classList.add('rvPulse'); }
       discardCard(c, sideOwner, 'other');
-      await sleep(400);
+      await sleep(550);
+      discardedCount++;
+      if (discardCountEl) discardCountEl.textContent = String(discardedCount);
       slotEl.classList.remove('rvDiscarding', 'rvFlip');
       slotEl.innerHTML = `<div class="rvCardBack"></div>`;
+      await sleep(300);
     }
   }
 
@@ -9819,6 +9849,7 @@ function renderExileCarousel(){
       if (!chosen) return;
       discardArr.unshift(chosen);
       c18SelectMode.picked++;
+      addMithril(owner);
       updateExileUI();
       updateDiscardUI();
       fullRender();
