@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>A’rms — Classement de Menace</title>
+  <title>A’rms — La Voie de la Menace</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/sitenav.css" />
   <style>
@@ -10,144 +10,203 @@
       --bg1:#06131a; --bg2:#031017; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff;
       --accent:#00e6ff; --ok:#19e27a; --warn:#ffb84d; --err:#ff5252; --gold:#ffd93d;
       --shadow: 0 10px 20px rgba(0,0,0,.35); --border: 1px solid rgba(125,249,255,.18);
+      --tierColor: #7df9ff; --tierGlow: rgba(125,249,255,.35);
     }
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap');
     *{box-sizing:border-box} html,body{height:100%}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
-      background:radial-gradient(1200px 420px at 60% -180px, rgba(0,230,255,.14), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
-    a{color:var(--cy)} .container{max-width:1100px;margin:0 auto;padding:0 16px}
+      background:radial-gradient(1400px 600px at 60% -200px, color-mix(in srgb, var(--tierColor) 16%, transparent), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);
+      transition:background 1.2s ease;}
+    a{color:var(--cy)} .container{max-width:1180px;margin:0 auto;padding:0 16px}
 
-    .hero{padding:30px 0 14px;text-align:center}
-    .hero h1{font-family:'Cinzel',sans-serif;font-size:clamp(26px,4vw,38px);margin:0 0 8px;
-      background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px rgba(0,230,255,.3)}
-    .hero p{color:var(--muted);opacity:.9;margin:0 auto;max-width:640px;line-height:1.5}
-
-    .section{padding:20px 0}
-    .section h2{font-family:'Cinzel',sans-serif;font-size:19px;color:#aefaff;text-shadow:0 0 12px rgba(0,230,255,.25);display:flex;align-items:center;gap:10px;margin-bottom:14px}
-    .sectionSub{ color:var(--muted); opacity:.85; font-size:13px; margin:-8px 0 16px; line-height:1.5; max-width:640px; }
-
-    /* Cartes "comment ça marche" */
-    .howItWorksGrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
-    .hiwCard{
-      border:var(--border); border-radius:16px; padding:18px 16px;
-      background:linear-gradient(160deg, rgba(255,255,255,.035), rgba(255,255,255,.01));
-      display:flex; flex-direction:column; gap:8px;
+    /* Bandeau de saison */
+    .seasonBar{
+      text-align:center; padding:7px 12px; font-size:11.5px; letter-spacing:.1em; text-transform:uppercase;
+      color:var(--tierColor); background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--tierColor) 12%, transparent), transparent);
+      border-bottom:1px solid color-mix(in srgb, var(--tierColor) 25%, transparent);
+      transition:color 1.2s ease, background 1.2s ease, border-color 1.2s ease;
     }
+
+    .hero{ padding:34px 0 10px; text-align:center; }
+    .hero h1{ font-family:'Cinzel',sans-serif; font-size:clamp(26px,4vw,40px); margin:0 0 8px;
+      background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent;
+      text-shadow:0 0 30px color-mix(in srgb, var(--tierColor) 40%, transparent); }
+    .hero p{ color:var(--muted); opacity:.9; margin:0 auto; max-width:660px; line-height:1.6; font-size:14.5px; }
+
+    .section{ padding:26px 0; }
+    .section h2{ font-family:'Cinzel',sans-serif; font-size:20px; color:#aefaff; text-shadow:0 0 12px rgba(0,230,255,.25);
+      display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+    .sectionSub{ color:var(--muted); opacity:.85; font-size:13px; margin:0 0 18px; line-height:1.5; max-width:660px; }
+
+    /* ---- Carte "mon rang" héroïque ---- */
+    .myRankHero{
+      position:relative; border-radius:22px; overflow:hidden; padding:30px 24px;
+      background:linear-gradient(160deg, color-mix(in srgb, var(--tierColor) 10%, #08151c), #061119);
+      border:1.5px solid color-mix(in srgb, var(--tierColor) 45%, transparent);
+      box-shadow:0 20px 50px rgba(0,0,0,.5), 0 0 60px color-mix(in srgb, var(--tierColor) 18%, transparent);
+      display:flex; align-items:center; gap:28px; flex-wrap:wrap; justify-content:center;
+      transition:border-color 1.2s ease, box-shadow 1.2s ease;
+    }
+    .myRankHero::before{
+      content:''; position:absolute; inset:0; opacity:.5; pointer-events:none;
+      background:radial-gradient(500px 300px at 15% 20%, color-mix(in srgb, var(--tierColor) 18%, transparent), transparent 70%);
+    }
+    .mrhAvatarWrap{ position:relative; z-index:1; flex:none; }
+    .mrhAvatar{
+      width:90px; height:90px; border-radius:50%; background-size:cover; background-position:center;
+      border:3px solid color-mix(in srgb, var(--tierColor) 70%, white 0%); box-shadow:0 0 24px color-mix(in srgb, var(--tierColor) 45%, transparent);
+    }
+    .mrhBody{ position:relative; z-index:1; flex:1; min-width:240px; text-align:left; }
+    .mrhName{ font-weight:900; font-size:17px; margin-bottom:6px; }
+    .mrhBadgeRow{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:12px; }
+    .mrhBadgeImg{ width:72px; height:72px; object-fit:contain; filter:drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+    .mrhBadgeLabel{ font-family:'Cinzel',sans-serif; font-weight:900; font-size:22px; color:var(--tierColor); text-shadow:0 0 16px color-mix(in srgb, var(--tierColor) 60%, transparent); }
+    .mrhStats{ display:flex; gap:20px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); margin-bottom:10px; }
+    .mrhStats b{ color:var(--ink); font-size:14px; }
+    .mrhProgressTrack{ width:100%; max-width:380px; height:12px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; box-shadow:inset 0 1px 4px rgba(0,0,0,.6); }
+    .mrhProgressFill{ height:100%; border-radius:999px; background:linear-gradient(90deg, color-mix(in srgb, var(--tierColor) 60%, black), var(--tierColor)); transition:width .6s ease; box-shadow:0 0 10px var(--tierColor); }
+    .mrhProgressLabel{ font-size:11px; color:var(--muted); opacity:.75; margin-top:5px; }
+
+    /* ---- La Voie de la Menace (chemin de progression) ---- */
+    .roadWrap{ position:relative; overflow-x:auto; overflow-y:hidden; padding:50px 10px 30px; scrollbar-width:thin; }
+    .roadTrack{ position:relative; width:max-content; min-width:100%; height:170px; }
+    .roadLine{
+      position:absolute; left:40px; right:40px; top:85px; height:5px; border-radius:3px;
+      background:linear-gradient(90deg, #3ddc84, #ffd93d, #ff5c5c, #c86bff, #ff3b3b);
+      opacity:.35;
+    }
+    .roadLineFill{
+      position:absolute; left:40px; top:85px; height:5px; border-radius:3px;
+      background:linear-gradient(90deg, #3ddc84, #ffd93d, #ff5c5c, #c86bff, var(--tierColor));
+      box-shadow:0 0 14px var(--tierColor); transition:width 1s cubic-bezier(.2,.8,.25,1);
+    }
+    .roadNode{
+      position:absolute; top:85px; transform:translate(-50%,-50%); width:64px; height:64px;
+      display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:2;
+    }
+    .roadNodeDot{
+      width:100%; height:100%; border-radius:50%; background:#0a1a22; border:2.5px solid rgba(255,255,255,.18);
+      display:flex; align-items:center; justify-content:center; overflow:hidden;
+      transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .roadNode img{ width:78%; height:78%; object-fit:contain; }
+    .roadNode:hover .roadNodeDot{ transform:scale(1.12); }
+    .roadNode.passed .roadNodeDot{ border-color:var(--tierColor); box-shadow:0 0 12px color-mix(in srgb, var(--tierColor) 50%, transparent); }
+    .roadNode.current .roadNodeDot{ border-color:var(--tierColor); box-shadow:0 0 22px var(--tierColor), 0 0 0 4px color-mix(in srgb, var(--tierColor) 25%, transparent); transform:scale(1.22); }
+    .roadNode.future .roadNodeDot{ opacity:.4; filter:grayscale(.6); }
+    .roadNodeLabel{
+      position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:6px;
+      font-size:9.5px; white-space:nowrap; color:var(--muted); opacity:.7; font-weight:700;
+    }
+    .roadPin{
+      position:absolute; top:-38px; transform:translateX(-50%); font-size:26px;
+      filter:drop-shadow(0 4px 8px rgba(0,0,0,.6)); animation:roadPinBounce 1.8s ease-in-out infinite;
+    }
+    @keyframes roadPinBounce{ 0%,100%{ transform:translateX(-50%) translateY(0); } 50%{ transform:translateX(-50%) translateY(-6px); } }
+    .roadDetail{
+      margin-top:6px; border-radius:16px; padding:18px 20px; text-align:center;
+      background:linear-gradient(160deg, rgba(255,255,255,.035), rgba(255,255,255,.01)); border:var(--border);
+      min-height:96px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    }
+    .roadDetail .rdName{ font-family:'Cinzel',sans-serif; font-weight:900; font-size:18px; }
+    .roadDetail .rdDesc{ font-size:12.5px; color:var(--muted); opacity:.9; max-width:480px; }
+    .roadDetail .rdRange{ font-size:11px; opacity:.6; font-family:monospace; }
+
+    /* ---- Cartes "comment ça marche" ---- */
+    .howItWorksGrid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }
+    .hiwCard{ border:var(--border); border-radius:16px; padding:18px 16px;
+      background:linear-gradient(160deg, rgba(255,255,255,.035), rgba(255,255,255,.01)); display:flex; flex-direction:column; gap:8px; }
     .hiwIcon{ font-size:24px; }
     .hiwTitle{ font-weight:800; font-size:14px; color:#e8fdff; }
     .hiwText{ font-size:12.5px; line-height:1.55; color:var(--muted); opacity:.9; }
 
-    /* Carte "mon rang" */
-    .myRankCard{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#08222b,#0a2d38);box-shadow:var(--shadow), inset 0 0 14px rgba(125,249,255,.06);
-      padding:22px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
-    .myRankCard .avatarBig{width:72px;height:72px;border-radius:50%;background-size:cover;background-position:center;border:3px solid rgba(125,249,255,.55);box-shadow:0 0 18px rgba(0,230,255,.35);flex:none;}
-    .myRankInfo{flex:1;min-width:200px;}
-    .myRankInfo .nm{font-weight:900;font-size:18px;margin-bottom:6px;}
-    .myRankStats{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--muted);}
-    .myRankStats b{color:var(--ink);}
-    .rankPill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;font-weight:900;font-family:'Manrope',sans-serif;letter-spacing:.02em;white-space:nowrap;padding:7px 16px;font-size:15px;}
-
-    /* Barre de progression vers le rang suivant */
-    .progressTrack{width:100%;max-width:340px;height:10px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:10px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5);}
-    .progressFill{height:100%;border-radius:999px;transition:width .4s ease;}
-    .progressLabel{font-size:11px;color:var(--muted);opacity:.8;margin-top:4px;}
-
-    /* Carrousel des paliers de Menace */
-    .rankCarouselWrap{ position:relative; padding:10px 0 6px; }
-    .rankCarousel{ position:relative; display:flex; align-items:center; gap:8px; }
-    .rcArrow{
-      flex:none; width:44px; height:44px; border-radius:50%; cursor:pointer; z-index:5;
-      background:linear-gradient(145deg,#0a2530,#051820); border:1.5px solid rgba(125,249,255,.35);
-      color:#aefaff; font-size:20px; display:flex; align-items:center; justify-content:center;
-      transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+    /* ---- Simulateur de duel Elo ---- */
+    .duelSim{
+      border:var(--border); border-radius:20px; padding:26px 22px;
+      background:linear-gradient(160deg, rgba(255,255,255,.03), rgba(255,255,255,.008));
     }
-    .rcArrow:hover{ transform:scale(1.08); border-color:#7df9ff; box-shadow:0 0 16px rgba(125,249,255,.45); }
+    .duelPickers{ display:flex; align-items:center; justify-content:center; gap:20px; flex-wrap:wrap; margin-bottom:22px; }
+    .duelSide{ display:flex; flex-direction:column; align-items:center; gap:10px; }
+    .duelSide select{
+      background:#0a2028; color:var(--ink); border:1.5px solid rgba(125,249,255,.3); border-radius:10px;
+      padding:9px 14px; font-size:13px; font-weight:700; cursor:pointer; min-width:190px;
+    }
+    .duelAvatar{ width:70px; height:70px; object-fit:contain; filter:drop-shadow(0 6px 14px rgba(0,0,0,.5)); transition:transform .3s ease; }
+    .duelVs{ font-family:'Cinzel',sans-serif; font-size:22px; color:#ff8080; opacity:.85; }
+    .duelResults{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    @media (max-width:560px){ .duelResults{ grid-template-columns:1fr; } }
+    .duelResultCard{ border-radius:14px; padding:16px; text-align:center; background:rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.08); }
+    .duelResultCard .drTitle{ font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; opacity:.7; margin-bottom:10px; }
+    .duelResultRow{ display:flex; justify-content:space-between; font-size:13px; padding:5px 0; border-top:1px solid rgba(255,255,255,.06); }
+    .duelResultRow:first-of-type{ border-top:none; }
+    .duelResultRow b{ font-weight:900; }
+    .win{ color:#7dffb0; } .loss{ color:#ff8080; }
 
-    /* Carrousel ORBITAL 3D — même principe que la page d'accueil (anneau de
-       médaillons en orbite continue), avec un panneau d'info synchronisé sur
-       le médaillon le plus proche du spectateur, et un clic pour figer le
-       focus sur un rang précis. */
-    .rankOrbitWrap{
-      position:relative; min-height:340px; display:grid; place-items:center; perspective:1300px;
-      margin:0 auto;
-    }
-    .rankOrbit{ position:relative; width:min(760px,94%); height:320px; transform-style:preserve-3d; }
-    .orbitMedal{
-      position:absolute; top:50%; left:50%; width:120px; height:120px; margin:-60px 0 0 -60px;
-      cursor:pointer; will-change:transform, filter, opacity;
-    }
-    .orbitMedal img{ width:100%; height:100%; object-fit:contain; }
-    .orbitMedal.focused img{ filter:drop-shadow(0 0 18px var(--medColor,#7df9ff)); }
-    .rankOrbitInfo{
-      max-width:480px; margin:14px auto 0; text-align:center; min-height:120px;
-      display:flex; flex-direction:column; align-items:center; gap:8px;
-    }
-    .rankOrbitInfo .roiName{ font-family:'Cinzel',sans-serif; font-weight:900; font-size:20px; letter-spacing:.03em; transition:color .3s ease; }
-    .rankOrbitInfo .roiDesc{ font-size:13px; line-height:1.55; color:var(--muted); opacity:.9; }
-    .rankOrbitInfo .roiRange{ font-size:11.5px; opacity:.65; font-family:monospace; }
-    .rankOrbitHint{ text-align:center; font-size:11px; color:var(--muted); opacity:.55; margin-top:6px; }
-
-    /* Diagramme en anneau de répartition des joueurs */
+    /* ---- Diagramme en anneau de répartition ---- */
     .distWrap{ display:flex; align-items:center; gap:36px; flex-wrap:wrap; justify-content:center; }
     .distSvgBox{ position:relative; width:260px; height:260px; flex:none; }
     .distSvgBox svg{ width:100%; height:100%; transform:rotate(-90deg); }
     .distSvgBox circle{ transition: stroke-dasharray 1.1s cubic-bezier(.2,.8,.25,1); }
-    .distCenter{
-      position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
-      text-align:center; pointer-events:none;
-    }
+    .distCenter{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; pointer-events:none; }
     .distCenter .distTotal{ font-family:'Cinzel',sans-serif; font-weight:900; font-size:30px; color:#e8fdff; }
     .distCenter .distTotalLabel{ font-size:11px; color:var(--muted); opacity:.75; text-transform:uppercase; letter-spacing:.08em; }
     .distLegend{ display:flex; flex-direction:column; gap:10px; min-width:220px; }
-    .distLegendItem{
-      display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:10px;
-      background:rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.06);
-      cursor:default; transition:background .2s ease;
-    }
-    .distLegendItem:hover{ background:rgba(255,255,255,.05); }
+    .distLegendItem{ display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:10px; background:rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.06); }
     .distLegendDot{ width:12px; height:12px; border-radius:50%; flex:none; }
     .distLegendName{ font-weight:800; font-size:13px; flex:1; }
     .distLegendPct{ font-weight:900; font-size:13px; }
     .distLegendCount{ font-size:10.5px; color:var(--muted); opacity:.7; }
 
-    /* Tableau du classement */
-    .lbTable{width:100%;border-collapse:separate;border-spacing:0 8px;}
-    .lbTable thead th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);opacity:.7;padding:0 14px 4px;}
-    .lbRow{background:linear-gradient(145deg,#08222b,#0a2d38);}
-    .lbRow td{padding:12px 14px;border-top:1px solid rgba(125,249,255,.1);border-bottom:1px solid rgba(125,249,255,.1);}
-    .lbRow td:first-child{border-left:1px solid rgba(125,249,255,.1);border-radius:12px 0 0 12px;}
-    .lbRow td:last-child{border-right:1px solid rgba(125,249,255,.1);border-radius:0 12px 12px 0;}
-    .lbRow.me{outline:2px solid rgba(125,249,255,.6);outline-offset:-2px;}
-    .posCol{font-weight:900;font-size:15px;color:var(--muted);width:44px;}
-    .posCol.top1{color:#ffd93d;} .posCol.top2{color:#d6d6d6;} .posCol.top3{color:#e0a26a;}
-    .playerCol{display:flex;align-items:center;gap:10px;}
-    .playerCol .av{width:38px;height:38px;border-radius:50%;background-size:cover;background-position:center;border:2px solid rgba(125,249,255,.4);flex:none;}
-    .ptsCol{font-weight:900;color:var(--ink);}
-    .wlCol{font-size:12px;color:var(--muted);opacity:.85;}
+    /* ---- Tableau du classement ---- */
+    .lbTable{ width:100%; border-collapse:separate; border-spacing:0 8px; }
+    .lbTable thead th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); opacity:.7; padding:0 14px 4px; }
+    .lbRow{ background:linear-gradient(145deg,#08222b,#0a2d38); }
+    .lbRow td{ padding:12px 14px; border-top:1px solid rgba(125,249,255,.1); border-bottom:1px solid rgba(125,249,255,.1); }
+    .lbRow td:first-child{ border-left:1px solid rgba(125,249,255,.1); border-radius:12px 0 0 12px; }
+    .lbRow td:last-child{ border-right:1px solid rgba(125,249,255,.1); border-radius:0 12px 12px 0; }
+    .lbRow.me{ outline:2px solid var(--tierColor); outline-offset:-2px; }
+    .posCol{ font-weight:900; font-size:15px; color:var(--muted); width:44px; }
+    .posCol.top1{ color:#ffd93d; } .posCol.top2{ color:#d6d6d6; } .posCol.top3{ color:#e0a26a; }
+    .playerCol{ display:flex; align-items:center; gap:10px; }
+    .playerCol .av{ width:38px; height:38px; border-radius:50%; background-size:cover; background-position:center; border:2px solid rgba(125,249,255,.4); flex:none; }
+    .ptsCol{ font-weight:900; color:var(--ink); }
+    .wlCol{ font-size:12px; color:var(--muted); opacity:.85; }
 
-    .emptyState{text-align:center;padding:40px 16px;color:var(--muted);opacity:.8;}
-    .loadingState{text-align:center;padding:40px 16px;color:var(--muted);opacity:.7;}
+    .emptyState{ text-align:center; padding:40px 16px; color:var(--muted); opacity:.8; }
+    .loadingState{ text-align:center; padding:40px 16px; color:var(--muted); opacity:.7; }
 
     @media (max-width:640px){
-      .lbTable thead{display:none;}
-      .lbRow{display:flex;flex-wrap:wrap;}
-      .lbRow td{border:none !important;border-radius:0 !important;padding:6px 10px;}
+      .lbTable thead{ display:none; }
+      .lbRow{ display:flex; flex-wrap:wrap; }
+      .lbRow td{ border:none !important; border-radius:0 !important; padding:6px 10px; }
     }
   </style>
 </head>
 <body>
   <div id="site-header-root"></div>
+  <div class="seasonBar">⚔ Saison 1 — En cours</div>
 
   <main class="container">
     <div class="hero">
-      <h1>⚔ Classement de Menace</h1>
+      <h1>La Voie de la Menace</h1>
       <p>
-        À A'rms, votre <strong>Menace</strong> est la mesure officielle de votre force en tant que stratège.
-        Elle ne se gagne qu'en <strong>partie Classée</strong> et vous fait traverser cinq paliers, chacun décliné en trois niveaux,
-        du plus modeste (<strong>Mineure I</strong>) jusqu'au sommet absolu de la puissance (<strong>Extinction III</strong>).
-        Chaque victoire vous rapproche du sommet ; passé le seuil de <strong>Mortelle</strong>, chaque défaite se paie de plus en plus cher —
-        seuls les joueurs les plus redoutables et les plus réguliers osent s'aventurer jusqu'à l'Extinction.
+        Chaque victoire en partie <strong>Classée</strong> vous fait progresser sur la Voie — quinze paliers, du premier frisson de
+        <strong>Mineure I</strong> jusqu'à la terreur absolue d'<strong>Extinction III</strong>. Le système est calculé façon échecs
+        (Elo) : l'écart de niveau entre vous et votre adversaire détermine tout — un exploit rapporte gros, une défaite attendue coûte peu.
       </p>
+    </div>
+
+    <div class="section">
+      <div id="myRankZone" class="loadingState">Chargement de votre rang…</div>
+    </div>
+
+    <div class="section">
+      <h2>🗺 La Voie de la Menace</h2>
+      <p class="sectionSub">Votre position actuelle est marquée sur le chemin. Cliquez sur n'importe quel palier pour en savoir plus.</p>
+      <div class="roadWrap">
+        <div class="roadTrack" id="roadTrack"></div>
+      </div>
+      <div class="roadDetail" id="roadDetail"></div>
     </div>
 
     <div class="section">
@@ -156,37 +215,43 @@
         <div class="hiwCard">
           <div class="hiwIcon">⚔</div>
           <div class="hiwTitle">Classée vs Non classée</div>
-          <div class="hiwText">Avant chaque partie, choisissez votre mode. Seule la <strong>Classée</strong> affecte votre Menace — la Non classée reste un terrain d'entraînement libre, sans risque.</div>
+          <div class="hiwText">Avant chaque partie, choisissez votre mode. Seule la <strong>Classée</strong> affecte votre Menace — la Non classée reste un terrain d'entraînement libre.</div>
         </div>
         <div class="hiwCard">
-          <div class="hiwIcon">📈</div>
-          <div class="hiwTitle">+25 points par victoire</div>
-          <div class="hiwText">Chaque victoire en Classée vous rapporte <strong>25 points de Menace</strong>, quel que soit votre palier actuel — la progression reste toujours motivante.</div>
+          <div class="hiwIcon">♟</div>
+          <div class="hiwTitle">Un calcul façon échecs (Elo)</div>
+          <div class="hiwText">Ce n'est pas un montant fixe : c'est <strong>l'écart de niveau</strong> entre vous et votre adversaire qui détermine le gain ou la perte.</div>
         </div>
         <div class="hiwCard">
-          <div class="hiwIcon">💀</div>
-          <div class="hiwTitle">Défaites de plus en plus punitives</div>
-          <div class="hiwText">En dessous de Mortelle, une défaite ne coûte que 10 points. À partir de <strong>Mortelle</strong>, la perte grimpe à 18, puis 25 en Apocalyptique, et jusqu'à 35 en Extinction.</div>
+          <div class="hiwIcon">🎯</div>
+          <div class="hiwTitle">Exploits récompensés</div>
+          <div class="hiwText">Battre bien plus fort que vous rapporte gros. Battre bien plus faible ne rapporte presque rien — c'était attendu.</div>
         </div>
         <div class="hiwCard">
           <div class="hiwIcon">🏳️</div>
           <div class="hiwTitle">L'abandon compte comme une défaite</div>
-          <div class="hiwText">Fuir une partie Classée mal engagée ne vous protège pas : un abandon inflige la même pénalité qu'une défaite normale, sans jamais rapporter de pièces.</div>
+          <div class="hiwText">Fuir une partie Classée mal engagée inflige la même pénalité qu'une défaite normale, sans jamais rapporter de pièces.</div>
         </div>
       </div>
     </div>
 
     <div class="section">
-      <div id="myRankZone" class="loadingState">Chargement de votre rang…</div>
-    </div>
-
-    <div class="section">
-      <h2>🗂 Les paliers de Menace</h2>
-      <div class="rankOrbitWrap">
-        <div class="rankOrbit" id="rankOrbit"></div>
+      <h2>🎲 Simulateur de duel</h2>
+      <p class="sectionSub">Choisissez deux rangs et découvrez exactement combien de points chacun gagnerait ou perdrait — la transparence totale du calcul Elo.</p>
+      <div class="duelSim">
+        <div class="duelPickers">
+          <div class="duelSide">
+            <img class="duelAvatar" id="duelImgA" src="" alt="">
+            <select id="duelSelectA"></select>
+          </div>
+          <div class="duelVs">VS</div>
+          <div class="duelSide">
+            <img class="duelAvatar" id="duelImgB" src="" alt="">
+            <select id="duelSelectB"></select>
+          </div>
+        </div>
+        <div class="duelResults" id="duelResults"></div>
       </div>
-      <div class="rankOrbitInfo" id="rankOrbitInfo"></div>
-      <div class="rankOrbitHint">Cliquez sur un médaillon pour figer le focus dessus — cliquez à nouveau pour reprendre la rotation.</div>
     </div>
 
     <div class="section">
@@ -207,14 +272,14 @@
   <script>
     const TIER_ORDER = ['Mineure', 'Hostile', 'Mortelle', 'Apocalyptique', 'Extinction'];
     const TIER_DESC = {
-      'Mineure': 'Premiers pas sur le champ de bataille.',
-      'Hostile': 'Un adversaire qui commence à se faire respecter.',
-      'Mortelle': 'À partir d\'ici, chaque défaite coûte cher.',
-      'Apocalyptique': 'Peu de joueurs osent s\'y frotter.',
-      'Extinction': 'Le sommet. Une légende vivante.',
+      'Mineure': 'Premiers pas sur le champ de bataille. Tout le monde commence ici.',
+      'Hostile': 'Un adversaire qui commence à se faire respecter sur le champ.',
+      'Mortelle': 'Le calcul devient sérieux. Chaque duel compte double.',
+      'Apocalyptique': 'Peu de joueurs osent s\'y frotter. La marge d\'erreur est nulle.',
+      'Extinction': 'Le sommet absolu. Une légende vivante, redoutée de tous.',
     };
+    const TIER_COLOR_HEX = { 'Mineure':'#3ddc84','Hostile':'#ffd93d','Mortelle':'#ff5c5c','Apocalyptique':'#c86bff','Extinction':'#ff3b3b' };
 
-    // Construit la liste ordonnée des 15 rangs (avec leurs bornes de points).
     const ALL_RANKS = [];
     TIER_ORDER.forEach((tier, tierIdx) => {
       ['I','II','III'].forEach((sub, subIdx) => {
@@ -227,114 +292,159 @@
       });
     });
 
-    // Carrousel orbital 3D — anneau de médaillons en rotation continue,
-    // même principe physique que le décor de la page d'accueil (RX/RY,
-    // profondeur, échelle selon la profondeur), avec un panneau d'info qui
-    // suit automatiquement le médaillon le plus proche du spectateur, et un
-    // clic pour figer le focus sur un rang précis.
-    let orbitPaused = false;
-    let orbitFocusIndex = null; // index figé au clic, ou null = suivi automatique
-    let lastShownIndex = -1;
-
-    function renderRankOrbit(){
-      const orbit = document.getElementById('rankOrbit');
-      orbit.innerHTML = ALL_RANKS.map((r, i) => {
-        const colors = armsRankTierColor(r.tierName);
-        const imgUrl = armsRankImageUrl(r);
-        return `<div class="orbitMedal" data-index="${i}" style="--medColor:${colors.c1};">
-                  <img src="${imgUrl}" alt="${r.label}" loading="lazy">
-                </div>`;
-      }).join('');
-
-      orbit.querySelectorAll('.orbitMedal').forEach(medal => {
-        medal.addEventListener('click', () => {
-          const i = parseInt(medal.dataset.index, 10);
-          if (orbitFocusIndex === i) {
-            // Reclique sur le même médaillon : reprend la rotation normale.
-            orbitFocusIndex = null;
-            orbitPaused = false;
-          } else {
-            orbitFocusIndex = i;
-            orbitPaused = true;
-            updateOrbitInfo(i);
-          }
-        });
-      });
-
-      const medals = Array.from(orbit.querySelectorAll('.orbitMedal'));
-      const RX = 260, RY = 60, DEPTH = 170;
-      const SCALE_NEAR = 1.25, SCALE_FAR = 0.62;
-      const SPEED = 0.00045;
-      let t0 = performance.now();
-      medals.forEach((m, i) => { m._a = (i / medals.length) * Math.PI * 2; });
-
-      function frame(now){
-        const dt = now - t0; t0 = now;
-        let bestI = 0, bestZ = -1;
-        medals.forEach((m, i) => {
-          if (!orbitPaused) m._a += SPEED * dt;
-          const a = m._a, cos = Math.cos(a), sin = Math.sin(a);
-          const z = (sin + 1) / 2;
-          const scale = SCALE_FAR + (SCALE_NEAR - SCALE_FAR) * z;
-          const depth = -DEPTH + z * DEPTH * 2;
-          const x = RX * cos;
-          const y = RY * sin;
-          const opacity = 0.35 + 0.65 * z;
-          m.style.transform = `translate3d(${x}px, ${y}px, ${depth}px) scale(${scale})`;
-          m.style.zIndex = 100 + Math.round(z * 100);
-          m.style.opacity = opacity;
-          m.classList.toggle('focused', orbitFocusIndex === i);
-          if (z > bestZ) { bestZ = z; bestI = i; }
-        });
-        if (orbitFocusIndex === null && bestI !== lastShownIndex) {
-          updateOrbitInfo(bestI);
-        }
-        requestAnimationFrame(frame);
-      }
-      requestAnimationFrame(frame);
+    // ===== Calcul Elo (miroir exact de la logique serveur, pour le simulateur) =====
+    function kFactorForPoints(points){
+      const idx = Math.min(Math.floor(Math.max(0,points)/100), 14);
+      const tierIndex = Math.floor(idx / 3);
+      if (tierIndex <= 1) return 20;
+      if (tierIndex === 2) return 28;
+      if (tierIndex === 3) return 34;
+      return 40;
+    }
+    function computeEloDelta(myPoints, oppPoints, won){
+      const expected = 1 / (1 + Math.pow(10, (oppPoints - myPoints) / 400));
+      const K = kFactorForPoints(myPoints);
+      let delta = Math.round(K * ((won?1:0) - expected));
+      if (won && delta < 1) delta = 1;
+      if (!won && delta > 0) delta = 0;
+      return delta;
     }
 
-    function updateOrbitInfo(i){
-      lastShownIndex = i;
+    // ===== Thème dynamique selon le rang du joueur =====
+    function applyDynamicTheme(rank){
+      if (!rank) return;
+      const hex = TIER_COLOR_HEX[rank.tierName] || '#7df9ff';
+      document.documentElement.style.setProperty('--tierColor', hex);
+    }
+
+    // ===== La Voie de la Menace (chemin de progression) =====
+    function renderRoad(myRankIndex){
+      const track = document.getElementById('roadTrack');
+      const NODE_GAP = 92, START_X = 40;
+      const trackWidth = START_X * 2 + NODE_GAP * (ALL_RANKS.length - 1);
+      track.style.width = trackWidth + 'px';
+
+      let html = `<div class="roadLine"></div>`;
+      const fillWidth = (myRankIndex != null) ? (NODE_GAP * myRankIndex) : 0;
+      html += `<div class="roadLineFill" style="width:${fillWidth}px;"></div>`;
+
+      ALL_RANKS.forEach((r, i) => {
+        const x = START_X + i * NODE_GAP;
+        const imgUrl = armsRankImageUrl(r);
+        let stateClass = 'future';
+        if (myRankIndex != null) {
+          if (i < myRankIndex) stateClass = 'passed';
+          else if (i === myRankIndex) stateClass = 'current';
+        }
+        const pin = (stateClass === 'current') ? `<div class="roadPin">📍</div>` : '';
+        html += `
+          <div class="roadNode ${stateClass}" data-index="${i}" style="left:${x}px;">
+            ${pin}
+            <div class="roadNodeDot"><img src="${imgUrl}" alt="${r.label}" loading="lazy"></div>
+            <div class="roadNodeLabel">${r.label}</div>
+          </div>`;
+      });
+      track.innerHTML = html;
+
+      track.querySelectorAll('.roadNode').forEach(node => {
+        node.addEventListener('click', () => showRoadDetail(parseInt(node.dataset.index, 10)));
+      });
+
+      showRoadDetail(myRankIndex != null ? myRankIndex : 0);
+
+      // Centre automatiquement la vue sur la position actuelle du joueur.
+      if (myRankIndex != null) {
+        const wrap = track.parentElement;
+        const targetX = START_X + myRankIndex * NODE_GAP;
+        requestAnimationFrame(()=>{
+          wrap.scrollLeft = Math.max(0, targetX - wrap.clientWidth / 2);
+        });
+      }
+    }
+
+    function showRoadDetail(i){
       const r = ALL_RANKS[i];
-      const colors = armsRankTierColor(r.tierName);
       const rangeTxt = (r.maxPts === null) ? `${r.minPts}+ pts` : `${r.minPts}–${r.maxPts} pts`;
-      const zone = document.getElementById('rankOrbitInfo');
+      const zone = document.getElementById('roadDetail');
       zone.innerHTML = `
-        <div class="roiName" style="color:${colors.c1};">${r.label}</div>
-        <div class="roiDesc">${TIER_DESC[r.tierName]}</div>
-        <div class="roiRange">${rangeTxt}</div>
+        <div class="rdName" style="color:${TIER_COLOR_HEX[r.tierName]};">${r.label}</div>
+        <div class="rdDesc">${TIER_DESC[r.tierName]}</div>
+        <div class="rdRange">${rangeTxt}</div>
       `;
     }
 
-    renderRankOrbit();
+    // ===== Simulateur de duel =====
+    function initDuelSimulator(){
+      const selA = document.getElementById('duelSelectA');
+      const selB = document.getElementById('duelSelectB');
+      const optsHtml = ALL_RANKS.map((r,i) => `<option value="${i}">${r.label}</option>`).join('');
+      selA.innerHTML = optsHtml;
+      selB.innerHTML = optsHtml;
+      selA.value = 1; // Mineure II par défaut, pour illustrer un écart intéressant
+      selB.value = 11; // Apocalyptique III
 
+      function refresh(){
+        const rA = ALL_RANKS[parseInt(selA.value,10)];
+        const rB = ALL_RANKS[parseInt(selB.value,10)];
+        document.getElementById('duelImgA').src = armsRankImageUrl(rA);
+        document.getElementById('duelImgB').src = armsRankImageUrl(rB);
+
+        const ptsA = rA.minPts + 50, ptsB = rB.minPts + 50; // point médian du palier, pour l'exemple
+        const aWinsDelta = computeEloDelta(ptsA, ptsB, true);
+        const aLossDelta = computeEloDelta(ptsA, ptsB, false);
+        const bWinsDelta = computeEloDelta(ptsB, ptsA, true);
+        const bLossDelta = computeEloDelta(ptsB, ptsA, false);
+
+        document.getElementById('duelResults').innerHTML = `
+          <div class="duelResultCard">
+            <div class="drTitle" style="color:${TIER_COLOR_HEX[rA.tierName]}">${rA.label}</div>
+            <div class="duelResultRow"><span>Si victoire</span><b class="win">+${aWinsDelta} pts</b></div>
+            <div class="duelResultRow"><span>Si défaite</span><b class="loss">${aLossDelta} pts</b></div>
+          </div>
+          <div class="duelResultCard">
+            <div class="drTitle" style="color:${TIER_COLOR_HEX[rB.tierName]}">${rB.label}</div>
+            <div class="duelResultRow"><span>Si victoire</span><b class="win">+${bWinsDelta} pts</b></div>
+            <div class="duelResultRow"><span>Si défaite</span><b class="loss">${bLossDelta} pts</b></div>
+          </div>
+        `;
+      }
+      selA.addEventListener('change', refresh);
+      selB.addEventListener('change', refresh);
+      refresh();
+    }
+
+    // ===== "Mon rang" (carte héroïque) =====
     function renderMyRank(me, myProfile){
       const zone = document.getElementById('myRankZone');
       if (!me || !me.threatInfo) {
-        zone.innerHTML = `<div class="emptyState">Connectez-vous pour voir votre rang de Menace.</div>`;
+        zone.innerHTML = `<div class="emptyState">Connectez-vous pour voir votre position sur la Voie de la Menace.</div>`;
+        renderRoad(null);
         return;
       }
       const rank = me.threatInfo;
-      const colors = armsRankTierColor(rank.tierName);
+      applyDynamicTheme(rank);
       const pct = rank.isMaxRank ? 100 : Math.round((rank.progressInRank / 100) * 100);
       const posText = me.position ? `#${me.position} au classement` : 'Pas encore classé';
+      const avatarUrl = myProfile ? armsAvatarUrl(myProfile.avatar) : '/assets/avatarbase.png';
       zone.innerHTML = `
-        <div class="myRankCard">
-          <div class="avatarBig js-avatar-img" id="myRankAvatar"></div>
-          <div class="myRankInfo">
-            <div class="nm">${myProfile ? myProfile.name : 'Vous'}</div>
-            ${armsRankBadgeHtml(rank, { large:true })}
-            <div class="progressTrack"><div class="progressFill" style="width:${pct}%;background:linear-gradient(90deg,${colors.c2},${colors.c1});"></div></div>
-            <div class="progressLabel">${rank.isMaxRank ? 'Rang maximum atteint !' : `${rank.progressInRank} / 100 pts vers le rang suivant`}</div>
-            <div class="myRankStats">
+        <div class="myRankHero">
+          <div class="mrhAvatarWrap"><div class="mrhAvatar" style="background-image:url('${avatarUrl}')"></div></div>
+          <div class="mrhBody">
+            <div class="mrhName">${myProfile ? myProfile.name : 'Vous'}</div>
+            <div class="mrhBadgeRow">
+              <img class="mrhBadgeImg" src="${armsRankImageUrl(rank)}" alt="${rank.label}">
+              <div class="mrhBadgeLabel">${rank.label}</div>
+            </div>
+            <div class="mrhProgressTrack"><div class="mrhProgressFill" style="width:${pct}%;"></div></div>
+            <div class="mrhProgressLabel">${rank.isMaxRank ? 'Rang maximum atteint — vous êtes une légende.' : `${rank.progressInRank} / 100 pts vers le palier suivant`}</div>
+            <div class="mrhStats" style="margin-top:10px;">
               <span><b>${rank.points}</b> points de Menace</span>
               <span>${posText}</span>
             </div>
           </div>
         </div>
       `;
-      if (myProfile) armsApplyAvatar(document.getElementById('myRankAvatar'), myProfile.avatar);
+      renderRoad(rank.rankIndex);
     }
 
     function renderLeaderboard(players, myId){
@@ -350,12 +460,7 @@
         return `
           <tr class="lbRow ${p.id === myId ? 'me' : ''}">
             <td class="posCol ${posClass}">${medal || ('#' + p.rank)}</td>
-            <td>
-              <div class="playerCol">
-                <div class="av" style="background-image:url('${armsAvatarUrl(p.avatar)}')"></div>
-                <span>${p.name}</span>
-              </div>
-            </td>
+            <td><div class="playerCol"><div class="av" style="background-image:url('${armsAvatarUrl(p.avatar)}')"></div><span>${p.name}</span></div></td>
             <td>${armsRankBadgeHtml(p.threatInfo, { small:true })}</td>
             <td class="ptsCol">${p.threatInfo.points} pts</td>
             <td class="wlCol">${p.wins}V / ${p.losses}D</td>
@@ -369,6 +474,53 @@
       `;
     }
 
+    function renderDistribution(distribution, total){
+      const zone = document.getElementById('distZone');
+      if (!distribution || total === 0) {
+        zone.innerHTML = `<div class="emptyState">Aucune partie Classée n'a encore été disputée — soyez les premiers à écrire l'histoire de la Menace !</div>`;
+        return;
+      }
+      const R = 100, CX = 130, CY = 130, STROKE = 30;
+      const circumference = 2 * Math.PI * R;
+      let cumulative = 0;
+      const circles = distribution.map(d => {
+        const colors = armsRankTierColor(d.tierName);
+        const fraction = d.pct / 100;
+        const segmentLength = fraction * circumference;
+        const fixedOffset = -cumulative * circumference;
+        cumulative += fraction;
+        return `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${colors.c1}" stroke-width="${STROKE}"
+                  stroke-dashoffset="${fixedOffset}" data-final-length="${segmentLength}"
+                  style="stroke-dasharray:0 ${circumference};"></circle>`;
+      }).join('');
+      const legend = distribution.map(d => {
+        const colors = armsRankTierColor(d.tierName);
+        return `
+          <div class="distLegendItem">
+            <div class="distLegendDot" style="background:${colors.c1};box-shadow:0 0 8px ${colors.glow};"></div>
+            <div class="distLegendName" style="color:${colors.c1};">${d.tierName}</div>
+            <div><div class="distLegendPct">${d.pct}%</div><div class="distLegendCount">${d.count} joueur${d.count>1?'s':''}</div></div>
+          </div>`;
+      }).join('');
+      zone.innerHTML = `
+        <div class="distWrap">
+          <div class="distSvgBox">
+            <svg viewBox="0 0 260 260">${circles}</svg>
+            <div class="distCenter"><div class="distTotal">${total}</div><div class="distTotalLabel">Joueur${total>1?'s':''} classé${total>1?'s':''}</div></div>
+          </div>
+          <div class="distLegend">${legend}</div>
+        </div>
+      `;
+      requestAnimationFrame(()=>{
+        zone.querySelectorAll('circle').forEach(c => {
+          const finalLength = parseFloat(c.dataset.finalLength);
+          requestAnimationFrame(()=>{ c.style.strokeDasharray = `${finalLength} ${circumference}`; });
+        });
+      });
+    }
+
+    initDuelSimulator();
+
     (async function init(){
       try{
         const meRes = await fetch('/api/me');
@@ -381,6 +533,7 @@
           document.getElementById('myRankZone').innerHTML = `<div class="emptyState">Connectez-vous pour voir le classement.</div>`;
           document.getElementById('lbZone').innerHTML = '';
           document.getElementById('distZone').innerHTML = '';
+          renderRoad(null);
           return;
         }
         renderMyRank(lbData.me, myProfile);
@@ -391,66 +544,9 @@
         document.getElementById('myRankZone').innerHTML = `<div class="emptyState">Impossible de charger le classement pour le moment.</div>`;
         document.getElementById('lbZone').innerHTML = '';
         document.getElementById('distZone').innerHTML = '';
+        renderRoad(null);
       }
     })();
-
-    function renderDistribution(distribution, total){
-      const zone = document.getElementById('distZone');
-      if (!distribution || total === 0) {
-        zone.innerHTML = `<div class="emptyState">Aucune partie Classée n'a encore été disputée — soyez les premiers à écrire l'histoire de la Menace !</div>`;
-        return;
-      }
-
-      const R = 100, CX = 130, CY = 130, STROKE = 30;
-      const circumference = 2 * Math.PI * R;
-
-      let cumulative = 0;
-      const circles = distribution.map(d => {
-        const colors = armsRankTierColor(d.tierName);
-        const fraction = d.pct / 100;
-        const segmentLength = fraction * circumference;
-        const fixedOffset = -cumulative * circumference; // position fixe, ne bouge jamais
-        cumulative += fraction;
-        return `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${colors.c1}" stroke-width="${STROKE}"
-                  stroke-dashoffset="${fixedOffset}" data-final-length="${segmentLength}"
-                  style="stroke-dasharray:0 ${circumference};"></circle>`;
-      }).join('');
-
-      const legend = distribution.map(d => {
-        const colors = armsRankTierColor(d.tierName);
-        return `
-          <div class="distLegendItem">
-            <div class="distLegendDot" style="background:${colors.c1};box-shadow:0 0 8px ${colors.glow};"></div>
-            <div class="distLegendName" style="color:${colors.c1};">${d.tierName}</div>
-            <div>
-              <div class="distLegendPct">${d.pct}%</div>
-              <div class="distLegendCount">${d.count} joueur${d.count>1?'s':''}</div>
-            </div>
-          </div>`;
-      }).join('');
-
-      zone.innerHTML = `
-        <div class="distWrap">
-          <div class="distSvgBox">
-            <svg viewBox="0 0 260 260">${circles}</svg>
-            <div class="distCenter">
-              <div class="distTotal">${total}</div>
-              <div class="distTotalLabel">Joueur${total>1?'s':''} classé${total>1?'s':''}</div>
-            </div>
-          </div>
-          <div class="distLegend">${legend}</div>
-        </div>
-      `;
-
-      // Anime chaque segment depuis "longueur nulle" vers sa vraie
-      // proportion (le décalage rotationnel, lui, reste fixe dès le départ).
-      requestAnimationFrame(()=>{
-        zone.querySelectorAll('circle').forEach(c => {
-          const finalLength = parseFloat(c.dataset.finalLength);
-          requestAnimationFrame(()=>{ c.style.strokeDasharray = `${finalLength} ${circumference}`; });
-        });
-      });
-    }
   </script>
 </body>
 </html>

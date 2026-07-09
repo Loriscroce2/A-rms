@@ -17,15 +17,12 @@ function armsApplyAvatar(el, avatar) {
 }
 
 // Chemin du logo officiel (fourni par l'utilisateur) pour un rang donné.
-// Le "?v=" force le navigateur à recharger la bonne version si jamais le
-// fichier est remplacé plus tard (les PNG sont mis en cache très
-// agressivement par les navigateurs et Railway sinon, invisible en dev mais
-// gênant en production).
-const RANK_IMG_VERSION = '4';
+// Convention "rank-{palier}-{niveau}.png" — nouveaux noms de fichiers,
+// garantis sans collision avec d'anciens caches de navigateur/CDN.
 function armsRankImageUrl(rank){
   if (!rank) return '';
   const slug = rank.tierName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return `/assets/${slug}${rank.subLevel}.png?v=${RANK_IMG_VERSION}`;
+  return `/assets/rank-${slug}-${rank.subLevel}.png`;
 }
 
 // Couleurs associées à chaque palier de Menace (du plus calme au plus terrifiant).

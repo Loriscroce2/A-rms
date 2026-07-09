@@ -11393,7 +11393,7 @@ function krRankImageUrl(rank){
   if (!rank) return '';
   const slugMap = { 'Mineure':'mineure','Hostile':'hostile','Mortelle':'mortelle','Apocalyptique':'apocalyptique','Extinction':'extinction' };
   const slug = slugMap[rank.tierName] || 'mineure';
-  return `/assets/${slug}${rank.subLevel}.png?v=4`;
+  return `/assets/rank-${slug}-${rank.subLevel}.png`;
 }
 
 function armsRankPillHtml(rank){
