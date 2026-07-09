@@ -561,9 +561,11 @@ app.post('/api/match/result', authMiddleware, (req, res) => {
     const isRanked = !!(matchData && matchData.mode === 'ranked');
     let pointsDelta = 0;
     let rank = null;
+    let previousRank = null;
     if (isRanked) {
       const beforeRow = qGetThreatPoints.get(req.user.id);
       const beforePoints = beforeRow ? beforeRow.threat_points : 0;
+      previousRank = getRankInfo(beforePoints);
       if (result === 'win') {
         pointsDelta = RANKED_WIN_GAIN;
         qApplyRankedWin.run(pointsDelta, req.user.id);
@@ -579,7 +581,7 @@ app.post('/api/match/result', authMiddleware, (req, res) => {
       rank = getRankInfo(tpRow ? tpRow.threat_points : 0);
     }
 
-    res.json({ ok: true, gained: coinGain, coins, ranked: isRanked, pointsDelta, rank });
+    res.json({ ok: true, gained: coinGain, coins, ranked: isRanked, pointsDelta, rank, previousRank });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });

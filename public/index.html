@@ -8419,6 +8419,26 @@ if (hitAndRunMode) {
     if (hitAndRunMode) { handleHitAndRunSelection(card, owner); return; }
     if (chargeboxTargetMode) { handleChargeboxTargetSelection(card, owner); return; }
     if (peinturlurerMode) { handlePeinturlurerSelection(card); return; }
+
+    // Cliquer À TOUT MOMENT sur un combattant ADVERSE portant un ou plusieurs
+    // familiers ouvre un aperçu rapide — le même prompt que celui déjà
+    // disponible pour ses propres combattants (via Miner), mais désormais
+    // accessible aussi côté ennemi, peu importe le tour en cours.
+    const isEnemyCard = (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE) ? (owner !== MY_SEAT) : (owner !== currentTurn);
+    if (isEnemyCard) {
+      const attachedFamiliars = getFamiliersOnHost(card);
+      if (attachedFamiliars.length > 0) {
+        openButtonsPrompt(
+          cardName(card.label),
+          'Choisissez une action.',
+          el,
+          [
+            { label: `Voir Familiers (${attachedFamiliars.length})`, className: 'confirm', onClick: () => showFamiliarCarousel(card, attachedFamiliars) },
+            { label: 'Annuler', className: 'cancel', onClick: () => {} },
+          ]
+        );
+      }
+    }
   });
 
   el.addEventListener('pointerdown', (e)=>{
@@ -10525,7 +10545,7 @@ function hideHardBlocker(){
 /* ---------- Fin de partie (overlay + redirection) ---------- */
 const GAME = { over:false };
 
-function showVictoryOverlay(winner, reason){
+function showVictoryOverlay(winner, reason, iWon){
   if(document.getElementById('victoryOverlay')) return;
 
   const reasonTxt = (reason==='forge') ? '5 A’rms forgés' : 
@@ -10537,6 +10557,17 @@ function showVictoryOverlay(winner, reason){
   const winnerName = profiles && profiles[winner] ? profiles[winner].name : (winner === 'bottom' ? 'Joueur 1' : 'Joueur 2');
   const winnerLabel = (winner===MY_SEAT) ? `Vous (${winnerName})` : winnerName;
 
+  // Avatar du joueur DEVANT SON PROPRE écran (pas forcément le vainqueur).
+  const mySeatForAvatar = (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE) ? MY_SEAT : winner;
+  const myProfile = profiles && profiles[mySeatForAvatar];
+  const myAvatarUrl = (myProfile && myProfile.avatar)
+    ? (myProfile.avatar.startsWith('data:') ? myProfile.avatar : `/cartes/${myProfile.avatar}.png`)
+    : '/assets/avatarbase.png';
+  const myName = myProfile ? myProfile.name : '';
+
+  const isOnlineMatch = (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE);
+  const resultIsVictory = (typeof iWon === 'boolean') ? iWon : true;
+
   const ov = document.createElement('div');
   ov.id = 'victoryOverlay';
   ov.style.position = 'fixed';
@@ -10546,39 +10577,89 @@ function showVictoryOverlay(winner, reason){
   ov.style.display = 'flex';
   ov.style.alignItems = 'center';
   ov.style.justifyContent = 'center';
-  ov.style.background = 'radial-gradient(1200px 600px at 50% 50%, rgba(125,249,255,.18), transparent), rgba(0,0,0,.72)';
+  ov.style.overflowY = 'auto';
+  ov.style.padding = '20px';
+  const glowColor = resultIsVictory ? 'rgba(125,249,255,.18)' : 'rgba(255,80,80,.14)';
+  ov.style.background = `radial-gradient(1200px 600px at 50% 50%, ${glowColor}, transparent), rgba(0,0,0,.72)`;
 
   const box = document.createElement('div');
   box.className = 'victoryBox';
-  box.style.maxWidth = '760px';
-  box.style.width = 'min(92vw, 760px)';
-  box.style.padding = '28px 26px';
+  box.style.maxWidth = '520px';
+  box.style.width = 'min(92vw, 520px)';
+  box.style.padding = '26px 24px';
   box.style.textAlign = 'center';
   box.style.color = '#eaffff';
-  box.style.border = '2px solid rgba(125,249,255,.75)';
+  box.style.border = resultIsVictory ? '2px solid rgba(125,249,255,.75)' : '2px solid rgba(255,110,110,.6)';
   box.style.borderRadius = '18px';
-  box.style.boxShadow = '0 0 40px rgba(125,249,255,.55), inset 0 0 22px rgba(255,255,255,.12)';
-  box.style.background = 'linear-gradient(180deg, rgba(12,28,34,.85), rgba(10,18,24,.85))';
+  box.style.boxShadow = resultIsVictory
+    ? '0 0 40px rgba(125,249,255,.55), inset 0 0 22px rgba(255,255,255,.12)'
+    : '0 0 40px rgba(255,80,80,.35), inset 0 0 22px rgba(255,255,255,.08)';
+  box.style.background = 'linear-gradient(180deg, rgba(12,28,34,.9), rgba(10,18,24,.9))';
   box.style.backdropFilter = 'blur(6px)';
+  box.style.margin = 'auto';
+
+  // --- Avatar du joueur, bien en évidence ---
+  const avatarWrap = document.createElement('div');
+  avatarWrap.style.width = '84px';
+  avatarWrap.style.height = '84px';
+  avatarWrap.style.borderRadius = '50%';
+  avatarWrap.style.margin = '0 auto 12px';
+  avatarWrap.style.backgroundImage = `url('${myAvatarUrl}')`;
+  avatarWrap.style.backgroundSize = 'cover';
+  avatarWrap.style.backgroundPosition = 'center';
+  avatarWrap.style.border = resultIsVictory ? '3px solid rgba(125,249,255,.75)' : '3px solid rgba(255,110,110,.65)';
+  avatarWrap.style.boxShadow = resultIsVictory ? '0 0 22px rgba(0,230,255,.5)' : '0 0 22px rgba(255,80,80,.4)';
 
   const title = document.createElement('div');
-  title.style.fontSize = '40px';
+  title.style.fontFamily = "'Cinzel', serif";
+  title.style.fontSize = '34px';
   title.style.letterSpacing = '1px';
-  title.style.marginBottom = '10px';
-  title.style.textShadow = '0 0 12px rgba(125,249,255,.9), 0 0 30px rgba(0,255,255,.25)';
-  title.innerHTML = '⟡ A’rms — <strong>VICTOIRE</strong> ⟡';
+  title.style.marginBottom = '6px';
+  title.style.textShadow = resultIsVictory
+    ? '0 0 12px rgba(125,249,255,.9), 0 0 30px rgba(0,255,255,.25)'
+    : '0 0 12px rgba(255,90,90,.85), 0 0 30px rgba(255,40,40,.25)';
+  title.innerHTML = resultIsVictory ? '⟡ <strong>VICTOIRE</strong> ⟡' : '☠ <strong>DÉFAITE</strong> ☠';
 
   const subtitle = document.createElement('div');
-  subtitle.style.fontSize = '20px';
-  subtitle.style.opacity = '.95';
-  subtitle.style.marginBottom = '8px';
-  subtitle.innerHTML = `<strong>${winnerLabel}</strong> remporte la partie !`;
+  subtitle.style.fontSize = '16px';
+  subtitle.style.opacity = '.9';
+  subtitle.style.marginBottom = '4px';
+  subtitle.innerHTML = myName ? `${myName}` : '';
+
+  const resultLine = document.createElement('div');
+  resultLine.style.fontSize = '15px';
+  resultLine.style.opacity = '.95';
+  resultLine.style.marginBottom = '6px';
+  resultLine.innerHTML = `<strong>${winnerLabel}</strong> remporte la partie !`;
 
   const reasonEl = document.createElement('div');
-  reasonEl.style.fontSize = '14px';
-  reasonEl.style.opacity = '.85';
-  reasonEl.style.marginBottom = '22px';
+  reasonEl.style.fontSize = '13px';
+  reasonEl.style.opacity = '.8';
+  reasonEl.style.marginBottom = '18px';
   reasonEl.innerHTML = `Motif : <em>${reasonTxt}</em>`;
+
+  box.appendChild(avatarWrap);
+  box.appendChild(title);
+  box.appendChild(subtitle);
+  box.appendChild(resultLine);
+  box.appendChild(reasonEl);
+
+  // --- Zone de récompenses : affichée uniquement en ligne, avec un état de
+  // chargement en attendant la réponse du serveur (remplie ensuite par
+  // populateVictoryRewards). ---
+  if (isOnlineMatch) {
+    const rewardsZone = document.createElement('div');
+    rewardsZone.id = 'victoryRewardsZone';
+    rewardsZone.style.margin = '4px 0 20px';
+    rewardsZone.style.padding = '14px';
+    rewardsZone.style.borderRadius = '12px';
+    rewardsZone.style.background = 'rgba(255,255,255,.03)';
+    rewardsZone.style.border = '1px solid rgba(125,249,255,.15)';
+    rewardsZone.style.fontSize = '13px';
+    rewardsZone.style.opacity = '.75';
+    rewardsZone.textContent = 'Calcul des récompenses…';
+    box.appendChild(rewardsZone);
+  }
 
   const btn = document.createElement('button');
   btn.className = 'apBtn confirm';
@@ -10589,12 +10670,165 @@ function showVictoryOverlay(winner, reason){
   btn.style.cursor = 'pointer';
   btn.addEventListener('click', ()=>{ window.location.href = 'play.html'; });
 
-  box.appendChild(title);
-  box.appendChild(subtitle);
-  box.appendChild(reasonEl);
   box.appendChild(btn);
   ov.appendChild(box);
   document.body.appendChild(ov);
+}
+
+/* Anime un nombre affiché de "from" à "to" sur "durationMs", façon compteur
+   de casino/jeu vidéo — utilisé pour les pièces et les points de Menace. */
+function animateNumberCounter(el, from, to, durationMs, opts){
+  opts = opts || {};
+  const startTime = performance.now();
+  const diff = to - from;
+  function step(now){
+    const t = Math.min(1, (now - startTime) / durationMs);
+    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubique : rapide puis ralentit
+    const val = Math.round(from + diff * eased);
+    el.textContent = (opts.sign && val > 0 ? '+' : '') + val + (opts.suffix || '');
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      el.textContent = (opts.sign && to > 0 ? '+' : '') + to + (opts.suffix || '');
+      if (opts.onDone) opts.onDone();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+/* Remplit la zone de récompenses de l'écran de fin de partie une fois la
+   réponse du serveur reçue : compteur de pièces animé, et — en partie
+   classée — compteur de points de Menace animé, avec un petit évènement de
+   célébration si le joueur vient de franchir un nouveau palier. */
+function populateVictoryRewards(data, resultLabel){
+  const zone = document.getElementById('victoryRewardsZone');
+  if (!zone) return;
+  zone.style.opacity = '1';
+  zone.innerHTML = '';
+
+  // --- Pièces ---
+  const coinRow = document.createElement('div');
+  coinRow.style.display = 'flex';
+  coinRow.style.alignItems = 'center';
+  coinRow.style.justifyContent = 'center';
+  coinRow.style.gap = '10px';
+  coinRow.style.fontSize = '20px';
+  coinRow.style.fontWeight = '900';
+  coinRow.style.color = '#ffd93d';
+  coinRow.innerHTML = `🪙 <span id="victoryCoinCounter">${Math.max(0, (data.coins||0) - (data.gained||0))}</span>`;
+  zone.appendChild(coinRow);
+
+  const coinSub = document.createElement('div');
+  coinSub.style.fontSize = '11.5px';
+  coinSub.style.opacity = '.75';
+  coinSub.style.marginTop = '2px';
+  coinSub.textContent = data.gained > 0 ? `+${data.gained} pièces (${resultLabel})` : `Aucune pièce gagnée (${resultLabel})`;
+  zone.appendChild(coinSub);
+
+  const oldCoins = Math.max(0, (data.coins||0) - (data.gained||0));
+  animateNumberCounter(document.getElementById('victoryCoinCounter'), oldCoins, data.coins||0, 1100);
+
+  // --- Points de Menace (uniquement si partie CLASSÉE) ---
+  if (data.ranked && data.rank && data.previousRank) {
+    const rankRow = document.createElement('div');
+    rankRow.style.marginTop = '14px';
+    rankRow.style.paddingTop = '14px';
+    rankRow.style.borderTop = '1px solid rgba(255,255,255,.1)';
+    rankRow.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;">
+        <span>⚔ Menace :</span>
+        <span id="victoryPointsCounter" style="font-weight:900;">${data.previousRank.points}</span>
+        <span style="opacity:.7;">pts</span>
+      </div>
+      <div id="victoryRankBadgeZone" style="margin-top:10px;"></div>
+    `;
+    zone.appendChild(rankRow);
+
+    const counterEl = document.getElementById('victoryPointsCounter');
+    counterEl.style.color = (data.pointsDelta >= 0) ? '#7dffb0' : '#ff8080';
+    animateNumberCounter(counterEl, data.previousRank.points, data.rank.points, 1100, {
+      onDone: () => {
+        const badgeZone = document.getElementById('victoryRankBadgeZone');
+        if (badgeZone) badgeZone.innerHTML = armsRankPillHtml(data.rank);
+
+        // Changement de palier ? Petite célébration (ou notice sobre en cas
+        // de rétrogradation — pas de confettis pour une perte de rang).
+        if (data.rank.rankIndex !== data.previousRank.rankIndex) {
+          setTimeout(() => {
+            showRankChangeCelebration(data.rank, data.rank.rankIndex > data.previousRank.rankIndex);
+          }, 350);
+        }
+      }
+    });
+  }
+}
+
+/* Mini-version locale du badge de rang coloré (le même style que celui de
+   auth.js, mais index.html n'inclut pas ce script — on le redéfinit ici en
+   plus léger pour ne dépendre de rien d'externe). */
+function armsRankPillHtml(rank){
+  if (!rank) return '';
+  const colorsByTier = {
+    'Mineure':       { c1:'#3ddc84', c2:'#1b7a45', glow:'rgba(61,220,132,.5)',  text:'#c8ffe0' },
+    'Hostile':       { c1:'#ffd93d', c2:'#c98a00', glow:'rgba(255,217,61,.5)',  text:'#fff3c9' },
+    'Mortelle':      { c1:'#ff5c5c', c2:'#8a0000', glow:'rgba(255,60,60,.55)',  text:'#ffd6d6' },
+    'Apocalyptique': { c1:'#c86bff', c2:'#5a0d8a', glow:'rgba(180,60,255,.6)',  text:'#f0d6ff' },
+    'Extinction':    { c1:'#ff3b3b', c2:'#120004', glow:'rgba(255,20,20,.9)',   text:'#ffdede' },
+  };
+  const c = colorsByTier[rank.tierName] || { c1:'#7df9ff', c2:'#0a4f5c', glow:'rgba(125,249,255,.4)', text:'#e8fdff' };
+  return `<span style="display:inline-flex;align-items:center;gap:6px;padding:6px 15px;border-radius:999px;font-weight:900;font-size:13px;
+    background:linear-gradient(180deg,${c.c1}30,${c.c2}70);border:1.5px solid ${c.c1};color:${c.text};box-shadow:0 0 12px ${c.glow};">⚔ ${rank.label}</span>`;
+}
+
+/* Petit évènement de célébration lorsqu'on franchit un nouveau palier de
+   Menace — plein écran, léger éclat + montée du badge de rang, se ferme
+   automatiquement ou au clic. */
+function showRankChangeCelebration(newRank, promoted){
+  try{
+    const overlay = document.createElement('div');
+    overlay.id = 'rankChangeOverlay';
+    overlay.style.cssText = `
+      position:fixed; inset:0; z-index:7500; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; gap:16px; text-align:center; padding:24px;
+      background:rgba(4,6,10,0); cursor:pointer; opacity:0;
+      transition:opacity .5s ease, background .5s ease;
+    `;
+    const colorsByTier = {
+      'Mineure':       '#3ddc84', 'Hostile': '#ffd93d', 'Mortelle': '#ff5c5c',
+      'Apocalyptique': '#c86bff', 'Extinction': '#ff3b3b',
+    };
+    const mainColor = colorsByTier[newRank.tierName] || '#7df9ff';
+
+    overlay.innerHTML = `
+      <div style="font-family:'Cinzel',serif; font-size:15px; letter-spacing:.15em; text-transform:uppercase; opacity:0; transform:translateY(10px); transition:opacity .5s ease .15s, transform .5s ease .15s; color:${promoted ? '#aefaff' : '#ffb0b0'};" id="rcSubtitle">
+        ${promoted ? 'Nouveau palier de menace atteint' : 'Palier de menace revu à la baisse'}
+      </div>
+      <div style="transform:scale(.3) rotate(${promoted ? -8 : 8}deg); opacity:0; transition:transform .65s cubic-bezier(.2,.85,.25,1.15), opacity .5s ease;" id="rcBadgeWrap">
+        ${armsRankPillHtml(newRank).replace('font-size:13px', 'font-size:22px').replace('padding:6px 15px', 'padding:14px 34px')}
+      </div>
+      <div style="font-size:12.5px; color:#9fd6e6; opacity:0; transition:opacity .5s ease .3s; max-width:340px;" id="rcHint">
+        ${promoted ? 'Continuez à enchaîner les victoires classées pour aller encore plus loin.' : 'Remportez vos prochaines parties classées pour reprendre votre ascension.'}
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    requestAnimationFrame(()=>{
+      overlay.style.opacity = '1';
+      overlay.style.background = `radial-gradient(700px 500px at 50% 50%, ${mainColor}22, transparent), rgba(4,6,10,.9)`;
+      const sub = document.getElementById('rcSubtitle'); if (sub) { sub.style.opacity = '1'; sub.style.transform = 'translateY(0)'; }
+      const badge = document.getElementById('rcBadgeWrap'); if (badge) { badge.style.opacity = '1'; badge.style.transform = 'scale(1) rotate(0deg)'; }
+      const hint = document.getElementById('rcHint'); if (hint) { hint.style.opacity = '1'; }
+    });
+
+    const dismiss = () => {
+      if (overlay.dataset.dismissed) return;
+      overlay.dataset.dismissed = '1';
+      overlay.style.opacity = '0';
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); }, 500);
+    };
+    overlay.addEventListener('click', dismiss);
+    setTimeout(dismiss, 4500);
+  }catch(e){ }
 }
 
 function endGame(winner, reason, opts = {}){
@@ -10616,7 +10850,7 @@ function endGame(winner, reason, opts = {}){
   // victoire par défaut, comme auparavant.
   const iWon = ONLINE_MODE ? (winner === MY_SEAT) : true;
   playEndGameJingle(iWon);
-  showVictoryOverlay(winner, reason);
+  showVictoryOverlay(winner, reason, iWon);
 
   // Récompense en pièces + points de Menace (uniquement en partie en ligne —
   // le hotseat local n'a qu'un seul compte connecté des deux côtés, ça n'aurait
@@ -10625,21 +10859,30 @@ function endGame(winner, reason, opts = {}){
   // encourager à fuir une partie mal engagée).
   if (ONLINE_MODE && ONLINE_MATCH_ID) {
     const result = opts.isForfeit ? 'forfeit' : ((winner === MY_SEAT) ? 'win' : 'loss');
+    const resultLabel = result === 'win' ? 'victoire' : (result === 'loss' ? 'défaite' : 'abandon');
     fetch('/api/match/result', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ matchId: ONLINE_MATCH_ID, result })
     }).then(r => r.json()).then(data => {
       if (data && data.ok && !data.alreadyRewarded) {
-        const resultLabel = result === 'win' ? 'victoire' : (result === 'loss' ? 'défaite' : 'abandon');
         let msg = `+${data.gained} pièces créditées sur votre compte (${resultLabel}).`;
         if (data.ranked && typeof data.pointsDelta === 'number' && data.pointsDelta !== 0 && data.rank) {
           const sign = data.pointsDelta > 0 ? '+' : '';
           msg += ` Menace ${sign}${data.pointsDelta} pts — rang actuel : <strong>${data.rank.label}</strong>.`;
         }
         pushHistory('mithril', msg);
+        populateVictoryRewards(data, resultLabel);
+      } else if (data && data.ok && data.alreadyRewarded) {
+        // Reconnexion/rechargement après un crédit déjà effectué : on
+        // affiche quand même l'état actuel, sans ré-animer un gain.
+        const zone = document.getElementById('victoryRewardsZone');
+        if (zone) zone.textContent = 'Récompenses déjà créditées pour cette partie.';
       }
-    }).catch(() => {});
+    }).catch(() => {
+      const zone = document.getElementById('victoryRewardsZone');
+      if (zone) zone.textContent = 'Impossible de calculer les récompenses pour le moment.';
+    });
   }
 }
 
