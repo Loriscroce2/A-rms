@@ -296,17 +296,21 @@
     function kFactorForPoints(points){
       const idx = Math.min(Math.floor(Math.max(0,points)/100), 14);
       const tierIndex = Math.floor(idx / 3);
-      if (tierIndex <= 1) return 20;
-      if (tierIndex === 2) return 28;
-      if (tierIndex === 3) return 34;
-      return 40;
+      if (tierIndex <= 1) return 18;
+      if (tierIndex === 2) return 24;
+      if (tierIndex === 3) return 28;
+      return 32;
     }
     function computeEloDelta(myPoints, oppPoints, won){
       const expected = 1 / (1 + Math.pow(10, (oppPoints - myPoints) / 400));
       const K = kFactorForPoints(myPoints);
       let delta = Math.round(K * ((won?1:0) - expected));
-      if (won && delta < 1) delta = 1;
-      if (!won && delta > 0) delta = 0;
+      if (won) {
+        delta = Math.max(delta, 10);
+      } else {
+        delta = Math.min(delta, 0);
+        delta = Math.max(delta, -28);
+      }
       return delta;
     }
 

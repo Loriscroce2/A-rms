@@ -14,6 +14,7 @@
     { href: '/classement.html', label: 'Classement', match: ['/classement.html'] },
     { href: '/boutique.html', label: 'Boutique',  match: ['/boutique.html'] },
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
+    { href: '/tutorial.html', label: 'Didacticiel', match: ['/tutorial.html'] },
   ];
   const path = window.location.pathname;
 

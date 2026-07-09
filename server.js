@@ -107,8 +107,9 @@ function coinsForResponse(req) {
 }
 
 // --- Requêtes SQL préparées (profil / avatar) ---
-const qGetProfile = db.prepare('SELECT id, name, coins, avatar FROM users WHERE id = ?');
+const qGetProfile = db.prepare('SELECT id, name, coins, avatar, has_seen_tutorial FROM users WHERE id = ?');
 const qSetAvatar = db.prepare('UPDATE users SET avatar = ? WHERE id = ?');
+const qMarkTutorialSeen = db.prepare('UPDATE users SET has_seen_tutorial = 1 WHERE id = ?');
 
 // ===================================================================
 // CLASSEMENT "MENACE" (parties classées)
@@ -148,26 +149,29 @@ function getRankInfo(points) {
   };
 }
 
-// Facteur K (volatilité) selon le palier ACTUEL du joueur — reprend l'esprit
-// de la règle précédente ("de plus en plus punitif à partir de Mortelle"),
-// mais s'applique désormais comme amplitude MAXIMALE d'un calcul Elo, pas
-// comme un montant fixe.
+// Facteur K (volatilité) selon le palier ACTUEL du joueur — amplitude
+// maximale d'un calcul Elo, pas un montant fixe. Valeurs modérées pour que
+// même les échanges les plus déséquilibrés restent lisibles.
 function kFactorForPoints(points) {
   const idx = rankIndexForPoints(points);
   const tierIndex = Math.floor(idx / 3);
-  if (tierIndex <= 1) return 20;   // Mineure / Hostile — débuts cléments
-  if (tierIndex === 2) return 28;  // Mortelle
-  if (tierIndex === 3) return 34;  // Apocalyptique
-  return 40;                        // Extinction
+  if (tierIndex <= 1) return 18;   // Mineure / Hostile — débuts cléments
+  if (tierIndex === 2) return 24;  // Mortelle
+  if (tierIndex === 3) return 28;  // Apocalyptique
+  return 32;                        // Extinction
 }
+
+const MIN_WIN_GAIN = 10;   // toute victoire rapporte au moins ça — jamais frustrant
+const MAX_LOSS_CAP  = 28;  // aucune défaite ne peut coûter plus que ça, même un norme écart
 
 // Calcul façon Elo (échecs) : le gain/perte dépend de l'ÉCART DE NIVEAU entre
 // les deux adversaires, pas d'un montant fixe.
 // - Battre un adversaire largement plus fort rapporte gros ; battre un
-//   adversaire largement plus faible rapporte presque rien.
+//   adversaire largement plus faible rapporte quand même un minimum garanti
+//   (jamais l'impression de "gagner pour rien").
 // - Perdre contre un adversaire largement plus fort coûte presque rien (voire
 //   rien du tout) ; perdre contre un adversaire largement plus faible coûte
-//   très cher.
+//   cher, mais toujours plafonné pour rester supportable.
 // myPoints/oppPoints = points de Menace des DEUX joueurs au moment où la
 // partie a démarré (figés en début de partie, pas recalculés après coup).
 function computeEloDelta(myPoints, oppPoints, won) {
@@ -175,8 +179,12 @@ function computeEloDelta(myPoints, oppPoints, won) {
   const actualScore = won ? 1 : 0;
   const K = kFactorForPoints(myPoints);
   let delta = Math.round(K * (actualScore - expectedScore));
-  if (won && delta < 1) delta = 1; // une victoire rapporte toujours au moins 1 point
-  if (!won && delta > 0) delta = 0; // une défaite ne peut jamais faire gagner des points
+  if (won) {
+    delta = Math.max(delta, MIN_WIN_GAIN);
+  } else {
+    delta = Math.min(delta, 0);           // une défaite ne peut jamais faire gagner des points
+    delta = Math.max(delta, -MAX_LOSS_CAP);
+  }
   return delta;
 }
 
@@ -273,7 +281,20 @@ app.get('/api/me', authMiddleware, (req, res) => {
   const row = qGetProfile.get(req.user.id);
   const tpRow = qGetThreatPoints.get(req.user.id);
   const rank = getRankInfo(tpRow ? tpRow.threat_points : 0);
-  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '', rank } });
+  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '', rank, hasSeenTutorial: row ? !!row.has_seen_tutorial : false } });
+});
+
+// Marque le didacticiel comme vu, pour ne plus jamais l'afficher
+// automatiquement à cet utilisateur (il reste accessible manuellement
+// depuis le menu à tout moment).
+app.post('/api/tutorial/seen', authMiddleware, (req, res) => {
+  try {
+    qMarkTutorialSeen.run(req.user.id);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
 });
 
 // Classement "Menace" : le haut du tableau (100 joueurs par défaut), plus la
@@ -666,16 +687,53 @@ const mmQueue = [];
 const mmTickets = new Map();
 const mmMatches = new Map();
 
+// Écart de points de Menace toléré entre deux joueurs, selon le temps
+// d'attente déjà écoulé — commence strict (adversaires vraiment proches),
+// puis s'élargit progressivement pour ne jamais laisser quelqu'un attendre
+// indéfiniment faute d'adversaire suffisamment proche.
+function allowedRatingGap(waitMs) {
+  if (waitMs < 6000) return 150;   // < 6s   : très proche uniquement
+  if (waitMs < 15000) return 300;  // < 15s  : élargi
+  if (waitMs < 30000) return 600;  // < 30s  : encore plus large
+  return Infinity;                  // 30s+   : n'importe qui, pour garantir une partie
+}
+
 function tryMakeMatch() {
-  // On ne fait jamais se rencontrer un joueur en Classée avec un joueur en
-  // Non classée : on cherche un adversaire du MÊME mode uniquement.
+  const now = Date.now();
   for (let i = 0; i < mmQueue.length; i++) {
     const a = mmQueue[i];
-    const idx = mmQueue.findIndex((x, j) => j > i && x.userId !== a.userId && x.mode === a.mode);
-    if (idx === -1) continue;
-    const b = mmQueue[idx];
-    mmQueue.splice(idx, 1);
-    mmQueue.splice(i, 1);
+    let bestIdx = -1, bestGap = Infinity;
+
+    for (let j = 0; j < mmQueue.length; j++) {
+      if (j === i) continue;
+      const b = mmQueue[j];
+      if (b.userId === a.userId || b.mode !== a.mode) continue;
+
+      if (a.mode === 'ranked') {
+        // On ne fait jamais se rencontrer deux joueurs de rangs trop
+        // éloignés — sauf si l'un des deux attend depuis assez longtemps
+        // pour élargir la recherche. Parmi tous les candidats valides, on
+        // choisit toujours celui dont le rang est le PLUS PROCHE.
+        const gap = Math.abs((a.rating || 0) - (b.rating || 0));
+        const allowed = Math.max(allowedRatingGap(now - a.ts), allowedRatingGap(now - b.ts));
+        if (gap > allowed) continue;
+        if (gap < bestGap) { bestGap = gap; bestIdx = j; }
+      } else {
+        // Non classée : le rang n'a aucune importance, le premier adversaire
+        // disponible convient — on privilégie la rapidité d'appariement.
+        bestIdx = j;
+        break;
+      }
+    }
+
+    if (bestIdx === -1) continue;
+    const b = mmQueue[bestIdx];
+
+    // Retire les deux entrées (le plus grand index d'abord pour ne pas
+    // décaler la position de l'autre pendant la suppression).
+    const [iLo, iHi] = i < bestIdx ? [i, bestIdx] : [bestIdx, i];
+    mmQueue.splice(iHi, 1);
+    mmQueue.splice(iLo, 1);
 
     const matchId = randomUUID();
     const seatA = Math.random() < 0.5 ? 'bottom' : 'top';
@@ -736,8 +794,15 @@ app.post('/api/matchmaking/join', authMiddleware, (req, res) => {
 
     const ticket = randomUUID();
     const now = Date.now();
+    // En Classée, on retient le rang ACTUEL du joueur pour le matchmaking par
+    // proximité (voir tryMakeMatch/allowedRatingGap) — inutile en Non classée.
+    let rating = 0;
+    if (mode === 'ranked') {
+      const tpRow = qGetThreatPoints.get(req.user.id);
+      rating = tpRow ? tpRow.threat_points : 0;
+    }
     mmTickets.set(ticket, { userId: req.user.id, deckId, matched: false, matchId: null, seat: null, ts: now, mode });
-    mmQueue.push({ ticket, userId: req.user.id, deckId, ts: now, mode });
+    mmQueue.push({ ticket, userId: req.user.id, deckId, ts: now, mode, rating });
     tryMakeMatch();
 
     const sameModeWaiting = mmQueue.filter(e => e.mode === mode).length;

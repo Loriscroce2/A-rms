@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>A’rms — Didacticiel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/sitenav.css" />
+  <style>
+    :root{
+      --bg1:#06131a; --bg2:#031017; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff;
+      --accent:#00e6ff; --ok:#19e27a; --warn:#ffb84d; --err:#ff5252; --gold:#ffd93d;
+      --mithril:#a78bfa; --arms:#ff8a3d;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap');
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
+      background:radial-gradient(1200px 420px at 60% -180px, rgba(0,230,255,.14), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
+    .container{max-width:820px;margin:0 auto;padding:0 16px}
+
+    .tutWrap{ padding:30px 0 60px; }
+    .tutProgress{ display:flex; align-items:center; gap:6px; justify-content:center; margin-bottom:24px; flex-wrap:wrap; }
+    .tutDot{ width:8px; height:8px; border-radius:50%; background:rgba(255,255,255,.18); transition:all .25s ease; }
+    .tutDot.done{ background:#7df9ff; }
+    .tutDot.current{ background:#7df9ff; width:24px; border-radius:4px; box-shadow:0 0 10px rgba(125,249,255,.6); }
+
+    .tutCard{
+      border-radius:22px; padding:32px 28px; text-align:center;
+      background:linear-gradient(160deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
+      border:1.5px solid rgba(125,249,255,.25); box-shadow:0 20px 50px rgba(0,0,0,.5);
+      min-height:420px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:18px;
+    }
+    .tutStepLabel{ font-size:11px; letter-spacing:.15em; text-transform:uppercase; color:#7df9ff; opacity:.75; }
+    .tutTitle{ font-family:'Cinzel',sans-serif; font-weight:800; font-size:24px; margin:0;
+      background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent; }
+    .tutText{ font-size:14.5px; line-height:1.65; color:var(--muted); max-width:560px; }
+    .tutText strong{ color:#fff; }
+    .tutMockup{ width:100%; min-height:160px; display:flex; align-items:center; justify-content:center; margin:6px 0; }
+
+    .tutNav{ display:flex; justify-content:center; gap:12px; margin-top:26px; }
+    .tutBtn{
+      padding:11px 22px; border-radius:12px; font-weight:900; cursor:pointer; border:1px solid rgba(255,255,255,.18);
+      font-size:14px; transition:transform .15s ease, filter .15s ease;
+    }
+    .tutBtn:hover{ transform:translateY(-2px); }
+    .tutBtn.primary{ background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border-color:#4df7a8; }
+    .tutBtn.secondary{ background:linear-gradient(180deg,#0d2d38,#0a2028); color:#dffbff; }
+    .tutSkip{ text-align:center; margin-top:14px; font-size:12px; color:var(--muted); opacity:.6; cursor:pointer; text-decoration:underline; }
+
+    /* ---- Maquettes CSS des différentes zones du jeu ---- */
+    .mockHand{ display:flex; gap:-10px; justify-content:center; }
+    .mockCard{
+      width:64px; height:90px; border-radius:8px; margin-left:-14px; flex:none;
+      border:2px solid rgba(125,249,255,.5); background:linear-gradient(160deg,#0d2530,#081820);
+      box-shadow:0 6px 14px rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center;
+      font-size:22px; transform:rotate(var(--rot,0deg)) translateY(var(--ty,0));
+      transition:transform .2s ease;
+    }
+    .mockCard:first-child{ margin-left:0; }
+    .mockCard.highlight{ border-color:#ffd93d; box-shadow:0 0 20px rgba(255,217,61,.6); transform:translateY(-14px) rotate(0deg); z-index:2; }
+
+    .mockTypesGrid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; width:100%; max-width:420px; }
+    .mockTypeCard{ border-radius:12px; padding:14px 10px; text-align:center; border:1.5px solid rgba(255,255,255,.12); background:rgba(255,255,255,.02); }
+    .mockTypeCard .mtIcon{ font-size:26px; margin-bottom:6px; }
+    .mockTypeCard .mtName{ font-weight:800; font-size:12.5px; margin-bottom:3px; }
+    .mockTypeCard .mtDesc{ font-size:10.5px; opacity:.7; line-height:1.4; }
+
+    .mockResourceRow{ display:flex; gap:26px; justify-content:center; align-items:center; }
+    .mockResource{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+    .mockResourceIcon{
+      width:56px; height:56px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:26px;
+      border:2px solid currentColor; box-shadow:0 0 18px currentColor;
+    }
+    .mockResourceLabel{ font-size:11px; font-weight:800; }
+
+    .mockZone{
+      width:100%; max-width:460px; min-height:90px; border-radius:14px; border:2px dashed rgba(125,249,255,.35);
+      background:rgba(125,249,255,.03); display:flex; align-items:center; justify-content:center; gap:10px; padding:10px;
+      flex-wrap:wrap;
+    }
+    .mockCombatant{
+      width:54px; height:76px; border-radius:8px; border:2px solid #7df9ff; background:linear-gradient(160deg,#0d2530,#081820);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:18px; position:relative;
+      box-shadow:0 0 14px rgba(125,249,255,.3);
+    }
+    .mockCombatant .hpTag{ position:absolute; bottom:2px; font-size:8px; font-weight:900; color:#ff8080; }
+    .mockVsArrow{ font-size:20px; color:#ff8080; }
+
+    .mockTimer{
+      width:220px; height:14px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden;
+      box-shadow:inset 0 1px 4px rgba(0,0,0,.6);
+    }
+    .mockTimerFill{ height:100%; width:35%; background:linear-gradient(90deg,#ff5c5c,#ff8080); border-radius:999px; }
+
+    .mockRankPreview{ display:flex; gap:16px; align-items:center; justify-content:center; }
+    .mockRankIcon{ width:50px; height:50px; border-radius:50%; border:2px solid; display:flex; align-items:center; justify-content:center; font-size:22px; }
+  </style>
+</head>
+<body>
+  <div id="site-header-root"></div>
+
+  <main class="container">
+    <div class="tutWrap">
+      <div class="tutProgress" id="tutProgress"></div>
+      <div class="tutCard" id="tutCard"></div>
+      <div class="tutNav">
+        <button class="tutBtn secondary" id="tutPrevBtn">← Précédent</button>
+        <button class="tutBtn primary" id="tutNextBtn">Suivant →</button>
+      </div>
+      <div class="tutSkip" id="tutSkip">Passer le didacticiel</div>
+    </div>
+  </main>
+
+  <script src="/auth.js"></script>
+  <script src="/sitenav.js"></script>
+  <script>
+    const STEPS = [
+      {
+        label: 'Bienvenue',
+        title: 'Bienvenue dans A’rms !',
+        text: `A’rms est un jeu de cartes à collectionner en <strong>1 contre 1</strong>. Ce petit didacticiel vous montre les bases,
+               étape par étape, en une poignée de minutes — vous serez prêt à affronter votre premier adversaire juste après.`,
+        mockup: `<div style="font-size:56px;">⚔</div>`
+      },
+      {
+        label: 'Objectif',
+        title: 'Comment gagne-t-on une partie ?',
+        text: `La victoire s'obtient de plusieurs façons : <strong>forger 5 A’rms</strong> avant votre adversaire est la voie la plus
+               commune, mais certaines cartes ouvrent d'autres chemins vers la victoire. Chaque partie est un vrai duel de stratégie.`,
+        mockup: `
+          <div class="mockResourceRow">
+            <div class="mockResource" style="color:var(--arms);">
+              <div class="mockResourceIcon">⚒</div>
+              <div class="mockResourceLabel">5 A’rms forgés</div>
+            </div>
+          </div>`
+      },
+      {
+        label: 'Votre main',
+        title: 'Votre main de cartes',
+        text: `En bas de votre écran se trouve votre <strong>main</strong> : les cartes que vous pouvez jouer ce tour-ci.
+               Vous piochez automatiquement en début de tour pour la compléter. Cliquez sur une carte pour la jouer.`,
+        mockup: `
+          <div class="mockHand">
+            <div class="mockCard" style="--rot:-8deg;">🂠</div>
+            <div class="mockCard highlight" style="--rot:0deg;">🃏</div>
+            <div class="mockCard" style="--rot:8deg;">🂠</div>
+            <div class="mockCard" style="--rot:14deg;">🂠</div>
+          </div>`
+      },
+      {
+        label: '4 types de cartes',
+        title: 'Quatre types de cartes',
+        text: `Chaque carte appartient à l'une de ces quatre familles. Les comprendre est la clé pour construire de bonnes stratégies.`,
+        mockup: `
+          <div class="mockTypesGrid">
+            <div class="mockTypeCard"><div class="mtIcon">🗡</div><div class="mtName">Personnage</div><div class="mtDesc">Combat pour vous en zone de combat</div></div>
+            <div class="mockTypeCard"><div class="mtIcon">🐾</div><div class="mtName">Familier</div><div class="mtDesc">Se rattache à un combattant, l'améliore</div></div>
+            <div class="mockTypeCard"><div class="mtIcon">🏺</div><div class="mtName">Artefact</div><div class="mtDesc">Effet passif permanent, propre zone</div></div>
+            <div class="mockTypeCard"><div class="mtIcon">✨</div><div class="mtName">Action</div><div class="mtDesc">Effet ponctuel, puis part en défausse</div></div>
+          </div>`
+      },
+      {
+        label: 'Ressources',
+        title: 'Mithril et A’rms',
+        text: `Le <strong>Mithril</strong> est votre ressource courante — gagnée au fil de la partie, elle sert à activer certains effets.
+               Les <strong>A’rms</strong> sont plus rares et précieux : c'est en les forgeant que vous vous rapprochez de la victoire.`,
+        mockup: `
+          <div class="mockResourceRow">
+            <div class="mockResource" style="color:var(--mithril);"><div class="mockResourceIcon">⟡</div><div class="mockResourceLabel">Mithril</div></div>
+            <div class="mockResource" style="color:var(--arms);"><div class="mockResourceIcon">⚒</div><div class="mockResourceLabel">A’rms</div></div>
+          </div>`
+      },
+      {
+        label: 'Zone de combat',
+        title: 'La zone de combat',
+        text: `Jouer un <strong>Personnage</strong> l'envoie dans votre zone de combat, face à celle de votre adversaire.
+               C'est là que vos combattants attendent, prêts à défendre votre camp ou à passer à l'attaque.`,
+        mockup: `
+          <div class="mockZone">
+            <div class="mockCombatant">🛡<span class="hpTag">4 PV</span></div>
+            <div class="mockCombatant">⚔<span class="hpTag">3 PV</span></div>
+          </div>`
+      },
+      {
+        label: 'Attaquer',
+        title: 'Lancer une attaque',
+        text: `Faites glisser un de vos combattants vers un combattant adverse (ou directement vers l'adversaire, si sa zone est vide)
+               pour engager le combat. Les dégâts s'échangent des <strong>deux côtés</strong> — attaquer expose aussi votre carte.`,
+        mockup: `
+          <div class="mockZone">
+            <div class="mockCombatant">⚔<span class="hpTag">4 PV</span></div>
+            <div class="mockVsArrow">➜</div>
+            <div class="mockCombatant">🛡<span class="hpTag">3 PV</span></div>
+          </div>`
+      },
+      {
+        label: 'Familiers & Artefacts',
+        title: 'Renforcer votre équipe',
+        text: `Un <strong>Familier</strong> se rattache à un de vos combattants pour lui donner un bonus (soin, dégâts, effets spéciaux…).
+               Un <strong>Artefact</strong>, lui, agit tout seul dans sa propre zone, avec un effet qui dure toute la partie.`,
+        mockup: `
+          <div class="mockZone">
+            <div class="mockCombatant">🛡<span class="hpTag">6 PV</span></div>
+            <div style="font-size:20px;">+</div>
+            <div class="mockCombatant" style="border-color:#ffd93d;">🐾</div>
+          </div>`
+      },
+      {
+        label: 'Défausse & Exil',
+        title: 'Défausse et Exil',
+        text: `Un combattant qui tombe à 0 PV part généralement en <strong>défausse</strong>. Certains effets, plus rares et plus
+               définitifs, l'envoient plutôt en <strong>Exil</strong> — une zone à part, dont on ne revient pas aussi facilement.`,
+        mockup: `
+          <div class="mockResourceRow">
+            <div class="mockResource" style="color:#ffb84d;"><div class="mockResourceIcon">🗂</div><div class="mockResourceLabel">Défausse</div></div>
+            <div class="mockResource" style="color:#c86bff;"><div class="mockResourceIcon">🌀</div><div class="mockResourceLabel">Exil</div></div>
+          </div>`
+      },
+      {
+        label: 'Le tour',
+        title: 'Fin de tour et minuteur',
+        text: `Vous disposez de <strong>90 secondes</strong> par tour, affichées par une barre qui change de couleur à mesure que le
+               temps s'écoule. Cliquez sur "Fin de tour" dès que vous avez terminé vos actions pour laisser la main à l'adversaire.`,
+        mockup: `<div class="mockTimer"><div class="mockTimerFill"></div></div>`
+      },
+      {
+        label: 'Classée',
+        title: 'Parties Classées et Menace',
+        text: `Envie de mesurer votre force ? Lancez une partie <strong>Classée</strong> : vos victoires et défaites font évoluer
+               votre rang de <strong>Menace</strong>, du plus modeste (Mineure) jusqu'au sommet (Extinction). Un calcul façon échecs
+               récompense les exploits. Consultez la Voie de la Menace dans le menu pour tout savoir.`,
+        mockup: `
+          <div class="mockRankPreview">
+            <div class="mockRankIcon" style="color:#3ddc84;">🛡</div>
+            <div style="font-size:18px;opacity:.5;">→</div>
+            <div class="mockRankIcon" style="color:#ff3b3b;">☠</div>
+          </div>`
+      },
+      {
+        label: 'C’est parti !',
+        title: 'Vous êtes prêt !',
+        text: `Vous connaissez désormais toutes les bases. Composez votre premier deck depuis <strong>Jouer</strong>, et lancez-vous
+               dans votre première partie. Bonne chance, stratège — et n'hésitez jamais à revenir consulter ce didacticiel depuis le menu.`,
+        mockup: `<div style="font-size:56px;">🎉</div>`
+      },
+    ];
+
+    let currentStep = 0;
+
+    function renderProgress(){
+      const zone = document.getElementById('tutProgress');
+      zone.innerHTML = STEPS.map((_, i) => {
+        const cls = i === currentStep ? 'current' : (i < currentStep ? 'done' : '');
+        return `<div class="tutDot ${cls}"></div>`;
+      }).join('');
+    }
+
+    function renderStep(){
+      const s = STEPS[currentStep];
+      const card = document.getElementById('tutCard');
+      card.innerHTML = `
+        <div class="tutStepLabel">Étape ${currentStep + 1} / ${STEPS.length} — ${s.label}</div>
+        <h2 class="tutTitle">${s.title}</h2>
+        <div class="tutMockup">${s.mockup}</div>
+        <div class="tutText">${s.text}</div>
+      `;
+      renderProgress();
+      document.getElementById('tutPrevBtn').style.visibility = (currentStep === 0) ? 'hidden' : 'visible';
+      const nextBtn = document.getElementById('tutNextBtn');
+      const isLast = currentStep === STEPS.length - 1;
+      nextBtn.textContent = isLast ? '✔ Terminer' : 'Suivant →';
+      document.getElementById('tutSkip').style.display = isLast ? 'none' : 'block';
+    }
+
+    async function markTutorialSeen(){
+      try{ await fetch('/api/tutorial/seen', { method: 'POST' }); }catch(e){}
+    }
+
+    document.getElementById('tutNextBtn').addEventListener('click', () => {
+      if (currentStep === STEPS.length - 1) {
+        markTutorialSeen().then(()=>{ window.location.href = '/play.html'; });
+        return;
+      }
+      currentStep = Math.min(STEPS.length - 1, currentStep + 1);
+      renderStep();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    document.getElementById('tutPrevBtn').addEventListener('click', () => {
+      currentStep = Math.max(0, currentStep - 1);
+      renderStep();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    document.getElementById('tutSkip').addEventListener('click', () => {
+      markTutorialSeen().then(()=>{ window.location.href = '/accueil.html'; });
+    });
+
+    renderStep();
+  </script>
+</body>
+</html>

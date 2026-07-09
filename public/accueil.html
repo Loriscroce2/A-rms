@@ -661,6 +661,19 @@
     close.addEventListener('click', ()=> modal.removeAttribute('open'));
     modal.addEventListener('click', (e)=>{ if(e.target === modal) modal.removeAttribute('open'); });
     window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') modal.removeAttribute('open'); });
+
+    // Première connexion : on propose automatiquement le didacticiel. Le
+    // drapeau "hasSeenTutorial" ne bascule qu'une fois le didacticiel terminé
+    // ou explicitement passé, donc ceci ne se déclenche plus jamais après.
+    (async function checkFirstTimeTutorial(){
+      try{
+        const res = await fetch('/api/me');
+        const data = await res.json();
+        if (res.ok && data.user && data.user.hasSeenTutorial === false) {
+          window.location.href = '/tutorial.html';
+        }
+      }catch(e){}
+    })();
   </script>
 </body>
 </html>

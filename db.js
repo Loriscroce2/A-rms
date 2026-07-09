@@ -109,5 +109,10 @@ if (!userCols.includes('ranked_wins')) {
 if (!userCols.includes('ranked_losses')) {
   db.exec('ALTER TABLE users ADD COLUMN ranked_losses INTEGER NOT NULL DEFAULT 0');
 }
+// Suivi du didacticiel : 0 = jamais vu (affiché automatiquement à la
+// première connexion), 1 = déjà vu au moins une fois.
+if (!userCols.includes('has_seen_tutorial')) {
+  db.exec('ALTER TABLE users ADD COLUMN has_seen_tutorial INTEGER NOT NULL DEFAULT 0');
+}
 
 module.exports = db;
