@@ -3591,6 +3591,11 @@ const __urlParams = new URLSearchParams(window.location.search);
 const ONLINE_MATCH_ID = __urlParams.get('matchId');
 const ONLINE_MODE = !!ONLINE_MATCH_ID;
 const MY_SEAT = __urlParams.get('seat') === 'top' ? 'top' : 'bottom';
+// Didacticiel interactif : partie locale normale, mais avec une main de
+// départ FIXE (déterministe) et un coach qui guide le joueur en direct sur
+// le VRAI plateau. Totalement isolé du reste du moteur (aucune fonction
+// existante n'est modifiée) — activé uniquement via ?tutorial=1.
+const TUTORIAL_MODE = __urlParams.get('tutorial') === '1';
 // Chaque joueur doit toujours se voir en bas de SON écran, quel que soit son
 // siège logique ('top' ou 'bottom'). Si on est 'top', on retourne visuellement
 // l'affichage du plateau (CSS uniquement, aucune donnée de jeu n'est touchée).
@@ -3613,6 +3618,13 @@ let botHand = [];
 if (ONLINE_MODE) {
   // En ligne : on ne construit rien tout de suite, on attend l'état
   // initial envoyé par le serveur (voir bloc réseau en fin de fichier).
+} else if (TUTORIAL_MODE) {
+  // Didacticiel : main de départ FIXE et connue à l'avance, pour que le
+  // coach puisse s'appuyer dessus de façon fiable (aucun aléa).
+  const tutorialLabels = ['C1','C64','C4', 'C2','C3','C5','C6','C7','C8','C9','C10'];
+  botDeck = tutorialLabels.map(label => createCard(label, 'B'));
+  const fillerLabels = Array.from({length:30}, (_,i)=> 'C'+(i+11));
+  botDeck = botDeck.concat(fillerLabels.map(label => createCard(label, 'B')));
 } else if (window.__USING_ACTIVE_DECK__) {
   botDeck = shuffle(ACTIVE.cards.map(code => createCard(codeToLabel(code), 'B')));
 } else {
@@ -13317,6 +13329,7 @@ logSysInfo("<strong>Règle :</strong> un combattant atteignant 0 PV est immédia
 logSysInfo("<strong>Astuce :</strong> vous avez 90 secondes par tour — le bouton \"Fin de tour\" change de couleur à mesure que le temps s'écoule.");
 
 if (!ONLINE_MODE) { startTurn('bottom'); renderPlayerPanels(); }
+if (TUTORIAL_MODE) { setTimeout(()=> startTutorialCoach(), 900); }
 setTimeout(()=>{ chatPanel.classList.remove('collapsed'); }, 0);
 
 document.getElementById('fcoCloseBtn').addEventListener('click', hideFamiliarCarousel);
@@ -13813,6 +13826,241 @@ if (ONLINE_MODE) {
       }
     });
   });
+}
+
+/* ===================================================================
+   DIDACTICIEL INTERACTIF — coach en direct sur le VRAI plateau de jeu.
+   Entièrement additif et isolé : ne redéfinit ni ne modifie AUCUNE fonction
+   existante du moteur. Ne fait qu'observer l'état réel du jeu (botLine,
+   mithril, arms, currentTurn, famBottom...) pour savoir quand une étape est
+   accomplie, et n'agit que via les VRAIES fonctions du jeu (addMithril,
+   createCard, fullRender, clic réel sur #endTurn...). Ne s'exécute que si
+   TUTORIAL_MODE est actif — zéro impact sur une partie normale.
+=================================================================== */
+function startTutorialCoach(){
+  try{
+    const overlay = document.createElement('div');
+    overlay.id = 'tutorialCoachOverlay';
+    overlay.innerHTML = `
+      <div class="tcAvatar">🧙</div>
+      <div class="tcBody">
+        <div class="tcStepLabel" id="tcStepLabel">Didacticiel</div>
+        <div class="tcText" id="tcText"></div>
+        <div class="tcBtnRow" id="tcBtnRow"></div>
+      </div>
+      <button class="tcSkip" id="tcSkipBtn" title="Quitter le didacticiel">✕</button>
+    `;
+    document.body.appendChild(overlay);
+
+    const style = document.createElement('style');
+    style.textContent = `
+      #tutorialCoachOverlay{
+        position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:9000;
+        display:flex; align-items:flex-start; gap:12px; max-width:520px; width:min(92vw,520px);
+        background:linear-gradient(145deg,#0a2530,#051820); border:1.5px solid rgba(125,249,255,.5);
+        border-radius:16px; padding:14px 16px; box-shadow:0 10px 30px rgba(0,0,0,.6), 0 0 26px rgba(0,230,255,.25);
+        font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:#e8fdff;
+      }
+      #tutorialCoachOverlay .tcAvatar{ font-size:26px; flex:none; }
+      #tutorialCoachOverlay .tcBody{ flex:1; }
+      #tutorialCoachOverlay .tcStepLabel{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:#7df9ff; opacity:.75; margin-bottom:3px; }
+      #tutorialCoachOverlay .tcText{ font-size:13.5px; line-height:1.5; }
+      #tutorialCoachOverlay .tcText strong{ color:#ffd93d; }
+      #tutorialCoachOverlay .tcBtnRow{ margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+      #tutorialCoachOverlay .tcBtn{
+        padding:7px 14px; border-radius:9px; font-weight:900; font-size:12.5px; cursor:pointer;
+        border:1px solid #4df7a8; background:linear-gradient(180deg,#19e27a,#11985b); color:#052319;
+      }
+      #tutorialCoachOverlay .tcSkip{
+        flex:none; width:26px; height:26px; border-radius:50%; border:1px solid rgba(255,255,255,.25);
+        background:rgba(255,255,255,.06); color:#dffbff; cursor:pointer; font-size:13px;
+      }
+      .tcHighlight{
+        outline:3px solid #ffd93d !important; outline-offset:4px;
+        box-shadow:0 0 0 6px rgba(255,217,61,.25), 0 0 30px rgba(255,217,61,.7) !important;
+        animation:tcHighlightPulse 1.2s ease-in-out infinite;
+        border-radius:10px;
+        position:relative; z-index:8500 !important;
+      }
+      @keyframes tcHighlightPulse{ 0%,100%{ outline-color:#ffd93d; } 50%{ outline-color:#fff2b0; } }
+    `;
+    document.head.appendChild(style);
+
+    document.getElementById('tcSkipBtn').addEventListener('click', () => {
+      if (confirm('Quitter le didacticiel et revenir à PLAY ?')) {
+        markArmsTutorialSeen();
+        window.location.href = '/play.html';
+      }
+    });
+
+    function setCoachText(label, html, buttons){
+      document.getElementById('tcStepLabel').textContent = label;
+      document.getElementById('tcText').innerHTML = html;
+      const btnRow = document.getElementById('tcBtnRow');
+      btnRow.innerHTML = '';
+      (buttons || []).forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'tcBtn';
+        btn.textContent = b.label;
+        btn.addEventListener('click', b.onClick);
+        btnRow.appendChild(btn);
+      });
+    }
+
+    function clearHighlight(){
+      document.querySelectorAll('.tcHighlight').forEach(el => el.classList.remove('tcHighlight'));
+    }
+    function highlight(el){
+      clearHighlight();
+      if (el) el.classList.add('tcHighlight');
+    }
+    function highlightHandCard(label){
+      const card = botHand.find(c => c.label === label);
+      if (!card) return null;
+      const el = document.querySelector(`#handBottom [data-id="${card.id}"]`);
+      highlight(el);
+      return el;
+    }
+
+    function waitForCondition(checkFn, onDone, intervalMs){
+      const timer = setInterval(()=>{
+        try{
+          if (checkFn()) { clearInterval(timer); onDone(); }
+        }catch(e){ /* le plateau peut se re-rendre entre deux vérifications, on retente */ }
+      }, intervalMs || 400);
+      return timer;
+    }
+
+    async function markArmsTutorialSeen(){
+      try{ await fetch('/api/tutorial/seen', { method:'POST' }); }catch(e){}
+    }
+
+    // ---- Étape 0 : accueil ----
+    function tcStep0(){
+      clearHighlight();
+      setCoachText('Étape 1 / 7', `Bienvenue ! On va jouer un <strong>vrai tour de jeu</strong> ensemble, sur le vrai plateau.
+        Je vous dirai exactement quoi faire, à chaque étape.`, [
+        { label: 'Commencer →', onClick: tcStep1 }
+      ]);
+    }
+
+    // ---- Étape 1 : jouer un Personnage ----
+    function tcStep1(){
+      const startCount = botLine.length;
+      const el = highlightHandCard('C1');
+      setCoachText('Étape 2 / 7 — Jouer une carte', `Voici votre main. <strong>${cardName('C1')}</strong> est un Personnage :
+        une fois en jeu, il peut combattre pour vous. Faites-le glisser (ou cliquez dessus, selon votre appareil)
+        vers votre <strong>zone de combat</strong>, juste en dessous de votre main.`, []);
+      waitForCondition(() => botLine.length > startCount, tcStep2);
+    }
+
+    // ---- Étape 2 : Mithril ----
+    function tcStep2(){
+      const box = document.getElementById('mithrilBoxBottom');
+      highlight(box);
+      setCoachText('Étape 3 / 7 — Le Mithril', `Bien joué ! Le <strong>Mithril</strong> ⟡ est votre ressource courante — elle
+        s'accumule au fil de la partie et sert à activer des effets, mais aussi à <strong>forger des A’rms</strong>.
+        Cliquez sur "Continuer" pour en gagner un peu, comme cela arrive en jeu.`, [
+        { label: 'Continuer →', onClick: () => {
+          addMithril('bottom');
+          addMithril('bottom');
+          setTimeout(tcStep3, 500);
+        } }
+      ]);
+    }
+
+    // ---- Étape 3 : attaquer ----
+    function tcStep3(){
+      clearHighlight();
+      setCoachText('Étape 4 / 7 — Attaquer', `Un adversaire arrive…`, []);
+      setTimeout(()=>{
+        const dummy = createCard('C2', 'T');
+        topLine.push(dummy);
+        fullRender();
+        const myCard = botLine[0];
+        const el = myCard ? document.querySelector(`[data-id="${myCard.id}"]`) : null;
+        highlight(el);
+        const startTopCount = topLine.length;
+        const startMyHp = myCard ? getEffectiveHP(myCard) : 0;
+        setCoachText('Étape 4 / 7 — Attaquer', `L'adversaire place un combattant en face du vôtre. Faites glisser votre
+          <strong>${myCard ? cardName(myCard.label) : 'combattant'}</strong> vers lui pour l'attaquer — les dégâts s'échangent
+          des <strong>deux côtés</strong>.`, []);
+        waitForCondition(() => {
+          const stillThere = botLine.find(c => myCard && c.id === myCard.id);
+          const hpChanged = stillThere ? (getEffectiveHP(stillThere) !== startMyHp) : true;
+          return topLine.length < startTopCount || hpChanged;
+        }, tcStep4);
+      }, 900);
+    }
+
+    // ---- Étape 4 : familier ----
+    function tcStep4(){
+      setCoachText('Étape 5 / 7 — Les Familiers', `Le combat s'est déroulé exactement comme un vrai combat, car
+        <strong>c'en était un</strong>. Renforçons maintenant votre équipe : <strong>${cardName('C64')}</strong> est un Familier.
+        Faites-le glisser sur un de vos combattants pour l'y rattacher.`, []);
+      const startFamCount = famBottom.length;
+      highlightHandCard('C64');
+      waitForCondition(() => famBottom.length > startFamCount, tcStep5);
+    }
+
+    // ---- Étape 5 : action ----
+    function tcStep5(){
+      clearHighlight();
+      const startHandCount = botHand.length;
+      highlightHandCard('C4');
+      setCoachText('Étape 6 / 7 — Les Actions', `Il vous reste une carte <strong>Action</strong> : elle produit un effet
+        immédiat, puis part directement en défausse. Jouez <strong>${cardName('C4')}</strong> pour la découvrir.`, []);
+      waitForCondition(() => !botHand.find(c => c.label === 'C4'), tcStep6);
+    }
+
+    // ---- Étape 6 : forge auto + fin de tour ----
+    function tcStep6(){
+      clearHighlight();
+      const armsBox = document.getElementById('armsBottom');
+      highlight(armsBox);
+      setCoachText('Étape 7 / 7 — Forger un A’rms', `Contrairement à d'autres jeux, <strong>pas besoin de bouton</strong> :
+        dès que vous avez assez de Mithril, un <strong>A’rms</strong> ⚒ se forge automatiquement à la fin de votre tour.
+        Forger 5 A’rms avant votre adversaire est l'un des moyens de gagner la partie.
+        Cliquez maintenant sur <strong>"FIN DE TOUR"</strong> pour le voir se produire.`, []);
+      const endBtn = document.getElementById('endTurn');
+      setTimeout(()=> highlight(endBtn), 300);
+      waitForCondition(() => currentTurn === 'top', () => {
+        clearHighlight();
+        setCoachText('Un instant…', `Votre A’rms se forge, puis c'est au tour de l'adversaire de jouer…`, []);
+        setTimeout(tcOpponentTurn, 1200);
+      });
+    }
+
+    // ---- Tour adverse scripté ----
+    function tcOpponentTurn(){
+      try{
+        const dummy2 = createCard('C3', 'T');
+        topLine.push(dummy2);
+        fullRender();
+      }catch(e){}
+      setTimeout(()=>{
+        const btn = document.getElementById('endTurn');
+        if (btn) btn.click();
+        waitForCondition(() => currentTurn === 'bottom', tcFinal);
+      }, 1400);
+    }
+
+    // ---- Conclusion ----
+    function tcFinal(){
+      clearHighlight();
+      setCoachText('Terminé !', `Vous venez de vivre un tour complet, sur le vrai plateau : jouer un Personnage, gérer votre
+        Mithril, attaquer, rattacher un Familier, jouer une Action, et forger un A’rms. Vous êtes prêt à jouer pour de vrai —
+        bonne chance, stratège !`, [
+        { label: 'Terminer le didacticiel', onClick: () => {
+          markArmsTutorialSeen();
+          window.location.href = '/play.html';
+        } }
+      ]);
+    }
+
+    markArmsTutorialSeen();
+    tcStep0();
+  }catch(e){ console.error('[Didacticiel] erreur :', e); }
 }
 </script>
 </body>

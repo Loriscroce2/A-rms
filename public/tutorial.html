@@ -2,411 +2,77 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>A’rms — Didacticiel interactif</title>
+  <title>A’rms — Didacticiel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="/sitenav.css" />
   <style>
     :root{
-      --bg1:#06131a; --bg2:#031017; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff;
-      --accent:#00e6ff; --ok:#19e27a; --warn:#ffb84d; --err:#ff5252; --gold:#ffd93d;
-      --mithril:#a78bfa; --arms:#ff8a3d;
+      --bg1:#06131a; --bg2:#031017; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff; --gold:#ffd93d;
     }
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap');
     *{box-sizing:border-box} html,body{height:100%}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
       background:radial-gradient(1200px 420px at 60% -180px, rgba(0,230,255,.14), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
-    .container{max-width:900px;margin:0 auto;padding:0 16px 60px}
-
-    .tutHeader{ text-align:center; padding:22px 0 6px; }
-    .tutHeader h1{ font-family:'Cinzel',sans-serif; font-size:24px; margin:0 0 4px;
+    .container{max-width:680px;margin:0 auto;padding:60px 16px}
+    .launchCard{
+      text-align:center; padding:44px 30px; border-radius:22px;
+      background:linear-gradient(160deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
+      border:1.5px solid rgba(125,249,255,.3); box-shadow:0 20px 50px rgba(0,0,0,.5);
+    }
+    .launchIcon{ font-size:52px; margin-bottom:14px; }
+    .launchCard h1{ font-family:'Cinzel',sans-serif; font-size:26px; margin:0 0 14px;
       background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent; }
-    .tutHeader p{ font-size:12.5px; color:var(--muted); opacity:.8; margin:0; }
-
-    /* Coach : message d'instruction, toujours visible en haut du plateau simulé */
-    .coachBox{
-      display:flex; align-items:flex-start; gap:14px; padding:16px 18px; border-radius:16px;
-      background:linear-gradient(145deg,#0a2530,#051820); border:1.5px solid rgba(125,249,255,.4);
-      box-shadow:0 0 24px rgba(0,230,255,.2); margin:18px 0;
+    .launchCard p{ font-size:14.5px; line-height:1.65; color:var(--muted); max-width:480px; margin:0 auto 14px; }
+    .launchCard p strong{ color:#fff; }
+    .featureList{ text-align:left; max-width:420px; margin:22px auto 28px; display:flex; flex-direction:column; gap:10px; }
+    .featureItem{ display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--muted); }
+    .featureItem .fi{ font-size:18px; flex:none; }
+    .launchBtn{
+      display:inline-block; padding:14px 30px; border-radius:14px; font-weight:900; font-size:16px; cursor:pointer;
+      background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border:1px solid #4df7a8; text-decoration:none;
+      box-shadow:0 0 20px rgba(25,226,122,.4); transition:transform .15s ease;
     }
-    .coachAvatar{ font-size:30px; flex:none; }
-    .coachTextWrap{ flex:1; }
-    .coachStepLabel{ font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:#7df9ff; opacity:.7; margin-bottom:4px; }
-    .coachText{ font-size:14px; line-height:1.55; }
-    .coachText strong{ color:var(--gold); }
-
-    /* Plateau simulé */
-    .mockBoard{
-      border-radius:20px; padding:18px; background:linear-gradient(160deg, rgba(255,255,255,.03), rgba(255,255,255,.008));
-      border:1px solid rgba(255,255,255,.1);
-    }
-    .mockBar{ display:flex; align-items:center; justify-content:space-between; font-size:12px; padding:6px 4px; color:var(--muted); }
-    .mockBar .mbLabel{ font-weight:800; opacity:.8; }
-    .mockResources{ display:flex; gap:14px; }
-    .mockRes{ display:flex; align-items:center; gap:5px; font-weight:800; }
-    .mockRes.mithril{ color:var(--mithril); }
-    .mockRes.arms{ color:var(--arms); }
-    .mockResourceClickable{ cursor:pointer; padding:4px 10px; border-radius:999px; transition:transform .15s ease, box-shadow .15s ease; }
-
-    .mockZone{
-      min-height:110px; border-radius:14px; border:2px dashed rgba(125,249,255,.25); background:rgba(125,249,255,.02);
-      display:flex; align-items:center; justify-content:center; gap:14px; padding:12px; margin:8px 0; flex-wrap:wrap;
-      transition:border-color .3s ease, background .3s ease;
-    }
-    .mockZoneLabel{ text-align:center; font-size:10px; text-transform:uppercase; letter-spacing:.08em; opacity:.5; margin-top:-4px; }
-
-    .mockCombatant{
-      width:70px; height:96px; border-radius:10px; border:2px solid #7df9ff; background:linear-gradient(160deg,#0d2530,#081820);
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:26px; position:relative;
-      box-shadow:0 0 16px rgba(125,249,255,.3); transition:transform .3s ease, box-shadow .3s ease, border-color .3s ease;
-    }
-    .mockCombatant .hpTag{ font-size:10px; font-weight:900; color:#ff8080; }
-    .mockCombatant.opp{ border-color:#ff8080; box-shadow:0 0 16px rgba(255,120,120,.3); }
-    .mockCombatant.attackable{ cursor:pointer; animation:mockPulseBorder 1.2s ease-in-out infinite; }
-    .mockCombatant.shaking{ animation:mockShake .4s ease; }
-    .mockCombatant.familiarAttached::after{
-      content:'🐾'; position:absolute; bottom:-8px; right:-8px; font-size:16px;
-      background:#0a1a22; border-radius:50%; padding:2px; border:1px solid #ffd93d;
-    }
-    @keyframes mockPulseBorder{ 0%,100%{ box-shadow:0 0 16px rgba(125,249,255,.35); } 50%{ box-shadow:0 0 30px rgba(125,249,255,.85); } }
-    @keyframes mockShake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-6px); } 75%{ transform:translateX(6px); } }
-
-    .mockHandRow{ display:flex; gap:12px; justify-content:center; padding:14px 6px 4px; flex-wrap:wrap; }
-    .mockCard{
-      width:84px; height:118px; border-radius:10px; border:2px solid rgba(125,249,255,.4); background:linear-gradient(160deg,#0d2530,#081820);
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:6px; text-align:center;
-      box-shadow:0 6px 16px rgba(0,0,0,.5); transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease, opacity .3s ease;
-    }
-    .mockCard .mcIcon{ font-size:24px; }
-    .mockCard .mcName{ font-size:9.5px; font-weight:800; line-height:1.2; }
-    .mockCard .mcType{ font-size:8px; opacity:.6; text-transform:uppercase; }
-    .mockCard.playable{ cursor:pointer; animation:mockCardGlow 1.3s ease-in-out infinite; }
-    .mockCard.gone{ opacity:0; transform:translateY(-40px) scale(.5); pointer-events:none; }
-    @keyframes mockCardGlow{ 0%,100%{ transform:translateY(0); border-color:rgba(255,217,61,.5); box-shadow:0 6px 16px rgba(0,0,0,.5); } 50%{ transform:translateY(-8px); border-color:#ffd93d; box-shadow:0 6px 24px rgba(255,217,61,.5); } }
-
-    .mockActionsRow{ display:flex; justify-content:center; gap:12px; margin-top:14px; flex-wrap:wrap; }
-    .mockActionBtn{
-      padding:10px 18px; border-radius:12px; font-weight:900; font-size:13px; cursor:pointer; border:1px solid rgba(255,255,255,.2);
-      background:linear-gradient(180deg,#0d2d38,#0a2028); color:#dffbff; transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
-    }
-    .mockActionBtn.ready{ background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border-color:#4df7a8; cursor:pointer;
-      animation:mockCardGlow 1.3s ease-in-out infinite; }
-    .mockActionBtn:disabled{ opacity:.35; cursor:not-allowed; animation:none; }
-    .mockActionBtn:not(:disabled):hover{ transform:translateY(-2px); }
-
-    .mockFloatText{
-      position:fixed; z-index:999; font-weight:900; font-size:18px; pointer-events:none;
-      animation:mockFloatUp 1.1s ease forwards;
-    }
-    @keyframes mockFloatUp{ 0%{ opacity:0; transform:translateY(0) scale(.6); } 20%{ opacity:1; transform:translateY(-10px) scale(1.1); } 100%{ opacity:0; transform:translateY(-60px) scale(1); } }
-
-    .tutFooterNav{ display:flex; justify-content:center; margin-top:20px; }
-    .tutSkipLink{ text-align:center; margin-top:12px; font-size:11.5px; color:var(--muted); opacity:.55; cursor:pointer; text-decoration:underline; }
-
-    .tutFinalCard{
-      text-align:center; padding:40px 24px; border-radius:20px;
-      background:linear-gradient(160deg, rgba(25,226,122,.08), rgba(255,255,255,.01)); border:1.5px solid rgba(25,226,122,.4);
-    }
-    .tutFinalCard .tfIcon{ font-size:52px; margin-bottom:10px; }
-    .tutFinalCard h2{ font-family:'Cinzel',sans-serif; margin:0 0 10px; }
-    .tutFinalCard p{ color:var(--muted); font-size:14px; line-height:1.6; max-width:480px; margin:0 auto 20px; }
+    .launchBtn:hover{ transform:translateY(-2px); }
+    .laterLink{ display:block; margin-top:16px; font-size:12px; color:var(--muted); opacity:.6; text-decoration:underline; cursor:pointer; }
   </style>
 </head>
 <body>
   <div id="site-header-root"></div>
 
   <main class="container">
-    <div class="tutHeader">
-      <h1>🎓 Mise en situation</h1>
-      <p>Vous allez jouer un tour complet, étape par étape — on vous dit exactement quoi faire.</p>
-    </div>
-
-    <div class="coachBox">
-      <div class="coachAvatar">🧙</div>
-      <div class="coachTextWrap">
-        <div class="coachStepLabel" id="coachStepLabel">Étape 1</div>
-        <div class="coachText" id="coachText"></div>
+    <div class="launchCard">
+      <div class="launchIcon">🎓</div>
+      <h1>Découvrez A’rms en jouant</h1>
+      <p>
+        Ce didacticiel n'est pas un simple diaporama : il ouvre une <strong>vraie partie en 1 contre 1</strong>, sur le
+        <strong>vrai plateau de jeu</strong> — exactement celui que vous utiliserez pour toutes vos parties. Un coach vous
+        accompagne à chaque étape et vous dit précisément quoi faire.
+      </p>
+      <div class="featureList">
+        <div class="featureItem"><span class="fi">🗡️</span> Jouer un Personnage dans votre zone de combat</div>
+        <div class="featureItem"><span class="fi">⟡</span> Comprendre le Mithril, votre ressource courante</div>
+        <div class="featureItem"><span class="fi">⚔</span> Lancer une vraie attaque et voir le combat se dérouler</div>
+        <div class="featureItem"><span class="fi">🐾</span> Rattacher un Familier, jouer une Action</div>
+        <div class="featureItem"><span class="fi">⚒</span> Forger votre premier A’rms et terminer votre tour</div>
       </div>
+      <a class="launchBtn" href="/index.html?tutorial=1" id="launchBtn">▶ Lancer le didacticiel</a>
+      <div class="laterLink" id="laterLink">Plus tard</div>
     </div>
-
-    <div id="mockBoardZone"></div>
-
-    <div class="tutSkipLink" id="tutSkip">Passer le didacticiel</div>
   </main>
 
   <script src="/auth.js"></script>
   <script src="/sitenav.js"></script>
   <script>
-    // ===== État simulé du mini-plateau =====
-    const state = {
-      mithril: 3,
-      arms: 0,
-      hand: [
-        { id:'h1', icon:'🗡️', name:'Guerrier Loyal', type:'Personnage' },
-        { id:'h2', icon:'🐾', name:'Esprit Fidèle', type:'Familier' },
-        { id:'h3', icon:'✨', name:'Éclat de Mithril', type:'Action' },
-      ],
-      playerZone: [],
-      oppZone: [],
-      goneCards: new Set(),
-    };
-    let stepIndex = 0;
-
-    function boardHtml(){
-      const handHtml = state.hand.map(c => `
-        <div class="mockCard ${c._playable ? 'playable' : ''} ${state.goneCards.has(c.id) ? 'gone' : ''}" data-card="${c.id}">
-          <div class="mcIcon">${c.icon}</div>
-          <div class="mcName">${c.name}</div>
-          <div class="mcType">${c.type}</div>
-        </div>`).join('');
-
-      const oppZoneHtml = state.oppZone.map(c => `
-        <div class="mockCombatant opp" id="${c.id}">
-          <div>${c.icon}</div><div class="hpTag">${c.hp} PV</div>
-        </div>`).join('') || `<span style="opacity:.4;font-size:11px;">Zone adverse vide</span>`;
-
-      const playerZoneHtml = state.playerZone.map(c => `
-        <div class="mockCombatant ${c._attackable ? 'attackable' : ''} ${c._familiar ? 'familiarAttached' : ''}" id="${c.id}" data-combatant="${c.id}">
-          <div>${c.icon}</div><div class="hpTag">${c.hp} PV</div>
-        </div>`).join('') || `<span style="opacity:.4;font-size:11px;">Votre zone est vide</span>`;
-
-      return `
-        <div class="mockBoard">
-          <div class="mockBar">
-            <span class="mbLabel">🧑‍🤝‍🧑 Adversaire</span>
-            <div class="mockResources"><span class="mockRes mithril">⟡ 2</span><span class="mockRes arms">⚒ ${state.oppArms||0}</span></div>
-          </div>
-          <div class="mockZone" id="oppZoneEl">${oppZoneHtml}</div>
-          <div class="mockZoneLabel">Zone de combat adverse</div>
-
-          <div class="mockZone" id="playerZoneEl">${playerZoneHtml}</div>
-          <div class="mockZoneLabel">Votre zone de combat</div>
-
-          <div class="mockBar" style="margin-top:8px;">
-            <span class="mbLabel">Vous</span>
-            <div class="mockResources">
-              <span class="mockRes mithril mockResourceClickable" id="mithrilCounter">⟡ <span id="mithrilVal">${state.mithril}</span></span>
-              <span class="mockRes arms">⚒ <span id="armsVal">${state.arms}</span></span>
-            </div>
-          </div>
-
-          <div class="mockHandRow" id="handRow">${handHtml}</div>
-
-          <div class="mockActionsRow">
-            <button class="mockActionBtn" id="forgeBtn" disabled>⚒ Forger un A’rms</button>
-            <button class="mockActionBtn" id="endTurnBtn" disabled>Fin de tour</button>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderBoard(){
-      document.getElementById('mockBoardZone').innerHTML = boardHtml();
-    }
-
-    function setCoach(label, html){
-      document.getElementById('coachStepLabel').textContent = label;
-      document.getElementById('coachText').innerHTML = html;
-    }
-
-    function floatText(x, y, text, color){
-      const el = document.createElement('div');
-      el.className = 'mockFloatText';
-      el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.color = color || '#7df9ff';
-      el.textContent = text;
-      document.body.appendChild(el);
-      setTimeout(()=> el.remove(), 1100);
-    }
-
-    function centerOf(el){
-      const r = el.getBoundingClientRect();
-      return { x: r.left + r.width/2, y: r.top + r.height/2 };
-    }
-
-    // ===== Séquence scénarisée =====
-    function goToStep(n){
-      stepIndex = n;
-      STEP_FUNCS[n]();
-    }
-
-    const STEP_FUNCS = [
-      // Étape 0 — accueil
-      function step0(){
-        renderBoard();
-        setCoach('Étape 1 / 8', `Bienvenue ! Je vais vous accompagner à travers un <strong>tour de jeu complet</strong>, en vous
-          disant exactement quoi faire, quand le faire. <br><br>Cliquez n'importe où sur le plateau ci-dessous pour commencer.`);
-        document.getElementById('mockBoardZone').addEventListener('click', function handler(){
-          document.getElementById('mockBoardZone').removeEventListener('click', handler);
-          goToStep(1);
-        }, { once:true });
-      },
-
-      // Étape 1 — jouer un Personnage
-      function step1(){
-        state.hand.find(c=>c.id==='h1')._playable = true;
-        renderBoard();
-        setCoach('Étape 2 / 8 — Jouer une carte', `Voici votre main. <strong>Guerrier Loyal</strong> est un Personnage : il peut
-          combattre pour vous une fois en jeu. <strong>Cliquez sur sa carte</strong> (elle brille) pour l'envoyer dans votre zone de combat.`);
-        document.querySelector('[data-card="h1"]').addEventListener('click', function handler(e){
-          e.currentTarget.removeEventListener('click', handler);
-          state.goneCards.add('h1');
-          state.hand = state.hand.filter(c => c.id !== 'h1');
-          state.playerZone.push({ id:'pc1', icon:'🗡️', hp:4 });
-          renderBoard();
-          setTimeout(()=> goToStep(2), 700);
-        });
-      },
-
-      // Étape 2 — Mithril
-      function step2(){
-        renderBoard();
-        setCoach('Étape 3 / 8 — Le Mithril', `Bien joué ! Votre Guerrier Loyal est sur le terrain. Le <strong>Mithril</strong> ⟡
-          est votre ressource courante — elle s'accumule au fil de la partie et sert à activer certains effets.
-          <strong>Cliquez sur le compteur de Mithril</strong> pour voir comment il augmente.`);
-        document.getElementById('mithrilCounter').addEventListener('click', function handler(e){
-          e.currentTarget.removeEventListener('click', handler);
-          const pos = centerOf(e.currentTarget);
-          state.mithril += 1;
-          document.getElementById('mithrilVal').textContent = state.mithril;
-          floatText(pos.x, pos.y - 10, '+1 ⟡', '#a78bfa');
-          setTimeout(()=> goToStep(3), 700);
-        });
-      },
-
-      // Étape 3 — l'adversaire joue, puis on attaque
-      function step3(){
-        renderBoard();
-        setCoach('Étape 4 / 8 — Attaquer', `L'adversaire place un combattant en face du vôtre…`);
-        setTimeout(()=>{
-          state.oppZone.push({ id:'oc1', icon:'🛡️', hp:3 });
-          renderBoard();
-          state.playerZone[0]._attackable = true;
-          renderBoard();
-          setCoach('Étape 4 / 8 — Attaquer', `L'adversaire a placé un combattant à <strong>3 PV</strong> en face du vôtre.
-            <strong>Cliquez sur votre Guerrier Loyal</strong> (il pulse) pour l'envoyer à l'attaque !`);
-          document.querySelector('[data-combatant="pc1"]').addEventListener('click', function handler(e){
-            e.currentTarget.removeEventListener('click', handler);
-            const oppEl = document.getElementById('oc1');
-            if (oppEl) oppEl.classList.add('shaking');
-            e.currentTarget.classList.add('shaking');
-            state.oppZone[0].hp -= 4;
-            state.playerZone[0].hp -= 2;
-            setTimeout(()=>{
-              state.oppZone = state.oppZone.filter(c => c.hp > 0);
-              renderBoard();
-              setCoach('Étape 4 / 8 — Attaquer', `Le combat s'échange <strong>des deux côtés</strong> : votre Guerrier Loyal inflige
-                des dégâts, mais en encaisse aussi en retour. Le combattant adverse est détruit !`);
-              setTimeout(()=> goToStep(4), 1400);
-            }, 500);
-          });
-        }, 900);
-      },
-
-      // Étape 4 — rattacher un Familier
-      function step4(){
-        state.hand.find(c=>c.id==='h2')._playable = true;
-        renderBoard();
-        setCoach('Étape 5 / 8 — Les Familiers', `Renforçons votre équipe. <strong>Esprit Fidèle</strong> est un Familier : il se
-          rattache à un combattant pour l'améliorer. <strong>Cliquez sur sa carte</strong> pour le rattacher à votre Guerrier Loyal.`);
-        document.querySelector('[data-card="h2"]').addEventListener('click', function handler(e){
-          e.currentTarget.removeEventListener('click', handler);
-          state.goneCards.add('h2');
-          state.hand = state.hand.filter(c => c.id !== 'h2');
-          if (state.playerZone[0]) { state.playerZone[0]._familiar = true; state.playerZone[0].hp += 2; }
-          renderBoard();
-          setCoach('Étape 5 / 8 — Les Familiers', `Esprit Fidèle est maintenant rattaché à votre Guerrier Loyal et lui donne un
-            bonus de PV — les Familiers restent attachés tant que leur hôte est en vie.`);
-          setTimeout(()=> goToStep(5), 1300);
-        });
-      },
-
-      // Étape 5 — jouer une Action
-      function step5(){
-        state.hand.find(c=>c.id==='h3')._playable = true;
-        renderBoard();
-        setCoach('Étape 6 / 8 — Les Actions', `Il vous reste une carte <strong>Action</strong> : elle produit un effet immédiat,
-          puis part directement en défausse. <strong>Cliquez sur Éclat de Mithril</strong> pour la jouer.`);
-        document.querySelector('[data-card="h3"]').addEventListener('click', function handler(e){
-          e.currentTarget.removeEventListener('click', handler);
-          const pos = centerOf(e.currentTarget);
-          state.goneCards.add('h3');
-          state.hand = state.hand.filter(c => c.id !== 'h3');
-          state.mithril += 3;
-          renderBoard();
-          document.getElementById('mithrilVal').textContent = state.mithril;
-          floatText(pos.x, pos.y, '+3 ⟡', '#a78bfa');
-          setCoach('Étape 6 / 8 — Les Actions', `Éclat de Mithril vous rapporte immédiatement +3 Mithril, puis part en défausse —
-            une carte Action ne reste jamais en jeu.`);
-          setTimeout(()=> goToStep(6), 1300);
-        });
-      },
-
-      // Étape 6 — forger un A'rms
-      function step6(){
-        renderBoard();
-        const forgeBtn = document.getElementById('forgeBtn');
-        forgeBtn.disabled = false;
-        forgeBtn.classList.add('ready');
-        setCoach('Étape 7 / 8 — Forger un A’rms', `Vous avez assez de Mithril accumulé ! Les <strong>A’rms</strong> ⚒ sont la
-          ressource qui mène à la victoire — forgez-en 5 avant votre adversaire pour gagner. <strong>Cliquez sur "Forger un A’rms"</strong>.`);
-        forgeBtn.addEventListener('click', function handler(e){
-          e.currentTarget.removeEventListener('click', handler);
-          const pos = centerOf(e.currentTarget);
-          state.mithril -= 5;
-          state.arms += 1;
-          renderBoard();
-          floatText(pos.x, pos.y, '+1 ⚒ !', '#ff8a3d');
-          setCoach('Étape 7 / 8 — Forger un A’rms', `Bravo, votre premier A’rms est forgé ! Encore 4 et la victoire est à vous.`);
-          setTimeout(()=> goToStep(7), 1400);
-        });
-      },
-
-      // Étape 7 — fin de tour
-      function step7(){
-        renderBoard();
-        const endBtn = document.getElementById('endTurnBtn');
-        endBtn.disabled = false;
-        endBtn.classList.add('ready');
-        setCoach('Étape 8 / 8 — Fin de tour', `Votre tour touche à sa fin. <strong>Cliquez sur "Fin de tour"</strong> pour laisser
-          la main à votre adversaire — vous piocherez automatiquement de nouvelles cartes à votre prochain tour.`);
-        endBtn.addEventListener('click', function handler(e){
-          e.currentTarget.removeEventListener('click', handler);
-          setCoach('Étape 8 / 8 — Fin de tour', `Tour terminé. L'adversaire joue à son tour…`);
-          setTimeout(()=> goToFinal(), 1300);
-        });
-      },
-    ];
-
-    function goToFinal(){
-      document.getElementById('coachStepLabel').textContent = 'Terminé';
-      document.getElementById('coachText').innerHTML = `Vous venez de vivre un tour complet !`;
-      document.getElementById('mockBoardZone').innerHTML = `
-        <div class="tutFinalCard">
-          <div class="tfIcon">🎉</div>
-          <h2>Vous êtes prêt !</h2>
-          <p>
-            Vous savez désormais jouer un Personnage, faire progresser votre Mithril, attaquer, rattacher un Familier,
-            jouer une Action, forger un A’rms et terminer votre tour. Composez votre premier deck et lancez-vous
-            dans votre toute première vraie partie — bonne chance, stratège !
-          </p>
-          <button class="mockActionBtn ready" id="finishTutBtn">Composer mon deck →</button>
-        </div>
-      `;
-      document.getElementById('tutSkip').style.display = 'none';
-      document.getElementById('finishTutBtn').addEventListener('click', () => {
-        markTutorialSeen().then(()=>{ window.location.href = '/play.html'; });
-      });
-      markTutorialSeen();
-    }
-
-    async function markTutorialSeen(){
-      try{ await fetch('/api/tutorial/seen', { method:'POST' }); }catch(e){}
-    }
-
-    document.getElementById('tutSkip').addEventListener('click', () => {
-      markTutorialSeen().then(()=>{ window.location.href = '/accueil.html'; });
+    document.getElementById('launchBtn').addEventListener('click', () => {
+      try {
+        const el = document.documentElement;
+        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+        if (req) { const p = req.call(el); if (p && p.catch) p.catch(()=>{}); }
+      } catch(e){}
     });
-
-    goToStep(0);
+    document.getElementById('laterLink').addEventListener('click', () => {
+      window.location.href = '/accueil.html';
+    });
   </script>
 </body>
 </html>
