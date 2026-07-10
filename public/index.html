@@ -14014,9 +14014,9 @@ function startTutorialCoach(){
     document.head.appendChild(style);
 
     skipBtn.addEventListener('click', () => {
-      if (confirm('Quitter le didacticiel et revenir à PLAY ?')) {
+      if (confirm('Quitter le didacticiel et revenir à l\'accueil ?')) {
         markArmsTutorialSeen();
-        window.location.href = '/play.html';
+        window.location.href = '/accueil.html';
       }
     });
 
@@ -14163,16 +14163,23 @@ function startTutorialCoach(){
     // ---- 1. Accueil ----
     async function step0_Welcome(){
       let firstName = '';
+      let alreadySeen = false;
       try{
         const res = await fetch('/api/me');
         const data = await res.json();
-        if (res.ok && data.user && data.user.name) firstName = data.user.name;
+        if (res.ok && data.user) {
+          if (data.user.name) firstName = data.user.name;
+          alreadySeen = !!data.user.hasSeenTutorial;
+        }
       }catch(e){}
 
       const greeting = firstName ? `Bienvenue, <strong>${firstName}</strong> !` : 'Bienvenue !';
+      const rewardLine = alreadySeen
+        ? ''
+        : ` <br><br>Suivez mes indications jusqu'au bout : ça vous rapportera <strong>350 pièces</strong> — pile de quoi vous
+            offrir votre premier booster de cartes.`;
       showDialogue('Bienvenue dans A’rms', `${greeting} Je suis votre guide, et je vais vous accompagner à travers un vrai
-        tour de jeu, sur le plateau. <br><br>Suivez mes indications jusqu'au bout : ça vous rapportera
-        <strong>350 pièces</strong> — pile de quoi vous offrir votre premier booster de cartes.`, [
+        tour de jeu, sur le plateau.${rewardLine}`, [
         { label: 'Commencer', onClick: step1_CardTypes }
       ]);
     }
@@ -14409,7 +14416,11 @@ function startTutorialCoach(){
           hideDialogue();
           highlight(cycleBox, { noBlock: true });
           showBanner('Les Cycles', `Regardez ce repère : votre deck va se vider et votre défausse va être remélangée.`);
-          botDeck.length = 0;
+          // On met le reste du deck de côté (au lieu de le détruire), pour
+          // pouvoir le restituer juste après — sinon il ne reste ensuite que
+          // les 1-2 cartes remélangées, insuffisant pour repiocher jusqu'à 6
+          // cartes à la fin du tour.
+          const setAside = botDeck.splice(0, botDeck.length);
           updateDeckCounters();
           setTimeout(() => {
             reshuffleDiscardIntoDeck('bottom');
@@ -14421,6 +14432,9 @@ function startTutorialCoach(){
             if (cycleBox) { cycleBox.classList.remove('armForged'); void cycleBox.offsetWidth; cycleBox.classList.add('armForged'); }
             setTimeout(() => {
               clearHighlight(); hideBanner();
+              // Restitution du deck mis de côté, pour la suite du didacticiel.
+              botDeck.push(...setAside);
+              updateDeckCounters();
               showDialogue('1er Cycle atteint', `Votre défausse vient d'être remélangée en un nouveau deck : c'est votre
                 <strong>1er Cycle</strong> (visible sur ce repère). Il en resterait 2 avant la défaite automatique.`, [
                 { label: 'Continuer', onClick: step10_Forge }
@@ -14533,10 +14547,10 @@ function startTutorialCoach(){
             showDialogue('🪙 Récompense !', `Bravo, vous avez suivi le didacticiel jusqu'au bout — voici
               <strong>+${result.gained} pièces</strong> (solde : ${result.coins}). Pile de quoi vous offrir un premier
               booster de cartes !`, [
-              { label: 'Direction PLAY', onClick: () => { window.location.href = '/play.html'; } }
+              { label: 'Retour à l\'accueil', onClick: () => { window.location.href = '/accueil.html'; } }
             ]);
           } else {
-            window.location.href = '/play.html';
+            window.location.href = '/accueil.html';
           }
         } }
       ]);
