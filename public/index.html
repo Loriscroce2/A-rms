@@ -14404,13 +14404,18 @@ function startTutorialCoach(){
           setTimeout(() => {
             reshuffleDiscardIntoDeck('bottom');
             updateDeckCounters();
+            // Pulsation dorée sur le repère de Cycle, bien visible, AVANT
+            // d'ouvrir la boîte de dialogue (qui assombrirait sinon tout
+            // l'écran et masquerait l'illumination qu'on vient de déclencher).
+            showBanner('Les Cycles', `Votre défausse vient d'être remélangée — regardez le repère s'illuminer.`);
+            if (cycleBox) { cycleBox.classList.remove('armForged'); void cycleBox.offsetWidth; cycleBox.classList.add('armForged'); }
             setTimeout(() => {
               clearHighlight(); hideBanner();
               showDialogue('1er Cycle atteint', `Votre défausse vient d'être remélangée en un nouveau deck : c'est votre
                 <strong>1er Cycle</strong> (visible sur ce repère). Il en resterait 2 avant la défaite automatique.`, [
                 { label: 'Continuer', onClick: step10_Forge }
               ]);
-            }, 900);
+            }, 3000);
           }, 800);
         } }
       ]);
