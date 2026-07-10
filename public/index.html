@@ -14277,25 +14277,38 @@ function startTutorialCoach(){
       clearHighlight();
       showDialogue('Miner', `Au lieu d'attaquer, un combattant peut aussi <strong>miner</strong> : il rapporte
         <strong>+1 Mithril</strong>, mais ne pourra plus attaquer ce tour-ci — les deux actions sont
-        <strong>incompatibles</strong>.`, [
+        <strong>incompatibles</strong>. Faisons-le avec une seconde ${cardName('C116')}.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const miner = createCard('C116', 'B');
-          botLine.push(miner);
+          botHand.push(miner);
           fullRender();
-          const minerEl = document.querySelector(`[data-id="${miner.id}"]`);
-          highlight(minerEl);
-          showBanner('Miner', `Cliquez sur cette seconde ${cardName('C116')}, puis choisissez "Miner" dans le menu.`);
-          const startMithril = mithril['bottom'] || 0;
-          waitForCondition(() => (mithril['bottom'] || 0) > startMithril, () => {
+          const startCount = botLine.length;
+          const cardEl = document.querySelector(`#handBottom [data-id="${miner.id}"]`);
+          const zoneEl = document.getElementById('battleBottom');
+          highlight([cardEl, zoneEl], { noBlock: true });
+          showBanner('Miner', `Glissez cette seconde <strong>${cardName('C116')}</strong> (repère du haut) dans votre zone de
+            combat (repère du bas).`);
+          waitForCondition(() => botLine.length > startCount, () => {
             clearHighlight(); hideBanner();
-            showDialogue('Mithril gagné', `+1 Mithril récolté. Remarquez que cette carte ne peut désormais plus attaquer ce
-              tour-ci.`, [
-              { label: 'Continuer', onClick: step7_Familiar }
-            ]);
+            step6c2_MiningClick(miner);
           });
         } }
       ]);
+    }
+
+    function step6c2_MiningClick(miner){
+      const minerEl = document.querySelector(`[data-id="${miner.id}"]`);
+      highlight(minerEl);
+      showBanner('Miner', `Cliquez sur cette <strong>${cardName('C116')}</strong>, puis choisissez "Miner" dans le menu.`);
+      const startMithril = mithril['bottom'] || 0;
+      waitForCondition(() => (mithril['bottom'] || 0) > startMithril, () => {
+        clearHighlight(); hideBanner();
+        showDialogue('Mithril gagné', `+1 Mithril récolté. Remarquez que cette carte ne peut désormais plus attaquer ce
+          tour-ci.`, [
+          { label: 'Continuer', onClick: step7_Familiar }
+        ]);
+      });
     }
 
     // ---- 8. Familier ----

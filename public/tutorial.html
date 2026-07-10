@@ -12,52 +12,128 @@
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap');
     *{box-sizing:border-box} html,body{height:100%}
     body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
-      background:radial-gradient(1200px 420px at 60% -180px, rgba(0,230,255,.14), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
-    .container{max-width:680px;margin:0 auto;padding:60px 16px}
-    .launchCard{
-      text-align:center; padding:44px 30px; border-radius:22px;
-      background:linear-gradient(160deg, rgba(255,255,255,.035), rgba(255,255,255,.008));
-      border:1.5px solid rgba(125,249,255,.3); box-shadow:0 20px 50px rgba(0,0,0,.5);
+      background:radial-gradient(1300px 480px at 60% -220px, rgba(0,230,255,.15), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
+    .container{max-width:920px;margin:0 auto;padding:56px 16px 70px}
+
+    /* ---- Bandeau héroïque ---- */
+    .hero{
+      display:flex; align-items:center; gap:34px; flex-wrap:wrap; justify-content:center;
+      text-align:left; margin-bottom:44px;
     }
-    .launchIcon{ font-size:52px; margin-bottom:14px; }
-    .launchAvatar{ width:min(45vw,220px); height:min(45vw,220px); object-fit:contain; margin:0 auto 10px;
-      filter:drop-shadow(0 10px 20px rgba(0,0,0,.5)); display:block; }
-    .launchCard h1{ font-family:'Cinzel',sans-serif; font-size:26px; margin:0 0 14px;
-      background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent; }
-    .launchCard p{ font-size:14.5px; line-height:1.65; color:var(--muted); max-width:480px; margin:0 auto 14px; }
-    .launchCard p strong{ color:#fff; }
-    .featureList{ text-align:left; max-width:420px; margin:22px auto 28px; display:flex; flex-direction:column; gap:10px; }
-    .featureItem{ display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--muted); }
-    .featureItem .fi{ font-size:18px; flex:none; }
+    .heroAvatarWrap{ position:relative; flex:none; }
+    .heroAvatar{
+      width:min(60vw,320px); height:min(60vw,320px); object-fit:contain; display:block;
+      filter:drop-shadow(0 18px 34px rgba(0,0,0,.55)) drop-shadow(0 0 34px rgba(0,230,255,.25));
+    }
+    .heroText{ max-width:440px; text-align:center; }
+    @media (min-width:720px){ .heroText{ text-align:left; } }
+    .heroKicker{
+      display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:800; letter-spacing:.14em;
+      text-transform:uppercase; color:#7df9ff; background:rgba(125,249,255,.08); border:1px solid rgba(125,249,255,.3);
+      border-radius:999px; padding:6px 14px; margin-bottom:14px;
+    }
+    .heroText h1{
+      font-family:'Cinzel',sans-serif; font-size:clamp(26px,4vw,34px); margin:0 0 14px; line-height:1.15;
+      background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent;
+    }
+    .heroText p{ font-size:14.5px; line-height:1.7; color:var(--muted); margin:0; }
+    .heroText p strong{ color:#fff; }
+
+    /* ---- Grille des exercices ---- */
+    .sectionLabel{
+      text-align:center; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+      color:var(--muted); opacity:.65; margin-bottom:18px;
+    }
+    .exerciseGrid{
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:40px;
+    }
+    .exerciseCard{
+      position:relative; padding:22px 18px 20px; border-radius:16px; text-align:center;
+      background:linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,.008));
+      border:1px solid rgba(125,249,255,.16); transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .exerciseCard:hover{
+      transform:translateY(-4px); border-color:rgba(125,249,255,.5); box-shadow:0 14px 28px rgba(0,0,0,.4), 0 0 20px rgba(0,230,255,.15);
+    }
+    .exerciseNum{
+      position:absolute; top:10px; right:14px; font-family:'Cinzel',sans-serif; font-size:11px; font-weight:800;
+      color:rgba(125,249,255,.35);
+    }
+    .exerciseIcon{
+      width:54px; height:54px; margin:0 auto 14px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+      font-size:24px; background:radial-gradient(circle at 35% 30%, rgba(125,249,255,.18), rgba(125,249,255,.03));
+      border:1px solid rgba(125,249,255,.3); box-shadow:0 0 16px rgba(0,230,255,.15);
+    }
+    .exerciseCard h3{ font-family:'Cinzel',sans-serif; font-size:14px; margin:0 0 6px; color:#eafdff; letter-spacing:.02em; }
+    .exerciseCard p{ font-size:11.5px; line-height:1.5; color:var(--muted); opacity:.85; margin:0; }
+
+    /* ---- Zone d'action ---- */
+    .launchZone{ text-align:center; }
     .launchBtn{
-      display:inline-block; padding:14px 30px; border-radius:14px; font-weight:900; font-size:16px; cursor:pointer;
-      background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border:1px solid #4df7a8; text-decoration:none;
-      box-shadow:0 0 20px rgba(25,226,122,.4); transition:transform .15s ease;
+      display:inline-flex; align-items:center; gap:9px; padding:15px 34px; border-radius:14px; font-weight:900; font-size:16px;
+      cursor:pointer; background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border:1px solid #4df7a8;
+      text-decoration:none; box-shadow:0 0 24px rgba(25,226,122,.4), 0 10px 24px rgba(0,0,0,.35);
+      transition:transform .15s ease, box-shadow .15s ease;
     }
-    .launchBtn:hover{ transform:translateY(-2px); }
-    .laterLink{ display:block; margin-top:16px; font-size:12px; color:var(--muted); opacity:.6; text-decoration:underline; cursor:pointer; }
+    .launchBtn:hover{ transform:translateY(-3px); box-shadow:0 0 30px rgba(25,226,122,.55), 0 14px 28px rgba(0,0,0,.4); }
+    .launchNote{ margin-top:14px; font-size:11.5px; color:var(--muted); opacity:.6; }
+    .laterLink{ display:block; margin-top:10px; font-size:12px; color:var(--muted); opacity:.6; text-decoration:underline; cursor:pointer; }
   </style>
 </head>
 <body>
   <div id="site-header-root"></div>
 
   <main class="container">
-    <div class="launchCard">
-      <img class="launchAvatar" src="/assets/professeur.png" alt="Votre guide">
-      <h1>Apprenez à jouer à A’rms</h1>
-      <p>
-        Ce didacticiel vous apprend à jouer à <strong>A’rms</strong>, en conditions réelles : une vraie partie en
-        <strong>1 contre 1</strong>, sur le <strong>plateau de jeu</strong> que vous utiliserez pour toutes vos parties.
-        Un guide vous accompagne à chaque étape et vous indique précisément quoi faire.
-      </p>
-      <div class="featureList">
-        <div class="featureItem"><span class="fi">🗡️</span> Jouer un Personnage dans votre zone de combat</div>
-        <div class="featureItem"><span class="fi">⟡</span> Comprendre le Mithril, votre ressource courante</div>
-        <div class="featureItem"><span class="fi">⚔</span> Lancer une vraie attaque et voir le combat se dérouler</div>
-        <div class="featureItem"><span class="fi">🐾</span> Rattacher un Familier, jouer une Action</div>
-        <div class="featureItem"><span class="fi">⚒</span> Forger votre premier A’rms et terminer votre tour</div>
+    <div class="hero">
+      <div class="heroAvatarWrap"><img class="heroAvatar" src="/assets/professeur.png" alt="Votre guide"></div>
+      <div class="heroText">
+        <div class="heroKicker">✦ Didacticiel</div>
+        <h1>Apprenez à jouer à A’rms</h1>
+        <p>
+          Une série d'<strong>exercices guidés</strong>, directement sur le <strong>plateau de jeu</strong> — celui que vous
+          utiliserez pour toutes vos parties. Votre guide vous indique, étape par étape, précisément quoi faire et comment le
+          faire.
+        </p>
       </div>
+    </div>
+
+    <div class="sectionLabel">Ce que vous allez pratiquer</div>
+    <div class="exerciseGrid">
+      <div class="exerciseCard">
+        <div class="exerciseNum">01</div>
+        <div class="exerciseIcon">🗡️</div>
+        <h3>Jouer un Personnage</h3>
+        <p>L'envoyer dans votre zone de combat</p>
+      </div>
+      <div class="exerciseCard">
+        <div class="exerciseNum">02</div>
+        <div class="exerciseIcon">⟡</div>
+        <h3>Le Mithril</h3>
+        <p>Votre ressource courante</p>
+      </div>
+      <div class="exerciseCard">
+        <div class="exerciseNum">03</div>
+        <div class="exerciseIcon">⚔</div>
+        <h3>Attaquer et miner</h3>
+        <p>Deux usages d'un combattant</p>
+      </div>
+      <div class="exerciseCard">
+        <div class="exerciseNum">04</div>
+        <div class="exerciseIcon">🐾</div>
+        <h3>Familier et Action</h3>
+        <p>Renforcer votre équipe</p>
+      </div>
+      <div class="exerciseCard">
+        <div class="exerciseNum">05</div>
+        <div class="exerciseIcon">⚒</div>
+        <h3>Forger un A’rms</h3>
+        <p>Et terminer votre tour</p>
+      </div>
+    </div>
+
+    <div class="launchZone">
       <a class="launchBtn" href="/index.html?tutorial=1" id="launchBtn">▶ Lancer le didacticiel</a>
+      <div class="launchNote">Environ 5 minutes</div>
       <div class="laterLink" id="laterLink">Plus tard</div>
     </div>
   </main>
