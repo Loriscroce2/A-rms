@@ -13943,6 +13943,18 @@ function startTutorialCoach(){
         border-radius:12px;
         animation:tcSpotPulse 1.3s ease-in-out infinite;
       }
+      /* Variante SANS assombrissement — pour les gestes de glisser-déposer
+         (jouer une carte, attaquer, rattacher un familier) : le plateau
+         reste entièrement visible, y compris l'animation de combat qui suit
+         l'attaque, exactement comme en partie normale. Juste un contour
+         lumineux pour repérer la zone. */
+      .tcSpotlightLight{
+        z-index:9100 !important;
+        outline:3px solid #ffd93d !important; outline-offset:6px;
+        box-shadow:0 0 22px rgba(255,217,61,.7) !important;
+        border-radius:12px;
+        animation:tcSpotPulse 1.3s ease-in-out infinite;
+      }
       /* Uniquement pour les éléments en position statique par défaut — les
          cartes ont déjà leur propre positionnement (absolute en main,
          relative une fois posées), le leur imposer casserait leur mise en
@@ -14030,6 +14042,7 @@ function startTutorialCoach(){
     }
     function clearHighlight(){
       document.querySelectorAll('.tcSpotlight').forEach(el => el.classList.remove('tcSpotlight'));
+      document.querySelectorAll('.tcSpotlightLight').forEach(el => el.classList.remove('tcSpotlightLight'));
       document.querySelectorAll('.tcNeedsRelative').forEach(el => el.classList.remove('tcNeedsRelative'));
       document.getElementById('tcArrow').style.display = 'none';
       document.getElementById('tcArrow2').style.display = 'none';
@@ -14051,8 +14064,9 @@ function startTutorialCoach(){
       const els = (Array.isArray(elOrArr) ? elOrArr : [elOrArr]).filter(Boolean);
       if (els.length === 0) return;
       if (!opts.noBlock) blocker.style.display = 'block';
+      const spotClass = opts.noBlock ? 'tcSpotlightLight' : 'tcSpotlight';
       els.forEach(el => {
-        el.classList.add('tcSpotlight');
+        el.classList.add(spotClass);
         // On ne force position:relative QUE si l'élément est en position
         // statique par défaut (nécessaire pour que le z-index prenne effet).
         // Les cartes ont déjà leur propre positionnement (absolute en main,
