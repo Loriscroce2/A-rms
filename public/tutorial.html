@@ -45,12 +45,13 @@
       color:var(--muted); opacity:.65; margin-bottom:18px;
     }
     .exerciseGrid{
-      display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:40px;
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); grid-auto-rows:1fr; gap:14px; margin-bottom:40px;
     }
     .exerciseCard{
       position:relative; padding:22px 18px 20px; border-radius:16px; text-align:center;
       background:linear-gradient(160deg, rgba(255,255,255,.04), rgba(255,255,255,.008));
       border:1px solid rgba(125,249,255,.16); transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+      display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
     }
     .exerciseCard:hover{
       transform:translateY(-4px); border-color:rgba(125,249,255,.5); box-shadow:0 14px 28px rgba(0,0,0,.4), 0 0 20px rgba(0,230,255,.15);
@@ -68,7 +69,8 @@
     .exerciseCard p{ font-size:11.5px; line-height:1.5; color:var(--muted); opacity:.85; margin:0; }
 
     /* ---- Zone d'action ---- */
-    .launchZone{ text-align:center; }
+    .heroLaunchZone{ text-align:center; margin-top:22px; }
+    @media (min-width:720px){ .heroLaunchZone{ text-align:left; } }
     .launchBtn{
       display:inline-flex; align-items:center; gap:9px; padding:15px 34px; border-radius:14px; font-weight:900; font-size:16px;
       cursor:pointer; background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border:1px solid #4df7a8;
@@ -94,6 +96,11 @@
           utiliserez pour toutes vos parties. Votre guide vous indique, étape par étape, précisément quoi faire et comment le
           faire.
         </p>
+        <div class="heroLaunchZone">
+          <a class="launchBtn" href="/index.html?tutorial=1" id="launchBtn">▶ Lancer le didacticiel</a>
+          <div class="launchNote">Environ 5 minutes</div>
+          <div class="laterLink" id="laterLink">Plus tard</div>
+        </div>
       </div>
     </div>
 
@@ -129,12 +136,6 @@
         <h3>Forger un A’rms</h3>
         <p>Et terminer votre tour</p>
       </div>
-    </div>
-
-    <div class="launchZone">
-      <a class="launchBtn" href="/index.html?tutorial=1" id="launchBtn">▶ Lancer le didacticiel</a>
-      <div class="launchNote">Environ 5 minutes</div>
-      <div class="laterLink" id="laterLink">Plus tard</div>
     </div>
   </main>
 
