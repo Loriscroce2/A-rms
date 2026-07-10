@@ -20,6 +20,8 @@
       border:1.5px solid rgba(125,249,255,.3); box-shadow:0 20px 50px rgba(0,0,0,.5);
     }
     .launchIcon{ font-size:52px; margin-bottom:14px; }
+    .launchAvatar{ width:min(45vw,220px); height:min(45vw,220px); object-fit:contain; margin:0 auto 10px;
+      filter:drop-shadow(0 10px 20px rgba(0,0,0,.5)); display:block; }
     .launchCard h1{ font-family:'Cinzel',sans-serif; font-size:26px; margin:0 0 14px;
       background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent; }
     .launchCard p{ font-size:14.5px; line-height:1.65; color:var(--muted); max-width:480px; margin:0 auto 14px; }
@@ -41,12 +43,12 @@
 
   <main class="container">
     <div class="launchCard">
-      <div class="launchIcon">🎓</div>
-      <h1>Découvrez A’rms en jouant</h1>
+      <img class="launchAvatar" src="/assets/professeur.png" alt="Votre guide">
+      <h1>Apprenez à jouer à A’rms</h1>
       <p>
-        Ce didacticiel n'est pas un simple diaporama : il ouvre une <strong>vraie partie en 1 contre 1</strong>, sur le
-        <strong>vrai plateau de jeu</strong> — exactement celui que vous utiliserez pour toutes vos parties. Un coach vous
-        accompagne à chaque étape et vous dit précisément quoi faire.
+        Ce didacticiel vous apprend à jouer à <strong>A’rms</strong>, en conditions réelles : une vraie partie en
+        <strong>1 contre 1</strong>, sur le <strong>plateau de jeu</strong> que vous utiliserez pour toutes vos parties.
+        Un guide vous accompagne à chaque étape et vous indique précisément quoi faire.
       </p>
       <div class="featureList">
         <div class="featureItem"><span class="fi">🗡️</span> Jouer un Personnage dans votre zone de combat</div>

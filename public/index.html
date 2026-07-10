@@ -8055,7 +8055,7 @@ function showCombatVersus(payload, onDone){
   ov.innerHTML = `
     <div class="cvClashFlash"></div>
     <div class="cvStage">
-      <div class="cvFighter left ${atkFighterClass}">
+      <div class="cvFighter left">
         <div class="cvImgWrap">
           <img src="${atkImg}" alt="${atkName}">
           <div class="cvFloat" data-role="atkFloat"></div>
@@ -8068,7 +8068,7 @@ function showCombatVersus(payload, onDone){
         ${payload.newlyFrozenAttacker ? '<div class="cvTag appear frozen">Gelé par Glaraneith</div>' : ''}
       </div>
       <div class="cvMid"><div class="cvVs">VS</div></div>
-      <div class="cvFighter right ${defFighterClass}">
+      <div class="cvFighter right">
         <div class="cvImgWrap">
           <img src="${defImg}" alt="${defName}">
           <div class="cvFloat" data-role="defFloat"></div>
@@ -8140,6 +8140,18 @@ function showCombatVersus(payload, onDone){
     if (defHpEl){ defHpEl.textContent = `${Math.max(payload.defenderHp,0)} PV`; defHpEl.classList.add('tick'); }
     if (atkShieldEl && absorbedByAttacker > 0) atkShieldEl.classList.add('gone');
     if (defShieldEl && absorbedByDefender > 0) defShieldEl.classList.add('gone');
+
+    // Le grisage "détruit" / le halo "survivant" ne s'appliquent QU'À CE
+    // MOMENT (impact), pas dès l'ouverture de l'écran — sinon un combattant
+    // vaincu apparaissait déjà grisé avant même que l'animation ne commence.
+    if (atkFighterClass) {
+      const atkFighterEl = ov.querySelector('.cvFighter.left');
+      if (atkFighterEl) atkFighterEl.classList.add(atkFighterClass);
+    }
+    if (defFighterClass) {
+      const defFighterEl = ov.querySelector('.cvFighter.right');
+      if (defFighterEl) defFighterEl.classList.add(defFighterClass);
+    }
 
     if (defCaptionEl) {
       defCaptionEl.textContent = payload.defenderDied ? `${defName} est détruit !` : (dmgToDefender>0 ? `${defName} encaisse ${dmgToDefender} dégât(s).` : '');
@@ -14249,11 +14261,15 @@ function startTutorialCoach(){
     function step8_Action(){
       clearHighlight();
       showDialogue('9 / 12 — Les Actions', `<strong>${cardName('C102')}</strong> est une Action : effet immédiat, puis
-        défausse. Elle vous demandera de choisir un combattant à renforcer temporairement.`, [
+        défausse. Elle se joue en la déposant directement sur le combattant à renforcer.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
-          highlightHandCard('C102');
-          showBanner('Les Actions', `Jouez ${cardName('C102')}, puis choisissez une cible.`);
+          const actionCard = botHand.find(c => c.label === 'C102');
+          const actionEl = actionCard ? document.querySelector(`#handBottom [data-id="${actionCard.id}"]`) : null;
+          const hostEl = botLine[0] ? document.querySelector(`[data-id="${botLine[0].id}"]`) : null;
+          highlight([actionEl, hostEl], { noBlock: true });
+          showBanner('Les Actions', `Faites glisser <strong>${cardName('C102')}</strong> (repère du haut) directement sur votre
+            combattant (repère du bas) pour lui donner son bonus.`);
           waitForCondition(() => !botHand.find(c => c.label === 'C102'), step9_ExileDiscard);
         } }
       ]);
