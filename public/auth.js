@@ -249,8 +249,23 @@ function armsRefreshAvatarDisplays(avatar) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const navMenu = document.getElementById('nav-menu');
-  if (!navMenu) return; // Si la page n'a pas de menu de navigation, on ne fait rien.
+  // sitenav.js construit #nav-menu de façon ASYNCHRONE (il vérifie d'abord
+  // l'état de connexion) — il peut donc ne pas encore exister au moment où
+  // DOMContentLoaded se déclenche ici. On attend qu'il soit réellement prêt
+  // avant de continuer, sinon le menu de droite ne se construit jamais au
+  // bon endroit.
+  let navMenu = document.getElementById('nav-menu');
+  if (!navMenu) {
+    navMenu = await new Promise((resolve) => {
+      const onReady = () => { resolve(document.getElementById('nav-menu')); };
+      window.addEventListener('arms:nav-ready', onReady, { once: true });
+      // Filet de sécurité : si l'évènement n'arrive jamais (page sans
+      // sitenav.js, erreur réseau...), on abandonne au bout de 3s plutôt que
+      // d'attendre indéfiniment.
+      setTimeout(() => { window.removeEventListener('arms:nav-ready', onReady); resolve(document.getElementById('nav-menu')); }, 3000);
+    });
+  }
+  if (!navMenu) return; // Si la page n'a vraiment aucun menu de navigation, on ne fait rien.
 
   try {
     const response = await fetch('/api/me');

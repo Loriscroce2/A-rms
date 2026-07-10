@@ -53,6 +53,10 @@
       </div>
     </header>
   `;
+  // Signale à auth.js (et à quiconque en aurait besoin) que #nav-menu existe
+  // désormais réellement dans le DOM — indispensable car ce script est
+  // asynchrone (vérifie l'état de connexion avant de construire le menu).
+  window.dispatchEvent(new Event('arms:nav-ready'));
 
   const toggle = document.getElementById('navToggleBtn');
   const nav = document.getElementById('siteNavLinks');
