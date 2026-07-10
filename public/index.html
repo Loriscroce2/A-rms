@@ -13937,12 +13937,17 @@ function startTutorialCoach(){
 
       /* Grisage total + halo doré autour de la zone concernée. */
       .tcSpotlight{
-        position:relative !important; z-index:9100 !important;
+        z-index:9100 !important;
         box-shadow:0 0 0 6000px rgba(3,7,11,.84) !important;
         outline:3px solid #ffd93d !important; outline-offset:6px;
         border-radius:12px;
         animation:tcSpotPulse 1.3s ease-in-out infinite;
       }
+      /* Uniquement pour les éléments en position statique par défaut — les
+         cartes ont déjà leur propre positionnement (absolute en main,
+         relative une fois posées), le leur imposer casserait leur mise en
+         page (éventail de la main notamment). */
+      .tcNeedsRelative{ position:relative !important; }
       @keyframes tcSpotPulse{ 0%,100%{ outline-color:#ffd93d; } 50%{ outline-color:#fff6cf; } }
       #tcBlocker{ position:fixed; inset:0; z-index:9050; background:rgba(3,7,11,.5); cursor:not-allowed; display:none; }
       #tcArrow, #tcArrow2{
@@ -14025,6 +14030,7 @@ function startTutorialCoach(){
     }
     function clearHighlight(){
       document.querySelectorAll('.tcSpotlight').forEach(el => el.classList.remove('tcSpotlight'));
+      document.querySelectorAll('.tcNeedsRelative').forEach(el => el.classList.remove('tcNeedsRelative'));
       document.getElementById('tcArrow').style.display = 'none';
       document.getElementById('tcArrow2').style.display = 'none';
       if (dialogue.style.display !== 'flex') blocker.style.display = 'none';
@@ -14039,13 +14045,22 @@ function startTutorialCoach(){
     }
     // Accepte un seul élément OU un tableau d'éléments (ex. la carte en main
     // ET la zone de combat où la déposer, illuminées simultanément).
-    function highlight(elOrArr){
+    function highlight(elOrArr, opts){
+      opts = opts || {};
       clearHighlight();
       const els = (Array.isArray(elOrArr) ? elOrArr : [elOrArr]).filter(Boolean);
       if (els.length === 0) return;
-      blocker.style.display = 'block';
+      if (!opts.noBlock) blocker.style.display = 'block';
       els.forEach(el => {
         el.classList.add('tcSpotlight');
+        // On ne force position:relative QUE si l'élément est en position
+        // statique par défaut (nécessaire pour que le z-index prenne effet).
+        // Les cartes ont déjà leur propre positionnement (absolute en main,
+        // relative une fois posées) — le leur imposer casserait leur mise en
+        // page (éventail de la main notamment).
+        if (window.getComputedStyle(el).position === 'static') {
+          el.classList.add('tcNeedsRelative');
+        }
         // Un ancêtre peut posséder son PROPRE contexte d'empilement (z-index
         // déjà fixé, ex. le prompt de faction à z-index:2000) qui plafonne
         // tout ce qu'il contient — le z-index forcé sur la cible elle-même ne
@@ -14144,7 +14159,7 @@ function startTutorialCoach(){
           const card = botHand.find(c => c.label === 'C116');
           const cardEl = card ? document.querySelector(`#handBottom [data-id="${card.id}"]`) : null;
           const zoneEl = document.getElementById('battleBottom');
-          highlight([cardEl, zoneEl]);
+          highlight([cardEl, zoneEl], { noBlock: true });
           showBanner('Jouer un Personnage', `Faites glisser <strong>${cardName('C116')}</strong> (repère rouge du haut) jusque
             dans votre <strong>zone de combat</strong> (repère rouge du bas), puis relâchez-la.`);
           waitForCondition(() => botLine.length > startCount, step5_Mithril);
@@ -14183,7 +14198,7 @@ function startTutorialCoach(){
           hideDialogue();
           const myEl = myCard ? document.querySelector(`[data-id="${myCard.id}"]`) : null;
           const oppEl = document.querySelector(`[data-id="${dummy.id}"]`);
-          highlight([myEl, oppEl]);
+          highlight([myEl, oppEl], { noBlock: true });
           const startTopCount = topLine.length;
           const startMyHp = myCard ? getEffectiveHP(myCard) : 0;
           showBanner('Attaquer', `<strong>Maintenez le clic</strong> sur votre combattant (repère du haut), puis faites glisser
@@ -14208,7 +14223,7 @@ function startTutorialCoach(){
           const famCard = botHand.find(c => c.label === 'C107');
           const famEl = famCard ? document.querySelector(`#handBottom [data-id="${famCard.id}"]`) : null;
           const hostEl = botLine[0] ? document.querySelector(`[data-id="${botLine[0].id}"]`) : null;
-          highlight([famEl, hostEl]);
+          highlight([famEl, hostEl], { noBlock: true });
           showBanner('Les Familiers', `Faites glisser <strong>${cardName('C107')}</strong> (repère du haut) sur votre combattant
             (repère du bas) pour l'y rattacher.`);
           waitForCondition(() => famBottom.length > startFamCount, step8_Action);
