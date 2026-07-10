@@ -63,6 +63,19 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// Compte administrateur unique — seul ce compte a accès au panneau
+// d'administration (gestion des autres joueurs : pièces, Menace, suppression).
+const ADMIN_EMAIL = 'loris.croce2@gmail.com';
+function isAdminEmail(email) {
+  return !!email && email.toLowerCase() === ADMIN_EMAIL;
+}
+function adminMiddleware(req, res, next) {
+  if (!req.user || !isAdminEmail(req.user.email)) {
+    return res.status(403).json({ ok: false, error: 'forbidden' });
+  }
+  next();
+}
+
 // --- Requêtes SQL préparées (users) ---
 const qFindUserByEmail = db.prepare('SELECT * FROM users WHERE email = ?');
 const qInsertUser = db.prepare(
@@ -307,7 +320,93 @@ app.get('/api/me', authMiddleware, (req, res) => {
   const row = qGetProfile.get(req.user.id);
   const tpRow = qGetThreatPoints.get(req.user.id);
   const rank = getRankInfo(tpRow ? tpRow.threat_points : 0);
-  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '', rank, hasSeenTutorial: row ? !!row.has_seen_tutorial : false } });
+  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '', rank, hasSeenTutorial: row ? !!row.has_seen_tutorial : false, isAdmin: isAdminEmail(req.user.email) } });
+});
+
+// ===================================================================
+// ADMINISTRATION — réservé au compte administrateur (voir ADMIN_EMAIL).
+// Gestion des autres comptes : pièces, points de Menace, suppression.
+// ===================================================================
+const qAdminListUsers = db.prepare(`
+  SELECT id, email, name, coins, avatar, threat_points, ranked_wins, ranked_losses, created_at
+  FROM users ORDER BY created_at DESC
+`);
+const qAdminSetCoins = db.prepare('UPDATE users SET coins = ? WHERE id = ?');
+const qAdminSetThreat = db.prepare('UPDATE users SET threat_points = ? WHERE id = ?');
+const qAdminDeleteUser = db.prepare('DELETE FROM users WHERE id = ?');
+const qAdminFindUser = db.prepare('SELECT id, email FROM users WHERE id = ?');
+
+// Liste tous les comptes, avec leur rang de Menace calculé.
+app.get('/api/admin/users', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const rows = qAdminListUsers.all();
+    const users = rows.map(u => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      coins: u.coins,
+      avatar: u.avatar,
+      threatPoints: u.threat_points,
+      rank: getRankInfo(u.threat_points),
+      rankedWins: u.ranked_wins,
+      rankedLosses: u.ranked_losses,
+      createdAt: u.created_at,
+    }));
+    res.json({ ok: true, users });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Fixe le solde de pièces d'un compte à une valeur précise.
+app.post('/api/admin/users/:id/coins', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const coins = Math.max(0, Math.round(Number(req.body?.coins)));
+    if (!Number.isFinite(coins)) return res.status(400).json({ ok: false, error: 'invalid_coins' });
+    const target = qAdminFindUser.get(targetId);
+    if (!target) return res.status(404).json({ ok: false, error: 'not_found' });
+    qAdminSetCoins.run(coins, targetId);
+    res.json({ ok: true, coins });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Fixe les points de Menace d'un compte à une valeur précise.
+app.post('/api/admin/users/:id/threat', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const points = Math.max(0, Math.round(Number(req.body?.points)));
+    if (!Number.isFinite(points)) return res.status(400).json({ ok: false, error: 'invalid_points' });
+    const target = qAdminFindUser.get(targetId);
+    if (!target) return res.status(404).json({ ok: false, error: 'not_found' });
+    qAdminSetThreat.run(points, targetId);
+    res.json({ ok: true, points, rank: getRankInfo(points) });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Supprime un compte (et tout ce qui lui appartient, via ON DELETE CASCADE :
+// decks, collection, récompenses de parties, achats boutique).
+app.delete('/api/admin/users/:id', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const target = qAdminFindUser.get(targetId);
+    if (!target) return res.status(404).json({ ok: false, error: 'not_found' });
+    if (isAdminEmail(target.email)) {
+      return res.status(400).json({ ok: false, error: 'cannot_delete_admin' });
+    }
+    qAdminDeleteUser.run(targetId);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
 });
 
 // Marque le didacticiel comme vu, pour ne plus jamais l'afficher

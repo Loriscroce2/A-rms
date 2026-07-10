@@ -14,10 +14,12 @@
   if (!root) return;
 
   let isLoggedIn = false;
+  let isAdmin = false;
   try{
     const res = await fetch('/api/me');
     const data = await res.json();
     isLoggedIn = !!(res.ok && data.user);
+    isAdmin = !!(isLoggedIn && data.user.isAdmin);
   }catch(e){}
 
   const fullLinks = [
@@ -27,6 +29,9 @@
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
     { href: '/tutorial.html', label: 'Didacticiel', match: ['/tutorial.html'] },
   ];
+  if (isAdmin) {
+    fullLinks.push({ href: '/admin.html', label: '⚙ Administrateur', match: ['/admin.html'] });
+  }
   const loggedOutLinks = [
     { href: '/accueil.html',  label: 'Accueil',  match: ['/accueil.html', '/', '/index.html'] },
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },

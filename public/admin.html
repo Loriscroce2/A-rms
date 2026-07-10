@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>A’rms — Administration</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/sitenav.css" />
+  <style>
+    :root{
+      --bg1:#06131a; --bg2:#031017; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff;
+      --ok:#19e27a; --warn:#ffb84d; --err:#ff5252; --gold:#ffd93d;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap');
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
+      background:radial-gradient(1200px 420px at 60% -180px, rgba(255,90,90,.12), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
+    .container{max-width:1100px;margin:0 auto;padding:34px 16px 70px}
+
+    .hero{ text-align:center; margin-bottom:26px; }
+    .hero h1{ font-family:'Cinzel',sans-serif; font-size:26px; margin:0 0 6px;
+      background:linear-gradient(180deg,#fff,#ffb0b0);-webkit-background-clip:text;background-clip:text;color:transparent; }
+    .hero p{ font-size:13px; color:var(--muted); opacity:.8; margin:0; }
+
+    .toolbar{ display:flex; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+    .searchBox{
+      flex:1; min-width:220px; padding:10px 14px; border-radius:10px; background:#0a2028; color:var(--ink);
+      border:1.5px solid rgba(125,249,255,.3); font-size:13px;
+    }
+    .refreshBtn{
+      padding:10px 16px; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer;
+      background:linear-gradient(180deg,#0d2d38,#0a2028); color:#dffbff; border:1px solid rgba(255,255,255,.2);
+    }
+    .userCount{ font-size:12px; color:var(--muted); opacity:.7; }
+
+    .userTable{ width:100%; border-collapse:separate; border-spacing:0 8px; }
+    .userTable thead th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); opacity:.7; padding:0 12px 4px; }
+    .userRow{ background:linear-gradient(145deg,#08222b,#0a2d38); }
+    .userRow td{ padding:10px 12px; border-top:1px solid rgba(125,249,255,.1); border-bottom:1px solid rgba(125,249,255,.1); vertical-align:middle; }
+    .userRow td:first-child{ border-left:1px solid rgba(125,249,255,.1); border-radius:12px 0 0 12px; }
+    .userRow td:last-child{ border-right:1px solid rgba(125,249,255,.1); border-radius:0 12px 12px 0; }
+    .userRow.isAdminRow{ outline:1.5px solid rgba(255,217,61,.5); outline-offset:-1px; }
+
+    .userIdentity{ display:flex; align-items:center; gap:10px; }
+    .userAvatar{ width:34px; height:34px; border-radius:50%; background-size:cover; background-position:center; border:2px solid rgba(125,249,255,.4); flex:none; }
+    .userName{ font-weight:800; font-size:13.5px; }
+    .userEmail{ font-size:11px; color:var(--muted); opacity:.7; }
+
+    .editField{
+      width:90px; padding:6px 8px; border-radius:8px; background:#051820; color:var(--ink);
+      border:1px solid rgba(125,249,255,.3); font-size:13px; font-weight:700;
+    }
+    .rankLabel{ font-size:11px; opacity:.8; margin-top:3px; }
+
+    .rowActions{ display:flex; gap:6px; flex-wrap:wrap; }
+    .miniBtn{
+      padding:6px 11px; border-radius:8px; font-weight:800; font-size:11.5px; cursor:pointer; border:1px solid rgba(255,255,255,.2);
+    }
+    .miniBtn.save{ background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border-color:#4df7a8; }
+    .miniBtn.delete{ background:linear-gradient(180deg,#a02323,#5a0f0f); color:#ffdada; border-color:#ff6b6b; }
+    .miniBtn:disabled{ opacity:.4; cursor:not-allowed; }
+
+    .toast{
+      position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px); z-index:9000;
+      background:linear-gradient(145deg,#0a2530,#051820); border:1.5px solid rgba(125,249,255,.5); border-radius:12px;
+      padding:12px 20px; font-size:13px; font-weight:700; opacity:0; transition:opacity .25s ease, transform .25s ease; pointer-events:none;
+    }
+    .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.err{ border-color:rgba(255,82,82,.6); color:#ffb3b3; }
+
+    .loadingState, .emptyState{ text-align:center; padding:40px 16px; color:var(--muted); opacity:.75; }
+    .deniedState{ text-align:center; padding:80px 16px; }
+    .deniedState h2{ font-family:'Cinzel',sans-serif; color:#ff8080; }
+
+    @media (max-width:720px){
+      .userTable thead{ display:none; }
+      .userRow{ display:flex; flex-wrap:wrap; }
+      .userRow td{ border:none !important; border-radius:0 !important; width:100%; padding:6px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="site-header-root"></div>
+
+  <main class="container">
+    <div class="hero">
+      <h1>⚙ Administration</h1>
+      <p>Gestion des comptes joueurs — pièces, points de Menace, suppression.</p>
+    </div>
+
+    <div id="adminZone" class="loadingState">Vérification des droits d'accès…</div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/auth.js"></script>
+  <script src="/sitenav.js"></script>
+  <script>
+    let ALL_USERS = [];
+    let MY_ID = null;
+
+    function showToast(msg, isErr){
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show' + (isErr ? ' err' : '');
+      setTimeout(()=> t.classList.remove('show'), 2600);
+    }
+
+    function renderUsers(filter){
+      const zone = document.getElementById('adminZone');
+      const f = (filter || '').trim().toLowerCase();
+      const filtered = ALL_USERS.filter(u =>
+        !f || u.name.toLowerCase().includes(f) || u.email.toLowerCase().includes(f)
+      );
+
+      const rowsHtml = filtered.map(u => {
+        const avatarUrl = armsAvatarUrl(u.avatar);
+        const isSelf = u.id === MY_ID;
+        return `
+          <tr class="userRow ${isSelf ? 'isAdminRow' : ''}" data-id="${u.id}">
+            <td>
+              <div class="userIdentity">
+                <div class="userAvatar" style="background-image:url('${avatarUrl}')"></div>
+                <div>
+                  <div class="userName">${u.name}${isSelf ? ' 👑' : ''}</div>
+                  <div class="userEmail">${u.email}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <input type="number" class="editField" min="0" value="${u.coins}" data-field="coins" data-id="${u.id}">
+              <div class="rankLabel">🪙 pièces</div>
+            </td>
+            <td>
+              <input type="number" class="editField" min="0" value="${u.threatPoints}" data-field="threat" data-id="${u.id}">
+              <div class="rankLabel">${u.rank.label} · ${u.rankedWins}V/${u.rankedLosses}D</div>
+            </td>
+            <td>
+              <div class="rowActions">
+                <button class="miniBtn save" data-action="save" data-id="${u.id}">Enregistrer</button>
+                <button class="miniBtn delete" data-action="delete" data-id="${u.id}" ${isSelf ? 'disabled' : ''}>Supprimer</button>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+
+      zone.innerHTML = filtered.length === 0 ? `<div class="emptyState">Aucun compte ne correspond à cette recherche.</div>` : `
+        <div class="toolbar">
+          <input type="text" class="searchBox" id="searchBox" placeholder="Rechercher un pseudo ou un email…" value="${filter || ''}">
+          <button class="refreshBtn" id="refreshBtn">↻ Rafraîchir</button>
+          <span class="userCount">${filtered.length} / ${ALL_USERS.length} compte(s)</span>
+        </div>
+        <table class="userTable">
+          <thead><tr><th>Joueur</th><th>Pièces</th><th>Menace</th><th>Actions</th></tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      `;
+
+      const search = document.getElementById('searchBox');
+      if (search) {
+        search.addEventListener('input', () => renderUsers(search.value));
+        search.focus();
+        search.selectionStart = search.selectionEnd = search.value.length;
+      }
+      const refresh = document.getElementById('refreshBtn');
+      if (refresh) refresh.addEventListener('click', () => loadUsers());
+
+      zone.querySelectorAll('[data-action="save"]').forEach(btn => {
+        btn.addEventListener('click', () => saveUser(parseInt(btn.dataset.id, 10)));
+      });
+      zone.querySelectorAll('[data-action="delete"]').forEach(btn => {
+        btn.addEventListener('click', () => deleteUser(parseInt(btn.dataset.id, 10)));
+      });
+    }
+
+    async function saveUser(id){
+      const coinsField = document.querySelector(`.editField[data-field="coins"][data-id="${id}"]`);
+      const threatField = document.querySelector(`.editField[data-field="threat"][data-id="${id}"]`);
+      const coins = parseInt(coinsField.value, 10) || 0;
+      const threat = parseInt(threatField.value, 10) || 0;
+      try{
+        const [r1, r2] = await Promise.all([
+          fetch(`/api/admin/users/${id}/coins`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ coins }) }),
+          fetch(`/api/admin/users/${id}/threat`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ points: threat }) }),
+        ]);
+        if (r1.ok && r2.ok) {
+          showToast('Compte mis à jour.');
+          await loadUsers(document.getElementById('searchBox')?.value);
+        } else {
+          showToast('Erreur lors de la mise à jour.', true);
+        }
+      }catch(e){ showToast('Erreur réseau.', true); }
+    }
+
+    async function deleteUser(id){
+      const user = ALL_USERS.find(u => u.id === id);
+      if (!user) return;
+      if (!confirm(`Supprimer définitivement le compte "${user.name}" (${user.email}) ? Cette action est irréversible : decks, collection et historique seront aussi supprimés.`)) return;
+      try{
+        const res = await fetch(`/api/admin/users/${id}`, { method:'DELETE' });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          showToast('Compte supprimé.');
+          await loadUsers(document.getElementById('searchBox')?.value);
+        } else {
+          showToast(data.error === 'cannot_delete_admin' ? 'Impossible de supprimer le compte administrateur.' : 'Erreur lors de la suppression.', true);
+        }
+      }catch(e){ showToast('Erreur réseau.', true); }
+    }
+
+    async function loadUsers(keepFilter){
+      const zone = document.getElementById('adminZone');
+      zone.innerHTML = `<div class="loadingState">Chargement des comptes…</div>`;
+      try{
+        const res = await fetch('/api/admin/users');
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          zone.innerHTML = `<div class="emptyState">Impossible de charger les comptes.</div>`;
+          return;
+        }
+        ALL_USERS = data.users;
+        renderUsers(keepFilter);
+      }catch(e){
+        zone.innerHTML = `<div class="emptyState">Erreur réseau.</div>`;
+      }
+    }
+
+    (async function init(){
+      const zone = document.getElementById('adminZone');
+      try{
+        const res = await fetch('/api/me');
+        const data = await res.json();
+        if (!res.ok || !data.user || !data.user.isAdmin) {
+          zone.innerHTML = `
+            <div class="deniedState">
+              <h2>⛔ Accès refusé</h2>
+              <p>Cette page est réservée à l'administrateur du site.</p>
+            </div>`;
+          return;
+        }
+        MY_ID = data.user.id;
+        loadUsers();
+      }catch(e){
+        zone.innerHTML = `<div class="emptyState">Impossible de vérifier vos droits d'accès.</div>`;
+      }
+    })();
+  </script>
+</body>
+</html>
