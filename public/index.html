@@ -3864,16 +3864,18 @@ function openFactionPrompt(player, onChosen){
       }
     }
   });
-  // FILET DE SÉCURITÉ CRITIQUE : si Paradlex finissait par bloquer TOUTES les
-  // factions actuellement disponibles pour ce joueur, plus aucun bouton ne
-  // serait cliquable — le choix de faction (obligatoire en tout début de
-  // tour) resterait bloqué indéfiniment, gelant la partie pour LES DEUX
-  // joueurs (le jeu est au tour par tour). On annule alors tout blocage ce
-  // tour-ci plutôt que de risquer ce blocage total.
+  // CONDITION DE DÉFAITE — GÉNÉRALE, pas spécifique à Paradlex : le choix
+  // d'une faction est obligatoire en tout début de tour pour pouvoir jouer
+  // la moindre carte. Si, PAR N'IMPORTE QUEL MOYEN (Paradlex, un effet de
+  // copie produisant un Paradlex supplémentaire, ou toute autre carte
+  // future qui viendrait bloquer des factions), un joueur se retrouve avec
+  // ZÉRO faction disponible qui ne soit pas bloquée, il perd la partie sur
+  // le champ — quelle que soit la cause exacte du blocage.
   if (availableFactions.length > 0 && availableFactions.every(f => blockedFactions.has(f))) {
-    blockedFactions.clear();
-    pushHistory('info', `Paradlex aurait bloqué toutes vos factions disponibles ce tour-ci : son effet est exceptionnellement
-      ignoré pour éviter un blocage complet de la partie.`);
+    const winner = (player === 'top') ? 'bottom' : 'top';
+    pushHistory('info', `${playerLabel(player)} ne peut choisir aucune faction : toutes ses factions disponibles sont bloquées — défaite immédiate.`);
+    endGame(winner, 'faction-locked');
+    return;
   }
 
   availableFactions.forEach(f=>{
@@ -11607,6 +11609,7 @@ function showVictoryOverlay(winner, reason, iWon){
   const reasonTxt = (reason==='forge') ? '5 A’rms forgés' : 
                   (reason==='cycle') ? '3ᵉ cycle atteint par l’adversaire' : 
                   (reason==='flavio') ? '7 BUTS marqués par Flavio VII' :
+                  (reason==='faction-locked') ? 'Choix de faction totalement entravé' :
                   (reason==='surrender') ? 'Abandon de la partie' : 'victoire';
 
   const profiles = window.PLAYER_PROFILES;
