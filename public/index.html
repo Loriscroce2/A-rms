@@ -2786,6 +2786,10 @@ const CARD_IMAGES = {
  'C23': '../cartes/0023.png',
  'C24': '../cartes/0024.png',
  'C25': '../cartes/0025.png',
+ 'C26': '../cartes/0026.png',
+ 'C27': '../cartes/0027.png',
+ 'C28': '../cartes/0028.png',
+ 'T10': '../cartes/T10.png',
  'T05': '../cartes/T05.png',
  'T06': '../cartes/T06.png',
  'T07': '../cartes/T07.png',
@@ -2904,6 +2908,10 @@ const CARD_TYPES  = {
  'C23': 'action',      // Réveillez vous
  'C24': 'familier',    // Tentacuz
  'C25': 'personnage',  // Krouzpier
+ 'C26': 'personnage',  // Kony
+ 'C27': 'artefact',    // Mine E.M.I
+ 'C28': 'personnage',  // Kabba le zunt
+ 'T10': 'personnage',  // Pudding
  'T05': 'personnage',  // Cousu
  'T06': 'personnage',  // Cousu
  'T07': 'personnage',  // Cousu
@@ -3021,6 +3029,10 @@ const CARD_NAMES = {
  'C23': 'Réveillez vous',
  'C24': 'Tentacuz',
  'C25': 'Krouzpier',
+ 'C26': 'Kony',
+ 'C27': 'Mine E.M.I',
+ 'C28': 'Kabba le zunt',
+ 'T10': 'Pudding',
  'T05': 'Cousu',
  'T06': 'Cousu',
  'T07': 'Cousu',
@@ -3101,11 +3113,14 @@ const CARD_HP_BASE = {
 
   /* KRYLLS — nouveau lot */
   'C25': 3,
+  'C26': 2,
+  'C28': 7,
+  'T10': 1,
 };
 
 const CARD_SHIELD_BASE = {
   'C1':0, 'C2':0, 'C3':1, 'C6':0, 'C9':0, 'C13':1, 'C14':1, 'C15':2, 'C17':2,
-  'C22':1,
+  'C22':1, 'C26':4,
   'C52': 0, 'C56': 0, 'C66': 5, 'C68': 1,
   'C105': 1,
   'C108': 0,
@@ -3272,6 +3287,10 @@ const CARD_TAGS = {
  'C23': ['action', 'Krylls'],    // Réveillez vous
  'C24': ['familier', 'Krylls'],  // Tentacuz
  'C25': ['citoyen', 'Krylls'],   // Krouzpier
+ 'C26': ['guerrier', 'Krylls'],  // Kony
+ 'C27': ['artefact', 'Krylls'],  // Mine E.M.I
+ 'C28': ['citoyen', 'Krylls'],   // Kabba le zunt
+ 'T10': ['Food', 'Krylls'],      // Pudding
 
 };
 const FACTIONS = ["Krylls","Impy","Savage","Chimeria","Wadoo"];
@@ -6084,6 +6103,13 @@ function openMiningPrompt(owner, card, fromEl){
     return;
   }
 
+  // KRYLLS : Pudding (T10) — un clic dessus propose de fusionner un
+  // combattant allié de la main avec lui, au lieu du minage normal.
+  if (card.label === 'T10') {
+    openPuddingFusionPrompt(owner, card, fromEl);
+    return;
+  }
+
   const canPerformActions =
     currentTurn === owner &&
     !isFrozen(card) &&
@@ -8226,6 +8252,25 @@ function resolveFight(from, to){
     // FIN DE LA LOGIQUE POUR SCARACY
     // ===================================================================
 
+    // ===================================================================
+    // KONY (C26) : juste avant la résolution du combat, place une Mine
+    // E.M.I dans la zone d'artefact de son propriétaire.
+    // ===================================================================
+    if (from.card.label === 'C26') {
+      const konyOwner = from.owner;
+      const konyArtArray = (konyOwner === 'top') ? topArts : botArts;
+      if (konyArtArray.length < MAX_ARTIFACTS_PER_ZONE) {
+        const mine = createCard('C27', konyOwner === 'top' ? 'T' : 'B');
+        konyArtArray.push(mine);
+        pushHistory('artefact', `${cardAnchor('C26')} place une ${cardAnchor('C27')} dans la zone d'artefact.`);
+      } else {
+        pushHistory('info', `${cardAnchor('C26')} tente de placer une ${cardAnchor('C27')}, mais la zone d'artefact est pleine.`);
+      }
+    }
+    // ===================================================================
+    // FIN DE LA LOGIQUE POUR KONY
+    // ===================================================================
+
   if (from.card.label === 'C116') {
     const owner = from.owner;
     const line = getLineByOwner(owner);
@@ -9338,6 +9383,17 @@ if (card.label === 'C213') { // WADOO : Gousset
   ]);
 }
 
+if (card.label === 'C27') { // KRYLLS : Mine E.M.I
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  const mineOpp = (owner === 'top') ? 'bottom' : 'top';
+  const mineOppLine = getLineByOwner(mineOpp);
+  const mineShieldedCount = mineOppLine.filter(c => ((c.shield||0) + (c.tempShield||0)) > 0).length;
+  openButtonsPrompt('Mine E.M.I', `Défausser la Mine E.M.I ?<br><small>Effet : gagnez <strong>${mineShieldedCount} Mithril</strong> — autant que de combattants adverses ayant du Bouclier actuellement en zone de combat.</small>`, el, [
+    { label:'Défausser', className:'confirm', onClick:()=>useMineEMI(owner, card) },
+    { label:'Annuler', className:'cancel', onClick:()=>{} },
+  ]);
+}
+
   });
 
   return el;
@@ -9397,6 +9453,27 @@ if (card.label === 'C165') {
 }
 // ===================================================================
 // FIN DE LA LOGIQUE D'ENTRÉE POUR LUCIA
+// ===================================================================
+
+// ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR KABBA LE ZUNT (C28)
+// ===================================================================
+if (card.label === 'C28') {
+  const kabbaOpp = (owner === 'top') ? 'bottom' : 'top';
+  const kabbaOppLine = getLineByOwner(kabbaOpp);
+  if (kabbaOppLine.length === 0) {
+    pushHistory('info', `${cardAnchor('C28')} : aucun combattant adverse à transformer en ${cardAnchor('T10')}.`);
+  } else {
+    const kabbaButtons = kabbaOppLine.map(target => ({
+      label: `${cardName(target.label)} (${getEffectiveHP(target)} PV)`,
+      className: 'confirm',
+      onClick: () => transformIntoPudding(kabbaOpp, target, owner),
+    }));
+    openButtonsPrompt('Kabba le zunt', `Choisissez le combattant adverse à transformer en <strong>${cardAnchor('T10')}</strong> (1 PV, dans votre zone de combat).`, null, kabbaButtons, { nonCancellable: true });
+  }
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR KABBA LE ZUNT
 // ===================================================================
 
 // ===================================================================
@@ -12430,6 +12507,82 @@ function useGousset(owner, card) {
   gousseDiscountActive[owner] = true;
   const dollCount = getLineByOwner(owner).filter(c => hasTag(c, 'poupée')).length;
   pushHistory('info', `${cardAnchor('C213')} est activé : la prochaine forge de ce tour coûtera ${dollCount} Mithril de moins (minimum 1).`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// KRYLLS : Mine E.M.I (C27) — défaussée à l'activation (usage unique), rapporte
+// autant de Mithril que de combattants adverses ayant du Bouclier en zone de combat.
+function useMineEMI(owner, card) {
+  if (currentTurn !== owner) return;
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+  const shieldedCount = oppLine.filter(c => ((c.shield||0) + (c.tempShield||0)) > 0).length;
+  const artArray = (owner === 'top') ? topArts : botArts;
+  const idx = artArray.findIndex(a => a.id === card.id);
+  if (idx !== -1) artArray.splice(idx, 1);
+  discardCard(card, owner, 'action');
+  for (let i = 0; i < shieldedCount; i++) addMithril(owner);
+  pushHistory('action', `${cardAnchor('C27')} défaussée : +${shieldedCount} Mithril (autant que de combattants adverses avec du Bouclier).`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// KRYLLS : Kabba le zunt (C28) — transforme le combattant adverse choisi en
+// Pudding (T10, 1 PV), placé dans la zone de combat DU LANCEUR (vol + downgrade).
+function transformIntoPudding(targetOwner, targetCard, casterOwner){
+  const targetLine = getLineByOwner(targetOwner);
+  const idx = targetLine.findIndex(c => c.id === targetCard.id);
+  if (idx === -1) { closeActionPrompt(); return; }
+  targetLine.splice(idx, 1);
+  const casterLine = getLineByOwner(casterOwner);
+  const pudding = createCard('T10', casterOwner === 'top' ? 'T' : 'B');
+  pudding.hp = 1;
+  casterLine.push(pudding);
+  pushHistory('action', `${cardAnchor('C28')} transforme ${cardAnchor(targetCard.label)} en ${cardAnchor('T10')} (1 PV) dans votre zone de combat !`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// KRYLLS : Pudding (T10) — un combattant allié peut être "joué" directement
+// sur lui : le Pudding disparaît, remplacé par ce combattant, qui gagne le
+// trait RAPIDE et +2 PV.
+function openPuddingFusionPrompt(owner, puddingCard, fromEl){
+  const hand = getHandByOwner(owner);
+  const eligible = hand.filter(c => getType(c.label) === 'personnage');
+  if (eligible.length === 0) {
+    pushHistory('info', `${cardAnchor('T10')} : aucun combattant en main à jouer dessus.`);
+    return;
+  }
+  const buttons = eligible.map(c => ({
+    label: cardName(c.label),
+    className: 'confirm',
+    onClick: () => fusePuddingWithCard(owner, puddingCard, c),
+  }));
+  buttons.push({ label: 'Annuler', className: 'cancel', onClick: () => {} });
+  openButtonsPrompt('Pudding', `Choisissez le combattant à jouer sur le <strong>${cardAnchor('T10')}</strong> — il gagnera le
+    trait <strong>RAPIDE</strong> et <strong>+2 PV</strong>.`, fromEl, buttons);
+}
+
+function fusePuddingWithCard(owner, puddingCard, handCard){
+  if (!canPlayThisCardNow(owner, handCard)) {
+    pushHistory('info', `${cardAnchor(handCard.label)} n'est pas de la faction active ce tour-ci — impossible de la jouer sur le ${cardAnchor('T10')}.`);
+    closeActionPrompt();
+    return;
+  }
+  const hand = getHandByOwner(owner);
+  const line = getLineByOwner(owner);
+  const handIdx = hand.findIndex(c => c.id === handCard.id);
+  const puddingIdx = line.findIndex(c => c.id === puddingCard.id);
+  if (handIdx === -1 || puddingIdx === -1) { closeActionPrompt(); return; }
+  const [playedCard] = hand.splice(handIdx, 1);
+  line.splice(puddingIdx, 1);
+  playedCard.hp = getBaseHP(playedCard.label) + 2;
+  if (!Array.isArray(playedCard.addedTags)) playedCard.addedTags = [];
+  if (!playedCard.addedTags.includes('rapide')) playedCard.addedTags.push('rapide');
+  line.push(playedCard);
+  onCharacterEnterBattlefield(playedCard, owner);
+  pushHistory('jeu', `${cardAnchor(playedCard.label)} est joué sur le ${cardAnchor('T10')} : +2 PV et trait RAPIDE !`);
   closeActionPrompt();
   fullRender();
 }
