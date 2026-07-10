@@ -14321,15 +14321,35 @@ function startTutorialCoach(){
     // ---- 10. Défausse vs Exil ----
     function step9_ExileDiscard(){
       clearHighlight(); hideBanner();
-      showDialogue('10/12 — Défausse et Exil', `Un combattant détruit part généralement en <strong>Défausse</strong>. Certains
+      showDialogue('10/13 — Défausse et Exil', `Un combattant détruit part généralement en <strong>Défausse</strong>. Certains
         effets, plus définitifs, l'envoient en <strong>Exil</strong> à la place.`, [
-        { label: 'Continuer', onClick: step10_Forge }
+        { label: 'Continuer', onClick: step9b_ManualDiscard }
       ]);
     }
 
-    // ---- 11. Forge automatique + fin de tour ----
+    // ---- 10b. Défausse manuelle ----
+    function step9b_ManualDiscard(){
+      const fillerCard = botHand.find(c => c.label !== 'C116' && c.label !== 'C107' && c.label !== 'C102');
+      if (!fillerCard) { step10_Forge(); return; }
+      showDialogue('11/13 — Défausser une carte', `Vous pouvez aussi défausser <strong>volontairement</strong> une carte de
+        votre main, à condition qu'elle soit de la faction choisie ce tour-ci — utile pour se débarrasser d'une carte
+        inutile.`, [
+        { label: 'À vous de jouer', onClick: () => {
+          hideDialogue();
+          const cardEl = document.querySelector(`#handBottom [data-id="${fillerCard.id}"]`);
+          const dumpEl = document.getElementById('dumpBottom');
+          highlight([cardEl, dumpEl], { noBlock: true });
+          showBanner('Défausser une carte', `Glissez <strong>${cardName(fillerCard.label)}</strong> (repère du haut) sur votre
+            défausse (repère du bas).`);
+          const startHandCount = botHand.length;
+          waitForCondition(() => botHand.length < startHandCount, () => { clearHighlight(); hideBanner(); step10_Forge(); });
+        } }
+      ]);
+    }
+
+    // ---- 12. Forge automatique + fin de tour ----
     function step10_Forge(){
-      showDialogue('11/12 — Forger un A’rms', `<strong>3 Mithril</strong> suffisent pour forger 1 A’rms ⚒. Aucun bouton à
+      showDialogue('12/13 — Forger un A’rms', `<strong>3 Mithril</strong> suffisent pour forger 1 A’rms ⚒. Aucun bouton à
         chercher : la forge est <strong>automatique</strong>, au <strong>début</strong> de chacun de vos tours, tant que vous
         avez assez de Mithril.`, [
         { label: 'À vous de jouer', onClick: () => {
@@ -14386,7 +14406,7 @@ function startTutorialCoach(){
     // ---- 12. Conclusion ----
     function step12_Final(){
       hideDialogue(); clearHighlight();
-      showDialogue('12/12 — Terminé', `Vous maîtrisez l'essentiel : faction, Personnage, Mithril, attaque, Familier, Action,
+      showDialogue('13/13 — Terminé', `Vous maîtrisez l'essentiel : faction, Personnage, Mithril, attaque, Familier, Action,
         forge. Une partie <strong>Classée</strong> fait évoluer votre rang de Menace — à découvrir dans le menu.`, [
         { label: 'Terminer', onClick: () => {
           markArmsTutorialSeen();
