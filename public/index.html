@@ -1286,6 +1286,17 @@
     }
     #zoom .provocateurBadge.poupeeBadge{ top:44px; }
 
+    /* KRYLLS (nouveau lot) : Esprit — même bandeau, teinte cyan cohérente
+       avec la lueur déjà présente sur ces cartes (is-esprit), décalé encore
+       plus bas pour ne jamais chevaucher Provocateur ni Poupée. */
+    .provocateurBadge.espritBadge{
+      top:44px;
+      background:linear-gradient(90deg, rgba(125,249,255,.92), rgba(125,249,255,.55));
+      box-shadow:0 0 10px rgba(125,249,255,.6);
+      color:#052a30;
+    }
+    #zoom .provocateurBadge.espritBadge{ top:70px; }
+
     .chargePip.compact {
       width: 22px; height: 22px; font-size: 11px; font-weight: 900;
       display: flex; align-items: center; justify-content: center;
@@ -3533,6 +3544,21 @@ function attachPoupeeBadge(el, card){
   el.appendChild(badge);
 }
 
+// KRYLLS (nouveau lot) : badge visible "✧ ESPRIT" sur toute carte portant
+// actuellement ce trait — qu'il soit naturel (carte Esprit de base) ou
+// accordé temporairement (aura d'Hypnotikaa notamment), pour qu'on sache
+// toujours d'un coup d'œil qui peut/ne peut pas interagir avec qui.
+function attachEspritBadge(el, card){
+  const old = el.querySelector('.espritBadge'); if (old) old.remove();
+  if (!card || getType(card.label) !== 'personnage') return;
+  if (!hasTag(card, 'Esprit')) return;
+  const badge = document.createElement('div');
+  badge.className = 'provocateurBadge espritBadge';
+  badge.title = 'ESPRIT : ce combattant ne peut attaquer ou être attaqué que par d\'autres combattants Esprit.';
+  badge.textContent = '✧ ESPRIT';
+  el.appendChild(badge);
+}
+
 function attachCapturedMithril(el, card) {
   const old = el.querySelector('.capturedMithrilWrap'); if (old) old.remove();
   if (typeof card.capturedMithril !== 'number' || card.capturedMithril <= 0) return;
@@ -3838,6 +3864,17 @@ function openFactionPrompt(player, onChosen){
       }
     }
   });
+  // FILET DE SÉCURITÉ CRITIQUE : si Paradlex finissait par bloquer TOUTES les
+  // factions actuellement disponibles pour ce joueur, plus aucun bouton ne
+  // serait cliquable — le choix de faction (obligatoire en tout début de
+  // tour) resterait bloqué indéfiniment, gelant la partie pour LES DEUX
+  // joueurs (le jeu est au tour par tour). On annule alors tout blocage ce
+  // tour-ci plutôt que de risquer ce blocage total.
+  if (availableFactions.length > 0 && availableFactions.every(f => blockedFactions.has(f))) {
+    blockedFactions.clear();
+    pushHistory('info', `Paradlex aurait bloqué toutes vos factions disponibles ce tour-ci : son effet est exceptionnellement
+      ignoré pour éviter un blocage complet de la partie.`);
+  }
 
   availableFactions.forEach(f=>{
     const b = document.createElement('button');
@@ -9095,6 +9132,8 @@ attachCapturedMithril(el, card);
     attachProvocateurBadge(el, card);
     // WADOO 6e lot : badge Poupée pour tout combattant portant Scapoo (C235).
     attachPoupeeBadge(el, card);
+    // KRYLLS (nouveau lot) : badge Esprit visible sur toute carte portant ce trait.
+    attachEspritBadge(el, card);
   };
 
   clearFallbackName(el);
@@ -11384,31 +11423,28 @@ function performEndTurn(){
   if (ONLINE_MODE && currentTurn !== MY_SEAT) return; // en ligne : pas ton tour
   // Remet chaque main à sa position d'origine dès qu'on termine son tour.
   if (typeof window.__resetHandPositions === 'function') window.__resetHandPositions();
-  // La logique qui suit est déclenchée lorsque le joueur clique sur "FIN DE TOUR"
-  // (ou que le minuteur de tour arrive à zéro, voir setupTurnTimer plus bas).
-  if(currentTurn==='bottom'){
-    // Le joueur du bas termine son tour
-    actionBlocked['bottom'] = false; // On retire un éventuel blocage sur LUI
 
-    cleanupWhyMeBuffs();
-    upkeepCharactersFor('bottom');
-    refillHand('bottom');
-    currentTurn='top'; // On passe au joueur du haut
-    updateTurnUI();
-    if (!ONLINE_MODE) startTurn('top'); // en local, on enchaîne directement le tour du joueur du haut
-    pushHistory('info', `Changement de tour → ${playerLabel('top')}.`);
+  const finishingPlayer = currentTurn;
+  const nextPlayer = (finishingPlayer === 'bottom') ? 'top' : 'bottom';
+  actionBlocked[finishingPlayer] = false; // On retire un éventuel blocage sur LUI
 
-  } else if(currentTurn==='top'){
-    // Le joueur du haut termine son tour
-    actionBlocked['top'] = false; // On retire un éventuel blocage sur LUI
+  // PROTECTION CRITIQUE CONTRE LE BLOCAGE TOTAL DE LA PARTIE : chacune de ces
+  // étapes exécute potentiellement beaucoup de logique liée aux cartes
+  // (entretien, effets de fin de tour...). Si une seule d'entre elles
+  // plantait de façon imprévue, l'ancien code s'arrêtait net AVANT même de
+  // faire passer le tour au joueur suivant — les DEUX joueurs restaient
+  // alors bloqués indéfiniment, le jeu étant strictement au tour par tour.
+  // On isole donc chaque étape : le tour change TOUJOURS, quoi qu'il arrive.
+  try{ cleanupWhyMeBuffs(); }catch(e){ console.error('[performEndTurn] cleanupWhyMeBuffs a échoué :', e); }
+  try{ upkeepCharactersFor(finishingPlayer); }catch(e){ console.error('[performEndTurn] upkeepCharactersFor a échoué :', e); }
+  try{ refillHand(finishingPlayer); }catch(e){ console.error('[performEndTurn] refillHand a échoué :', e); }
 
-    cleanupWhyMeBuffs();
-    upkeepCharactersFor('top');
-    refillHand('top');
-    currentTurn='bottom'; // On passe au joueur du bas
-    updateTurnUI();
-    if (!ONLINE_MODE) startTurn('bottom'); // en local, on enchaîne directement le tour du joueur du bas
-    pushHistory('info', `Changement de tour → ${playerLabel('bottom')}.`);
+  currentTurn = nextPlayer;
+  updateTurnUI();
+  pushHistory('info', `Changement de tour → ${playerLabel(nextPlayer)}.`);
+
+  if (!ONLINE_MODE) {
+    try{ startTurn(nextPlayer); }catch(e){ console.error('[performEndTurn] startTurn a échoué :', e); }
   }
   if (ONLINE_MODE) fullRender(); // diffuse le changement de tour ; le nouveau joueur actif lancera son propre startTurn (voir bloc réseau)
 }
@@ -12225,24 +12261,36 @@ function startTurn(player){
   zampanoAllowance = { owner: null, factions: [] };
 
   openFactionPrompt(player, ()=>{
-    resetExhausted(player);
-    resetArtifactExhausted(player);
+    // Même protection que dans performEndTurn : cette callback déclenche
+    // beaucoup de logique liée aux cartes (entretien, forge, familiers...).
+    // Si l'une d'elles plantait, l'ancien code pouvait laisser la partie
+    // dans un état à moitié préparé (rendu jamais rafraîchi, minuteur
+    // jamais relancé...) — on isole donc tout dans un filet de sécurité qui
+    // garantit que le tour finit toujours par s'afficher correctement.
+    try{
+      resetExhausted(player);
+      resetArtifactExhausted(player);
 
-    const recharged = resetAllShields();
-    checkForge(player);
+      const recharged = resetAllShields();
+      checkForge(player);
 
-    upkeepArtifactsFor(player, ()=>{
-      upkeepFamiliersFor(player);
-      upkeepNarzbokFor(player, ()=>{
-        fullRender();
-        recharged.forEach(playHPHitEffect);
-        updateTurnUI();
+      upkeepArtifactsFor(player, ()=>{
+        upkeepFamiliersFor(player);
+        upkeepNarzbokFor(player, ()=>{
+          fullRender();
+          recharged.forEach(playHPHitEffect);
+          updateTurnUI();
+        });
       });
-    });
 
-    fullRender();
-    recharged.forEach(playHPHitEffect);
-    updateTurnUI();
+      fullRender();
+      recharged.forEach(playHPHitEffect);
+      updateTurnUI();
+    }catch(err){
+      console.error('[startTurn] la préparation du tour a rencontré une erreur :', err);
+      fullRender();
+      updateTurnUI();
+    }
   });
 
   fullRender();
@@ -12707,7 +12755,7 @@ function handlePrismisTargetSelection(targetCard) {
 }
 
 function applyPrismisEffect() {
-    if (!prismisTargetMode || prismisTargetMode.targets.length !== 2) return;
+    if (!prismisTargetMode || prismisTargetMode.targets.length !== prismisTargetMode.targetsToPick) return;
 
     const prismisCard = findCardOrArtifactOnBoard(prismisTargetMode.prismisId);
     if (!prismisCard) {
