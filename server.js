@@ -409,6 +409,30 @@ app.delete('/api/admin/users/:id', authMiddleware, adminMiddleware, (req, res) =
   }
 });
 
+// Accorde la collection COMPLÈTE de la Saison 1 (250 emplacements, 2
+// exemplaires chacun) à un compte donné — réservé à l'administrateur.
+const qUpsertUserCard = db.prepare(`
+  INSERT INTO user_cards (user_id, code, count) VALUES (?, ?, ?)
+  ON CONFLICT(user_id, code) DO UPDATE SET count = excluded.count
+`);
+app.post('/api/admin/users/:id/full-collection', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const target = qAdminFindUser.get(targetId);
+    if (!target) return res.status(404).json({ ok: false, error: 'not_found' });
+    const grantAll = db.transaction(() => {
+      catalog.SEASON_1_ALL_SLOTS.forEach(slot => {
+        qUpsertUserCard.run(targetId, slot.code, 2);
+      });
+    });
+    grantAll();
+    res.json({ ok: true, granted: catalog.SEASON_1_ALL_SLOTS.length });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
 // Marque le didacticiel comme vu, pour ne plus jamais l'afficher
 // automatiquement à cet utilisateur (il reste accessible manuellement
 // depuis le menu à tout moment). La toute première fois, ça rapporte

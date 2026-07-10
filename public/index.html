@@ -6103,13 +6103,6 @@ function openMiningPrompt(owner, card, fromEl){
     return;
   }
 
-  // KRYLLS : Pudding (T10) — un clic dessus propose de fusionner un
-  // combattant allié de la main avec lui, au lieu du minage normal.
-  if (card.label === 'T10') {
-    openPuddingFusionPrompt(owner, card, fromEl);
-    return;
-  }
-
   const canPerformActions =
     currentTurn === owner &&
     !isFrozen(card) &&
@@ -9158,6 +9151,11 @@ if (hitAndRunMode) {
     if(targetableActions.includes(currentDragInfo.label) && canPlayThisCardNow(currentDragInfo.owner, currentDragInfo.card)){
       e.preventDefault(); el.classList.add('positiveTargetHint');
     }
+    // KRYLLS : Pudding (T10) — accepte n'importe quel Personnage allié
+    // déposé directement dessus (fusion), à la place d'un dépôt en zone vide.
+    if(card.label === 'T10' && owner === currentDragInfo.owner && draggedType==='personnage' && canPlayThisCardNow(currentDragInfo.owner, currentDragInfo.card)){
+      e.preventDefault(); el.classList.add('positiveTargetHint');
+    }
   });
   el.addEventListener('dragleave', ()=>{ el.classList.remove('positiveTargetHint'); });
 
@@ -9170,6 +9168,27 @@ if (hitAndRunMode) {
     const playingOwner   = currentDragInfo.owner;
     if (currentTurn !== playingOwner || !(fromId === 'handTop' || fromId === 'handBottom')) return;
     if (!canPlayThisCardNow(playingOwner, draggedCard)) return;
+
+    // KRYLLS : Pudding (T10) — un Personnage déposé directement dessus le
+    // remplace (fusion) au lieu d'un dépôt en zone vide classique. Le Pudding
+    // "disparaît" (mangé), le combattant arrive avec RAPIDE et +2 PV.
+    if (card.label === 'T10' && owner === playingOwner && getType(draggedCard.label) === 'personnage') {
+      const playedCard = takeCardFromSource(fromId, draggedCard.id);
+      if (!playedCard) return;
+      const puddingLine = getLineByOwner(owner);
+      const puddingIdx = puddingLine.findIndex(c => c.id === card.id);
+      if (puddingIdx !== -1) puddingLine.splice(puddingIdx, 1);
+      consumeAllowanceIfNeeded(playingOwner, playedCard);
+      resetStatsToBaseWhenEnteringBattle(playedCard);
+      playedCard.hp = getBaseHP(playedCard.label) + 2;
+      if (!Array.isArray(playedCard.addedTags)) playedCard.addedTags = [];
+      if (!playedCard.addedTags.includes('rapide')) playedCard.addedTags.push('rapide');
+      puddingLine.push(playedCard);
+      onCharacterEnterBattlefield(playedCard, owner);
+      pushHistory('jeu', `${cardAnchor(playedCard.label)} est joué sur le ${cardAnchor('T10')} : +2 PV et trait RAPIDE !`);
+      fullRender();
+      return;
+    }
 
     if (getType(draggedCard.label) === 'familier') {
       consumeAllowanceIfNeeded(playingOwner, draggedCard);
@@ -12540,49 +12559,6 @@ function transformIntoPudding(targetOwner, targetCard, casterOwner){
   pudding.hp = 1;
   casterLine.push(pudding);
   pushHistory('action', `${cardAnchor('C28')} transforme ${cardAnchor(targetCard.label)} en ${cardAnchor('T10')} (1 PV) dans votre zone de combat !`);
-  closeActionPrompt();
-  fullRender();
-}
-
-// KRYLLS : Pudding (T10) — un combattant allié peut être "joué" directement
-// sur lui : le Pudding disparaît, remplacé par ce combattant, qui gagne le
-// trait RAPIDE et +2 PV.
-function openPuddingFusionPrompt(owner, puddingCard, fromEl){
-  const hand = getHandByOwner(owner);
-  const eligible = hand.filter(c => getType(c.label) === 'personnage');
-  if (eligible.length === 0) {
-    pushHistory('info', `${cardAnchor('T10')} : aucun combattant en main à jouer dessus.`);
-    return;
-  }
-  const buttons = eligible.map(c => ({
-    label: cardName(c.label),
-    className: 'confirm',
-    onClick: () => fusePuddingWithCard(owner, puddingCard, c),
-  }));
-  buttons.push({ label: 'Annuler', className: 'cancel', onClick: () => {} });
-  openButtonsPrompt('Pudding', `Choisissez le combattant à jouer sur le <strong>${cardAnchor('T10')}</strong> — il gagnera le
-    trait <strong>RAPIDE</strong> et <strong>+2 PV</strong>.`, fromEl, buttons);
-}
-
-function fusePuddingWithCard(owner, puddingCard, handCard){
-  if (!canPlayThisCardNow(owner, handCard)) {
-    pushHistory('info', `${cardAnchor(handCard.label)} n'est pas de la faction active ce tour-ci — impossible de la jouer sur le ${cardAnchor('T10')}.`);
-    closeActionPrompt();
-    return;
-  }
-  const hand = getHandByOwner(owner);
-  const line = getLineByOwner(owner);
-  const handIdx = hand.findIndex(c => c.id === handCard.id);
-  const puddingIdx = line.findIndex(c => c.id === puddingCard.id);
-  if (handIdx === -1 || puddingIdx === -1) { closeActionPrompt(); return; }
-  const [playedCard] = hand.splice(handIdx, 1);
-  line.splice(puddingIdx, 1);
-  playedCard.hp = getBaseHP(playedCard.label) + 2;
-  if (!Array.isArray(playedCard.addedTags)) playedCard.addedTags = [];
-  if (!playedCard.addedTags.includes('rapide')) playedCard.addedTags.push('rapide');
-  line.push(playedCard);
-  onCharacterEnterBattlefield(playedCard, owner);
-  pushHistory('jeu', `${cardAnchor(playedCard.label)} est joué sur le ${cardAnchor('T10')} : +2 PV et trait RAPIDE !`);
   closeActionPrompt();
   fullRender();
 }

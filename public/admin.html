@@ -56,6 +56,7 @@
       padding:6px 11px; border-radius:8px; font-weight:800; font-size:11.5px; cursor:pointer; border:1px solid rgba(255,255,255,.2);
     }
     .miniBtn.save{ background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border-color:#4df7a8; }
+    .miniBtn.collection{ background:linear-gradient(180deg,#ffe98a,#e0a800); color:#2a1c00; border-color:rgba(255,255,255,.5); }
     .miniBtn.delete{ background:linear-gradient(180deg,#a02323,#5a0f0f); color:#ffdada; border-color:#ff6b6b; }
     .miniBtn:disabled{ opacity:.4; cursor:not-allowed; }
 
@@ -137,6 +138,7 @@
             <td>
               <div class="rowActions">
                 <button class="miniBtn save" data-action="save" data-id="${u.id}">Enregistrer</button>
+                <button class="miniBtn collection" data-action="collection" data-id="${u.id}">Collection complète</button>
                 <button class="miniBtn delete" data-action="delete" data-id="${u.id}" ${isSelf ? 'disabled' : ''}>Supprimer</button>
               </div>
             </td>
@@ -170,6 +172,24 @@
       zone.querySelectorAll('[data-action="delete"]').forEach(btn => {
         btn.addEventListener('click', () => deleteUser(parseInt(btn.dataset.id, 10)));
       });
+      zone.querySelectorAll('[data-action="collection"]').forEach(btn => {
+        btn.addEventListener('click', () => grantFullCollection(parseInt(btn.dataset.id, 10)));
+      });
+    }
+
+    async function grantFullCollection(id){
+      const user = ALL_USERS.find(u => u.id === id);
+      if (!user) return;
+      if (!confirm(`Donner à "${user.name}" (${user.email}) les 250 cartes de la Saison 1, en 2 exemplaires chacune ? Ceci écrase sa collection actuelle.`)) return;
+      try{
+        const res = await fetch(`/api/admin/users/${id}/full-collection`, { method:'POST' });
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          showToast(`Collection complète accordée (${data.granted} cartes × 2).`);
+        } else {
+          showToast('Erreur lors de l\'attribution de la collection.', true);
+        }
+      }catch(e){ showToast('Erreur réseau.', true); }
     }
 
     async function saveUser(id){
