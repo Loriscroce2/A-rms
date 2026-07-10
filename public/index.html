@@ -2789,6 +2789,9 @@ const CARD_IMAGES = {
  'C26': '../cartes/0026.png',
  'C27': '../cartes/0027.png',
  'C28': '../cartes/0028.png',
+ 'C29': '../cartes/0029.png',
+ 'C30': '../cartes/0030.png',
+ 'C31': '../cartes/0031.png',
  'T10': '../cartes/T10.png',
  'T05': '../cartes/T05.png',
  'T06': '../cartes/T06.png',
@@ -2911,6 +2914,9 @@ const CARD_TYPES  = {
  'C26': 'personnage',  // Kony
  'C27': 'artefact',    // Mine E.M.I
  'C28': 'personnage',  // Kabba le zunt
+ 'C29': 'personnage',  // Hypnotikaa
+ 'C30': 'action',      // Toujours Serein
+ 'C31': 'artefact',    // Vakxzin
  'T10': 'personnage',  // Pudding
  'T05': 'personnage',  // Cousu
  'T06': 'personnage',  // Cousu
@@ -3032,6 +3038,9 @@ const CARD_NAMES = {
  'C26': 'Kony',
  'C27': 'Mine E.M.I',
  'C28': 'Kabba le zunt',
+ 'C29': 'Hypnotikaa',
+ 'C30': 'Toujours Serein',
+ 'C31': 'Vakxzin',
  'T10': 'Pudding',
  'T05': 'Cousu',
  'T06': 'Cousu',
@@ -3115,6 +3124,7 @@ const CARD_HP_BASE = {
   'C25': 3,
   'C26': 2,
   'C28': 7,
+  'C29': 2,
   'T10': 1,
 };
 
@@ -3290,6 +3300,9 @@ const CARD_TAGS = {
  'C26': ['guerrier', 'Krylls'],  // Kony
  'C27': ['artefact', 'Krylls'],  // Mine E.M.I
  'C28': ['citoyen', 'Krylls'],   // Kabba le zunt
+ 'C29': ['citoyen', 'Krylls'],   // Hypnotikaa
+ 'C30': ['action', 'Krylls'],    // Toujours Serein
+ 'C31': ['artefact', 'Krylls'],  // Vakxzin
  'T10': ['Food', 'Krylls'],      // Pudding
 
 };
@@ -3720,6 +3733,7 @@ let warzazathEffect = { top: false, bottom: false };
 let prismisTargetMode = null;
 let kabbaTargetMode = null;
 let krouzpierTargetMode = null;
+let vakxzinTargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -4223,6 +4237,62 @@ function openC16Prompt(owner, card){
       },
     ]
   );
+}
+
+// KRYLLS (nouveau lot) : Toujours Serein (C30) — tous les combattants
+// adverses ayant Provocateur le perdent, et perdent aussi 4 PV.
+function openC30Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const targetCount = getLineByOwner(opp).filter(c => hasTag(c, 'provocateur')).length;
+  openButtonsPrompt(
+    'Toujours Serein',
+    `Jouer <strong>Toujours Serein</strong> ?<br><small>Effet : chaque combattant adverse ayant <strong>Provocateur</strong>
+      le perd et subit <strong>-4 PV</strong> (${targetCount} cible${targetCount>1?'s':''} actuellement).</small>`,
+    anchorEl,
+    [
+      { label:'Jouer', className:'confirm', onClick:()=> playActionC30(owner, card) },
+      { label:'Annuler', className:'cancel', onClick:()=>{} },
+    ]
+  );
+}
+
+function playActionC30(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const targets = getLineByOwner(opp).filter(c => hasTag(c, 'provocateur'));
+  if (targets.length === 0) {
+    pushHistory('info', `${cardAnchor('C30')} : aucun combattant adverse Provocateur.`);
+    fullRender();
+    return;
+  }
+  targets.forEach(c => {
+    if (!Array.isArray(c.removedTags)) c.removedTags = [];
+    if (!c.removedTags.includes('provocateur')) c.removedTags.push('provocateur');
+    c.hp = getEffectiveHP(c) - 4;
+  });
+  pushHistory('action', `${cardAnchor('C30')} retire Provocation et inflige <strong>-4 PV</strong> à ${targets.length}
+    combattant(s) adverse(s).`);
+
+  // Les combattants tombés à 0 PV ou moins meurent immédiatement.
+  targets.forEach(c => {
+    if (c.hp <= 0) {
+      const line = getLineByOwner(opp);
+      const lidx = line.findIndex(x => x.id === c.id);
+      if (lidx !== -1) {
+        line.splice(lidx, 1);
+        detachFamiliarsOnHost(c, opp);
+        discardCard(c, opp, 'death');
+      }
+    }
+  });
+  fullRender();
 }
 
 function playActionC16(owner, actionCard, doForge){
@@ -6805,6 +6875,28 @@ function recalcTentacuzBonuses(){
   });
 }
 
+// KRYLLS (nouveau lot) : Hypnotikaa (C29) — tant qu'elle est dans la zone de
+// combat, tous vos AUTRES combattants gagnent le trait Esprit. Recalculé en
+// direct à chaque rendu ; le trait est retiré aussitôt qu'elle quitte le jeu.
+function recalcHypnotikaaAura(){
+  ['top', 'bottom'].forEach(owner => {
+    const line = getLineByOwner(owner);
+    const hasHypnotikaa = line.some(c => c.label === 'C29');
+    line.forEach(c => {
+      if (c.label === 'C29') return; // elle ne se donne pas Esprit à elle-même
+      if (!Array.isArray(c.addedTags)) c.addedTags = [];
+      const idx = c.addedTags.indexOf('Esprit');
+      if (hasHypnotikaa && idx === -1) {
+        c.addedTags.push('Esprit');
+        c._hypnotikaaGrantedEsprit = true;
+      } else if (!hasHypnotikaa && idx !== -1 && c._hypnotikaaGrantedEsprit) {
+        c.addedTags.splice(idx, 1);
+        c._hypnotikaaGrantedEsprit = false;
+      }
+    });
+  });
+}
+
 // KRYLLS (nouveau lot) : Krouzpier (C25) — MORT : lance une carte en l'air ;
 // le joueur choisit Cœur ou Pique AVANT le tirage. Bonne pioche = détruit un
 // combattant ennemi et RECOMMENCE l'opération (chaîne potentiellement
@@ -6928,6 +7020,53 @@ function handleKrouzpierTargetSelection(targetCard, targetCardOwner){
   // L'opération recommence entièrement (nouveau choix, nouveau tirage).
   startKrouzpierChain(casterOwner);
 }
+
+// KRYLLS (nouveau lot) : Vakxzin (C31) — détruit un combattant avec Poison
+// (n'importe quel camp), gagne 2 Mithril si l'opération réussit. Ciblage par
+// clic direct sur le plateau.
+function startVakxzinTargeting(casterOwner){
+  vakxzinTargetMode = { casterOwner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'vakxzin-target-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '2000';
+  promptEl.innerHTML = `
+    <div class="apTitle">Vakxzin</div>
+    <div class="apMsg">Cliquez sur un combattant portant <strong>Poison</strong> (n'importe quel camp) pour le détruire.</div>
+    <div class="apRow"><button id="vakxzin-target-cancel" class="apBtn cancel">Annuler</button></div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  promptEl.querySelector('#vakxzin-target-cancel').addEventListener('click', () => {
+    vakxzinTargetMode = null;
+    closeActionPrompt();
+  });
+  fullRender();
+}
+
+function handleVakxzinTargetSelection(targetCard, targetCardOwner){
+  if (!vakxzinTargetMode) return;
+  if (!hasTag(targetCard, 'poison')) return; // seules les cibles empoisonnées sont valides
+  const { casterOwner } = vakxzinTargetMode;
+  vakxzinTargetMode = null;
+  closeActionPrompt();
+
+  detachFamiliarsOnHost(targetCard, targetCardOwner);
+  const line = getLineByOwner(targetCardOwner);
+  const idx = line.findIndex(c => c.id === targetCard.id);
+  if (idx !== -1) line.splice(idx, 1);
+  discardCard(targetCard, targetCardOwner, 'destroyed');
+  addMithril(casterOwner);
+  addMithril(casterOwner);
+  pushHistory('action', `${cardAnchor('C31')} détruit ${cardAnchor(targetCard.label)} (Poison) : +2 Mithril.`);
+  fullRender();
+}
+
 
 /* --- Côté spectateur (le joueur qui n'est PAS propriétaire de Krouzpier) :
    affiche la même séquence au fur et à mesure qu'elle arrive, sans jamais
@@ -8699,6 +8838,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C5') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC5Prompt(owner, card, el)); }); }
             if (card.label === 'C18') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC18Prompt(owner, card, el)); }); }
             if (card.label === 'C16') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC16Prompt(owner, card)); }); }
+            if (card.label === 'C30') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC30Prompt(owner, card, el)); }); }
             if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
             if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
             if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
@@ -9155,6 +9295,7 @@ if (hitAndRunMode) {
     if (prismisTargetMode) { handlePrismisTargetSelection(card); return; }
     if (kabbaTargetMode) { handleKabbaTargetSelection(card, owner); return; }
     if (krouzpierTargetMode) { handleKrouzpierTargetSelection(card, owner); return; }
+    if (vakxzinTargetMode) { handleVakxzinTargetSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
     if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
@@ -9468,6 +9609,16 @@ if (card.label === 'C27') { // KRYLLS : Mine E.M.I
     { label:'Défausser', className:'confirm', onClick:()=>useMineEMI(owner, card) },
     { label:'Annuler', className:'cancel', onClick:()=>{} },
   ]);
+}
+
+if (card.label === 'C31') { // KRYLLS : Vakxzin
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  const poisonedCount = topLine.concat(botLine).filter(c => hasTag(c, 'poison')).length;
+  if (poisonedCount === 0) {
+    pushHistory('info', `${cardAnchor('C31')} : aucun combattant avec Poison sur le plateau.`);
+    return;
+  }
+  startVakxzinTargeting(owner);
 }
 
   });
@@ -10640,6 +10791,8 @@ function fullRender(){
   recalcDecebaleHP();
   // KRYLLS (nouveau lot) : Tentacuz (C24) — bonus de Bouclier en direct.
   recalcTentacuzBonuses();
+  // KRYLLS (nouveau lot) : Hypnotikaa (C29) — aura Esprit en direct.
+  recalcHypnotikaaAura();
   updateHandsUI();
   renderLine(document.querySelector('#battleTop .battleInner'), topLine, 'top');
   renderLine(document.querySelector('#battleBottom .battleInner'), botLine, 'bottom');
