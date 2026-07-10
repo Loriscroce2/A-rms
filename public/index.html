@@ -14268,7 +14268,33 @@ function startTutorialCoach(){
       showDialogue('Le calcul du combat', `Chaque combattant inflige des dégâts égaux à ses <strong>PV actuels</strong>, des
         <strong>deux côtés à la fois</strong>. Le <strong>Bouclier</strong> absorbe les dégâts en premier ; le surplus retire
         des PV.`, [
-        { label: 'Continuer', onClick: step7_Familiar }
+        { label: 'Continuer', onClick: step6c_Mining }
+      ]);
+    }
+
+    // ---- 7c. Miner ----
+    function step6c_Mining(){
+      clearHighlight();
+      showDialogue('Miner', `Au lieu d'attaquer, un combattant peut aussi <strong>miner</strong> : il rapporte
+        <strong>+1 Mithril</strong>, mais ne pourra plus attaquer ce tour-ci — les deux actions sont
+        <strong>incompatibles</strong>.`, [
+        { label: 'À vous de jouer', onClick: () => {
+          hideDialogue();
+          const miner = createCard('C116', 'B');
+          botLine.push(miner);
+          fullRender();
+          const minerEl = document.querySelector(`[data-id="${miner.id}"]`);
+          highlight(minerEl);
+          showBanner('Miner', `Cliquez sur cette seconde ${cardName('C116')}, puis choisissez "Miner" dans le menu.`);
+          const startMithril = mithril['bottom'] || 0;
+          waitForCondition(() => (mithril['bottom'] || 0) > startMithril, () => {
+            clearHighlight(); hideBanner();
+            showDialogue('Mithril gagné', `+1 Mithril récolté. Remarquez que cette carte ne peut désormais plus attaquer ce
+              tour-ci.`, [
+              { label: 'Continuer', onClick: step7_Familiar }
+            ]);
+          });
+        } }
       ]);
     }
 
@@ -14413,17 +14439,24 @@ function startTutorialCoach(){
         const armsBox = document.getElementById('armsBottom');
         const mithrilBox = document.getElementById('mithrilBoxBottom');
         highlight([mithrilBox, armsBox], { noBlock: true });
+        showBanner('Un A’rms forgé !', `3 Mithril viennent d'être convertis en 1 A’rms — regardez les deux compteurs
+          s'illuminer.`);
         // Pulsation dorée sur la case d'A'rms qui vient tout juste de s'allumer,
         // ET sur la boîte de Mithril — pour bien montrer la transformation de
-        // l'un vers l'autre.
+        // l'un vers l'autre. On laisse le temps de VOIR cette animation avant
+        // d'ouvrir la boîte de dialogue, qui assombrit tout l'écran et
+        // masquerait sinon l'illumination qu'on vient de déclencher.
         const slots = armsBox ? armsBox.querySelectorAll('.armSlot.armActive') : [];
         const newSlot = slots[armsAfter - 1];
         if (newSlot) { newSlot.classList.remove('armForged'); void newSlot.offsetWidth; newSlot.classList.add('armForged'); }
         if (mithrilBox) { mithrilBox.classList.remove('armForged'); void mithrilBox.offsetWidth; mithrilBox.classList.add('armForged'); }
-        showDialogue('Un A’rms forgé !', `Votre tour a commencé : <strong>3 Mithril</strong> ont été convertis
-          automatiquement en <strong>1 A’rms</strong> ⚒ (${armsAfter}/5). Regardez les deux compteurs s'illuminer.`, [
-          { label: 'Continuer', onClick: () => { clearHighlight(); step12_Final(); } }
-        ]);
+        setTimeout(() => {
+          clearHighlight(); hideBanner();
+          showDialogue('Un A’rms forgé !', `Votre tour a commencé : <strong>3 Mithril</strong> ont été convertis
+            automatiquement en <strong>1 A’rms</strong> ⚒ (${armsAfter}/5).`, [
+            { label: 'Continuer', onClick: step12_Final }
+          ]);
+        }, 3000);
       } else {
         step12_Final();
       }
