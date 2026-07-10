@@ -14097,7 +14097,11 @@ function startTutorialCoach(){
       const els = (Array.isArray(elOrArr) ? elOrArr : [elOrArr]).filter(Boolean);
       if (els.length === 0) return;
       if (!opts.noBlock) blocker.style.display = 'block';
-      const spotClass = opts.noBlock ? 'tcSpotlightLight' : 'tcSpotlight';
+      // "noBlock" (autoriser le glisser natif ailleurs) et "noDarken" (ne pas
+      // assombrir la zone, ex. le reste de la main) sont deux réglages
+      // indépendants : on peut très bien bloquer tout le reste de l'écran
+      // SANS assombrir la carte elle-même, pour qu'elle reste bien visible.
+      const spotClass = (opts.noBlock || opts.noDarken) ? 'tcSpotlightLight' : 'tcSpotlight';
       els.forEach(el => {
         el.classList.add(spotClass);
         // On ne force position:relative QUE si l'élément est en position
@@ -14337,7 +14341,7 @@ function startTutorialCoach(){
           hideDialogue();
           const cardEl = document.querySelector(`#handBottom [data-id="${fillerCard.id}"]`);
           const dumpEl = document.getElementById('dumpBottom');
-          highlight([cardEl, dumpEl]);
+          highlight([cardEl, dumpEl], { noDarken: true });
           showBanner('Défausser une carte', `Glissez <strong>${cardName(fillerCard.label)}</strong> (repère du haut)
             <strong>uniquement</strong> sur votre défausse (repère du bas) — pas sur la zone de combat.`);
           const startHandCount = botHand.length;
@@ -14407,13 +14411,17 @@ function startTutorialCoach(){
       const armsAfter = arms['bottom'] || 0;
       if (armsAfter > armsBefore) {
         const armsBox = document.getElementById('armsBottom');
-        highlight(armsBox, { noBlock: true });
-        // Pulsation dorée sur la case d'A'rms qui vient tout juste de s'allumer.
+        const mithrilBox = document.getElementById('mithrilBoxBottom');
+        highlight([mithrilBox, armsBox], { noBlock: true });
+        // Pulsation dorée sur la case d'A'rms qui vient tout juste de s'allumer,
+        // ET sur la boîte de Mithril — pour bien montrer la transformation de
+        // l'un vers l'autre.
         const slots = armsBox ? armsBox.querySelectorAll('.armSlot.armActive') : [];
         const newSlot = slots[armsAfter - 1];
         if (newSlot) { newSlot.classList.remove('armForged'); void newSlot.offsetWidth; newSlot.classList.add('armForged'); }
+        if (mithrilBox) { mithrilBox.classList.remove('armForged'); void mithrilBox.offsetWidth; mithrilBox.classList.add('armForged'); }
         showDialogue('Un A’rms forgé !', `Votre tour a commencé : <strong>3 Mithril</strong> ont été convertis
-          automatiquement en <strong>1 A’rms</strong> ⚒ (${armsAfter}/5). Regardez la case s'illuminer.`, [
+          automatiquement en <strong>1 A’rms</strong> ⚒ (${armsAfter}/5). Regardez les deux compteurs s'illuminer.`, [
           { label: 'Continuer', onClick: () => { clearHighlight(); step12_Final(); } }
         ]);
       } else {
