@@ -82,10 +82,96 @@
     .launchBtn:hover{ transform:translateY(-3px); box-shadow:0 0 30px rgba(25,226,122,.55), 0 14px 28px rgba(0,0,0,.4); }
     .launchNote{ margin-top:14px; font-size:11.5px; color:var(--muted); opacity:.6; }
     .laterLink{ display:block; margin-top:10px; font-size:12px; color:var(--muted); opacity:.6; text-decoration:underline; cursor:pointer; }
+
+    /* ---- Accueil personnalisé, première connexion uniquement ---- */
+    #firstWelcomeOverlay{
+      position:fixed; inset:0; z-index:9500; display:none; flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; padding:24px; overflow:hidden; background:#03090c; opacity:0; transition:opacity .6s ease;
+    }
+    #firstWelcomeOverlay.show{ display:flex; opacity:1; }
+    .fwRays{
+      position:absolute; width:1100px; height:1100px; pointer-events:none;
+      background:conic-gradient(from 0deg,
+        transparent 0deg, #7df9ff 3deg, transparent 9deg, transparent 30deg,
+        #ffd93d 33deg, transparent 39deg, transparent 60deg,
+        #7df9ff 63deg, transparent 69deg, transparent 90deg,
+        #ffd93d 93deg, transparent 99deg, transparent 120deg,
+        #7df9ff 123deg, transparent 129deg, transparent 150deg,
+        #ffd93d 153deg, transparent 159deg, transparent 180deg,
+        #7df9ff 183deg, transparent 189deg, transparent 210deg,
+        #ffd93d 213deg, transparent 219deg, transparent 240deg,
+        #7df9ff 243deg, transparent 249deg, transparent 270deg,
+        #ffd93d 273deg, transparent 279deg, transparent 300deg,
+        #7df9ff 303deg, transparent 309deg, transparent 330deg,
+        #ffd93d 333deg, transparent 339deg, transparent 360deg);
+      opacity:.16; animation:fwRaysSpin 22s linear infinite;
+      -webkit-mask-image:radial-gradient(circle, black 0%, black 30%, transparent 68%);
+      mask-image:radial-gradient(circle, black 0%, black 30%, transparent 68%);
+    }
+    @keyframes fwRaysSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+    .fwSparkleLayer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+    .fwSparkle{ position:absolute; top:-8%; font-size:16px; opacity:0; animation-name:fwSparkleFall; animation-timing-function:ease-in; animation-fill-mode:forwards; }
+    @keyframes fwSparkleFall{
+      0%{ opacity:0; transform:translateY(0) rotate(0deg); }
+      12%{ opacity:1; }
+      100%{ opacity:0; transform:translateY(112vh) rotate(340deg); }
+    }
+    .fwAvatarWrap{
+      position:relative; z-index:2; width:min(46vw,230px); height:min(46vw,230px); margin-bottom:8px;
+      transform:scale(.1) rotate(-35deg); opacity:0; transition:transform 1s cubic-bezier(.17,.85,.3,1.4), opacity .5s ease;
+    }
+    #firstWelcomeOverlay.show .fwAvatarWrap{ transform:scale(1) rotate(0deg); opacity:1; }
+    .fwAvatar{ width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 16px 30px rgba(0,0,0,.6)) drop-shadow(0 0 30px rgba(0,230,255,.3)); }
+    .fwKicker{
+      position:relative; z-index:2; font-size:11px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:#7df9ff;
+      opacity:0; transform:translateY(10px); transition:opacity .5s ease .5s, transform .5s ease .5s;
+    }
+    #firstWelcomeOverlay.show .fwKicker{ opacity:1; transform:translateY(0); }
+    .fwTitle{
+      position:relative; z-index:2; font-family:'Cinzel',sans-serif; font-weight:900; font-size:clamp(24px,4.5vw,36px);
+      margin:8px 0 14px; background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent;
+      opacity:0; transform:translateY(12px); transition:opacity .55s ease .65s, transform .55s ease .65s;
+    }
+    #firstWelcomeOverlay.show .fwTitle{ opacity:1; transform:translateY(0); }
+    .fwText{
+      position:relative; z-index:2; font-size:14.5px; line-height:1.7; color:var(--muted); max-width:480px;
+      opacity:0; transform:translateY(12px); transition:opacity .55s ease .85s, transform .55s ease .85s;
+    }
+    #firstWelcomeOverlay.show .fwText{ opacity:1; transform:translateY(0); }
+    .fwText strong{ color:#fff; }
+    .fwReward{
+      position:relative; z-index:2; display:inline-flex; align-items:center; gap:9px; margin-top:18px; padding:11px 22px;
+      border-radius:999px; background:linear-gradient(180deg,#4a3c0d,#2a2208); border:1.5px solid rgba(255,217,61,.6);
+      color:#ffd93d; font-weight:900; font-size:15px; box-shadow:0 0 20px rgba(255,217,61,.3);
+      opacity:0; transform:scale(.7); transition:opacity .5s ease 1.05s, transform .5s cubic-bezier(.17,.85,.3,1.4) 1.05s;
+    }
+    #firstWelcomeOverlay.show .fwReward{ opacity:1; transform:scale(1); }
+    .fwBtn{
+      position:relative; z-index:2; margin-top:26px; padding:14px 32px; border-radius:14px; font-weight:900; font-size:15.5px;
+      cursor:pointer; background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border:1px solid #4df7a8;
+      box-shadow:0 0 22px rgba(25,226,122,.4); transition:transform .15s ease, opacity .5s ease 1.2s, transform .5s ease 1.2s;
+      opacity:0; transform:translateY(14px);
+    }
+    #firstWelcomeOverlay.show .fwBtn{ opacity:1; transform:translateY(0); }
+    #firstWelcomeOverlay.show .fwBtn:hover{ transform:translateY(-3px); }
   </style>
 </head>
 <body>
   <div id="site-header-root"></div>
+
+  <div id="firstWelcomeOverlay">
+    <div class="fwRays"></div>
+    <div class="fwSparkleLayer" id="fwSparkleLayer"></div>
+    <div class="fwAvatarWrap"><img class="fwAvatar" src="/assets/professeur.png" alt="Votre guide"></div>
+    <div class="fwKicker">✦ A’rms ✦</div>
+    <div class="fwTitle" id="fwTitleText">Bienvenue !</div>
+    <div class="fwText">
+      Je suis votre guide, et je vais vous accompagner à travers vos premiers pas. Suivez mes indications jusqu'au bout du
+      didacticiel — c'est la meilleure façon de découvrir toutes les subtilités d'A’rms.
+    </div>
+    <div class="fwReward">🪙 +350 pièces à la clé</div>
+    <div><button class="fwBtn" id="fwStartBtn">Découvrir A’rms →</button></div>
+  </div>
 
   <main class="container">
     <div class="hero">
@@ -160,6 +246,41 @@
     document.getElementById('laterLink').addEventListener('click', () => {
       window.location.href = '/accueil.html';
     });
+
+    // ---- Accueil personnalisé, uniquement à la toute première connexion ----
+    (async function checkFirstWelcome(){
+      try{
+        const res = await fetch('/api/me');
+        const data = await res.json();
+        if (!res.ok || !data.user || data.user.hasSeenTutorial !== false) return;
+
+        const overlay = document.getElementById('firstWelcomeOverlay');
+        const titleEl = document.getElementById('fwTitleText');
+        if (data.user.name) titleEl.textContent = `Bienvenue, ${data.user.name} !`;
+
+        // Quelques étincelles qui tombent doucement, pour l'ambiance.
+        const sparkleLayer = document.getElementById('fwSparkleLayer');
+        const glyphs = ['✦','✧','⟡','✨'];
+        for (let i = 0; i < 22; i++) {
+          const s = document.createElement('div');
+          s.className = 'fwSparkle';
+          s.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
+          s.style.left = (Math.random() * 100) + '%';
+          s.style.color = Math.random() < 0.5 ? '#7df9ff' : '#ffd93d';
+          s.style.animationDelay = (Math.random() * 2.2) + 's';
+          s.style.animationDuration = (3.5 + Math.random() * 2.5) + 's';
+          sparkleLayer.appendChild(s);
+        }
+
+        overlay.style.display = 'flex';
+        requestAnimationFrame(()=> requestAnimationFrame(()=> overlay.classList.add('show')));
+
+        document.getElementById('fwStartBtn').addEventListener('click', () => {
+          overlay.classList.remove('show');
+          setTimeout(()=>{ overlay.style.display = 'none'; }, 600);
+        });
+      }catch(e){}
+    })();
   </script>
 </body>
 </html>

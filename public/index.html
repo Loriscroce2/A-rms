@@ -14222,8 +14222,8 @@ function startTutorialCoach(){
           const cardEl = card ? document.querySelector(`#handBottom [data-id="${card.id}"]`) : null;
           const zoneEl = document.getElementById('battleBottom');
           highlight([cardEl, zoneEl], { noBlock: true });
-          showBanner('Jouer un Personnage', `Glissez <strong>${cardName('C116')}</strong> (repère du haut) dans votre
-            <strong>zone de combat</strong> (repère du bas).`);
+          showBanner('Jouer un Personnage', `Glissez <strong>${cardName('C116')}</strong> depuis votre main jusque dans votre
+            <strong>zone de combat</strong>.`);
           waitForCondition(() => botLine.length > startCount, step5_Mithril);
         } }
       ]);
@@ -14263,8 +14263,8 @@ function startTutorialCoach(){
           highlight([myEl, oppEl], { noBlock: true });
           const startTopCount = topLine.length;
           const startMyHp = myCard ? getEffectiveHP(myCard) : 0;
-          showBanner('Attaquer', `<strong>Maintenez le clic</strong> sur votre combattant (repère du haut), glissez vers
-            l'adversaire (repère du bas), relâchez.`);
+          showBanner('Attaquer', `<strong>Maintenez le clic</strong> sur votre combattant, glissez vers l'adversaire, puis
+            relâchez.`);
           waitForCondition(() => {
             const stillThere = botLine.find(c => myCard && c.id === myCard.id);
             const hpChanged = stillThere ? (getEffectiveHP(stillThere) !== startMyHp) : true;
@@ -14299,8 +14299,8 @@ function startTutorialCoach(){
           const cardEl = document.querySelector(`#handBottom [data-id="${miner.id}"]`);
           const zoneEl = document.getElementById('battleBottom');
           highlight([cardEl, zoneEl], { noBlock: true });
-          showBanner('Miner', `Glissez cette seconde <strong>${cardName('C116')}</strong> (repère du haut) dans votre zone de
-            combat (repère du bas).`);
+          showBanner('Miner', `Glissez cette seconde <strong>${cardName('C116')}</strong> depuis votre main jusque dans votre
+            zone de combat.`);
           waitForCondition(() => botLine.length > startCount, () => {
             clearHighlight(); hideBanner();
             step6c2_MiningClick(miner);
@@ -14335,8 +14335,7 @@ function startTutorialCoach(){
           const famEl = famCard ? document.querySelector(`#handBottom [data-id="${famCard.id}"]`) : null;
           const hostEl = botLine[0] ? document.querySelector(`[data-id="${botLine[0].id}"]`) : null;
           highlight([famEl, hostEl], { noBlock: true });
-          showBanner('Les Familiers', `Glissez <strong>${cardName('C107')}</strong> (repère du haut) sur votre combattant
-            (repère du bas).`);
+          showBanner('Les Familiers', `Glissez <strong>${cardName('C107')}</strong> sur votre combattant pour l'y rattacher.`);
           waitForCondition(() => famBottom.length > startFamCount, step8_Action);
         } }
       ]);
@@ -14354,8 +14353,7 @@ function startTutorialCoach(){
           const hostCard = botLine[0];
           const hostEl = hostCard ? document.querySelector(`[data-id="${hostCard.id}"]`) : null;
           highlight([actionEl, hostEl], { noBlock: true });
-          showBanner('Les Actions', `Glissez <strong>${cardName('C102')}</strong> (repère du haut) sur votre combattant
-            (repère du bas).`);
+          showBanner('Les Actions', `Glissez <strong>${cardName('C102')}</strong> directement sur votre combattant.`);
           const startHp = hostCard ? getEffectiveHP(hostCard) : 0;
           const startShield = hostCard ? ((hostCard.shield || 0) + (hostCard.tempShield || 0)) : 0;
           waitForCondition(() => !botHand.find(c => c.label === 'C102'), () => {
@@ -14393,8 +14391,8 @@ function startTutorialCoach(){
           const cardEl = document.querySelector(`#handBottom [data-id="${fillerCard.id}"]`);
           const dumpEl = document.getElementById('dumpBottom');
           highlight([cardEl, dumpEl], { noDarken: true });
-          showBanner('Défausser une carte', `Glissez <strong>${cardName(fillerCard.label)}</strong> (repère du haut)
-            <strong>uniquement</strong> sur votre défausse (repère du bas) — pas sur la zone de combat.`);
+          showBanner('Défausser une carte', `Glissez <strong>${cardName(fillerCard.label)}</strong>
+            <strong>uniquement</strong> sur votre défausse — pas sur la zone de combat.`);
           const startHandCount = botHand.length;
           waitForCondition(() => botHand.length < startHandCount, () => { clearHighlight(); hideBanner(); step9c_Cycles(); });
         } }
