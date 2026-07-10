@@ -1,21 +1,37 @@
 // ===================================================================
 // sitenav.js — Construit la barre de navigation partagée. Injectée dans
 // n'importe quelle page qui contient un élément #site-header-root.
+// Le menu s'adapte à l'état de connexion : non connecté, seuls "Accueil" et
+// "Règles" sont visibles (le reste — Jouer, Classement, Didacticiel —
+// nécessite un compte) ; "Boutique" n'apparaît JAMAIS ici, elle est gérée à
+// part par auth.js (bouton doré à droite, uniquement une fois connecté), pour
+// ne jamais l'afficher deux fois.
 // Le bloc de droite (#nav-menu) reste géré par auth.js (pièces, avatar,
 // bouton Se connecter/Créer un compte selon l'état de connexion).
 // ===================================================================
-(function(){
+(async function(){
   const root = document.getElementById('site-header-root');
   if (!root) return;
 
-  const links = [
+  let isLoggedIn = false;
+  try{
+    const res = await fetch('/api/me');
+    const data = await res.json();
+    isLoggedIn = !!(res.ok && data.user);
+  }catch(e){}
+
+  const fullLinks = [
     { href: '/accueil.html',  label: 'Accueil',  match: ['/accueil.html', '/', '/index.html'] },
     { href: '/play.html',     label: 'Jouer',     match: ['/play.html'] },
     { href: '/classement.html', label: 'Classement', match: ['/classement.html'] },
-    { href: '/boutique.html', label: 'Boutique',  match: ['/boutique.html'] },
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
     { href: '/tutorial.html', label: 'Didacticiel', match: ['/tutorial.html'] },
   ];
+  const loggedOutLinks = [
+    { href: '/accueil.html',  label: 'Accueil',  match: ['/accueil.html', '/', '/index.html'] },
+    { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
+  ];
+  const links = isLoggedIn ? fullLinks : loggedOutLinks;
   const path = window.location.pathname;
 
   root.innerHTML = `

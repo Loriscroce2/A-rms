@@ -281,8 +281,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } else {
       // --- L'UTILISATEUR N'EST PAS CONNECTÉ ---
+      // "Règles" est déjà proposée dans la nav principale (voir sitenav.js) —
+      // pas besoin de la répéter ici.
       navMenu.innerHTML = `
-        <a class="btn-secondary" href="/regles.html">Règles</a>
         <a class="btn-secondary" href="/login.html">Se connecter</a>
         <a class="btn-secondary" href="/register.html">Créer un compte</a>
       `;
@@ -290,7 +291,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (error) {
     console.error("Erreur lors de la vérification de l'état de connexion :", error);
     navMenu.innerHTML = `
-      <a class="btn-secondary" href="/regles.html">Règles</a>
       <a class="btn-secondary" href="/login.html">Se connecter</a>
       <a class="btn-secondary" href="/register.html">Créer un compte</a>
     `;
