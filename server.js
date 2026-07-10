@@ -312,11 +312,23 @@ app.get('/api/me', authMiddleware, (req, res) => {
 
 // Marque le didacticiel comme vu, pour ne plus jamais l'afficher
 // automatiquement à cet utilisateur (il reste accessible manuellement
-// depuis le menu à tout moment).
+// depuis le menu à tout moment). La toute première fois, ça rapporte
+// 350 pièces — de quoi s'acheter un booster.
+const TUTORIAL_FIRST_TIME_REWARD = 350;
 app.post('/api/tutorial/seen', authMiddleware, (req, res) => {
   try {
+    const row = db.prepare('SELECT has_seen_tutorial FROM users WHERE id = ?').get(req.user.id);
+    const isFirstTime = row ? !row.has_seen_tutorial : false;
+
     qMarkTutorialSeen.run(req.user.id);
-    res.json({ ok: true });
+
+    let gained = 0;
+    if (isFirstTime) {
+      qAddCoins.run(TUTORIAL_FIRST_TIME_REWARD, req.user.id);
+      gained = TUTORIAL_FIRST_TIME_REWARD;
+    }
+    const coins = coinsForResponse(req);
+    res.json({ ok: true, firstTime: isFirstTime, gained, coins });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });

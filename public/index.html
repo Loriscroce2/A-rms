@@ -14150,7 +14150,10 @@ function startTutorialCoach(){
     }
 
     async function markArmsTutorialSeen(){
-      try{ await fetch('/api/tutorial/seen', { method:'POST' }); }catch(e){}
+      try{
+        const res = await fetch('/api/tutorial/seen', { method:'POST' });
+        return await res.json();
+      }catch(e){ return null; }
     }
 
     // ==========================================================
@@ -14158,16 +14161,25 @@ function startTutorialCoach(){
     // ==========================================================
 
     // ---- 1. Accueil ----
-    function step0_Welcome(){
-      showDialogue('1/12 — Bienvenue', `A’rms se joue en <strong>1 contre 1</strong>. Vous allez jouer un tour réel, sur le
-        plateau réel. Chaque étape vous dit quoi faire, précisément.`, [
+    async function step0_Welcome(){
+      let firstName = '';
+      try{
+        const res = await fetch('/api/me');
+        const data = await res.json();
+        if (res.ok && data.user && data.user.name) firstName = data.user.name;
+      }catch(e){}
+
+      const greeting = firstName ? `Bienvenue, <strong>${firstName}</strong> !` : 'Bienvenue !';
+      showDialogue('Bienvenue dans A’rms', `${greeting} Je suis votre guide, et je vais vous accompagner à travers un tour de
+        jeu réel, sur le plateau réel. <br><br>Suivez mes indications jusqu'au bout : ça vous rapportera
+        <strong>350 pièces</strong> — pile de quoi vous offrir votre premier booster de cartes.`, [
         { label: 'Commencer', onClick: step1_CardTypes }
       ]);
     }
 
     // ---- 2. Les 4 types de cartes ----
     function step1_CardTypes(){
-      showDialogue('2/12 — Les cartes', `Quatre types de cartes :<br><br>
+      showDialogue('2/13 — Les cartes', `Quatre types de cartes :<br><br>
         <strong>Personnage</strong> — combat pour vous.<br>
         <strong>Familier</strong> — renforce un Personnage.<br>
         <strong>Artefact</strong> — effet permanent.<br>
@@ -14178,7 +14190,7 @@ function startTutorialCoach(){
 
     // ---- 3. Conditions de victoire ----
     function step2_Victory(){
-      showDialogue('3/12 — Objectif', `Le plus souvent, on gagne en forgeant <strong>5 A’rms</strong> ⚒ avant l'adversaire.
+      showDialogue('3/13 — Objectif', `Le plus souvent, on gagne en forgeant <strong>5 A’rms</strong> ⚒ avant l'adversaire.
         D'autres cartes offrent des voies de victoire alternatives.`, [
         { label: 'Continuer', onClick: step3_Faction }
       ]);
@@ -14186,7 +14198,7 @@ function startTutorialCoach(){
 
     // ---- 4. Choix de faction (vraie première action de chaque tour) ----
     function step3_Faction(){
-      showDialogue('4/12 — Choisir sa faction', `<strong>Première action de chaque tour.</strong> Vous ne pourrez jouer que des
+      showDialogue('4/13 — Choisir sa faction', `<strong>Première action de chaque tour.</strong> Vous ne pourrez jouer que des
         cartes de cette faction ce tour-ci.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
@@ -14201,7 +14213,7 @@ function startTutorialCoach(){
     // ---- 5. Jouer un Personnage ----
     function step4_PlayCard(){
       hideBanner(); clearHighlight();
-      showDialogue('5/12 — Jouer un Personnage', `<strong>${cardName('C116')}</strong> est un Personnage : une fois en jeu,
+      showDialogue('5/13 — Jouer un Personnage', `<strong>${cardName('C116')}</strong> est un Personnage : une fois en jeu,
         elle combat pour vous.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
@@ -14221,7 +14233,7 @@ function startTutorialCoach(){
     function step5_Mithril(){
       hideBanner(); clearHighlight();
       const box = document.getElementById('mithrilBoxBottom');
-      showDialogue('6/12 — Le Mithril', `Le <strong>Mithril</strong> ⟡ est votre ressource courante : elle sert à activer des
+      showDialogue('6/13 — Le Mithril', `Le <strong>Mithril</strong> ⟡ est votre ressource courante : elle sert à activer des
         effets et à forger vos A’rms.`, [
         { label: 'Continuer', onClick: () => {
           hideDialogue();
@@ -14241,7 +14253,7 @@ function startTutorialCoach(){
       topLine.push(dummy);
       fullRender();
       const myCard = botLine[0];
-      showDialogue('7/12 — Attaquer', `Un combattant qui vient d'être joué est normalement <strong>épuisé</strong> : il ne peut
+      showDialogue('7/13 — Attaquer', `Un combattant qui vient d'être joué est normalement <strong>épuisé</strong> : il ne peut
         ni attaquer ni miner ce tour-ci. Seul le trait <strong>RAPIDE</strong> permet d'agir tout de suite —
         <strong>${myCard ? cardName(myCard.label) : 'votre combattant'}</strong> le possède.`, [
         { label: 'À vous de jouer', onClick: () => {
@@ -14314,7 +14326,7 @@ function startTutorialCoach(){
     // ---- 8. Familier ----
     function step7_Familiar(){
       clearHighlight();
-      showDialogue('8/12 — Les Familiers', `<strong>${cardName('C107')}</strong> est un Familier : rattaché à un combattant, il
+      showDialogue('8/13 — Les Familiers', `<strong>${cardName('C107')}</strong> est un Familier : rattaché à un combattant, il
         en modifie les capacités tant qu'il reste en jeu.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
@@ -14333,7 +14345,7 @@ function startTutorialCoach(){
     // ---- 9. Action ----
     function step8_Action(){
       clearHighlight();
-      showDialogue('9/12 — Les Actions', `<strong>${cardName('C102')}</strong> est une Action : effet immédiat, puis défausse.
+      showDialogue('9/13 — Les Actions', `<strong>${cardName('C102')}</strong> est une Action : effet immédiat, puis défausse.
         Elle se joue en la déposant directement sur le combattant à renforcer.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
@@ -14512,14 +14524,21 @@ function startTutorialCoach(){
       hideDialogue(); clearHighlight();
       showDialogue('13/13 — Terminé', `Vous maîtrisez l'essentiel : faction, Personnage, Mithril, attaque, Familier, Action,
         forge. Une partie <strong>Classée</strong> fait évoluer votre rang de Menace — à découvrir dans le menu.`, [
-        { label: 'Terminer', onClick: () => {
-          markArmsTutorialSeen();
-          window.location.href = '/play.html';
+        { label: 'Terminer', onClick: async () => {
+          const result = await markArmsTutorialSeen();
+          if (result && result.gained > 0) {
+            showDialogue('🪙 Récompense !', `Bravo, vous avez suivi le didacticiel jusqu'au bout — voici
+              <strong>+${result.gained} pièces</strong> (solde : ${result.coins}). Pile de quoi vous offrir un premier
+              booster de cartes !`, [
+              { label: 'Direction PLAY', onClick: () => { window.location.href = '/play.html'; } }
+            ]);
+          } else {
+            window.location.href = '/play.html';
+          }
         } }
       ]);
     }
 
-    markArmsTutorialSeen();
     step0_Welcome();
   }catch(e){ console.error('[Didacticiel] erreur :', e); }
 }
