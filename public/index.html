@@ -3718,6 +3718,7 @@ let dollyHealMode = null;
 let warzazathEffect = { top: false, bottom: false };
 // NOUVEAU : État pour le ciblage de Prismis (C152)
 let prismisTargetMode = null;
+let kabbaTargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -6713,7 +6714,20 @@ function resetAllShields(){
       if (fullShieldValue > 0 && before !== fullShieldValue) recharged.push(card);
     }
   });
+  // Le Bouclier vient d'être remis à sa valeur "propre" ci-dessus, sans les
+  // bonus de Blusyte/Tentacuz — leur compteur de bonus déjà appliqué doit
+  // donc repartir de zéro, sinon le recalcul par delta qui suit soustrairait
+  // un bonus qui n'est en réalité plus du tout présent dans ce Bouclier tout
+  // juste réinitialisé, faussant le résultat (voire perdant carrément la
+  // valeur de base si le bonus soustrait dépasse le Bouclier propre).
+  getAllFamiliers().filter(f => f.label === 'C226' || f.label === 'C24').forEach(fam => {
+    fam.appliedShieldBonus = 0;
+  });
   recalcBlusyteBonuses();
+  // KRYLLS (nouveau lot) : Tentacuz (C24) — même logique que Blusyte
+  // ci-dessus, sans quoi son bonus restait "perdu" jusqu'au prochain
+  // changement du nombre total de combattants.
+  recalcTentacuzBonuses();
   return recharged;
 }
 
@@ -9098,6 +9112,7 @@ if (hitAndRunMode) {
     }
     // Logique de clic pour les différents ciblages
     if (prismisTargetMode) { handlePrismisTargetSelection(card); return; }
+    if (kabbaTargetMode) { handleKabbaTargetSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
     if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
@@ -9483,12 +9498,7 @@ if (card.label === 'C28') {
   if (kabbaOppLine.length === 0) {
     pushHistory('info', `${cardAnchor('C28')} : aucun combattant adverse à transformer en ${cardAnchor('T10')}.`);
   } else {
-    const kabbaButtons = kabbaOppLine.map(target => ({
-      label: `${cardName(target.label)} (${getEffectiveHP(target)} PV)`,
-      className: 'confirm',
-      onClick: () => transformIntoPudding(kabbaOpp, target, owner),
-    }));
-    openButtonsPrompt('Kabba le zunt', `Choisissez le combattant adverse à transformer en <strong>${cardAnchor('T10')}</strong> (1 PV, dans votre zone de combat).`, null, kabbaButtons, { nonCancellable: true });
+    startKabbaTargeting(owner, kabbaOpp);
   }
 }
 // ===================================================================
@@ -10333,7 +10343,12 @@ if (reason === 'manual') {
     handlePestrassDeathrattle(owner);
   }
   if (card.label === 'C25' && reason === 'death') {
-    startKrouzpierChain(owner);
+    const krouzpierOpp = (owner === 'top') ? 'bottom' : 'top';
+    if (getLineByOwner(krouzpierOpp).length > 0) {
+      startKrouzpierChain(owner);
+    } else {
+      pushHistory('info', `${cardAnchor('C25')} : aucun combattant adverse en zone de combat, son effet ne se déclenche pas.`);
+    }
   }
   if (card.label === 'C58' && typeof card.charges === 'number' && card.charges > 0) {
       startC58HealingSelection(owner, card.charges);
@@ -12349,6 +12364,36 @@ function endPrismisTargetingCleanup() {
     fullRender();
 }
 
+// KRYLLS (nouveau lot) : Kabba le zunt (C28) — ciblage par clic direct sur le
+// plateau (même principe que Prismis), plutôt qu'une liste de boutons.
+function startKabbaTargeting(casterOwner, targetOwner){
+  kabbaTargetMode = { casterOwner, targetOwner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'kabba-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '2000';
+  promptEl.innerHTML = `
+    <div class="apTitle">Kabba le zunt</div>
+    <div class="apMsg">Cliquez sur le combattant adverse à transformer en <strong>${cardAnchor('T10')}</strong>.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+
+function handleKabbaTargetSelection(targetCard, targetCardOwner){
+  if (!kabbaTargetMode) return;
+  if (targetCardOwner !== kabbaTargetMode.targetOwner) return; // uniquement la ligne adverse visée
+  transformIntoPudding(kabbaTargetMode.targetOwner, targetCard, kabbaTargetMode.casterOwner);
+  kabbaTargetMode = null;
+  closeActionPrompt();
+}
+
 // REMPLACEZ L'ANCIENNE FONCTION PAR CELLE-CI
 function startPrismisTargeting(owner, prismisCard) {
     const allPlayableCards = topLine.concat(botLine, topArts, botArts);
@@ -12554,6 +12599,7 @@ function transformIntoPudding(targetOwner, targetCard, casterOwner){
   const idx = targetLine.findIndex(c => c.id === targetCard.id);
   if (idx === -1) { closeActionPrompt(); return; }
   targetLine.splice(idx, 1);
+  detachFamiliarsOnHost(targetCard, targetOwner);
   const casterLine = getLineByOwner(casterOwner);
   const pudding = createCard('T10', casterOwner === 'top' ? 'T' : 'B');
   pudding.hp = 1;
