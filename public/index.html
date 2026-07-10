@@ -14302,11 +14302,11 @@ function startTutorialCoach(){
           showBanner('Les Actions', `Glissez <strong>${cardName('C102')}</strong> (repère du haut) sur votre combattant
             (repère du bas).`);
           const startHp = hostCard ? getEffectiveHP(hostCard) : 0;
-          const startShield = hostCard ? (hostCard.shield || 0) : 0;
+          const startShield = hostCard ? ((hostCard.shield || 0) + (hostCard.tempShield || 0)) : 0;
           waitForCondition(() => !botHand.find(c => c.label === 'C102'), () => {
             const nowCard = botLine.find(c => hostCard && c.id === hostCard.id);
             const gainedHp = nowCard ? (getEffectiveHP(nowCard) - startHp) : 0;
-            const gainedShield = nowCard ? ((nowCard.shield || 0) - startShield) : 0;
+            const gainedShield = nowCard ? (((nowCard.shield || 0) + (nowCard.tempShield || 0)) - startShield) : 0;
             clearHighlight(); hideBanner();
             showDialogue('Bonus reçu', `${nowCard ? cardName(nowCard.label) : 'Votre combattant'} a bien reçu
               <strong>+${Math.max(gainedHp,0)} PV</strong> et <strong>+${Math.max(gainedShield,0)} Bouclier</strong>. Vérifiez
@@ -14332,15 +14332,14 @@ function startTutorialCoach(){
       const fillerCard = botHand.find(c => c.label !== 'C116' && c.label !== 'C107' && c.label !== 'C102');
       if (!fillerCard) { step10_Forge(); return; }
       showDialogue('11/13 — Défausser une carte', `Vous pouvez aussi défausser <strong>volontairement</strong> une carte de
-        votre main, à condition qu'elle soit de la faction choisie ce tour-ci — utile pour se débarrasser d'une carte
-        inutile.`, [
+        votre main (utile pour s'en débarrasser), à condition qu'elle soit de la faction choisie ce tour-ci.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const cardEl = document.querySelector(`#handBottom [data-id="${fillerCard.id}"]`);
           const dumpEl = document.getElementById('dumpBottom');
-          highlight([cardEl, dumpEl], { noBlock: true });
-          showBanner('Défausser une carte', `Glissez <strong>${cardName(fillerCard.label)}</strong> (repère du haut) sur votre
-            défausse (repère du bas).`);
+          highlight([cardEl, dumpEl]);
+          showBanner('Défausser une carte', `Glissez <strong>${cardName(fillerCard.label)}</strong> (repère du haut)
+            <strong>uniquement</strong> sur votre défausse (repère du bas) — pas sur la zone de combat.`);
           const startHandCount = botHand.length;
           waitForCondition(() => botHand.length < startHandCount, () => { clearHighlight(); hideBanner(); step10_Forge(); });
         } }
@@ -14380,8 +14379,27 @@ function startTutorialCoach(){
         const armsBefore = arms['bottom'] || 0;
         const btn = document.getElementById('endTurn');
         if (btn) btn.click();
-        waitForCondition(() => currentTurn === 'bottom', () => step11_ForgeReveal(armsBefore));
+        waitForCondition(() => currentTurn === 'bottom', () => step10b_NewTurnFaction(armsBefore));
       }, 1400);
+    }
+
+    // ---- Second choix de faction : un vrai nouveau tour vient de démarrer,
+    // exactement comme au tout début — c'est PENDANT cette étape que la forge
+    // automatique se vérifie réellement, ce qui explique pourquoi elle passait
+    // inaperçue quand on la sautait. ----
+    function step10b_NewTurnFaction(armsBefore){
+      showDialogue('Votre tour recommence', `Comme au début de chaque tour, choisissez d'abord votre faction.`, [
+        { label: 'À vous de jouer', onClick: () => {
+          hideDialogue();
+          const factionBox = document.querySelector('.factionPrompt');
+          highlight(factionBox);
+          showBanner('Choisir sa faction', `Cliquez sur une faction proposée ci-dessus.`);
+          waitForCondition(() => !!activeFaction['bottom'], () => {
+            clearHighlight(); hideBanner();
+            step11_ForgeReveal(armsBefore);
+          });
+        } }
+      ]);
     }
 
     // ---- Révélation du forgeage ----
