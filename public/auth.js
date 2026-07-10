@@ -54,6 +54,7 @@ function armsInjectAccountStyles() {
   style.textContent = `
     .coinsPill{display:inline-flex;align-items:center;gap:6px;}
     .rankPill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;font-weight:900;font-family:'Manrope',sans-serif;letter-spacing:.02em;white-space:nowrap;}
+    .accountGroup{display:inline-flex;align-items:center;gap:6px;}
     .accountBtn{display:inline-flex;align-items:center;gap:10px;padding:5px 14px 5px 5px;border-radius:999px;
       background:linear-gradient(180deg,#0e2e39,#0a222a);border:1.5px solid rgba(125,249,255,.35);cursor:pointer;
       color:#e8fdff;font-weight:800;font-size:14px;transition:border-color .15s ease, transform .15s ease;}
@@ -276,18 +277,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       const user = data.user;
       navMenu.innerHTML = `
         <span class="coinsPill" id="coinsPill" title="Vos pièces">🪙 <strong id="coinsAmount">${user.coins ?? 0}</strong></span>
-        ${user.rank ? `<a href="/classement.html" id="navRankPill" style="text-decoration:none;" title="Votre rang de Menace — cliquez pour voir le classement">${armsRankBadgeHtml(user.rank, { small:true })}</a>` : ''}
-        <a class="btn shopBtn" id="shopNavBtn" href="/boutique.html">🏪 Boutique</a>
-        <button class="accountBtn" id="accountMenuBtn">
-          <span class="accountAvatarSm js-avatar-img" id="navAvatarImg"></span>
-          <span>${user.name}</span>
-        </button>
+        <div class="accountGroup">
+          ${user.rank ? `<a href="/classement.html" id="navRankPill" style="text-decoration:none;" title="Votre rang de Menace — cliquez pour voir le classement">${armsRankBadgeHtml(user.rank, { small:true })}</a>` : ''}
+          <button class="accountBtn" id="accountMenuBtn">
+            <span class="accountAvatarSm js-avatar-img" id="navAvatarImg"></span>
+            <span>${user.name}</span>
+          </button>
+        </div>
       `;
       armsApplyAvatar(document.getElementById('navAvatarImg'), user.avatar);
       const pill = document.getElementById('coinsPill');
       if (pill) pill.style.cssText = 'padding:9px 18px;border-radius:999px;border:1.5px solid rgba(255,217,61,.6);background:linear-gradient(180deg,#4a3c0d,#2a2208);color:#ffd93d;font-weight:900;font-size:17px;box-shadow:0 0 16px rgba(255,217,61,.3), inset 0 1px 0 rgba(255,255,255,.15);display:inline-flex;align-items:center;gap:6px;';
-      const shopBtn = document.getElementById('shopNavBtn');
-      if (shopBtn) shopBtn.style.cssText = 'background:linear-gradient(180deg,#ffe98a,#e0a800);color:#2a1c00;border:1px solid rgba(255,255,255,.5);box-shadow:0 0 14px rgba(255,217,61,.55), inset 0 0 10px rgba(255,255,255,.25);font-weight:900;';
 
       document.querySelectorAll('.js-coins-amount').forEach(el => { el.textContent = user.coins ?? 0; });
 
