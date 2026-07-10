@@ -3719,6 +3719,7 @@ let warzazathEffect = { top: false, bottom: false };
 // NOUVEAU : État pour le ciblage de Prismis (C152)
 let prismisTargetMode = null;
 let kabbaTargetMode = null;
+let krouzpierTargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -4708,6 +4709,19 @@ async function playActionReveillezVous(owner, actionCard){
   getLineByOwner('top').push(topCard);
   getLineByOwner('bottom').push(botCard);
   fullRender();
+
+  // Règle "Esprit" (identique à une attaque normale) : si un seul des deux
+  // combattants révélés porte le trait Esprit, le combat n'a tout simplement
+  // pas lieu — les deux rejoignent leur zone sans s'affronter.
+  const isTopEsprit = hasTag(topCard, 'Esprit');
+  const isBotEsprit = hasTag(botCard, 'Esprit');
+  if (isTopEsprit !== isBotEsprit) {
+    pushHistory('info', `${cardAnchor(topCard.label)} et ${cardAnchor(botCard.label)} ne peuvent pas s'affronter — seul l'un des
+      deux porte le trait <strong>Esprit</strong>, qui ne peut interagir qu'avec ses semblables. Les deux combattants rejoignent
+      simplement leur zone de combat, sans combat.`);
+    return;
+  }
+
   await sleep(450);
   resolveFight({ card: topCard, owner: 'top' }, { card: botCard, owner: 'bottom' });
 }
@@ -6864,28 +6878,55 @@ function resolveKrouzpierFlip(owner, choice){
       broadcastKrouzpierStep({ type: 'stopped' });
       return;
     }
-    openButtonsPrompt(
-      cardName('C25'),
-      'Choisissez un combattant ennemi à détruire.',
-      null,
-      oppLine.map(target => ({
-        label: cardName(target.label),
-        className: 'confirm',
-        onClick: () => {
-          detachFamiliarsOnHost(target, opp);
-          const line = getLineByOwner(opp);
-          const idx = line.findIndex(c => c.id === target.id);
-          if (idx !== -1) line.splice(idx, 1);
-          discardCard(target, opp, 'destroyed');
-          pushHistory('jeu', `${cardAnchor('C25')} détruit ${cardAnchor(target.label)} !`);
-          broadcastKrouzpierStep({ type: 'destroyed', targetLabel: target.label });
-          fullRender();
-          // L'opération recommence entièrement (nouveau choix, nouveau tirage).
-          startKrouzpierChain(owner);
-        }
-      })).concat([{ label: 'Arrêter là', className: 'cancel', onClick: () => { broadcastKrouzpierStep({ type: 'stopped' }); } }])
-    );
+    startKrouzpierTargeting(owner, opp);
   });
+}
+
+// KRYLLS (nouveau lot) : Krouzpier (C25) — ciblage par clic direct sur le
+// plateau (même principe que Kabba/Prismis), plutôt qu'une liste de boutons.
+function startKrouzpierTargeting(casterOwner, targetOwner){
+  krouzpierTargetMode = { casterOwner, targetOwner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'krouzpier-target-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '2000';
+  promptEl.innerHTML = `
+    <div class="apTitle">Krouzpier</div>
+    <div class="apMsg">Cliquez sur le combattant ennemi à détruire.</div>
+    <div class="apRow"><button id="krouzpier-target-cancel" class="apBtn cancel">Arrêter là</button></div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  promptEl.querySelector('#krouzpier-target-cancel').addEventListener('click', () => {
+    krouzpierTargetMode = null;
+    closeActionPrompt();
+    broadcastKrouzpierStep({ type: 'stopped' });
+  });
+  fullRender();
+}
+
+function handleKrouzpierTargetSelection(targetCard, targetCardOwner){
+  if (!krouzpierTargetMode) return;
+  if (targetCardOwner !== krouzpierTargetMode.targetOwner) return; // uniquement la ligne adverse visée
+  const { casterOwner, targetOwner } = krouzpierTargetMode;
+  krouzpierTargetMode = null;
+  closeActionPrompt();
+
+  detachFamiliarsOnHost(targetCard, targetOwner);
+  const line = getLineByOwner(targetOwner);
+  const idx = line.findIndex(c => c.id === targetCard.id);
+  if (idx !== -1) line.splice(idx, 1);
+  discardCard(targetCard, targetOwner, 'destroyed');
+  pushHistory('jeu', `${cardAnchor('C25')} détruit ${cardAnchor(targetCard.label)} !`);
+  broadcastKrouzpierStep({ type: 'destroyed', targetLabel: targetCard.label });
+  fullRender();
+  // L'opération recommence entièrement (nouveau choix, nouveau tirage).
+  startKrouzpierChain(casterOwner);
 }
 
 /* --- Côté spectateur (le joueur qui n'est PAS propriétaire de Krouzpier) :
@@ -9113,6 +9154,7 @@ if (hitAndRunMode) {
     // Logique de clic pour les différents ciblages
     if (prismisTargetMode) { handlePrismisTargetSelection(card); return; }
     if (kabbaTargetMode) { handleKabbaTargetSelection(card, owner); return; }
+    if (krouzpierTargetMode) { handleKrouzpierTargetSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
     if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
