@@ -14373,7 +14373,7 @@ function startTutorialCoach(){
     // ---- 10b. Défausse manuelle ----
     function step9b_ManualDiscard(){
       const fillerCard = botHand.find(c => c.label !== 'C116' && c.label !== 'C107' && c.label !== 'C102');
-      if (!fillerCard) { step10_Forge(); return; }
+      if (!fillerCard) { step9c_Cycles(); return; }
       showDialogue('11/13 — Défausser une carte', `Vous pouvez aussi défausser <strong>volontairement</strong> une carte de
         votre main (utile pour s'en débarrasser), à condition qu'elle soit de la faction choisie ce tour-ci.`, [
         { label: 'À vous de jouer', onClick: () => {
@@ -14384,7 +14384,34 @@ function startTutorialCoach(){
           showBanner('Défausser une carte', `Glissez <strong>${cardName(fillerCard.label)}</strong> (repère du haut)
             <strong>uniquement</strong> sur votre défausse (repère du bas) — pas sur la zone de combat.`);
           const startHandCount = botHand.length;
-          waitForCondition(() => botHand.length < startHandCount, () => { clearHighlight(); hideBanner(); step10_Forge(); });
+          waitForCondition(() => botHand.length < startHandCount, () => { clearHighlight(); hideBanner(); step9c_Cycles(); });
+        } }
+      ]);
+    }
+
+    // ---- Les Cycles, en situation ----
+    function step9c_Cycles(){
+      showDialogue('Les Cycles', `Votre <strong>deck</strong> et votre <strong>défausse</strong> forment vos ressources de
+        pioche. Une fois le deck vide, la défausse est remélangée pour en former un nouveau — chaque remélange compte comme
+        <strong>1 Cycle</strong>. Atteindre <strong>3 Cycles</strong> fait perdre la partie.`, [
+        { label: 'Voir en situation', onClick: () => {
+          hideDialogue();
+          const cycleBox = document.getElementById('cyclesBottom');
+          highlight(cycleBox, { noBlock: true });
+          showBanner('Les Cycles', `Regardez ce repère : votre deck va se vider et votre défausse va être remélangée.`);
+          botDeck.length = 0;
+          updateDeckCounters();
+          setTimeout(() => {
+            reshuffleDiscardIntoDeck('bottom');
+            updateDeckCounters();
+            setTimeout(() => {
+              clearHighlight(); hideBanner();
+              showDialogue('1er Cycle atteint', `Votre défausse vient d'être remélangée en un nouveau deck : c'est votre
+                <strong>1er Cycle</strong> (visible sur ce repère). Il en resterait 2 avant la défaite automatique.`, [
+                { label: 'Continuer', onClick: step10_Forge }
+              ]);
+            }, 900);
+          }, 800);
         } }
       ]);
     }
