@@ -773,6 +773,15 @@
       box-shadow:0 0 16px var(--armColor,#19e27a), inset 0 0 8px var(--armColor,#19e27a); }
     .armActive::before{ content:""; position:absolute; inset:6px; border-radius:50%; border:1.5px solid rgba(255,255,255,.3); box-shadow:0 0 6px rgba(255,255,255,.2); }
 
+    /* Célébration : la case d'A'rms qui vient tout juste de se forger
+       s'illumine avec un éclat marqué avant de revenir à son état normal. */
+    @keyframes armForgedPulse{
+      0%{ transform:scale(1); filter:brightness(1); }
+      35%{ transform:scale(1.5); filter:brightness(2.2) saturate(1.6); box-shadow:0 0 28px var(--armColor,#19e27a), 0 0 50px var(--armColor,#19e27a); }
+      100%{ transform:scale(1); filter:brightness(1); }
+    }
+    .armForged{ animation:armForgedPulse 1.4s cubic-bezier(.2,.8,.25,1) 2; }
+
 .mithrilCostMod {
   color: var(--orange); /* --orange est déjà défini, c'est parfait */
   font-weight: 900;
@@ -14299,8 +14308,9 @@ function startTutorialCoach(){
             const gainedHp = nowCard ? (getEffectiveHP(nowCard) - startHp) : 0;
             const gainedShield = nowCard ? ((nowCard.shield || 0) - startShield) : 0;
             clearHighlight(); hideBanner();
-            showDialogue('Bonus reçu', `${cardName('C107')} a bien reçu <strong>+${Math.max(gainedHp,0)} PV</strong> et
-              <strong>+${Math.max(gainedShield,0)} Bouclier</strong>. Vérifiez les compteurs sur sa carte.`, [
+            showDialogue('Bonus reçu', `${nowCard ? cardName(nowCard.label) : 'Votre combattant'} a bien reçu
+              <strong>+${Math.max(gainedHp,0)} PV</strong> et <strong>+${Math.max(gainedShield,0)} Bouclier</strong>. Vérifiez
+              les compteurs sur sa carte.`, [
               { label: 'Continuer', onClick: step9_ExileDiscard }
             ]);
           });
@@ -14324,6 +14334,9 @@ function startTutorialCoach(){
         avez assez de Mithril.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
+          // On garantit 3 Mithril pile pour que la forge se déclenche à coup
+          // sûr au prochain tour, et que la démonstration soit toujours visible.
+          if (mithril['bottom'] < 3) { mithril['bottom'] = 3; updateMithril(); }
           const endBtn = document.getElementById('endTurn');
           highlight(endBtn);
           showBanner('Fin de tour', `Cliquez sur "FIN DE TOUR".`);
@@ -14344,22 +14357,37 @@ function startTutorialCoach(){
         fullRender();
       }catch(e){}
       setTimeout(()=>{
+        const armsBefore = arms['bottom'] || 0;
         const btn = document.getElementById('endTurn');
         if (btn) btn.click();
-        waitForCondition(() => currentTurn === 'bottom', step11_Final);
+        waitForCondition(() => currentTurn === 'bottom', () => step11_ForgeReveal(armsBefore));
       }, 1400);
     }
 
+    // ---- Révélation du forgeage ----
+    function step11_ForgeReveal(armsBefore){
+      const armsAfter = arms['bottom'] || 0;
+      if (armsAfter > armsBefore) {
+        const armsBox = document.getElementById('armsBottom');
+        highlight(armsBox, { noBlock: true });
+        // Pulsation dorée sur la case d'A'rms qui vient tout juste de s'allumer.
+        const slots = armsBox ? armsBox.querySelectorAll('.armSlot.armActive') : [];
+        const newSlot = slots[armsAfter - 1];
+        if (newSlot) { newSlot.classList.remove('armForged'); void newSlot.offsetWidth; newSlot.classList.add('armForged'); }
+        showDialogue('Un A’rms forgé !', `Votre tour a commencé : <strong>3 Mithril</strong> ont été convertis
+          automatiquement en <strong>1 A’rms</strong> ⚒ (${armsAfter}/5). Regardez la case s'illuminer.`, [
+          { label: 'Continuer', onClick: () => { clearHighlight(); step12_Final(); } }
+        ]);
+      } else {
+        step12_Final();
+      }
+    }
+
     // ---- 12. Conclusion ----
-    function step11_Final(){
+    function step12_Final(){
       hideDialogue(); clearHighlight();
-      const armsCount = arms['bottom'] || 0;
-      const forgeMsg = armsCount > 0
-        ? `Votre tour a commencé : votre A’rms s'est forgé automatiquement (${armsCount}/5).`
-        : `Votre tour a commencé — la forge se vérifie automatiquement à chaque début de tour.`;
-      showDialogue('12/12 — Terminé', `${forgeMsg}<br><br>Vous maîtrisez l'essentiel : faction, Personnage, Mithril, attaque,
-        Familier, Action, forge. Une partie <strong>Classée</strong> fait évoluer votre rang de Menace — à découvrir dans le
-        menu.`, [
+      showDialogue('12/12 — Terminé', `Vous maîtrisez l'essentiel : faction, Personnage, Mithril, attaque, Familier, Action,
+        forge. Une partie <strong>Classée</strong> fait évoluer votre rang de Menace — à découvrir dans le menu.`, [
         { label: 'Terminer', onClick: () => {
           markArmsTutorialSeen();
           window.location.href = '/play.html';
