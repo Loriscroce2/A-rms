@@ -14170,8 +14170,8 @@ function startTutorialCoach(){
       }catch(e){}
 
       const greeting = firstName ? `Bienvenue, <strong>${firstName}</strong> !` : 'Bienvenue !';
-      showDialogue('Bienvenue dans A’rms', `${greeting} Je suis votre guide, et je vais vous accompagner à travers un tour de
-        jeu réel, sur le plateau réel. <br><br>Suivez mes indications jusqu'au bout : ça vous rapportera
+      showDialogue('Bienvenue dans A’rms', `${greeting} Je suis votre guide, et je vais vous accompagner à travers un vrai
+        tour de jeu, sur le plateau. <br><br>Suivez mes indications jusqu'au bout : ça vous rapportera
         <strong>350 pièces</strong> — pile de quoi vous offrir votre premier booster de cartes.`, [
         { label: 'Commencer', onClick: step1_CardTypes }
       ]);
@@ -14352,7 +14352,7 @@ function startTutorialCoach(){
           const actionEl = actionCard ? document.querySelector(`#handBottom [data-id="${actionCard.id}"]`) : null;
           const hostCard = botLine[0];
           const hostEl = hostCard ? document.querySelector(`[data-id="${hostCard.id}"]`) : null;
-          highlight([actionEl, hostEl], { noBlock: true });
+          highlight([actionEl, hostEl], { noDarken: true });
           showBanner('Les Actions', `Glissez <strong>${cardName('C102')}</strong> directement sur votre combattant.`);
           const startHp = hostCard ? getEffectiveHP(hostCard) : 0;
           const startShield = hostCard ? ((hostCard.shield || 0) + (hostCard.tempShield || 0)) : 0;
@@ -14401,12 +14401,12 @@ function startTutorialCoach(){
 
     // ---- Les Cycles, en situation ----
     function step9c_Cycles(){
+      const cycleBox = document.getElementById('cyclesBottom');
       showDialogue('Les Cycles', `Votre <strong>deck</strong> et votre <strong>défausse</strong> forment vos ressources de
         pioche. Une fois le deck vide, la défausse est remélangée pour en former un nouveau — chaque remélange compte comme
         <strong>1 Cycle</strong>. Atteindre <strong>3 Cycles</strong> fait perdre la partie.`, [
         { label: 'Voir en situation', onClick: () => {
           hideDialogue();
-          const cycleBox = document.getElementById('cyclesBottom');
           highlight(cycleBox, { noBlock: true });
           showBanner('Les Cycles', `Regardez ce repère : votre deck va se vider et votre défausse va être remélangée.`);
           botDeck.length = 0;
@@ -14429,13 +14429,18 @@ function startTutorialCoach(){
           }, 800);
         } }
       ]);
+      // Illuminé dès le tout début de l'explication, pas seulement après le
+      // clic — DOIT être appelé APRÈS showDialogue, qui efface sinon
+      // systématiquement toute surbrillance déjà posée à son ouverture.
+      highlight(cycleBox, { noBlock: true });
     }
 
     // ---- 12. Forge automatique + fin de tour ----
     function step10_Forge(){
       showDialogue('12/13 — Forger un A’rms', `<strong>3 Mithril</strong> suffisent pour forger 1 A’rms ⚒. Aucun bouton à
         chercher : la forge est <strong>automatique</strong>, au <strong>début</strong> de chacun de vos tours, tant que vous
-        avez assez de Mithril.`, [
+        avez assez de Mithril. <br><br>À la <strong>fin</strong> de votre tour, vous repiochez aussi automatiquement de quoi
+        revenir à une main de <strong>6 cartes</strong>.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           // On garantit 3 Mithril pile pour que la forge se déclenche à coup
