@@ -11123,9 +11123,21 @@ function setupTurnTimer(){
   try{
     if (TUTORIAL_TIMER_DISABLED) {
       if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
-      const wrap = document.getElementById('turnTimerWrap');
-      if (wrap) wrap.classList.add('hidden');
+      // IMPORTANT : le bouton "FIN DE TOUR" vit À L'INTÉRIEUR de ce
+      // conteneur — masquer le conteneur entier le rendrait invisible et
+      // impossible à cliquer. On ne masque donc que les éléments propres au
+      // minuteur (barre + compte à rebours), jamais le bouton lui-même.
+      const barTrack = document.getElementById('turnTimerBarTrack');
+      const label = document.getElementById('turnTimerLabel');
+      if (barTrack) barTrack.style.display = 'none';
+      if (label) label.style.display = 'none';
       return;
+    }
+    {
+      const barTrack = document.getElementById('turnTimerBarTrack');
+      const label = document.getElementById('turnTimerLabel');
+      if (barTrack) barTrack.style.removeProperty('display');
+      if (label) label.style.removeProperty('display');
     }
     if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
     turnTimerSecondsLeft = TURN_TIME_LIMIT;
@@ -13920,7 +13932,7 @@ function startTutorialCoach(){
         font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:#e8fdff;
       }
       #tcDialogue .tcdAvatar{ width:min(55vw,340px); height:min(55vw,340px); object-fit:contain; filter:drop-shadow(0 8px 16px rgba(0,0,0,.55)); margin-bottom:2px; flex:none; }
-      #tcDialogue .tcdStepLabel{ font-size:10.5px; text-transform:uppercase; letter-spacing:.12em; color:#7df9ff; opacity:.8; }
+      #tcDialogue .tcdStepLabel{ font-size:16px; font-weight:900; text-transform:uppercase; letter-spacing:.1em; color:#7df9ff; text-shadow:0 0 12px rgba(125,249,255,.5); }
       #tcDialogue .tcdText{ font-size:14.5px; line-height:1.6; }
       #tcDialogue .tcdText strong{ color:#ffd93d; }
       #tcDialogue .tcdBtnRow{ margin-top:6px; display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
@@ -13937,7 +13949,7 @@ function startTutorialCoach(){
         font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:#e8fdff;
       }
       #tcBanner .tcbAvatar{ width:46px; height:46px; object-fit:contain; flex:none; border-radius:9px; }
-      #tcBanner .tcbStepLabel{ font-size:9.5px; text-transform:uppercase; letter-spacing:.1em; color:#7df9ff; opacity:.75; margin-bottom:2px; }
+      #tcBanner .tcbStepLabel{ font-size:13px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:#7df9ff; margin-bottom:3px; }
       #tcBanner .tcbText{ font-size:12.5px; line-height:1.4; }
       #tcBanner .tcbText strong{ color:#ffd93d; }
 
@@ -14134,19 +14146,18 @@ function startTutorialCoach(){
 
     // ---- 1. Accueil ----
     function step0_Welcome(){
-      showDialogue('1 / 12 — Bienvenue', `A’rms se joue en <strong>1 contre 1</strong>. Vous allez maintenant jouer un tour réel,
-        sur le plateau réel. Chaque explication s'affiche ainsi, en pause ; chaque action demandée s'accompagne d'un repère
-        clair — le reste de l'écran est verrouillé pour éviter toute erreur.`, [
+      showDialogue('1/12 — Bienvenue', `A’rms se joue en <strong>1 contre 1</strong>. Vous allez jouer un tour réel, sur le
+        plateau réel. Chaque étape vous dit quoi faire, précisément.`, [
         { label: 'Commencer', onClick: step1_CardTypes }
       ]);
     }
 
     // ---- 2. Les 4 types de cartes ----
     function step1_CardTypes(){
-      showDialogue('2 / 12 — Les cartes', `Quatre types de cartes composent un deck :<br><br>
-        <strong>Personnage</strong> — combat pour vous en zone de combat.<br>
-        <strong>Familier</strong> — se rattache à un Personnage pour le renforcer.<br>
-        <strong>Artefact</strong> — effet permanent, sa propre zone.<br>
+      showDialogue('2/12 — Les cartes', `Quatre types de cartes :<br><br>
+        <strong>Personnage</strong> — combat pour vous.<br>
+        <strong>Familier</strong> — renforce un Personnage.<br>
+        <strong>Artefact</strong> — effet permanent.<br>
         <strong>Action</strong> — effet immédiat, puis défausse.`, [
         { label: 'Continuer', onClick: step2_Victory }
       ]);
@@ -14154,16 +14165,16 @@ function startTutorialCoach(){
 
     // ---- 3. Conditions de victoire ----
     function step2_Victory(){
-      showDialogue('3 / 12 — Objectif', `On gagne le plus souvent en forgeant <strong>5 A’rms</strong> ⚒ avant l'adversaire.
-        D'autres cartes ouvrent des voies de victoire alternatives — vous les découvrirez en jouant.`, [
+      showDialogue('3/12 — Objectif', `Le plus souvent, on gagne en forgeant <strong>5 A’rms</strong> ⚒ avant l'adversaire.
+        D'autres cartes offrent des voies de victoire alternatives.`, [
         { label: 'Continuer', onClick: step3_Faction }
       ]);
     }
 
     // ---- 4. Choix de faction (vraie première action de chaque tour) ----
     function step3_Faction(){
-      showDialogue('4 / 12 — Choisir sa faction', `<strong>Première action de chaque tour :</strong> choisir une faction.
-        Vous ne pourrez jouer que des cartes de cette faction ce tour-ci (sauf rares exceptions accordées par certains effets).`, [
+      showDialogue('4/12 — Choisir sa faction', `<strong>Première action de chaque tour.</strong> Vous ne pourrez jouer que des
+        cartes de cette faction ce tour-ci.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const factionBox = document.querySelector('.factionPrompt');
@@ -14177,8 +14188,8 @@ function startTutorialCoach(){
     // ---- 5. Jouer un Personnage ----
     function step4_PlayCard(){
       hideBanner(); clearHighlight();
-      showDialogue('5 / 12 — Jouer un Personnage', `<strong>${cardName('C116')}</strong> est un Personnage : une fois en jeu,
-        elle peut combattre pour vous.`, [
+      showDialogue('5/12 — Jouer un Personnage', `<strong>${cardName('C116')}</strong> est un Personnage : une fois en jeu,
+        elle combat pour vous.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const startCount = botLine.length;
@@ -14186,8 +14197,8 @@ function startTutorialCoach(){
           const cardEl = card ? document.querySelector(`#handBottom [data-id="${card.id}"]`) : null;
           const zoneEl = document.getElementById('battleBottom');
           highlight([cardEl, zoneEl], { noBlock: true });
-          showBanner('Jouer un Personnage', `Faites glisser <strong>${cardName('C116')}</strong> (repère rouge du haut) jusque
-            dans votre <strong>zone de combat</strong> (repère rouge du bas), puis relâchez-la.`);
+          showBanner('Jouer un Personnage', `Glissez <strong>${cardName('C116')}</strong> (repère du haut) dans votre
+            <strong>zone de combat</strong> (repère du bas).`);
           waitForCondition(() => botLine.length > startCount, step5_Mithril);
         } }
       ]);
@@ -14197,8 +14208,8 @@ function startTutorialCoach(){
     function step5_Mithril(){
       hideBanner(); clearHighlight();
       const box = document.getElementById('mithrilBoxBottom');
-      showDialogue('6 / 12 — Le Mithril', `Le <strong>Mithril</strong> ⟡ est votre ressource courante. Il s'accumule au fil de
-        la partie et sert à activer des effets, ainsi qu'à forger vos A’rms.`, [
+      showDialogue('6/12 — Le Mithril', `Le <strong>Mithril</strong> ⟡ est votre ressource courante : elle sert à activer des
+        effets et à forger vos A’rms.`, [
         { label: 'Continuer', onClick: () => {
           hideDialogue();
           highlight(box);
@@ -14217,9 +14228,9 @@ function startTutorialCoach(){
       topLine.push(dummy);
       fullRender();
       const myCard = botLine[0];
-      showDialogue('7 / 12 — Attaquer', `Un combattant qui vient d'être joué est normalement <strong>épuisé</strong> : il ne
-        peut ni attaquer, ni miner, ce tour-ci. Seul le trait <strong>RAPIDE</strong> permet d'agir immédiatement —
-        <strong>${myCard ? cardName(myCard.label) : 'votre combattant'}</strong> le possède, elle peut donc agir tout de suite.`, [
+      showDialogue('7/12 — Attaquer', `Un combattant qui vient d'être joué est normalement <strong>épuisé</strong> : il ne peut
+        ni attaquer ni miner ce tour-ci. Seul le trait <strong>RAPIDE</strong> permet d'agir tout de suite —
+        <strong>${myCard ? cardName(myCard.label) : 'votre combattant'}</strong> le possède.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const myEl = myCard ? document.querySelector(`[data-id="${myCard.id}"]`) : null;
@@ -14227,22 +14238,32 @@ function startTutorialCoach(){
           highlight([myEl, oppEl], { noBlock: true });
           const startTopCount = topLine.length;
           const startMyHp = myCard ? getEffectiveHP(myCard) : 0;
-          showBanner('Attaquer', `<strong>Maintenez le clic</strong> sur votre combattant (repère du haut), puis faites glisser
-            vers le combattant adverse (repère du bas) et relâchez pour attaquer. Les dégâts s'échangent des deux côtés.`);
+          showBanner('Attaquer', `<strong>Maintenez le clic</strong> sur votre combattant (repère du haut), glissez vers
+            l'adversaire (repère du bas), relâchez.`);
           waitForCondition(() => {
             const stillThere = botLine.find(c => myCard && c.id === myCard.id);
             const hpChanged = stillThere ? (getEffectiveHP(stillThere) !== startMyHp) : true;
             return topLine.length < startTopCount || hpChanged;
-          }, step7_Familiar);
+          }, step6b_CombatMath);
         } }
+      ]);
+    }
+
+    // ---- 7b. Le calcul du combat ----
+    function step6b_CombatMath(){
+      clearHighlight();
+      showDialogue('Le calcul du combat', `Chaque combattant inflige des dégâts égaux à ses <strong>PV actuels</strong>, des
+        <strong>deux côtés à la fois</strong>. Le <strong>Bouclier</strong> absorbe les dégâts en premier ; le surplus retire
+        des PV.`, [
+        { label: 'Continuer', onClick: step7_Familiar }
       ]);
     }
 
     // ---- 8. Familier ----
     function step7_Familiar(){
       clearHighlight();
-      showDialogue('8 / 12 — Les Familiers', `<strong>${cardName('C107')}</strong> est un Familier : rattaché à un combattant,
-        il en modifie les capacités tant qu'il reste en jeu.`, [
+      showDialogue('8/12 — Les Familiers', `<strong>${cardName('C107')}</strong> est un Familier : rattaché à un combattant, il
+        en modifie les capacités tant qu'il reste en jeu.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const startFamCount = famBottom.length;
@@ -14250,8 +14271,8 @@ function startTutorialCoach(){
           const famEl = famCard ? document.querySelector(`#handBottom [data-id="${famCard.id}"]`) : null;
           const hostEl = botLine[0] ? document.querySelector(`[data-id="${botLine[0].id}"]`) : null;
           highlight([famEl, hostEl], { noBlock: true });
-          showBanner('Les Familiers', `Faites glisser <strong>${cardName('C107')}</strong> (repère du haut) sur votre combattant
-            (repère du bas) pour l'y rattacher.`);
+          showBanner('Les Familiers', `Glissez <strong>${cardName('C107')}</strong> (repère du haut) sur votre combattant
+            (repère du bas).`);
           waitForCondition(() => famBottom.length > startFamCount, step8_Action);
         } }
       ]);
@@ -14260,17 +14281,29 @@ function startTutorialCoach(){
     // ---- 9. Action ----
     function step8_Action(){
       clearHighlight();
-      showDialogue('9 / 12 — Les Actions', `<strong>${cardName('C102')}</strong> est une Action : effet immédiat, puis
-        défausse. Elle se joue en la déposant directement sur le combattant à renforcer.`, [
+      showDialogue('9/12 — Les Actions', `<strong>${cardName('C102')}</strong> est une Action : effet immédiat, puis défausse.
+        Elle se joue en la déposant directement sur le combattant à renforcer.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const actionCard = botHand.find(c => c.label === 'C102');
           const actionEl = actionCard ? document.querySelector(`#handBottom [data-id="${actionCard.id}"]`) : null;
-          const hostEl = botLine[0] ? document.querySelector(`[data-id="${botLine[0].id}"]`) : null;
+          const hostCard = botLine[0];
+          const hostEl = hostCard ? document.querySelector(`[data-id="${hostCard.id}"]`) : null;
           highlight([actionEl, hostEl], { noBlock: true });
-          showBanner('Les Actions', `Faites glisser <strong>${cardName('C102')}</strong> (repère du haut) directement sur votre
-            combattant (repère du bas) pour lui donner son bonus.`);
-          waitForCondition(() => !botHand.find(c => c.label === 'C102'), step9_ExileDiscard);
+          showBanner('Les Actions', `Glissez <strong>${cardName('C102')}</strong> (repère du haut) sur votre combattant
+            (repère du bas).`);
+          const startHp = hostCard ? getEffectiveHP(hostCard) : 0;
+          const startShield = hostCard ? (hostCard.shield || 0) : 0;
+          waitForCondition(() => !botHand.find(c => c.label === 'C102'), () => {
+            const nowCard = botLine.find(c => hostCard && c.id === hostCard.id);
+            const gainedHp = nowCard ? (getEffectiveHP(nowCard) - startHp) : 0;
+            const gainedShield = nowCard ? ((nowCard.shield || 0) - startShield) : 0;
+            clearHighlight(); hideBanner();
+            showDialogue('Bonus reçu', `${cardName('C107')} a bien reçu <strong>+${Math.max(gainedHp,0)} PV</strong> et
+              <strong>+${Math.max(gainedShield,0)} Bouclier</strong>. Vérifiez les compteurs sur sa carte.`, [
+              { label: 'Continuer', onClick: step9_ExileDiscard }
+            ]);
+          });
         } }
       ]);
     }
@@ -14278,26 +14311,25 @@ function startTutorialCoach(){
     // ---- 10. Défausse vs Exil ----
     function step9_ExileDiscard(){
       clearHighlight(); hideBanner();
-      showDialogue('10 / 12 — Défausse et Exil', `Un combattant détruit part généralement en <strong>Défausse</strong>. Certains
-        effets, plus définitifs, l'envoient en <strong>Exil</strong> à la place — une zone séparée, plus difficile à
-        récupérer.`, [
+      showDialogue('10/12 — Défausse et Exil', `Un combattant détruit part généralement en <strong>Défausse</strong>. Certains
+        effets, plus définitifs, l'envoient en <strong>Exil</strong> à la place.`, [
         { label: 'Continuer', onClick: step10_Forge }
       ]);
     }
 
     // ---- 11. Forge automatique + fin de tour ----
     function step10_Forge(){
-      const armsBox = document.getElementById('armsBottom');
-      showDialogue('11 / 12 — Forger un A’rms', `Aucun bouton à chercher : dès que vous avez assez de Mithril, un
-        <strong>A’rms</strong> ⚒ se forge <strong>automatiquement</strong> à la fin de votre tour.`, [
+      showDialogue('11/12 — Forger un A’rms', `<strong>3 Mithril</strong> suffisent pour forger 1 A’rms ⚒. Aucun bouton à
+        chercher : la forge est <strong>automatique</strong>, au <strong>début</strong> de chacun de vos tours, tant que vous
+        avez assez de Mithril.`, [
         { label: 'À vous de jouer', onClick: () => {
           hideDialogue();
           const endBtn = document.getElementById('endTurn');
           highlight(endBtn);
-          showBanner('Fin de tour', `Cliquez sur "FIN DE TOUR" pour déclencher la forge automatique.`);
+          showBanner('Fin de tour', `Cliquez sur "FIN DE TOUR".`);
           waitForCondition(() => currentTurn === 'top', () => {
             clearHighlight(); hideBanner();
-            showDialogue('Un instant…', `Votre A’rms se forge. L'adversaire joue à son tour…`, []);
+            showDialogue('Un instant…', `L'adversaire joue à son tour…`, []);
             setTimeout(tcOpponentTurn, 1400);
           });
         } }
@@ -14321,9 +14353,13 @@ function startTutorialCoach(){
     // ---- 12. Conclusion ----
     function step11_Final(){
       hideDialogue(); clearHighlight();
-      showDialogue('12 / 12 — Terminé', `Vous maîtrisez l'essentiel : choisir sa faction, jouer un Personnage, gérer le
-        Mithril, attaquer, rattacher un Familier, jouer une Action, forger un A’rms. Une partie <strong>Classée</strong> fait
-        évoluer votre rang de Menace — à découvrir dans le menu. Bonne chance, stratège.`, [
+      const armsCount = arms['bottom'] || 0;
+      const forgeMsg = armsCount > 0
+        ? `Votre tour a commencé : votre A’rms s'est forgé automatiquement (${armsCount}/5).`
+        : `Votre tour a commencé — la forge se vérifie automatiquement à chaque début de tour.`;
+      showDialogue('12/12 — Terminé', `${forgeMsg}<br><br>Vous maîtrisez l'essentiel : faction, Personnage, Mithril, attaque,
+        Familier, Action, forge. Une partie <strong>Classée</strong> fait évoluer votre rang de Menace — à découvrir dans le
+        menu.`, [
         { label: 'Terminer', onClick: () => {
           markArmsTutorialSeen();
           window.location.href = '/play.html';
