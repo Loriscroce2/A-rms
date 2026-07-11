@@ -4472,10 +4472,10 @@ document.addEventListener('dragend', () => {
 let opponentDragGhost = null;
 let opponentDragGhostSafetyTimer = null;
 function showOpponentDragGhost(cardLabel){
-  removeOpponentDragGhost();
+  removeOpponentDragGhost(true); // retrait immédiat s'il y avait un ancien fantôme, sans fondu
   const el = document.createElement('div');
   el.id = 'opponentDragGhost';
-  el.style.cssText = 'position:fixed; width:90px; height:126px; z-index:7000; pointer-events:none; border-radius:9px; background-size:cover; background-position:center; box-shadow:0 10px 26px rgba(0,0,0,.65), 0 0 18px rgba(125,249,255,.5); border:2px solid rgba(125,249,255,.6); transform:translate(-50%,-50%); opacity:0; transition:opacity .2s ease;';
+  el.style.cssText = 'position:fixed; width:90px; height:126px; z-index:7000; pointer-events:none; border-radius:9px; background-size:cover; background-position:center; box-shadow:0 10px 26px rgba(0,0,0,.65), 0 0 18px rgba(125,249,255,.5); border:2px solid rgba(125,249,255,.6); transform:translate(-50%,-50%) scale(1); opacity:0; transition:opacity .22s ease, transform .22s ease, left .07s linear, top .07s linear;';
   const url = getCardImage(cardLabel);
   if (url) el.style.backgroundImage = `url(${url})`;
   document.body.appendChild(el);
@@ -4488,7 +4488,7 @@ function armOpponentDragGhostSafety(){
   // plein glissement, par exemple), le fantôme ne doit jamais rester
   // affiché indéfiniment — il se retire de lui-même après 3s d'inactivité.
   if (opponentDragGhostSafetyTimer) clearTimeout(opponentDragGhostSafetyTimer);
-  opponentDragGhostSafetyTimer = setTimeout(removeOpponentDragGhost, 3000);
+  opponentDragGhostSafetyTimer = setTimeout(()=>removeOpponentDragGhost(false), 3000);
 }
 function moveOpponentDragGhost(xPct, yPct){
   if (!opponentDragGhost) return;
@@ -4498,13 +4498,25 @@ function moveOpponentDragGhost(xPct, yPct){
   // moi), d'où l'inversion du seul pourcentage Y.
   const x = xPct;
   const y = 100 - yPct;
+  // La transition CSS "left .07s / top .07s" (déjà posée à la création)
+  // interpole en douceur entre deux positions reçues, plutôt que de sauter
+  // brutalement d'un point à l'autre — la carte glisse vraiment à l'écran.
   opponentDragGhost.style.left = `${(x/100)*window.innerWidth}px`;
   opponentDragGhost.style.top = `${(y/100)*window.innerHeight}px`;
   armOpponentDragGhostSafety();
 }
-function removeOpponentDragGhost(){
+function removeOpponentDragGhost(instant){
   if (opponentDragGhostSafetyTimer) { clearTimeout(opponentDragGhostSafetyTimer); opponentDragGhostSafetyTimer = null; }
-  if (opponentDragGhost) { opponentDragGhost.remove(); opponentDragGhost = null; }
+  if (!opponentDragGhost) return;
+  const el = opponentDragGhost;
+  opponentDragGhost = null;
+  if (instant) { el.remove(); return; }
+  // Disparition en fondu + léger zoom, plutôt qu'un retrait brutal — la
+  // carte "se pose" visuellement au lieu de disparaître d'un coup, le temps
+  // que le vrai état (via stateSync) prenne le relais.
+  el.style.opacity = '0';
+  el.style.transform = 'translate(-50%,-50%) scale(1.08)';
+  setTimeout(()=>{ if (el.parentNode) el.remove(); }, 240);
 }
 
 
@@ -14901,6 +14913,13 @@ function checkForLarvaFusion(owner) {
         const larvasToFuse = larvas.slice(0, 3);
         const larvaIDs = larvasToFuse.map(l => l.id);
 
+        // Prévient l'adversaire pour qu'il voie, lui aussi, l'animation en même temps.
+        if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+          window.__socket.emit('vfx', {
+            matchId: ONLINE_MATCH_ID, seat: owner,
+            payload: { type: 'larvaFusion', owner }
+          });
+        }
         playFusionAnimation(owner);
         
         const newLine = playerLine.filter(c => !larvaIDs.includes(c.id));
@@ -15858,12 +15877,16 @@ if (ONLINE_MODE) {
       // carte, la déplace, ou vient de la relâcher.
       if (payload.type === 'dragStart') { showOpponentDragGhost(payload.cardLabel); }
       if (payload.type === 'dragMove') { moveOpponentDragGhost(payload.x, payload.y); }
-      if (payload.type === 'dragEnd') { removeOpponentDragGhost(); }
+      if (payload.type === 'dragEnd') { removeOpponentDragGhost(false); }
       if (payload.type === 'reveillezVous') {
         // Diffusé par celui qui joue Réveillez vous : les deux joueurs
         // voient la même animation, démarrée quasi simultanément (voir
         // computeReveillezVousSequence, calculé et diffusé AVANT l'animation).
         playReveillezVousSpectator(payload.topSequence, payload.botSequence);
+      }
+      if (payload.type === 'larvaFusion') {
+        // Diffusé quand 3 Larves (T02) fusionnent automatiquement en Anomaly.
+        playFusionAnimation(payload.owner);
       }
     });
   });
