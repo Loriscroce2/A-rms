@@ -2712,12 +2712,14 @@ const VICTORY_SFX_URL = new URL('/assets/Armsvictory.mp3', location.href).href;
 const DEFEAT_SFX_URL  = new URL('/assets/Armsdefeat.mp3', location.href).href;
 const TIMER_SFX_URL   = new URL('/assets/timer.mp3', location.href).href;
 const IGNOMINIE_SFX_URL = new URL('/assets/Ignominie.mp3', location.href).href;
+const POSECARTE_SFX_URL = new URL('/assets/posecarte.mp3', location.href).href;
 
 let matchMusic = null;
 let victorySfx = null;
 let defeatSfx = null;
 let timerSfx = null;
 let ignominieSfx = null;
+let posecarteSfx = null;
 let gameAudioUnlocked = false;
 let matchMusicStarted = false;
 
@@ -2744,6 +2746,10 @@ function initGameAudio(){
   ignominieSfx = new Audio();
   ignominieSfx.src = IGNOMINIE_SFX_URL;
   ignominieSfx.preload = 'auto';
+
+  posecarteSfx = new Audio();
+  posecarteSfx.src = POSECARTE_SFX_URL;
+  posecarteSfx.preload = 'auto';
 }
 
 /* Prime les 5 pistes au 1er geste utilisateur (indispensable iOS/Safari, dont
@@ -2755,7 +2761,7 @@ function initGameAudio(){
 async function unlockGameAudio(){
   initGameAudio();
   let atLeastOneOk = false;
-  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx]) {
+  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx, posecarteSfx]) {
     try{
       a.muted = true;
       await a.play();
@@ -2860,6 +2866,23 @@ async function playTimerUrgentSfx(){
     const retry = async () => {
       ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
       try{ timerSfx.currentTime = 0; await timerSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
+/* Se joue à chaque fois qu'une carte est déposée (lâchée) dans une zone de
+   combat ou une zone d'artefact — Personnage ou Artefact placé pour de bon. */
+async function playPosecarteSfx(){
+  initGameAudio();
+  if (!posecarteSfx) return;
+  try{
+    posecarteSfx.currentTime = 0;
+    await posecarteSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ posecarteSfx.currentTime = 0; await posecarteSfx.play(); }catch(e){}
     };
     ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
   }
@@ -9577,6 +9600,7 @@ function handleLongVoyageChoice(owner, cardToPlay, otherCards) {
     line.push(cardToPlay);
     onCharacterEnterBattlefield(cardToPlay, owner);
     pushHistory('jeu', `${cardAnchor('C104')} : ${cardAnchor(cardToPlay.label)} entre directement dans votre zone de combat !`);
+    playPosecarteSfx();
     fullRender();
     return;
   }
@@ -9592,6 +9616,7 @@ function handleLongVoyageChoice(owner, cardToPlay, otherCards) {
     }
     artArray.push(cardToPlay);
     pushHistory('jeu', `${cardAnchor('C104')} : ${cardAnchor(cardToPlay.label)} entre directement dans votre zone d'artefact !`);
+    playPosecarteSfx();
     fullRender();
     return;
   }
@@ -10055,6 +10080,7 @@ if (hitAndRunMode) {
       puddingLine.splice(puddingIdx, 1, playedCard);
       onCharacterEnterBattlefield(playedCard, owner);
       pushHistory('jeu', `${cardAnchor(playedCard.label)} est joué sur le ${cardAnchor('T10')} : +2 PV et trait RAPIDE !${playedCard.capturedMithril ? ` Il conserve aussi ${playedCard.capturedMithril} Mithril capturé.` : ''}`);
+      playPosecarteSfx();
       fullRender();
       return;
     }
@@ -10661,6 +10687,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       if (card.label === 'C6') { nonKryllsAllowance[who] = (nonKryllsAllowance[who]||0) + 1; }
       if (drop === dropLeft) lineArray.unshift(card); else lineArray.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en combat (${playerLabel(who)}).`);
+      playPosecarteSfx();
 
       if (card.label === 'C119') {
         handleNoxrocEffect(who);
@@ -10839,6 +10866,7 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
 
       if (drop === dropLeft) arr.unshift(card); else arr.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en zone Artefacts (${playerLabel(who)}).`);
+      playPosecarteSfx();
       fullRender();
     });
   });
