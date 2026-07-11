@@ -15867,7 +15867,7 @@ if (ONLINE_MODE) {
   // ===================================================================
   // Écran "VERSUS" cinématique avant le tout premier affichage du plateau
   // ===================================================================
-  function showVersusIntro(profiles, onDone) {
+  function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDone) {
     const style = document.createElement('style');
     style.textContent = `
       #versusIntro{position:fixed;inset:0;z-index:9600;overflow:hidden;font-family:'Manrope',system-ui,sans-serif;background:#020608;}
@@ -15943,6 +15943,22 @@ if (ONLINE_MODE) {
 
       #versusIntro.exit{transition:opacity .55s ease;}
       #versusIntro.exit{opacity:0;}
+
+      /* Phase de tirage au sort : dévoile les deux cartes, compare, annonce
+         qui commence et la compensation du second joueur. */
+      .vsDrawPhase{ position:relative; display:flex; flex-direction:column; align-items:center; gap:16px; opacity:0; transition:opacity .5s ease; pointer-events:none; }
+      .vsDrawPhase.show{ opacity:1; }
+      .vsDrawTitle{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(15px,2vw,20px); color:#eafdff; letter-spacing:.06em; text-transform:uppercase; text-shadow:0 0 14px rgba(125,249,255,.5); }
+      .vsDrawCards{ display:flex; align-items:center; gap:22px; }
+      .vsDrawCard{ width:min(108px,11vw); height:min(151px,15.4vw); border-radius:10px; background:#0a161a; border:2px solid rgba(125,249,255,.4); box-shadow:0 10px 24px rgba(0,0,0,.55); overflow:hidden; position:relative; transition:transform .35s cubic-bezier(.2,.8,.25,1.3), border-color .3s ease, box-shadow .3s ease, opacity .3s ease; }
+      .vsDrawCardInner{ width:100%; height:100%; }
+      .vsDrawCardInner img{ width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity .4s ease; }
+      .vsDrawCardInner img.show{ opacity:1; }
+      .vsDrawCardLabel{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.68); color:#fff; font-family:'Cinzel',serif; font-weight:800; font-size:12px; text-align:center; padding:4px 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .vsDrawVs{ font-family:'Cinzel',serif; color:#ffd93d; font-weight:800; font-size:13px; opacity:.85; letter-spacing:.04em; }
+      .vsDrawCard.vsWinner{ transform:scale(1.14); border-color:#ffd93d; box-shadow:0 0 32px rgba(255,217,61,.75), 0 10px 24px rgba(0,0,0,.55); }
+      .vsDrawCard.vsLoser{ opacity:.45; }
+      .vsDrawResult{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(14px,1.8vw,19px); color:#ffd93d; text-align:center; min-height:26px; text-shadow:0 0 12px rgba(255,217,61,.55); max-width:80vw; }
     `;
     document.head.appendChild(style);
 
@@ -15989,6 +16005,21 @@ if (ONLINE_MODE) {
       <div class="vsCenter">
         <div class="vsStreak left"></div>
         <div class="vsEmblem"><div class="vsText">VS</div></div>
+        <div class="vsDrawPhase" id="vsDrawPhase">
+          <div class="vsDrawTitle" id="vsDrawTitle">Tirage au sort…</div>
+          <div class="vsDrawCards">
+            <div class="vsDrawCard" id="vsDrawCardTop">
+              <div class="vsDrawCardInner"><img id="vsDrawImgTop" src="" alt=""></div>
+              <div class="vsDrawCardLabel" id="vsDrawLabelTop"></div>
+            </div>
+            <div class="vsDrawVs">contre</div>
+            <div class="vsDrawCard" id="vsDrawCardBottom">
+              <div class="vsDrawCardInner"><img id="vsDrawImgBottom" src="" alt=""></div>
+              <div class="vsDrawCardLabel" id="vsDrawLabelBottom"></div>
+            </div>
+          </div>
+          <div class="vsDrawResult" id="vsDrawResult"></div>
+        </div>
         <div class="vsStreak right"></div>
       </div>
       <div class="vsFlash"></div>
@@ -16003,6 +16034,52 @@ if (ONLINE_MODE) {
       setTimeout(() => overlay.classList.add('flash2'), 90);
     }, 1300);
 
+    // Phase de tirage au sort : dévoile les deux cartes tirées par le
+    // serveur, compare leur numéro, et annonce qui commence — puis explique
+    // la carte de compensation accordée au second joueur. N'a lieu que si
+    // le serveur a bien fourni ce tirage (une partie locale/hors-ligne n'a
+    // personne à départager de cette façon).
+    const hasDraw = !!(drawReveal && firstSeat && compensationSeat);
+    if (hasDraw) {
+      setTimeout(() => {
+        const emblem = overlay.querySelector('.vsEmblem');
+        if (emblem) emblem.style.display = 'none';
+        const drawPhase = overlay.querySelector('#vsDrawPhase');
+        if (drawPhase) drawPhase.classList.add('show');
+      }, 1700);
+
+      setTimeout(() => {
+        const topLabel = codeToLabel(drawReveal.top);
+        const botLabel = codeToLabel(drawReveal.bottom);
+        const imgTop = overlay.querySelector('#vsDrawImgTop');
+        const imgBot = overlay.querySelector('#vsDrawImgBottom');
+        const lblTop = overlay.querySelector('#vsDrawLabelTop');
+        const lblBot = overlay.querySelector('#vsDrawLabelBottom');
+        if (imgTop) { imgTop.src = getCardImage(topLabel); imgTop.classList.add('show'); }
+        if (imgBot) { imgBot.src = getCardImage(botLabel); imgBot.classList.add('show'); }
+        if (lblTop) lblTop.textContent = cardName(topLabel);
+        if (lblBot) lblBot.textContent = cardName(botLabel);
+      }, 2000);
+
+      setTimeout(() => {
+        const cardTop = overlay.querySelector('#vsDrawCardTop');
+        const cardBot = overlay.querySelector('#vsDrawCardBottom');
+        const titleEl = overlay.querySelector('#vsDrawTitle');
+        const resultEl = overlay.querySelector('#vsDrawResult');
+        const winnerName = (firstSeat === 'top') ? profiles.top.name : profiles.bottom.name;
+        if (firstSeat === 'top') { cardTop.classList.add('vsWinner'); cardBot.classList.add('vsLoser'); }
+        else { cardBot.classList.add('vsWinner'); cardTop.classList.add('vsLoser'); }
+        if (titleEl) titleEl.textContent = 'Le tirage le plus fort commence !';
+        if (resultEl) resultEl.textContent = `${winnerName} commence la partie !`;
+      }, 3300);
+
+      setTimeout(() => {
+        const resultEl = overlay.querySelector('#vsDrawResult');
+        const loserName = (compensationSeat === 'top') ? profiles.top.name : profiles.bottom.name;
+        if (resultEl) resultEl.textContent = `En compensation, ${loserName} reçoit 1 carte supplémentaire dans sa main de départ.`;
+      }, 4800);
+    }
+
     // Tenue prolongée avant la sortie en fondu vers le plateau
     setTimeout(() => {
       overlay.classList.add('exit');
@@ -16011,16 +16088,21 @@ if (ONLINE_MODE) {
         style.remove();
         onDone();
       }, 600);
-    }, 5600);
+    }, hasDraw ? 7200 : 5600);
   }
 
-  function buildInitialStateFromDeckCodes(deckCodes) {
+  function buildInitialStateFromDeckCodes(deckCodes, compensationSeat) {
     // Reconstruit les vrais objets carte à partir des codes reçus du
     // serveur, avec exactement la même logique que le mode local.
     topDeck = deckCodes.top.map(code => createCard(codeToLabel(code), 'T'));
     botDeck = deckCodes.bottom.map(code => createCard(codeToLabel(code), 'B'));
     botHand = drawInitialHand(botDeck);
     topHand = drawInitialHand(topDeck);
+    // Le joueur qui NE COMMENCE PAS reçoit 1 carte de compensation
+    // supplémentaire dans sa main de départ (7 au lieu de 6), pour
+    // rééquilibrer l'absence d'initiative — en Classée comme en Non classée.
+    if (compensationSeat === 'top' && topDeck.length > 0) topHand.push(topDeck.shift());
+    if (compensationSeat === 'bottom' && botDeck.length > 0) botHand.push(botDeck.shift());
   }
 
   // Démarre startTurn() localement UNIQUEMENT dans le navigateur du joueur
@@ -16054,7 +16136,7 @@ if (ONLINE_MODE) {
       if (!ONLINE_READY) {
         // Première réception : c'est l'état initial (codes de decks à mélanger nous-même localement).
         if (state.deckCodes) {
-          buildInitialStateFromDeckCodes(state.deckCodes);
+          buildInitialStateFromDeckCodes(state.deckCodes, state.compensationSeat);
           currentTurn = state.turn || 'bottom';
         } else {
           applyGameState(state);
@@ -16079,7 +16161,7 @@ if (ONLINE_MODE) {
         };
 
         if (state.profiles) {
-          showVersusIntro(state.profiles, revealBoard);
+          showVersusIntro(state.profiles, state.drawReveal, state.firstSeat, state.compensationSeat, revealBoard);
         } else {
           revealBoard();
         }

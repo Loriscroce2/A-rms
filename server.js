@@ -832,8 +832,28 @@ function createInitialGameState(players) {
   const profileBottom = qGetProfile.get(playerBottom.userId);
   const profileTop = qGetProfile.get(playerTop.userId);
 
+  // Tirage au sort pour déterminer qui commence : chaque joueur tire une
+  // carte au hasard parmi les 250 emplacements de la Saison 1 — le numéro
+  // le plus élevé l'emporte et commence la partie. Calculé ICI, côté
+  // serveur, pour être équitable (impossible à truquer côté client) et
+  // identique pour les deux joueurs une fois diffusé.
+  const bottomDrawNum = 1 + Math.floor(Math.random() * 250);
+  let topDrawNum = 1 + Math.floor(Math.random() * 250);
+  while (topDrawNum === bottomDrawNum) { topDrawNum = 1 + Math.floor(Math.random() * 250); } // pas d'égalité
+  const firstSeat = bottomDrawNum > topDrawNum ? 'bottom' : 'top';
+  const compensationSeat = firstSeat === 'bottom' ? 'top' : 'bottom';
+
   return {
-    turn: 'bottom',
+    turn: firstSeat,
+    firstSeat,
+    // Le joueur qui NE commence PAS reçoit 1 carte de compensation dans sa
+    // main de départ (7 au lieu de 6), pour rééquilibrer l'absence
+    // d'initiative — valable en Classée comme en Non classée.
+    compensationSeat,
+    drawReveal: {
+      bottom: catalog.pad4(bottomDrawNum),
+      top: catalog.pad4(topDrawNum),
+    },
     deckCodes: {
       bottom: shuffleCodes(JSON.parse(deckBottomRow.cards)),
       top: shuffleCodes(JSON.parse(deckTopRow.cards)),
