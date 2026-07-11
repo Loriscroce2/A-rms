@@ -2987,6 +2987,7 @@ const CARD_IMAGES = {
  'C31': '../cartes/0031.png',
  'C32': '../cartes/0032.png',
  'C33': '../cartes/0033.png',
+ 'C34': '../cartes/0034.png',
  'T11': '../cartes/T11.png',
  'T12': '../cartes/T12.png',
  'T13': '../cartes/T13.png',
@@ -3118,6 +3119,7 @@ const CARD_TYPES  = {
  'C31': 'artefact',    // Vakxzin
  'C32': 'personnage',  // Bobyz
  'C33': 'action',      // Pour le bien de tous
+ 'C34': 'personnage',  // Ozokshi
  'T11': 'artefact',    // Pièce détachée
  'T12': 'artefact',    // Pièce détachée
  'T13': 'artefact',    // Pièce détachée
@@ -3248,6 +3250,7 @@ const CARD_NAMES = {
  'C31': 'Vakxzin',
  'C32': 'Bobyz',
  'C33': 'Pour le bien de tous',
+ 'C34': 'Ozokshi',
  'T11': 'Pièce détachée',
  'T12': 'Pièce détachée',
  'T13': 'Pièce détachée',
@@ -3337,12 +3340,13 @@ const CARD_HP_BASE = {
   'C28': 7,
   'C29': 2,
   'C32': 3, // PV non précisé par l'utilisateur — valeur provisoire, à confirmer
+  'C34': 6,
   'T10': 1,
 };
 
 const CARD_SHIELD_BASE = {
   'C1':0, 'C2':0, 'C3':1, 'C6':0, 'C9':0, 'C13':1, 'C14':1, 'C15':2, 'C17':2,
-  'C22':1, 'C26':4,
+  'C22':1, 'C26':4, 'C34':1,
   'C52': 0, 'C56': 0, 'C66': 5, 'C68': 1,
   'C105': 1,
   'C108': 0,
@@ -3517,6 +3521,7 @@ const CARD_TAGS = {
  'C31': ['artefact', 'Krylls'],  // Vakxzin
  'C32': ['citoyen', 'Krylls'],   // Bobyz
  'C33': ['action', 'Krylls'],    // Pour le bien de tous
+ 'C34': ['guerrier', 'Krylls'],  // Ozokshi
  'T11': ['artefact', 'Krylls'],  // Pièce détachée
  'T12': ['artefact', 'Krylls'],  // Pièce détachée
  'T13': ['artefact', 'Krylls'],  // Pièce détachée
@@ -8943,6 +8948,22 @@ function resolveFight(from, to){
     // FIN DE LA LOGIQUE POUR KONY
     // ===================================================================
 
+    // ===================================================================
+    // OZOKSHI (C34) : au combat, permet de jouer un artefact de la main,
+    // gratuitement et sans restriction de faction.
+    // ===================================================================
+    if (from.card.label === 'C34') {
+      const ozokshiOwner = from.owner;
+      const ozokshiHand = getHandByOwner(ozokshiOwner);
+      const eligibleArtifacts = ozokshiHand.filter(c => getType(c.label) === 'artefact');
+      if (eligibleArtifacts.length > 0) {
+        openOzokshiArtifactPrompt(ozokshiOwner, eligibleArtifacts);
+      }
+    }
+    // ===================================================================
+    // FIN DE LA LOGIQUE POUR OZOKSHI
+    // ===================================================================
+
   if (from.card.label === 'C116') {
     const owner = from.owner;
     const line = getLineByOwner(owner);
@@ -13408,6 +13429,34 @@ function useGousset(owner, card) {
 
 // KRYLLS : Mine E.M.I (C27) — défaussée à l'activation (usage unique), rapporte
 // autant de Mithril que de combattants adverses ayant du Bouclier en zone de combat.
+// KRYLLS (nouveau lot) : Ozokshi (C34) — au combat, permet de jouer un
+// artefact de la main, gratuitement et sans restriction de faction.
+function openOzokshiArtifactPrompt(owner, eligibleArtifacts){
+  const buttons = eligibleArtifacts.map(c => ({
+    label: cardName(c.label),
+    className: 'confirm',
+    onClick: () => playOzokshiArtifact(owner, c),
+  }));
+  buttons.push({ label: 'Ne pas jouer', className: 'cancel', onClick: () => {} });
+  openButtonsPrompt('Ozokshi', `Choisissez un artefact de votre main à jouer gratuitement — aucune restriction de faction.`, null, buttons, { nonCancellable: true });
+}
+
+function playOzokshiArtifact(owner, artifactCard){
+  const artArray = (owner === 'top') ? topArts : botArts;
+  if (artArray.length >= MAX_ARTIFACTS_PER_ZONE) {
+    pushHistory('info', `${cardAnchor('C34')} : zone d'artefact pleine, impossible de jouer ${cardAnchor(artifactCard.label)}.`);
+    closeActionPrompt();
+    return;
+  }
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === artifactCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  artArray.push(artifactCard);
+  pushHistory('artefact', `${cardAnchor('C34')} permet de jouer ${cardAnchor(artifactCard.label)} gratuitement, sans restriction de faction.`);
+  closeActionPrompt();
+  fullRender();
+}
+
 function useMineEMI(owner, card) {
   if (currentTurn !== owner) return;
   const opp = (owner === 'top') ? 'bottom' : 'top';
