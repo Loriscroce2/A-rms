@@ -7138,12 +7138,7 @@ function startKrouzpierTargeting(casterOwner, targetOwner){
   promptEl.style.bottom = '100px';
   promptEl.style.left = '50%';
   promptEl.style.transform = 'translateX(-50%)';
-  promptEl.style.zIndex = '2000';
-  promptEl.innerHTML = `
-    <div class="apTitle">Krouzpier</div>
-    <div class="apMsg">Cliquez sur le combattant ennemi à détruire.</div>
-    <div class="apRow"><button id="krouzpier-target-cancel" class="apBtn cancel">Arrêter là</button></div>
-  `;
+  promptEl.style.zIndex = '8700'; // au-dessus de TOUT le reste (coin-flip inclus, 8200), pour ne jamais être recouvert
   document.body.appendChild(promptEl);
   actionPromptEl = promptEl;
   promptEl.querySelector('#krouzpier-target-cancel').addEventListener('click', () => {
@@ -7198,7 +7193,7 @@ function startVakxzinTargeting(casterOwner){
   promptEl.style.bottom = '100px';
   promptEl.style.left = '50%';
   promptEl.style.transform = 'translateX(-50%)';
-  promptEl.style.zIndex = '2000';
+  promptEl.style.zIndex = '8700'; // même protection que Krouzpier — jamais recouvert
   promptEl.innerHTML = `
     <div class="apTitle">Vakxzin</div>
     <div class="apMsg">Cliquez sur un combattant portant <strong>Poison</strong> (n'importe quel camp) pour le détruire — les
@@ -9175,15 +9170,116 @@ function handleLongVoyageChoice(owner, cardToPlay, otherCards) {
     pushHistory('info', `${cardAnchor(card.label)} est ajouté à votre main.`);
   });
 
-  if (cardToPlay) {
-    hand.push(cardToPlay);
-    pendingFreePlay = { owner: owner, cardId: cardToPlay.id };
-    pushHistory('info', `Vous pouvez maintenant jouer ${cardAnchor(cardToPlay.label)} gratuitement ce tour-ci.`);
+  closeActionPrompt();
+
+  if (!cardToPlay) { fullRender(); return; }
+
+  const type = getType(cardToPlay.label);
+
+  // Personnage : entre DIRECTEMENT dans la zone de combat (déclenche son effet JOUER).
+  if (type === 'personnage') {
+    const line = getLineByOwner(owner);
+    line.push(cardToPlay);
+    onCharacterEnterBattlefield(cardToPlay, owner);
+    pushHistory('jeu', `${cardAnchor('C104')} : ${cardAnchor(cardToPlay.label)} entre directement dans votre zone de combat !`);
+    fullRender();
+    return;
   }
 
-  closeActionPrompt();
+  // Artefact : entre DIRECTEMENT dans la zone d'artefact (si de la place).
+  if (type === 'artefact') {
+    const artArray = (owner === 'top') ? topArts : botArts;
+    if (artArray.length >= MAX_ARTIFACTS_PER_ZONE) {
+      hand.push(cardToPlay);
+      pushHistory('info', `${cardAnchor('C104')} : zone d'artefact pleine — ${cardAnchor(cardToPlay.label)} rejoint votre main à la place.`);
+      fullRender();
+      return;
+    }
+    artArray.push(cardToPlay);
+    pushHistory('jeu', `${cardAnchor('C104')} : ${cardAnchor(cardToPlay.label)} entre directement dans votre zone d'artefact !`);
+    fullRender();
+    return;
+  }
+
+  // Familier : on doit choisir SUR QUEL combattant l'attacher — ciblage par clic.
+  if (type === 'familier') {
+    hand.push(cardToPlay);
+    fullRender();
+    openLongVoyageFamiliarHostPrompt(owner, cardToPlay);
+    return;
+  }
+
+  // Action : effet immédiat — on réutilise le VRAI dispatch de clic déjà en
+  // place pour chaque Action (plutôt que de reproduire à la main la logique
+  // bespoke de chacune des ~250 cartes), en simulant un clic sur la carte
+  // fraîchement rendue en main, rendue jouable gratuitement ce tour-ci.
+  if (type === 'action') {
+    hand.push(cardToPlay);
+    pendingFreePlay = { owner: owner, cardId: cardToPlay.id };
+    fullRender();
+    setTimeout(()=>{
+      const handSel = (owner === 'top') ? '#handTop' : '#handBottom';
+      const el = document.querySelector(`${handSel} [data-id="${cardToPlay.id}"]`);
+      if (el) el.click();
+    }, 60);
+    return;
+  }
+
+  // Repli générique pour tout type imprévu : comportement précédent (retour
+  // en main, jouable gratuitement).
+  hand.push(cardToPlay);
+  pendingFreePlay = { owner: owner, cardId: cardToPlay.id };
+  pushHistory('info', `Vous pouvez maintenant jouer ${cardAnchor(cardToPlay.label)} gratuitement ce tour-ci.`);
   fullRender();
 }
+
+// KRYLLS-adjacent (Long Voyage, C104) : ciblage par clic pour choisir
+// l'hôte auquel attacher un Familier tiré directement, sans repasser par la
+// main au préalable.
+let longVoyageFamiliarMode = null;
+function openLongVoyageFamiliarHostPrompt(owner, familiarCard){
+  const ownLine = getLineByOwner(owner);
+  if (ownLine.length === 0) {
+    pushHistory('info', `${cardAnchor('C104')} : aucun combattant sur qui attacher ${cardAnchor(familiarCard.label)} — elle reste en main.`);
+    return;
+  }
+  longVoyageFamiliarMode = { owner, familiarCard };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'longvoyage-familiar-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Long Voyage</div>
+    <div class="apMsg">Cliquez sur le combattant à qui rattacher ${cardAnchor(familiarCard.label)}.</div>
+    <div class="apRow"><button id="longvoyage-familiar-cancel" class="apBtn cancel">Annuler (garder en main)</button></div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  promptEl.querySelector('#longvoyage-familiar-cancel').addEventListener('click', () => {
+    longVoyageFamiliarMode = null;
+    closeActionPrompt();
+  });
+  fullRender();
+}
+
+function handleLongVoyageFamiliarSelection(hostCard, hostOwner){
+  if (!longVoyageFamiliarMode) return;
+  if (hostOwner !== longVoyageFamiliarMode.owner) return; // uniquement ses propres combattants
+  const { owner, familiarCard } = longVoyageFamiliarMode;
+  longVoyageFamiliarMode = null;
+  closeActionPrompt();
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === familiarCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  attachFamiliarToHost(owner, familiarCard, hostCard);
+  fullRender();
+}
+
 /* ---------- Cartes posées (combat) ---------- */
 function ensureFallbackName(el, label){
   let cap = el.querySelector('.faceName');
@@ -9466,6 +9562,7 @@ if (hitAndRunMode) {
     if (kabbaTargetMode) { handleKabbaTargetSelection(card, owner); return; }
     if (krouzpierTargetMode) { handleKrouzpierTargetSelection(card, owner); return; }
     if (vakxzinTargetMode) { handleVakxzinTargetSelection(card, owner); return; }
+    if (longVoyageFamiliarMode) { handleLongVoyageFamiliarSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
     if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
@@ -11526,6 +11623,9 @@ function updateTurnUI(){
 }
 function performEndTurn(){
   if (ONLINE_MODE && currentTurn !== MY_SEAT) return; // en ligne : pas ton tour
+  // Le son d'urgence du minuteur doit s'arrêter NET dès qu'on termine son
+  // tour, plutôt que de continuer à jouer par-dessus le tour suivant.
+  try{ if (typeof timerSfx !== 'undefined' && timerSfx) { timerSfx.pause(); timerSfx.currentTime = 0; } }catch(e){}
   // Remet chaque main à sa position d'origine dès qu'on termine son tour.
   if (typeof window.__resetHandPositions === 'function') window.__resetHandPositions();
 
@@ -12763,7 +12863,7 @@ function startKabbaTargeting(casterOwner, targetOwner){
   promptEl.style.bottom = '100px';
   promptEl.style.left = '50%';
   promptEl.style.transform = 'translateX(-50%)';
-  promptEl.style.zIndex = '2000';
+  promptEl.style.zIndex = '8700'; // même protection que Krouzpier — jamais recouvert
   promptEl.innerHTML = `
     <div class="apTitle">Kabba le zunt</div>
     <div class="apMsg">Cliquez sur le combattant adverse à transformer en <strong>${cardAnchor('T10')}</strong>.</div>
