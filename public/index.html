@@ -4697,6 +4697,28 @@ function handleC33ArtifactSelection(artifactCard, artifactOwner){
   c33ArtifactMode = null;
   closeActionPrompt();
 
+  // La transformation s'applique IMMÉDIATEMENT (comme les dégâts de combat,
+  // avant même l'animation Versus) — l'animation n'est plus qu'un habillage
+  // visuel joué PAR-DESSUS un état déjà correct. La retarder jusqu'à la fin
+  // de l'animation créait un risque de conflit avec une synchronisation
+  // d'état reçue entre-temps en ligne.
+  const artArray = (owner === 'top') ? topArts : botArts;
+  if (artArray.length >= MAX_ARTIFACTS_PER_ZONE) {
+    pushHistory('info', `${cardAnchor('C33')} : zone d'artefact pleine, la transformation échoue.`);
+    fullRender();
+    return;
+  }
+  const line = getLineByOwner(owner);
+  const cidx = line.findIndex(c => c.id === combatantCard.id);
+  if (cidx === -1) return;
+  line.splice(cidx, 1);
+  detachFamiliarsOnHost(combatantCard, owner);
+  const copy = createCard(artifactCard.label, owner === 'top' ? 'T' : 'B');
+  artArray.push(copy);
+  pushHistory('action', `${cardAnchor('C33')} transforme ${cardAnchor(combatantCard.label)} en une copie de
+    ${cardAnchor(artifactCard.label)} !`);
+  fullRender();
+
   // Prévient l'adversaire pour qu'il voie, lui aussi, l'animation en même temps.
   if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket) {
     window.__socket.emit('vfx', {
@@ -4704,24 +4726,7 @@ function handleC33ArtifactSelection(artifactCard, artifactOwner){
       payload: { type: 'c33Transform', combatantLabel: combatantCard.label, artifactLabel: artifactCard.label }
     });
   }
-  playC33TransformAnimation(combatantCard.label, artifactCard.label, () => {
-    const line = getLineByOwner(owner);
-    const cidx = line.findIndex(c => c.id === combatantCard.id);
-    if (cidx === -1) return;
-    line.splice(cidx, 1);
-    detachFamiliarsOnHost(combatantCard, owner);
-    const artArray = (owner === 'top') ? topArts : botArts;
-    if (artArray.length >= MAX_ARTIFACTS_PER_ZONE) {
-      pushHistory('info', `${cardAnchor('C33')} : zone d'artefact pleine, la transformation échoue.`);
-      fullRender();
-      return;
-    }
-    const copy = createCard(artifactCard.label, owner === 'top' ? 'T' : 'B');
-    artArray.push(copy);
-    pushHistory('action', `${cardAnchor('C33')} transforme ${cardAnchor(combatantCard.label)} en une copie de
-      ${cardAnchor(artifactCard.label)} !`);
-    fullRender();
-  });
+  playC33TransformAnimation(combatantCard.label, artifactCard.label, () => { fullRender(); });
 }
 
 // Animation de transition : le combattant se dématérialise en particules
@@ -13596,7 +13601,17 @@ function checkForgecoeurAssembly(owner){
     for (let i = artArray.length - 1; i >= 0 && removed < 3; i--) {
       if (pieceLabels.includes(artArray[i].label)) { artArray.splice(i, 1); removed++; }
     }
+    // Forgecoeur apparaît IMMÉDIATEMENT (comme les dégâts de combat, avant
+    // même l'animation Versus) — le tourbillon de 8,6 secondes n'est plus
+    // qu'un habillage visuel joué PAR-DESSUS un état déjà correct, sous un
+    // écran plein qui masque le plateau réel pendant ce temps. Le retarder
+    // jusqu'à la fin de l'animation créait un risque de conflit avec une
+    // synchronisation d'état reçue entre-temps en ligne.
+    const forgecoeur = createCard('T14', owner === 'top' ? 'T' : 'B');
+    artArray.push(forgecoeur);
+    pushHistory('artefact', `Les 3 Pièces détachées s'assemblent en ${cardAnchor('T14')} !`);
     fullRender();
+
     // Prévient l'adversaire pour qu'il voie, lui aussi, l'animation en même temps.
     if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket) {
       window.__socket.emit('vfx', {
@@ -13604,12 +13619,7 @@ function checkForgecoeurAssembly(owner){
         payload: { type: 'forgecoeurAssembly' }
       });
     }
-    playForgecoeurAssemblyAnimation(() => {
-      const forgecoeur = createCard('T14', owner === 'top' ? 'T' : 'B');
-      artArray.push(forgecoeur);
-      pushHistory('artefact', `Les 3 Pièces détachées s'assemblent en ${cardAnchor('T14')} !`);
-      fullRender();
-    });
+    playForgecoeurAssemblyAnimation(() => { fullRender(); });
   }
 }
 
@@ -13721,6 +13731,32 @@ function playForgecoeurAssemblyAnimation(onDone){
 // Pudding (T10, 1 PV), placé dans la zone de combat DU LANCEUR (vol + downgrade).
 function transformIntoPudding(targetOwner, targetCard, casterOwner){
   closeActionPrompt();
+
+  // La transformation s'applique IMMÉDIATEMENT (exactement comme les dégâts
+  // de combat, qui s'appliquent avant même l'animation Versus) — l'animation
+  // de 12 secondes n'est plus qu'un habillage visuel joué PAR-DESSUS un état
+  // déjà correct. La retarder jusqu'à la fin de l'animation créait un risque
+  // de conflit avec une synchronisation d'état reçue entre-temps en ligne,
+  // qui pouvait faire "revenir en arrière" la transformation.
+  const targetLine = getLineByOwner(targetOwner);
+  const idx = targetLine.findIndex(c => c.id === targetCard.id);
+  if (idx === -1) return;
+  targetLine.splice(idx, 1);
+  detachFamiliarsOnHost(targetCard, targetOwner);
+  const casterLine = getLineByOwner(casterOwner);
+  const pudding = createCard('T10', casterOwner === 'top' ? 'T' : 'B');
+  pudding.hp = 1;
+  // Le Pudding hérite du Mithril que la créature transformée avait capturé
+  // — un petit malus pour celui qui transforme, mais logique : la créature
+  // garde ce qu'elle possédait avant sa métamorphose.
+  if (typeof targetCard.capturedMithril === 'number' && targetCard.capturedMithril > 0) {
+    pudding.capturedMithril = targetCard.capturedMithril;
+  }
+  casterLine.push(pudding);
+  pushHistory('action', `${cardAnchor('C28')} transforme ${cardAnchor(targetCard.label)} en ${cardAnchor('T10')} (1 PV) dans
+    votre zone de combat !${pudding.capturedMithril ? ` Le Pudding conserve ${pudding.capturedMithril} Mithril capturé.` : ''}`);
+  fullRender();
+
   // Prévient l'adversaire pour qu'il voie, lui aussi, l'animation en même temps.
   if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket) {
     window.__socket.emit('vfx', {
@@ -13728,26 +13764,7 @@ function transformIntoPudding(targetOwner, targetCard, casterOwner){
       payload: { type: 'kabbaTransform', targetLabel: targetCard.label }
     });
   }
-  playKabbaTransformAnimation(targetCard, () => {
-    const targetLine = getLineByOwner(targetOwner);
-    const idx = targetLine.findIndex(c => c.id === targetCard.id);
-    if (idx === -1) return;
-    targetLine.splice(idx, 1);
-    detachFamiliarsOnHost(targetCard, targetOwner);
-    const casterLine = getLineByOwner(casterOwner);
-    const pudding = createCard('T10', casterOwner === 'top' ? 'T' : 'B');
-    pudding.hp = 1;
-    // Le Pudding hérite du Mithril que la créature transformée avait capturé
-    // — un petit malus pour celui qui transforme, mais logique : la créature
-    // garde ce qu'elle possédait avant sa métamorphose.
-    if (typeof targetCard.capturedMithril === 'number' && targetCard.capturedMithril > 0) {
-      pudding.capturedMithril = targetCard.capturedMithril;
-    }
-    casterLine.push(pudding);
-    pushHistory('action', `${cardAnchor('C28')} transforme ${cardAnchor(targetCard.label)} en ${cardAnchor('T10')} (1 PV) dans
-      votre zone de combat !${pudding.capturedMithril ? ` Le Pudding conserve ${pudding.capturedMithril} Mithril capturé.` : ''}`);
-    fullRender();
-  });
+  playKabbaTransformAnimation(targetCard, () => { fullRender(); });
 }
 
 // Animation de 12 secondes : la créature ciblée semble résister avant d'être
