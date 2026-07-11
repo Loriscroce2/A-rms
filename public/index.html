@@ -8448,16 +8448,22 @@ function showFamiliarCarousel(hostCard, familiars) {
   carousel.innerHTML = ''; // Vider le contenu précédent
 
   familiars.forEach(fam => {
+    // Sécurité explicite : on relit toujours le label RÉEL et à jour de cet
+    // objet précis (pas une copie ni une valeur mise en cache), pour être
+    // certain d'afficher Arakcrabe (T15) et jamais Arakcube (C37) tant
+    // qu'elle reste attachée.
+    const liveLabel = fam.label;
     const thumb = document.createElement('div');
     thumb.className = 'dthumb'; // Utilise le même style que les autres carrousels
-    const url = getCardImage(fam.label);
+    const url = getCardImage(liveLabel);
     if (url) {
       thumb.style.backgroundImage = `url(${url})`;
     } else {
-      thumb.textContent = cardName(fam.label);
+      thumb.textContent = cardName(liveLabel);
     }
+    thumb.title = cardName(liveLabel);
     // Ajouter le zoom au survol
-    thumb.addEventListener('mouseenter', () => showZoom(fam.label, fam));
+    thumb.addEventListener('mouseenter', () => showZoom(liveLabel, fam));
     thumb.addEventListener('mouseleave', hideZoom);
     carousel.appendChild(thumb);
   });
