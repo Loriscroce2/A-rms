@@ -3086,6 +3086,9 @@ const CARD_IMAGES = {
  'C33': '../cartes/0033.png',
  'C34': '../cartes/0034.png',
  'C35': '../cartes/0035.png',
+ 'C36': '../cartes/0036.png',
+ 'C37': '../cartes/0037.png',
+ 'T15': '../cartes/T15.png',
  'T11': '../cartes/T11.png',
  'T12': '../cartes/T12.png',
  'T13': '../cartes/T13.png',
@@ -3219,6 +3222,9 @@ const CARD_TYPES  = {
  'C33': 'action',      // Pour le bien de tous
  'C34': 'personnage',  // Ozokshi
  'C35': 'personnage',  // Tokzik
+ 'C36': 'personnage',  // Cénewz
+ 'C37': 'artefact',    // Arakcube
+ 'T15': 'familier',    // Arakcrabe
  'T11': 'artefact',    // Pièce détachée
  'T12': 'artefact',    // Pièce détachée
  'T13': 'artefact',    // Pièce détachée
@@ -3351,6 +3357,9 @@ const CARD_NAMES = {
  'C33': 'Pour le bien de tous',
  'C34': 'Ozokshi',
  'C35': 'Tokzik',
+ 'C36': 'Cénewz',
+ 'C37': 'Arakcube',
+ 'T15': 'Arakcrabe',
  'T11': 'Pièce détachée',
  'T12': 'Pièce détachée',
  'T13': 'Pièce détachée',
@@ -3442,12 +3451,13 @@ const CARD_HP_BASE = {
   'C32': 3, // PV non précisé par l'utilisateur — valeur provisoire, à confirmer
   'C34': 6,
   'C35': 5,
+  'C36': 2,
   'T10': 1,
 };
 
 const CARD_SHIELD_BASE = {
   'C1':0, 'C2':0, 'C3':1, 'C6':0, 'C9':0, 'C13':1, 'C14':1, 'C15':2, 'C17':2,
-  'C22':1, 'C26':4, 'C34':1,
+  'C22':1, 'C26':4, 'C34':1, 'C36':4,
   'C52': 0, 'C56': 0, 'C66': 5, 'C68': 1,
   'C105': 1,
   'C108': 0,
@@ -3624,6 +3634,9 @@ const CARD_TAGS = {
  'C33': ['action', 'Krylls'],    // Pour le bien de tous
  'C34': ['guerrier', 'Krylls'],  // Ozokshi
  'C35': ['guerrier', 'Krylls', 'poison'],  // Tokzik — Poison imprimé
+ 'C36': ['citoyen', 'Krylls', 'rapide'],   // Cénewz — Rapide imprimé
+ 'C37': ['artefact', 'Krylls'],            // Arakcube
+ 'T15': ['familier', 'Krylls'],            // Arakcrabe
  'T11': ['artefact', 'Krylls'],  // Pièce détachée
  'T12': ['artefact', 'Krylls'],  // Pièce détachée
  'T13': ['artefact', 'Krylls'],  // Pièce détachée
@@ -4102,6 +4115,7 @@ let vakxzinTargetMode = null;
 let c33CombatantMode = null;
 let c33ArtifactMode = null;
 let tokzikTargetMode = null;
+let arakcubeTargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -7649,6 +7663,86 @@ function handleTokzikTargetSelection(targetCard, targetCardOwner){
   fullRender();
 }
 
+// KRYLLS (nouveau lot) : Arakcube (C37) — se transforme en Arakcrabe (T15)
+// et l'attache à un combattant adverse choisi par clic. Tant qu'Arakcrabe
+// reste attachée, ce combattant passe sous notre contrôle et rejoint notre
+// zone de combat.
+function startArakcubeTargeting(casterOwner, artifactCard){
+  arakcubeTargetMode = { casterOwner, artifactCard };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'arakcube-target-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Arakcube</div>
+    <div class="apMsg">Cliquez sur le combattant ennemi à contrôler avec ${cardAnchor('T15')}.</div>
+    <div class="apRow"><button id="arakcube-target-cancel" class="apBtn cancel">Annuler</button></div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  promptEl.querySelector('#arakcube-target-cancel').addEventListener('click', () => {
+    arakcubeTargetMode = null;
+    closeActionPrompt();
+  });
+  fullRender();
+}
+
+function handleArakcubeTargetSelection(targetCard, targetCardOwner){
+  if (!arakcubeTargetMode) return;
+  const { casterOwner, artifactCard } = arakcubeTargetMode;
+  if (targetCardOwner === casterOwner) return; // uniquement un combattant ADVERSE
+  arakcubeTargetMode = null;
+  closeActionPrompt();
+
+  // Arakcube quitte la zone d'artefact (elle "se transforme" en Arakcrabe).
+  const artArray = (casterOwner === 'top') ? topArts : botArts;
+  const aidx = artArray.findIndex(a => a.id === artifactCard.id);
+  if (aidx !== -1) artArray.splice(aidx, 1);
+
+  // Le combattant ciblé passe SOUS NOTRE CONTRÔLE : il quitte la zone
+  // adverse et rejoint la nôtre, tant qu'Arakcrabe reste attachée.
+  const fromLine = getLineByOwner(targetCardOwner);
+  const tidx = fromLine.findIndex(c => c.id === targetCard.id);
+  if (tidx === -1) { fullRender(); return; }
+  fromLine.splice(tidx, 1);
+  targetCard.mindControlOriginalOwner = targetCardOwner;
+  const toLine = getLineByOwner(casterOwner);
+  toLine.push(targetCard);
+
+  const arakcrabe = createCard('T15', casterOwner === 'top' ? 'T' : 'B');
+  attachFamiliarToHost(casterOwner, arakcrabe, targetCard);
+
+  pushHistory('action', `${cardAnchor('C37')} se transforme en ${cardAnchor('T15')} et prend le contrôle de
+    ${cardAnchor(targetCard.label)} !`);
+  fullRender();
+}
+
+// Vérifie en direct (à chaque rendu) que tout combattant sous contrôle
+// mental a toujours bien Arakcrabe attachée — sinon, il retourne
+// immédiatement à son propriétaire d'origine.
+function recalcArakcrabeControl(){
+  ['top', 'bottom'].forEach(owner => {
+    const line = getLineByOwner(owner);
+    for (let i = line.length - 1; i >= 0; i--) {
+      const card = line[i];
+      if (!card.mindControlOriginalOwner) continue;
+      const stillControlled = getFamiliersOnHost(card).some(f => f.label === 'T15');
+      if (!stillControlled) {
+        const originalOwner = card.mindControlOriginalOwner;
+        delete card.mindControlOriginalOwner;
+        line.splice(i, 1);
+        getLineByOwner(originalOwner).push(card);
+        pushHistory('info', `${cardAnchor(card.label)} n'est plus sous contrôle : il retourne dans sa zone de combat d'origine.`);
+      }
+    }
+  });
+}
+
 
 // KRYLLS (nouveau lot) : Vakxzin (C31) — détruit un combattant avec Poison
 // (n'importe quel camp), gagne 2 Mithril si l'opération réussit. Ciblage par
@@ -8446,7 +8540,8 @@ function isAnyTargetSelectionActive(){
     c59DestroyMode || c51SelectMode || c58HealingMode ||
     c9SelectMode || pilateSelectMode || c18SelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
-    c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode
+    c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
+    arakcubeTargetMode
   );
 }
 // Petit rappel visuel/textuel quand une action est refusée à cause d'un choix en attente.
@@ -9119,6 +9214,24 @@ function resolveFight(from, to){
     }
     // ===================================================================
     // FIN DE LA LOGIQUE POUR OZOKSHI
+    // ===================================================================
+
+    // ===================================================================
+    // CÉNEWZ (C36) : au combat, dévoile la carte du dessus du deck
+    // adverse, choisit de la défausser ou de la remettre sur le deck.
+    // ===================================================================
+    if (from.card.label === 'C36') {
+      const cenewzOwner = from.owner;
+      const cenewzOpp = (cenewzOwner === 'top') ? 'bottom' : 'top';
+      const oppDeck = (cenewzOpp === 'top') ? topDeck : botDeck;
+      if (oppDeck.length > 0) {
+        openCenewzRevealPrompt(cenewzOwner, cenewzOpp, oppDeck[0]);
+      } else {
+        pushHistory('info', `${cardAnchor('C36')} : le deck adverse est vide, rien à dévoiler.`);
+      }
+    }
+    // ===================================================================
+    // FIN DE LA LOGIQUE POUR CÉNEWZ
     // ===================================================================
 
   if (from.card.label === 'C116') {
@@ -10074,6 +10187,7 @@ if (hitAndRunMode) {
     if (longVoyageFamiliarMode) { handleLongVoyageFamiliarSelection(card, owner); return; }
     if (c33CombatantMode) { handleC33CombatantSelection(card, owner); return; }
     if (tokzikTargetMode) { handleTokzikTargetSelection(card, owner); return; }
+    if (arakcubeTargetMode) { handleArakcubeTargetSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
     if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
@@ -10409,6 +10523,16 @@ if (card.label === 'C31') { // KRYLLS : Vakxzin
     return;
   }
   startVakxzinTargeting(owner);
+}
+
+if (card.label === 'C37') { // KRYLLS : Arakcube
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  const oppOwner = (owner === 'top') ? 'bottom' : 'top';
+  if (getLineByOwner(oppOwner).length === 0) {
+    pushHistory('info', `${cardAnchor('C37')} : aucun combattant adverse à cibler.`);
+    return;
+  }
+  startArakcubeTargeting(owner, card);
 }
 
   });
@@ -11594,6 +11718,8 @@ function fullRender(){
   recalcTentacuzBonuses();
   // KRYLLS (nouveau lot) : Hypnotikaa (C29) — aura Esprit en direct.
   recalcHypnotikaaAura();
+  // KRYLLS (nouveau lot) : Arakcrabe (T15) — contrôle mental en direct.
+  recalcArakcrabeControl();
   updateHandsUI();
   renderLine(document.querySelector('#battleTop .battleInner'), topLine, 'top');
   renderLine(document.querySelector('#battleBottom .battleInner'), botLine, 'bottom');
@@ -13652,6 +13778,26 @@ function playOzokshiArtifact(owner, artifactCard){
   pushHistory('artefact', `${cardAnchor('C34')} permet de jouer ${cardAnchor(artifactCard.label)} gratuitement, sans restriction de faction.`);
   closeActionPrompt();
   fullRender();
+}
+
+// KRYLLS (nouveau lot) : Cénewz (C36) — au combat, dévoile la carte du
+// dessus du deck adverse ; le joueur choisit de la défausser ou de la
+// laisser en place.
+function openCenewzRevealPrompt(owner, oppOwner, revealedCard){
+  openButtonsPrompt('Cénewz', `Carte dévoilée sur le dessus du deck adverse : <strong>${cardAnchor(revealedCard.label)}</strong>.
+    Que faire ?`, null, [
+    { label: 'Défausser', className: 'confirm', onClick: () => {
+      const deck = (oppOwner === 'top') ? topDeck : botDeck;
+      const idx = deck.findIndex(c => c.id === revealedCard.id);
+      if (idx !== -1) deck.splice(idx, 1);
+      discardCard(revealedCard, oppOwner, 'other');
+      pushHistory('action', `${cardAnchor('C36')} défausse ${cardAnchor(revealedCard.label)} du deck adverse.`);
+      fullRender();
+    } },
+    { label: 'Laisser sur le deck', className: '', onClick: () => {
+      pushHistory('info', `${cardAnchor('C36')} laisse ${cardAnchor(revealedCard.label)} sur le dessus du deck adverse.`);
+    } },
+  ], { nonCancellable: true });
 }
 
 function useMineEMI(owner, card) {
