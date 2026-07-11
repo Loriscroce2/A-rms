@@ -1111,6 +1111,58 @@
       100%{ transform:scale(1); }
     }
 
+    /* KRYLLS : assemblage des 3 Pièces détachées en Forgecoeur */
+    .forgecoeurAssemblyOverlay{
+      position:fixed; inset:0; z-index:8100; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:26px; background:#03060a; opacity:0; transition:opacity .6s ease; overflow:hidden;
+    }
+    .forgecoeurAssemblyOverlay.show{ opacity:1; }
+    .fgcRays{
+      position:absolute; width:1000px; height:1000px; pointer-events:none;
+      background:conic-gradient(from 0deg,
+        transparent 0deg, #ffd93d 4deg, transparent 12deg, transparent 40deg,
+        #ff8a3d 44deg, transparent 52deg, transparent 80deg,
+        #ffd93d 84deg, transparent 92deg, transparent 120deg,
+        #ff8a3d 124deg, transparent 132deg, transparent 160deg,
+        #ffd93d 164deg, transparent 172deg, transparent 200deg,
+        #ff8a3d 204deg, transparent 212deg, transparent 240deg,
+        #ffd93d 244deg, transparent 252deg, transparent 280deg,
+        #ff8a3d 284deg, transparent 292deg, transparent 320deg,
+        #ffd93d 324deg, transparent 332deg, transparent 360deg);
+      opacity:.22; animation:fgcRaysSpin 9s linear infinite;
+      -webkit-mask-image:radial-gradient(circle, black 0%, black 30%, transparent 65%);
+      mask-image:radial-gradient(circle, black 0%, black 30%, transparent 65%);
+    }
+    @keyframes fgcRaysSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+    .fgcCaption{
+      position:relative; z-index:2; font-family:'Cinzel',serif; font-size:17px; color:#ffd93d;
+      text-shadow:0 0 16px rgba(255,217,61,.55); letter-spacing:.05em; text-align:center;
+    }
+    .fgcStage{ position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center; z-index:2; }
+    .fgcPiece{
+      position:absolute; width:90px; height:126px; object-fit:contain; top:50%; left:50%; margin:-63px 0 0 -45px;
+      filter:drop-shadow(0 8px 18px rgba(0,0,0,.6));
+      transition:opacity .15s linear;
+    }
+    .fgcResult{
+      position:absolute; width:170px; height:238px; object-fit:contain; top:50%; left:50%; margin:-119px 0 0 -85px;
+      filter:drop-shadow(0 16px 32px rgba(0,0,0,.65)) drop-shadow(0 0 34px rgba(255,217,61,.55));
+      transition:opacity .3s ease;
+    }
+    .fgcResult.fgcResultLand{ animation:fgcResultLandKeyframes .65s cubic-bezier(.2,.8,.25,1.3); }
+    @keyframes fgcResultLandKeyframes{
+      0%{ transform:scale(.25) rotate(-15deg); }
+      60%{ transform:scale(1.18) rotate(4deg); }
+      100%{ transform:scale(1) rotate(0deg); }
+    }
+    .forgecoeurAssemblyOverlay.fgcFlash::after{
+      content:''; position:fixed; inset:0; background:#fff2c9; opacity:0;
+      animation:fgcFlashKeyframes .55s ease forwards; pointer-events:none;
+    }
+    @keyframes fgcFlashKeyframes{
+      0%{ opacity:0; } 18%{ opacity:.85; } 100%{ opacity:0; }
+    }
+
     /* Célébration de changement de rang de Menace — vrai logo, rayons de
        lumière tournants, confettis (promotion), effet de brillance. */
     .rankChangeOverlay{
@@ -13120,10 +13172,82 @@ function checkForgecoeurAssembly(owner){
     for (let i = artArray.length - 1; i >= 0 && removed < 3; i--) {
       if (pieceLabels.includes(artArray[i].label)) { artArray.splice(i, 1); removed++; }
     }
-    const forgecoeur = createCard('T14', owner === 'top' ? 'T' : 'B');
-    artArray.push(forgecoeur);
-    pushHistory('artefact', `Les 3 Pièces détachées s'assemblent en ${cardAnchor('T14')} !`);
+    fullRender();
+    playForgecoeurAssemblyAnimation(() => {
+      const forgecoeur = createCard('T14', owner === 'top' ? 'T' : 'B');
+      artArray.push(forgecoeur);
+      pushHistory('artefact', `Les 3 Pièces détachées s'assemblent en ${cardAnchor('T14')} !`);
+      fullRender();
+    });
   }
+}
+
+// Animation d'assemblage : les 3 Pièces détachées tournoient en cercle au
+// centre de l'écran, le tourbillon se resserre et accélère peu à peu,
+// jusqu'à un éclair final qui révèle Forgecoeur.
+function playForgecoeurAssemblyAnimation(onDone){
+  try{
+    const overlay = document.createElement('div');
+    overlay.className = 'forgecoeurAssemblyOverlay';
+    overlay.innerHTML = `
+      <div class="fgcRays"></div>
+      <div class="fgcCaption" id="fgcCaption">Les Pièces détachées s'assemblent…</div>
+      <div class="fgcStage" id="fgcStage">
+        <img class="fgcPiece" id="fgcPiece1" src="${getCardImage('T11')}" alt="">
+        <img class="fgcPiece" id="fgcPiece2" src="${getCardImage('T12')}" alt="">
+        <img class="fgcPiece" id="fgcPiece3" src="${getCardImage('T13')}" alt="">
+        <img class="fgcResult" id="fgcResult" src="${getCardImage('T14')}" alt="" style="opacity:0;">
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(()=> overlay.classList.add('show'));
+
+    const pieces = [
+      document.getElementById('fgcPiece1'),
+      document.getElementById('fgcPiece2'),
+      document.getElementById('fgcPiece3'),
+    ];
+    const resultImg = document.getElementById('fgcResult');
+    const captionEl = document.getElementById('fgcCaption');
+
+    const startTime = performance.now();
+    const spiralDuration = 4200; // ms — durée du tourbillon avant la fusion
+    let landed = false;
+
+    function animate(now){
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / spiralDuration);
+      const eased = 1 - Math.pow(1 - t, 2); // accélère en douceur vers la fin
+      const radius = 130 * (1 - eased * 0.9); // le cercle se resserre progressivement
+      const spinSpeed = 0.0022 + eased * 0.010; // tourne de plus en plus vite
+
+      pieces.forEach((el, i) => {
+        const angle = (elapsed * spinSpeed) + (i * (Math.PI * 2 / 3));
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius * 0.62; // légère ellipse, effet de perspective
+        const scale = 1 - eased * 0.35;
+        el.style.transform = `translate(${x}px, ${y}px) scale(${Math.max(0.15, scale)}) rotate(${angle * 50}deg)`;
+        el.style.opacity = String(Math.max(0, 1 - eased * 0.85));
+      });
+
+      if (t < 1) {
+        requestAnimationFrame(animate);
+      } else if (!landed) {
+        landed = true;
+        pieces.forEach(el => { el.style.opacity = '0'; });
+        overlay.classList.add('fgcFlash');
+        if (captionEl) captionEl.textContent = 'Forgecoeur !';
+        resultImg.style.opacity = '1';
+        resultImg.classList.add('fgcResultLand');
+      }
+    }
+    requestAnimationFrame(animate);
+
+    setTimeout(()=>{
+      overlay.classList.remove('show');
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); onDone(); }, 500);
+    }, 6000);
+  }catch(e){ onDone(); }
 }
 
 // KRYLLS : Kabba le zunt (C28) — transforme le combattant adverse choisi en
