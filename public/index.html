@@ -773,6 +773,14 @@
       box-shadow:0 0 16px var(--armColor,#19e27a), inset 0 0 8px var(--armColor,#19e27a); }
     .armActive::before{ content:""; position:absolute; inset:6px; border-radius:50%; border:1.5px solid rgba(255,255,255,.3); box-shadow:0 0 6px rgba(255,255,255,.2); }
 
+    /* KRYLLS : Forgecoeur (T14) — croix sur les emplacements d'A'rms
+       devenus inutiles, en partant de la droite. */
+    .armCrossedOut{ opacity:.55; }
+    .armCrossMark{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      color:#ffd93d; font-size:calc(var(--armSlotSize, 20px) * 0.7); font-weight:900; line-height:1;
+      text-shadow:0 0 6px rgba(255,217,61,.7); pointer-events:none;
+    }
     /* Célébration : la case d'A'rms qui vient tout juste de se forger
        s'illumine avec un éclat marqué avant de revenir à son état normal. */
     @keyframes armForgedPulse{
@@ -2713,6 +2721,9 @@ const DEFEAT_SFX_URL  = new URL('/assets/Armsdefeat.mp3', location.href).href;
 const TIMER_SFX_URL   = new URL('/assets/timer.mp3', location.href).href;
 const IGNOMINIE_SFX_URL = new URL('/assets/Ignominie.mp3', location.href).href;
 const POSECARTE_SFX_URL = new URL('/assets/posecarte.mp3', location.href).href;
+const SHUFFLE_SFX_URL = new URL('/assets/shuffle.mp3', location.href).href;
+const DISCARD_SFX_URL = new URL('/assets/Discard.mp3', location.href).href;
+const MOZKYTO_SFX_URL = new URL('/assets/Mozkyto.mp3', location.href).href;
 
 let matchMusic = null;
 let victorySfx = null;
@@ -2720,6 +2731,9 @@ let defeatSfx = null;
 let timerSfx = null;
 let ignominieSfx = null;
 let posecarteSfx = null;
+let shuffleSfx = null;
+let discardSfx = null;
+let mozkytoSfx = null;
 let gameAudioUnlocked = false;
 let matchMusicStarted = false;
 
@@ -2750,6 +2764,18 @@ function initGameAudio(){
   posecarteSfx = new Audio();
   posecarteSfx.src = POSECARTE_SFX_URL;
   posecarteSfx.preload = 'auto';
+
+  shuffleSfx = new Audio();
+  shuffleSfx.src = SHUFFLE_SFX_URL;
+  shuffleSfx.preload = 'auto';
+
+  discardSfx = new Audio();
+  discardSfx.src = DISCARD_SFX_URL;
+  discardSfx.preload = 'auto';
+
+  mozkytoSfx = new Audio();
+  mozkytoSfx.src = MOZKYTO_SFX_URL;
+  mozkytoSfx.preload = 'auto';
 }
 
 /* Prime les 5 pistes au 1er geste utilisateur (indispensable iOS/Safari, dont
@@ -2761,7 +2787,7 @@ function initGameAudio(){
 async function unlockGameAudio(){
   initGameAudio();
   let atLeastOneOk = false;
-  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx, posecarteSfx]) {
+  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx, posecarteSfx, shuffleSfx, discardSfx, mozkytoSfx]) {
     try{
       a.muted = true;
       await a.play();
@@ -2883,6 +2909,54 @@ async function playPosecarteSfx(){
     const retry = async () => {
       ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
       try{ posecarteSfx.currentTime = 0; await posecarteSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
+/* Se joue à chaque fois qu'une main de départ est distribuée à un joueur. */
+async function playShuffleSfx(){
+  initGameAudio();
+  if (!shuffleSfx) return;
+  try{
+    shuffleSfx.currentTime = 0;
+    await shuffleSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ shuffleSfx.currentTime = 0; await shuffleSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
+/* Se joue quand on lâche/dépose manuellement une carte dans sa défausse. */
+async function playDiscardSfx(){
+  initGameAudio();
+  if (!discardSfx) return;
+  try{
+    discardSfx.currentTime = 0;
+    await discardSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ discardSfx.currentTime = 0; await discardSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
+/* Se joue quand on lâche le familier Mozkyto (C10) sur un combattant. */
+async function playMozkytoSfx(){
+  initGameAudio();
+  if (!mozkytoSfx) return;
+  try{
+    mozkytoSfx.currentTime = 0;
+    await mozkytoSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ mozkytoSfx.currentTime = 0; await mozkytoSfx.play(); }catch(e){}
     };
     ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
   }
@@ -3980,6 +4054,7 @@ function drawInitialHand(deck) {
   while (hand.filter(card => card.label !== 'C160').length < 6 && deck.length > 0) {
     hand.push(deck.shift());
   }
+  playShuffleSfx();
   return hand;
 }
 
@@ -10093,7 +10168,10 @@ if (hitAndRunMode) {
     if (getType(draggedCard.label) === 'familier') {
       consumeAllowanceIfNeeded(playingOwner, draggedCard);
       const famCard = takeCardFromSource(fromId, draggedCard.id);
-      if (famCard) attachFamiliarToHost(playingOwner, famCard, card);
+      if (famCard) {
+        attachFamiliarToHost(playingOwner, famCard, card);
+        if (famCard.label === 'C10') { playMozkytoSfx(); }
+      }
       return;
     }
     const targetableActions = ['C4', 'C57', 'C102', 'C115'];
@@ -11640,6 +11718,7 @@ function setupDumpDrop(dumpEl, owner) {
         if (!card) return;
 
         discardCard(card, owner, 'manual');
+        playDiscardSfx();
         fullRender();
     });
 }
@@ -11660,9 +11739,20 @@ function renderArms(){
   ['top','bottom'].forEach(player=>{
     const id='arms'+player.charAt(0).toUpperCase()+player.slice(1);
     const row=document.getElementById(id); row.innerHTML='';
+    // KRYLLS (nouveau lot) : Forgecoeur (T14) — chaque exemplaire barre en
+    // croix un emplacement d'A'rms en partant de la DROITE, pour montrer
+    // visuellement qu'il n'est plus nécessaire de le remplir.
+    const forgecoeurCount = ((player === 'top') ? topArts : botArts).filter(a => a.label === 'T14').length;
     for(let i=0;i<5;i++){
       const s=document.createElement('div'); s.className='armSlot';
       if(i<arms[player]){ s.classList.add('armActive'); s.style.setProperty('--armColor', armColors[i]); }
+      if (i >= 5 - forgecoeurCount) {
+        s.classList.add('armCrossedOut');
+        const cross = document.createElement('div');
+        cross.className = 'armCrossMark';
+        cross.textContent = '✕';
+        s.appendChild(cross);
+      }
       row.appendChild(s);
     }
   });
@@ -11686,11 +11776,10 @@ function addMithril(player){
 }
 
 function checkWin(player) {
-  // KRYLLS (nouveau lot) : Forgecoeur (T14) — tant qu'il est dans la zone
-  // d'artefact du joueur, la victoire par forge ne nécessite plus que 4 A'rms
-  // au lieu de 5.
-  const hasForgecoeur = ((player === 'top') ? topArts : botArts).some(a => a.label === 'T14');
-  const armsNeeded = hasForgecoeur ? 4 : 5;
+  // KRYLLS (nouveau lot) : Forgecoeur (T14) — CHAQUE exemplaire dans la zone
+  // d'artefact réduit d'1 le nombre d'A'rms nécessaires à la victoire.
+  const forgecoeurCount = ((player === 'top') ? topArts : botArts).filter(a => a.label === 'T14').length;
+  const armsNeeded = Math.max(1, 5 - forgecoeurCount);
   if (arms[player] >= armsNeeded) {
     endGame(player, 'forge');
   }
