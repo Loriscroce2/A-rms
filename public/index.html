@@ -3116,6 +3116,7 @@ const CARD_IMAGES = {
  'C38': '../cartes/0038.png',
  'C39': '../cartes/0039.png',
  'C40': '../cartes/0040.png',
+ 'C41': '../cartes/0041.png',
  'T15': '../cartes/T15.png',
  'T11': '../cartes/T11.png',
  'T12': '../cartes/T12.png',
@@ -3255,6 +3256,7 @@ const CARD_TYPES  = {
  'C38': 'personnage',  // Kryo
  'C39': 'artefact',    // Bibliotempz
  'C40': 'personnage',  // Zyzy
+ 'C41': 'familier',    // Mezamorph
  'T15': 'familier',    // Arakcrabe
  'T11': 'artefact',    // Pièce détachée
  'T12': 'artefact',    // Pièce détachée
@@ -3393,6 +3395,7 @@ const CARD_NAMES = {
  'C38': 'Kryo',
  'C39': 'Bibliotempz',
  'C40': 'Zyzy',
+ 'C41': 'Mezamorph',
  'T15': 'Arakcrabe',
  'T11': 'Pièce détachée',
  'T12': 'Pièce détachée',
@@ -3675,6 +3678,7 @@ const CARD_TAGS = {
  'C38': ['guerrier', 'Krylls'],            // Kryo
  'C39': ['artefact', 'Krylls'],            // Bibliotempz
  'C40': ['citoyen', 'Krylls'],             // Zyzy
+ 'C41': ['familier', 'Krylls'],            // Mezamorph
  'T15': ['familier', 'Krylls'],            // Arakcrabe
  'T11': ['artefact', 'Krylls'],  // Pièce détachée
  'T12': ['artefact', 'Krylls'],  // Pièce détachée
@@ -9209,6 +9213,14 @@ function attachFamiliarToHost(owner, familiarCard, hostCard){
     pushHistory('info', `${cardAnchor('C226')} donne +${familiarCard.appliedShieldBonus || 0} Bouclier à ${cardAnchor(hostCard.label)} (Mithril actuel).`);
   }
 
+  // KRYLLS (nouveau lot) : Mezamorph (C41) — dès qu'il s'attache, propose de
+  // se transformer en copie d'un familier déjà présent sur le plateau.
+  if (familiarCard.label === 'C41') {
+    fullRender();
+    openMezamorphCopyPrompt(owner, familiarCard);
+    return;
+  }
+
   fullRender();
 }
 
@@ -9306,6 +9318,54 @@ function renderMiniFamiliersForHost(el, hostCard){
 document.addEventListener('click', () => {
   document.querySelectorAll('.famBadge.pinned, .famBadgeOverflow.pinned').forEach(b => b.classList.remove('pinned'));
 });
+
+// KRYLLS (nouveau lot) : Mezamorph (C41) — se transforme en copie d'un
+// familier déjà présent sur le plateau, choisi via une grande fenêtre
+// centrale listant toutes les options disponibles.
+function openMezamorphCopyPrompt(owner, mezamorphCard){
+  const candidates = getAllFamiliers().filter(f => f.id !== mezamorphCard.id);
+  if (candidates.length === 0) {
+    pushHistory('info', `${cardAnchor('C41')} : aucun autre familier sur le plateau à copier — il reste Mezamorph.`);
+    return;
+  }
+  const overlay = document.createElement('div');
+  overlay.id = 'mezamorphCopyOverlay';
+  overlay.style.cssText = 'position:fixed; inset:0; z-index:8800; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; background:rgba(3,7,11,.93); padding:24px;';
+  const title = document.createElement('div');
+  title.style.cssText = "font-family:'Cinzel',serif; font-weight:800; font-size:22px; color:#eafdff; text-shadow:0 0 16px rgba(125,249,255,.5); text-align:center; letter-spacing:.03em;";
+  title.textContent = 'Mezamorph — choisissez le familier à copier';
+  overlay.appendChild(title);
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:flex; flex-wrap:wrap; gap:16px; justify-content:center; max-width:82vw; max-height:70vh; overflow-y:auto;';
+  candidates.forEach(fam => {
+    const host = findCardOrArtifactOnBoard(fam.attachedTo);
+    const thumb = document.createElement('div');
+    thumb.style.cssText = 'width:110px; height:154px; border-radius:10px; background-size:cover; background-position:center; cursor:pointer; border:2px solid rgba(125,249,255,.4); box-shadow:0 8px 20px rgba(0,0,0,.5); transition:transform .15s ease, border-color .15s ease; flex:none;';
+    const url = getCardImage(fam.label);
+    if (url) thumb.style.backgroundImage = `url(${url})`;
+    thumb.title = `${cardName(fam.label)}${host ? ' (sur ' + cardName(host.label) + ')' : ''}`;
+    thumb.addEventListener('mouseenter', () => { thumb.style.transform = 'scale(1.06)'; thumb.style.borderColor = '#ffd93d'; });
+    thumb.addEventListener('mouseleave', () => { thumb.style.transform = 'scale(1)'; thumb.style.borderColor = 'rgba(125,249,255,.4)'; });
+    thumb.addEventListener('click', () => {
+      overlay.remove();
+      applyMezamorphCopy(mezamorphCard, fam.label);
+    });
+    grid.appendChild(thumb);
+  });
+  overlay.appendChild(grid);
+  document.body.appendChild(overlay);
+}
+
+function applyMezamorphCopy(mezamorphCard, copiedLabel){
+  mezamorphCard.label = copiedLabel;
+  // Marque cette carte comme étant "secrètement" Mezamorph, quel que soit
+  // le familier qu'elle imite actuellement — permet de la faire redevenir
+  // C41 dès qu'elle se détache, peu importe la raison (voir discardCard et
+  // addToExile).
+  mezamorphCard.mezamorphOriginal = true;
+  pushHistory('familier', `${cardAnchor('C41')} se transforme en une copie de ${cardAnchor(copiedLabel)} !`);
+  fullRender();
+}
 
 function attachFamiliersZoom(zoomEl, hostCard){
   const fams = getFamiliersOnHost(hostCard);
@@ -10914,7 +10974,8 @@ if (card.label === 'C37') { // KRYLLS : Arakcube
 
 if (card.label === 'C39') { // KRYLLS : Bibliotempz
   if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
-  useBibliotempz(owner);
+  if(artifactExhausted[owner].has(card.id)){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  useBibliotempz(owner, card);
 }
 
   });
@@ -11551,6 +11612,14 @@ function addToExile(card, context = {}){
       const owner = ownerOfCardOnBoard(card) || card.playOwner || 'bottom';
       card = createCard('C37', owner === 'top' ? 'T' : 'B');
     }
+    // KRYLLS (nouveau lot) : Mezamorph (C41) — redevient lui-même dès qu'il
+    // se détache, quel que soit le familier qu'il imitait au moment de son
+    // départ (on se base sur le drapeau mezamorphOriginal, pas sur son label
+    // courant qui change dynamiquement).
+    if (card.mezamorphOriginal) {
+      const owner = ownerOfCardOnBoard(card) || card.playOwner || 'bottom';
+      card = createCard('C41', owner === 'top' ? 'T' : 'B');
+    }
 
     // ===================================================================
     // DÉBUT DE LA LOGIQUE DE RESTITUTION GÉNÉRIQUE DU MITHRIL CAPTURÉ
@@ -11777,6 +11846,12 @@ function discardCard(card, owner, reason='other', context = {}){
   // sa forme de familier.
   if (card.label === 'T15') {
     card = createCard('C37', owner === 'top' ? 'T' : 'B');
+  }
+  // KRYLLS (nouveau lot) : Mezamorph (C41) — redevient lui-même dès qu'il
+  // se détache, quel que soit le familier qu'il imitait (drapeau
+  // mezamorphOriginal, indépendant du label courant).
+  if (card.mezamorphOriginal) {
+    card = createCard('C41', owner === 'top' ? 'T' : 'B');
   }
   // WADOO : Linkrevable (C212) revient dans la zone de combat au lieu de mourir, tant qu'il lui reste des charges
   if (card.label === 'C212' && reason === 'death') {
@@ -14291,13 +14366,17 @@ function openCenewzRevealPrompt(owner, oppOwner, revealedCard, onResolved){
 
 // KRYLLS (nouveau lot) : Bibliotempz (C39) — Action : pioche une carte.
 // Avec 20 cartes en main, victoire immédiate.
-function useBibliotempz(owner){
+function useBibliotempz(owner, card){
+  if (artifactExhausted[owner].has(card.id)) return;
+  exhaustArtifact(owner, card);
+
   const hand = getHandByOwner(owner);
   const deck = getDeckByOwner(owner);
   if (deck.length === 0) {
     const reshuffled = reshuffleDiscardIntoDeck(owner);
     if (!reshuffled) {
       pushHistory('info', `${cardAnchor('C39')} : deck et défausse vides, impossible de piocher.`);
+      fullRender();
       return;
     }
   }
