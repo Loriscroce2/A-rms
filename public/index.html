@@ -14473,7 +14473,17 @@ function checkForgecoeurAssembly(owner){
         payload: { type: 'forgecoeurAssembly' }
       });
     }
-    playForgecoeurAssemblyAnimation(() => { fullRender(); });
+    playForgecoeurAssemblyAnimation(() => {
+      fullRender();
+      // CORRECTIF : checkWin() n'était appelée que juste après avoir forgé
+      // une A'rms — si le joueur avait DÉJÀ assez d'A'rms pour le nouveau
+      // seuil réduit par ce Forgecoeur (ex. 1 A'rms alors qu'il n'en fallait
+      // désormais plus qu'1 grâce à 4 Forgecoeur), la victoire ne se
+      // déclenchait jamais, faute d'être revérifiée à ce moment précis.
+      // Vérifiée ICI, une fois l'animation terminée, pour laisser le temps
+      // de bien la voir avant que la partie ne se termine.
+      checkWin(owner);
+    });
   }
 }
 
