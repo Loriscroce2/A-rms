@@ -4427,6 +4427,87 @@ let hoveredTarget = null;
 /* ---- Drag courant (C4 / C10 / C16) ---- */
 let currentDragInfo = null;
 
+// ===================================================================
+// STREAMING DE POSITION EN DIRECT — l'adversaire, en ligne, voit en temps
+// réel une carte quitter la main de l'autre joueur, se déplacer avec son
+// curseur, puis se déposer. Purement visuel (fantôme superposé), ne
+// modifie jamais l'état réel du jeu — celui-ci arrive comme d'habitude via
+// stateSync une fois le dépôt effectivement résolu.
+// ===================================================================
+let dragMoveThrottleTs = 0;
+document.addEventListener('dragstart', (e) => {
+  if (typeof ONLINE_MODE === 'undefined' || !ONLINE_MODE || !window.__socket || !window.__socket.connected) return;
+  const id = e.target && e.target.dataset && e.target.dataset.id;
+  if (!id) return;
+  const card = (typeof findCardAnywhere === 'function') ? findCardAnywhere(id) : null;
+  if (!card) return;
+  window.__socket.emit('vfx', {
+    matchId: ONLINE_MATCH_ID, seat: MY_SEAT,
+    payload: { type: 'dragStart', cardLabel: card.label }
+  });
+}, false);
+
+document.addEventListener('dragover', (e) => {
+  if (typeof ONLINE_MODE === 'undefined' || !ONLINE_MODE || !currentDragInfo || !window.__socket || !window.__socket.connected) return;
+  const now = Date.now();
+  if (now - dragMoveThrottleTs < 40) return; // ~25 images/seconde maximum, pour ne pas saturer le réseau
+  dragMoveThrottleTs = now;
+  const xPct = (e.clientX / window.innerWidth) * 100;
+  const yPct = (e.clientY / window.innerHeight) * 100;
+  window.__socket.emit('vfx', {
+    matchId: ONLINE_MATCH_ID, seat: MY_SEAT,
+    payload: { type: 'dragMove', x: xPct, y: yPct }
+  });
+});
+
+document.addEventListener('dragend', () => {
+  if (typeof ONLINE_MODE === 'undefined' || !ONLINE_MODE || !window.__socket || !window.__socket.connected) return;
+  window.__socket.emit('vfx', {
+    matchId: ONLINE_MATCH_ID, seat: (typeof MY_SEAT !== 'undefined') ? MY_SEAT : undefined,
+    payload: { type: 'dragEnd' }
+  });
+});
+
+// ---- Côté réception : fantôme visuel de la carte que l'adversaire déplace ----
+let opponentDragGhost = null;
+let opponentDragGhostSafetyTimer = null;
+function showOpponentDragGhost(cardLabel){
+  removeOpponentDragGhost();
+  const el = document.createElement('div');
+  el.id = 'opponentDragGhost';
+  el.style.cssText = 'position:fixed; width:90px; height:126px; z-index:7000; pointer-events:none; border-radius:9px; background-size:cover; background-position:center; box-shadow:0 10px 26px rgba(0,0,0,.65), 0 0 18px rgba(125,249,255,.5); border:2px solid rgba(125,249,255,.6); transform:translate(-50%,-50%); opacity:0; transition:opacity .2s ease;';
+  const url = getCardImage(cardLabel);
+  if (url) el.style.backgroundImage = `url(${url})`;
+  document.body.appendChild(el);
+  opponentDragGhost = el;
+  requestAnimationFrame(()=>{ if (opponentDragGhost) opponentDragGhost.style.opacity = '1'; });
+  armOpponentDragGhostSafety();
+}
+function armOpponentDragGhostSafety(){
+  // Filet de sécurité : si "dragEnd" ne parvenait jamais (coupure réseau en
+  // plein glissement, par exemple), le fantôme ne doit jamais rester
+  // affiché indéfiniment — il se retire de lui-même après 3s d'inactivité.
+  if (opponentDragGhostSafetyTimer) clearTimeout(opponentDragGhostSafetyTimer);
+  opponentDragGhostSafetyTimer = setTimeout(removeOpponentDragGhost, 3000);
+}
+function moveOpponentDragGhost(xPct, yPct){
+  if (!opponentDragGhost) return;
+  // Miroir VERTICAL uniquement : le retournement d'écran de ce jeu ne
+  // réordonne que les rangées (haut/bas), pas les colonnes — la main de
+  // l'adversaire (en bas pour lui) est donc ma zone adverse (en haut pour
+  // moi), d'où l'inversion du seul pourcentage Y.
+  const x = xPct;
+  const y = 100 - yPct;
+  opponentDragGhost.style.left = `${(x/100)*window.innerWidth}px`;
+  opponentDragGhost.style.top = `${(y/100)*window.innerHeight}px`;
+  armOpponentDragGhostSafety();
+}
+function removeOpponentDragGhost(){
+  if (opponentDragGhostSafetyTimer) { clearTimeout(opponentDragGhostSafetyTimer); opponentDragGhostSafetyTimer = null; }
+  if (opponentDragGhost) { opponentDragGhost.remove(); opponentDragGhost = null; }
+}
+
+
 /* ---- Prompt générique (BLOQUANT) ---- */
 let actionPromptEl = null;
 let actionPromptAnchor = null;
@@ -15683,6 +15764,11 @@ if (ONLINE_MODE) {
         const fn = sfxMap[payload.name];
         if (fn) fn();
       }
+      // Streaming de position en direct : l'adversaire vient de prendre une
+      // carte, la déplace, ou vient de la relâcher.
+      if (payload.type === 'dragStart') { showOpponentDragGhost(payload.cardLabel); }
+      if (payload.type === 'dragMove') { moveOpponentDragGhost(payload.x, payload.y); }
+      if (payload.type === 'dragEnd') { removeOpponentDragGhost(); }
     });
   });
 }
