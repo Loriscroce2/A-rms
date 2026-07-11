@@ -1071,8 +1071,9 @@
     .kabbaTransformOverlay.show{ opacity:1; }
     .kabbaStage{ display:flex; flex-direction:column; align-items:center; gap:20px; }
     .kabbaCaption{
-      font-family:'Cinzel',serif; font-size:16px; color:#e8fdff; text-shadow:0 0 14px rgba(0,230,255,.4);
-      min-height:22px; text-align:center;
+      font-family:'Cinzel',serif; font-weight:800; font-size:22px; color:#eafdff;
+      text-shadow:0 0 20px rgba(0,230,255,.55), 0 2px 4px rgba(0,0,0,.6);
+      letter-spacing:.05em; min-height:28px; text-align:center;
     }
     .kabbaCardStage{
       position:relative; width:min(60vw,240px); height:min(84vw,336px);
@@ -1135,25 +1136,28 @@
     }
     @keyframes fgcRaysSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
     .fgcCaption{
-      position:relative; z-index:2; font-family:'Cinzel',serif; font-size:17px; color:#ffd93d;
-      text-shadow:0 0 16px rgba(255,217,61,.55); letter-spacing:.05em; text-align:center;
+      position:relative; z-index:2; font-family:'Cinzel',serif; font-weight:800; font-size:26px; color:#ffe9a8;
+      text-shadow:0 0 22px rgba(255,217,61,.65), 0 2px 4px rgba(0,0,0,.6); letter-spacing:.08em; text-align:center;
+      text-transform:uppercase;
     }
-    .fgcStage{ position:relative; width:280px; height:280px; display:flex; align-items:center; justify-content:center; z-index:2; }
+    .fgcStage{ position:relative; width:min(92vw,840px); height:min(92vw,840px); display:flex; align-items:center; justify-content:center; z-index:2; }
     .fgcPiece{
-      position:absolute; width:90px; height:126px; object-fit:contain; top:50%; left:50%; margin:-63px 0 0 -45px;
+      position:absolute; width:270px; height:378px; max-width:32vw; max-height:44vw; object-fit:contain;
+      top:50%; left:50%; transform:translate(-50%,-50%);
       filter:drop-shadow(0 8px 18px rgba(0,0,0,.6));
       transition:opacity .15s linear;
     }
     .fgcResult{
-      position:absolute; width:170px; height:238px; object-fit:contain; top:50%; left:50%; margin:-119px 0 0 -85px;
-      filter:drop-shadow(0 16px 32px rgba(0,0,0,.65)) drop-shadow(0 0 34px rgba(255,217,61,.55));
+      position:absolute; width:510px; height:714px; max-width:min(75vw,510px); max-height:min(105vw,714px);
+      object-fit:contain; top:50%; left:50%; transform:translate(-50%,-50%);
+      filter:drop-shadow(0 20px 44px rgba(0,0,0,.65)) drop-shadow(0 0 46px rgba(255,217,61,.55));
       transition:opacity .3s ease;
     }
     .fgcResult.fgcResultLand{ animation:fgcResultLandKeyframes .65s cubic-bezier(.2,.8,.25,1.3); }
     @keyframes fgcResultLandKeyframes{
-      0%{ transform:scale(.25) rotate(-15deg); }
-      60%{ transform:scale(1.18) rotate(4deg); }
-      100%{ transform:scale(1) rotate(0deg); }
+      0%{ transform:translate(-50%,-50%) scale(.25) rotate(-15deg); }
+      60%{ transform:translate(-50%,-50%) scale(1.18) rotate(4deg); }
+      100%{ transform:translate(-50%,-50%) scale(1) rotate(0deg); }
     }
     .forgecoeurAssemblyOverlay.fgcFlash::after{
       content:''; position:fixed; inset:0; background:#fff2c9; opacity:0;
@@ -1162,6 +1166,12 @@
     @keyframes fgcFlashKeyframes{
       0%{ opacity:0; } 18%{ opacity:.85; } 100%{ opacity:0; }
     }
+    .fgcSubtitle{
+      position:relative; z-index:2; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      font-size:14.5px; color:#e8fdff; opacity:0; max-width:520px; text-align:center; line-height:1.6;
+      transition:opacity .6s ease .3s;
+    }
+    .fgcSubtitle:not(:empty){ opacity:.92; }
 
     /* Célébration de changement de rang de Menace — vrai logo, rayons de
        lumière tournants, confettis (promotion), effet de brillance. */
@@ -13192,6 +13202,13 @@ function checkForgecoeurAssembly(owner){
       if (pieceLabels.includes(artArray[i].label)) { artArray.splice(i, 1); removed++; }
     }
     fullRender();
+    // Prévient l'adversaire pour qu'il voie, lui aussi, l'animation en même temps.
+    if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket) {
+      window.__socket.emit('vfx', {
+        matchId: ONLINE_MATCH_ID, seat: owner,
+        payload: { type: 'forgecoeurAssembly' }
+      });
+    }
     playForgecoeurAssemblyAnimation(() => {
       const forgecoeur = createCard('T14', owner === 'top' ? 'T' : 'B');
       artArray.push(forgecoeur);
@@ -13217,6 +13234,7 @@ function playForgecoeurAssemblyAnimation(onDone){
         <img class="fgcPiece" id="fgcPiece3" src="${getCardImage('T13')}" alt="">
         <img class="fgcResult" id="fgcResult" src="${getCardImage('T14')}" alt="" style="opacity:0;">
       </div>
+      <div class="fgcSubtitle" id="fgcSubtitle"></div>
     `;
     document.body.appendChild(overlay);
     requestAnimationFrame(()=> overlay.classList.add('show'));
@@ -13237,7 +13255,7 @@ function playForgecoeurAssemblyAnimation(onDone){
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / spiralDuration);
       const eased = 1 - Math.pow(1 - t, 2); // accélère en douceur vers la fin
-      const radius = 130 * (1 - eased * 0.9); // le cercle se resserre progressivement
+      const radius = 390 * (1 - eased * 0.9); // le cercle se resserre progressivement (x3)
       const spinSpeed = 0.0022 + eased * 0.010; // tourne de plus en plus vite
 
       pieces.forEach((el, i) => {
@@ -13245,7 +13263,7 @@ function playForgecoeurAssemblyAnimation(onDone){
         const x = Math.cos(angle) * radius;
         const y = Math.sin(angle) * radius * 0.62; // légère ellipse, effet de perspective
         const scale = 1 - eased * 0.35;
-        el.style.transform = `translate(${x}px, ${y}px) scale(${Math.max(0.15, scale)}) rotate(${angle * 50}deg)`;
+        el.style.transform = `translate(-50%,-50%) translate(${x}px, ${y}px) scale(${Math.max(0.15, scale)}) rotate(${angle * 50}deg)`;
         el.style.opacity = String(Math.max(0, 1 - eased * 0.85));
       });
 
@@ -13256,16 +13274,20 @@ function playForgecoeurAssemblyAnimation(onDone){
         pieces.forEach(el => { el.style.opacity = '0'; });
         overlay.classList.add('fgcFlash');
         if (captionEl) captionEl.textContent = 'Forgecoeur !';
+        const subtitleEl = document.getElementById('fgcSubtitle');
+        if (subtitleEl) subtitleEl.textContent = 'Tant que Forgecoeur reste dans la zone d\'artefact, la victoire par forge ne demande plus que 4 A\'rms.';
         resultImg.style.opacity = '1';
         resultImg.classList.add('fgcResultLand');
       }
     }
     requestAnimationFrame(animate);
 
+    // Le tourbillon dure ~4,2s ; Forgecoeur reste ensuite affiché en grand
+    // au centre plus de 4s supplémentaires, le temps de bien le lire.
     setTimeout(()=>{
       overlay.classList.remove('show');
       setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); onDone(); }, 500);
-    }, 6000);
+    }, 8600);
   }catch(e){ onDone(); }
 }
 
@@ -13273,6 +13295,13 @@ function playForgecoeurAssemblyAnimation(onDone){
 // Pudding (T10, 1 PV), placé dans la zone de combat DU LANCEUR (vol + downgrade).
 function transformIntoPudding(targetOwner, targetCard, casterOwner){
   closeActionPrompt();
+  // Prévient l'adversaire pour qu'il voie, lui aussi, l'animation en même temps.
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket) {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID, seat: casterOwner,
+      payload: { type: 'kabbaTransform', targetLabel: targetCard.label }
+    });
+  }
   playKabbaTransformAnimation(targetCard, () => {
     const targetLine = getLineByOwner(targetOwner);
     const idx = targetLine.findIndex(c => c.id === targetCard.id);
@@ -14806,6 +14835,15 @@ if (ONLINE_MODE) {
         // Diffusé par l'attaquant : je vois exactement la même animation que lui,
         // le state final me parviendra de toute façon via le prochain stateSync.
         showCombatVersus(payload, () => fullRender());
+      }
+      if (payload.type === 'kabbaTransform') {
+        // Diffusé par celui qui joue Kabba le zunt : les deux joueurs voient la
+        // même animation de transformation en même temps.
+        playKabbaTransformAnimation({ label: payload.targetLabel }, () => fullRender());
+      }
+      if (payload.type === 'forgecoeurAssembly') {
+        // Diffusé par celui qui assemble les 3 Pièces détachées.
+        playForgecoeurAssemblyAnimation(() => fullRender());
       }
     });
   });
