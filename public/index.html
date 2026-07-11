@@ -2860,6 +2860,11 @@ const CARD_IMAGES = {
  'C29': '../cartes/0029.png',
  'C30': '../cartes/0030.png',
  'C31': '../cartes/0031.png',
+ 'C32': '../cartes/0032.png',
+ 'T11': '../cartes/T11.png',
+ 'T12': '../cartes/T12.png',
+ 'T13': '../cartes/T13.png',
+ 'T14': '../cartes/T14.png',
  'T10': '../cartes/T10.png',
  'T05': '../cartes/T05.png',
  'T06': '../cartes/T06.png',
@@ -2985,6 +2990,11 @@ const CARD_TYPES  = {
  'C29': 'personnage',  // Hypnotikaa
  'C30': 'action',      // Toujours Serein
  'C31': 'artefact',    // Vakxzin
+ 'C32': 'personnage',  // Bobyz
+ 'T11': 'artefact',    // Pièce détachée
+ 'T12': 'artefact',    // Pièce détachée
+ 'T13': 'artefact',    // Pièce détachée
+ 'T14': 'artefact',    // Forgecoeur
  'T10': 'personnage',  // Pudding
  'T05': 'personnage',  // Cousu
  'T06': 'personnage',  // Cousu
@@ -3109,6 +3119,11 @@ const CARD_NAMES = {
  'C29': 'Hypnotikaa',
  'C30': 'Toujours Serein',
  'C31': 'Vakxzin',
+ 'C32': 'Bobyz',
+ 'T11': 'Pièce détachée',
+ 'T12': 'Pièce détachée',
+ 'T13': 'Pièce détachée',
+ 'T14': 'Forgecoeur',
  'T10': 'Pudding',
  'T05': 'Cousu',
  'T06': 'Cousu',
@@ -3193,6 +3208,7 @@ const CARD_HP_BASE = {
   'C26': 2,
   'C28': 7,
   'C29': 2,
+  'C32': 3, // PV non précisé par l'utilisateur — valeur provisoire, à confirmer
   'T10': 1,
 };
 
@@ -3371,6 +3387,11 @@ const CARD_TAGS = {
  'C29': ['citoyen', 'Krylls'],   // Hypnotikaa
  'C30': ['action', 'Krylls'],    // Toujours Serein
  'C31': ['artefact', 'Krylls'],  // Vakxzin
+ 'C32': ['citoyen', 'Krylls'],   // Bobyz
+ 'T11': ['artefact', 'Krylls'],  // Pièce détachée
+ 'T12': ['artefact', 'Krylls'],  // Pièce détachée
+ 'T13': ['artefact', 'Krylls'],  // Pièce détachée
+ 'T14': ['artefact', 'Krylls'],  // Forgecoeur
  'T10': ['Food', 'Krylls'],      // Pudding
 
 };
@@ -3464,6 +3485,23 @@ function findCardOrArtifactOnBoard(cardId) {
            botLine.find(c => c.id === cardId) ||
            topArts.find(c => c.id === cardId) ||
            botArts.find(c => c.id === cardId);
+}
+
+// KRYLLS (nouveau lot) : recherche une carte n'IMPORTE OÙ (main, plateau,
+// artefacts, défausse, Exil, deck) — nécessaire pour Prismis, dont le lien
+// Chimeria doit persister même si la carte liée quitte le plateau.
+function findCardAnywhere(cardId){
+  return topLine.find(c => c.id === cardId) ||
+         botLine.find(c => c.id === cardId) ||
+         topArts.find(c => c.id === cardId) ||
+         botArts.find(c => c.id === cardId) ||
+         topHand.find(c => c.id === cardId) ||
+         botHand.find(c => c.id === cardId) ||
+         topDiscard.find(c => c.id === cardId) ||
+         botDiscard.find(c => c.id === cardId) ||
+         exilePile.find(c => c.id === cardId) ||
+         topDeck.find(c => c.id === cardId) ||
+         botDeck.find(c => c.id === cardId);
 }
 
 function isBruitzeurActive(){
@@ -6292,6 +6330,13 @@ function openMiningPrompt(owner, card, fromEl){
 
   if (card.label === 'T10') {
     pushHistory('info', `${cardAnchor('T10')} ne peut pas miner.`);
+    return;
+  }
+
+  // KRYLLS (nouveau lot) : Bobyz (C32) — un clic ouvre son Action (créer une
+  // Pièce détachée) à la place du minage classique.
+  if (card.label === 'C32') {
+    openBobyzActionPrompt(owner, card, fromEl);
     return;
   }
 
@@ -9506,11 +9551,16 @@ if (hitAndRunMode) {
       playedCard.hp = getBaseHP(playedCard.label) + 2;
       if (!Array.isArray(playedCard.addedTags)) playedCard.addedTags = [];
       if (!playedCard.addedTags.includes('rapide')) playedCard.addedTags.push('rapide');
+      // Le combattant hérite aussi du Mithril que le Pudding avait capturé
+      // (lui-même hérité de la créature transformée par Kabba le zunt).
+      if (typeof card.capturedMithril === 'number' && card.capturedMithril > 0) {
+        playedCard.capturedMithril = card.capturedMithril;
+      }
       // Remplace le Pudding À LA MÊME POSITION dans la zone de combat (pas
       // ajouté à la fin) — un seul splice qui retire et insère en même temps.
       puddingLine.splice(puddingIdx, 1, playedCard);
       onCharacterEnterBattlefield(playedCard, owner);
-      pushHistory('jeu', `${cardAnchor(playedCard.label)} est joué sur le ${cardAnchor('T10')} : +2 PV et trait RAPIDE !`);
+      pushHistory('jeu', `${cardAnchor(playedCard.label)} est joué sur le ${cardAnchor('T10')} : +2 PV et trait RAPIDE !${playedCard.capturedMithril ? ` Il conserve aussi ${playedCard.capturedMithril} Mithril capturé.` : ''}`);
       fullRender();
       return;
     }
@@ -11099,7 +11149,12 @@ function addMithril(player){
 }
 
 function checkWin(player) {
-  if (arms[player] >= 5) {
+  // KRYLLS (nouveau lot) : Forgecoeur (T14) — tant qu'il est dans la zone
+  // d'artefact du joueur, la victoire par forge ne nécessite plus que 4 A'rms
+  // au lieu de 5.
+  const hasForgecoeur = ((player === 'top') ? topArts : botArts).some(a => a.label === 'T14');
+  const armsNeeded = hasForgecoeur ? 4 : 5;
+  if (arms[player] >= armsNeeded) {
     endGame(player, 'forge');
   }
 }
@@ -12924,6 +12979,53 @@ function useMineEMI(owner, card) {
   fullRender();
 }
 
+// KRYLLS (nouveau lot) : Bobyz (C32) — Action : crée une Pièce détachée
+// (T11 → T12 → T13 → T11…, cycle par joueur, pas par exemplaire de Bobyz).
+// Dès que 3 Pièces détachées se retrouvent dans la même zone d'artefact,
+// elles s'assemblent automatiquement en Forgecoeur (T14).
+let bobyzCycleCount = { top: 0, bottom: 0 };
+function openBobyzActionPrompt(owner, card, fromEl){
+  if (currentTurn !== owner || isFrozen(card) || hasAttacked(owner, card)) return;
+  const cycleLabel = ['T11','T12','T13'][bobyzCycleCount[owner] % 3];
+  openButtonsPrompt('Bobyz', `Créer une <strong>${cardAnchor(cycleLabel)}</strong> dans votre zone d'artefact ?`, fromEl, [
+    { label:'Créer', className:'confirm', onClick:()=>useBobyzAction(owner, card) },
+    { label:'Annuler', className:'cancel', onClick:()=>{} },
+  ]);
+}
+
+function useBobyzAction(owner, card){
+  const artArray = (owner === 'top') ? topArts : botArts;
+  if (artArray.length >= MAX_ARTIFACTS_PER_ZONE) {
+    pushHistory('info', `${cardAnchor('C32')} : zone d'artefact pleine, impossible de créer une Pièce détachée.`);
+    closeActionPrompt();
+    return;
+  }
+  const cycleLabel = ['T11','T12','T13'][bobyzCycleCount[owner] % 3];
+  bobyzCycleCount[owner]++;
+  markAttacked(owner, card); // consomme l'action du combattant pour ce tour (comme le minage)
+  const piece = createCard(cycleLabel, owner === 'top' ? 'T' : 'B');
+  artArray.push(piece);
+  pushHistory('artefact', `${cardAnchor('C32')} crée une ${cardAnchor(cycleLabel)}.`);
+  checkForgecoeurAssembly(owner);
+  closeActionPrompt();
+  fullRender();
+}
+
+function checkForgecoeurAssembly(owner){
+  const artArray = (owner === 'top') ? topArts : botArts;
+  const pieceLabels = ['T11','T12','T13'];
+  const pieceCount = artArray.filter(a => pieceLabels.includes(a.label)).length;
+  if (pieceCount >= 3) {
+    let removed = 0;
+    for (let i = artArray.length - 1; i >= 0 && removed < 3; i--) {
+      if (pieceLabels.includes(artArray[i].label)) { artArray.splice(i, 1); removed++; }
+    }
+    const forgecoeur = createCard('T14', owner === 'top' ? 'T' : 'B');
+    artArray.push(forgecoeur);
+    pushHistory('artefact', `Les 3 Pièces détachées s'assemblent en ${cardAnchor('T14')} !`);
+  }
+}
+
 // KRYLLS : Kabba le zunt (C28) — transforme le combattant adverse choisi en
 // Pudding (T10, 1 PV), placé dans la zone de combat DU LANCEUR (vol + downgrade).
 function transformIntoPudding(targetOwner, targetCard, casterOwner){
@@ -13078,11 +13180,16 @@ function useBarbatruk(owner, card, doll) {
 }
 
 function cleanupPrismisLinksOnCardRemoval(removedCard) {
-    // Cas 1: La carte retirée est Prismis lui-même
+    // Cas unique : la carte retirée est Prismis lui-même. Le lien — et donc
+    // le statut Chimeria des cartes liées — PERDURE tant que Prismis reste en
+    // jeu, MÊME si une carte liée quitte le plateau entre-temps (main,
+    // défausse, Exil...). On utilise donc une recherche élargie (n'importe
+    // quelle zone), pas seulement le plateau, pour être sûr de bien retrouver
+    // et nettoyer chaque carte liée, où qu'elle se trouve désormais.
     if (removedCard.label === 'C152' && Array.isArray(removedCard.prismisLinks)) {
         pushHistory('info', `Les liens de ${cardAnchor('C152')} se brisent.`);
         removedCard.prismisLinks.forEach(targetId => {
-            const targetCard = findCardOrArtifactOnBoard(targetId);
+            const targetCard = findCardAnywhere(targetId);
             if (targetCard) {
                 // On fait l'inverse : on retire "Chimeria" des tags ajoutés
                 targetCard.addedTags = targetCard.addedTags.filter(t => t !== 'Chimeria');
@@ -13099,16 +13206,12 @@ function cleanupPrismisLinksOnCardRemoval(removedCard) {
             }
         });
     }
-
-    // Cas 2: La carte retirée était une des cibles
-    if (removedCard.transformedByPrismis) {
-        const prismisCard = findCardOrArtifactOnBoard(removedCard.transformedByPrismis);
-        if (prismisCard && Array.isArray(prismisCard.prismisLinks)) {
-            prismisCard.prismisLinks = prismisCard.prismisLinks.filter(id => id !== removedCard.id);
-            pushHistory('info', `Le lien entre ${cardAnchor('C152')} et ${cardAnchor(removedCard.label)} est brisé.`);
-        }
-    }
+    // NOTE : l'ancien "Cas 2" (qui brisait le lien dès qu'une carte liée
+    // quittait simplement le plateau, ex. renvoyée en main) a été retiré
+    // volontairement — le lien doit désormais perdurer jusqu'à ce que
+    // Prismis LUI-MÊME quitte le jeu, pas avant.
 }
+
 
 // === WADOO : nettoyage des liens vaudou quand une Poupée ou sa cible quitte le plateau ===
 function cleanupWadooLinksOnCardRemoval(removedCard) {
