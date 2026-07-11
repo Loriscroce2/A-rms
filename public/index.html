@@ -3758,9 +3758,16 @@ function countMaluxOnLine(owner) {
 function isKrylls(cardOrLabel){ return hasTag(cardOrLabel,'Krylls'); }
 
 function getEffectiveHP(card) {
-  if (card.label === 'C62') {
-    return exilePile.length;
-  }
+  // NOTE : Decebale (C62) n'a PLUS de cas spécial ici — son cas spécial
+  // renvoyait TOUJOURS la taille de l'Exil, quoi qu'il arrive, ce qui
+  // masquait totalement les dégâts de combat (elle ne pouvait jamais être
+  // détectée à 0 PV et donc jamais mourir). Sa règle "PV = taille de l'Exil"
+  // est désormais gérée UNIQUEMENT par recalcDecebaleHP(), qui écrit
+  // directement dans card.hp — cette fonction se contente alors de lire
+  // cette valeur normalement, comme pour n'importe quel autre combattant.
+  // Le combat peut donc réduire son hp normalement, et si elle tombe à 0,
+  // elle meurt comme prévu ; si elle survit, recalcDecebaleHP() la
+  // resynchronise ensuite sur la taille de l'Exil au rendu suivant.
   const base = (typeof card.hp === 'number') ? card.hp : getBaseHP(card.label);
   const temp = (typeof card.tempHP === 'number') ? card.tempHP : 0;
   return base + temp;
@@ -11874,6 +11881,7 @@ function refillHand(player){
       pushHistory('info', `L'effet de ${cardAnchor('C67')} réduit la taille de la main de ${playerLabel(player)} à ${6 - maluxCount} cartes (hors Buay).`);
   }
 
+  const handSizeBeforeRefill = hand.length;
   while(hand.length < currentTargetHandSize()){
     const deck = (player==='top') ? topDeck : botDeck;
     if(deck.length === 0){
@@ -11887,6 +11895,7 @@ function refillHand(player){
       break;
     }
   }
+  if (hand.length > handSizeBeforeRefill) playShuffleSfx();
   updateDeckCounters();
   fullRender();
 }
