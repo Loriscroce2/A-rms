@@ -2971,6 +2971,22 @@ async function playMozkytoSfx(){
   }
 }
 
+// Joue un petit bruitage LOCALEMENT, et le diffuse aussi à l'adversaire en
+// ligne (canal vfx déjà utilisé pour les animations), pour que les deux
+// joueurs entendent toujours la même chose au même moment.
+const SFX_BY_NAME = { posecarte: playPosecarteSfx, discard: playDiscardSfx, shuffle: playShuffleSfx, mozkyto: playMozkytoSfx };
+function broadcastAndPlaySfx(name){
+  const fn = SFX_BY_NAME[name];
+  if (fn) fn();
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected && typeof ONLINE_MATCH_ID !== 'undefined') {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID,
+      seat: (typeof MY_SEAT !== 'undefined') ? MY_SEAT : undefined,
+      payload: { type: 'sfx', name }
+    });
+  }
+}
+
 /* Se joue au moment où la fusion (Fusionner les tous, C236) démarre son
    animation, pour accompagner l'aspiration monstrueuse des cartes. */
 async function playIgnominieSfx(){
@@ -4083,7 +4099,7 @@ function drawInitialHand(deck) {
   while (hand.filter(card => card.label !== 'C160').length < 6 && deck.length > 0) {
     hand.push(deck.shift());
   }
-  playShuffleSfx();
+  broadcastAndPlaySfx('shuffle');
   return hand;
 }
 
@@ -7722,14 +7738,17 @@ function handleArakcubeTargetSelection(targetCard, targetCardOwner){
   fromLine.splice(tidx, 1);
   targetCard.mindControlOriginalOwner = targetCardOwner;
   const toLine = getLineByOwner(casterOwner);
-  toLine.push(targetCard);
 
-  const arakcrabe = createCard('T15', casterOwner === 'top' ? 'T' : 'B');
-  attachFamiliarToHost(casterOwner, arakcrabe, targetCard);
+  askLeftRightPlacement('Arakcube', `Où placer ${cardAnchor(targetCard.label)} dans votre zone de combat ?`, (side) => {
+    if (side === 'left') toLine.unshift(targetCard); else toLine.push(targetCard);
 
-  pushHistory('action', `${cardAnchor('C37')} se transforme en ${cardAnchor('T15')} et prend le contrôle de
-    ${cardAnchor(targetCard.label)} !`);
-  fullRender();
+    const arakcrabe = createCard('T15', casterOwner === 'top' ? 'T' : 'B');
+    attachFamiliarToHost(casterOwner, arakcrabe, targetCard);
+
+    pushHistory('action', `${cardAnchor('C37')} se transforme en ${cardAnchor('T15')} et prend le contrôle de
+      ${cardAnchor(targetCard.label)} !`);
+    fullRender();
+  });
 }
 
 // Vérifie en direct (à chaque rendu) que tout combattant sous contrôle
@@ -9838,11 +9857,13 @@ function handleLongVoyageChoice(owner, cardToPlay, otherCards) {
     if (!hasTag(cardToPlay, 'rapide') && cardToPlay.label !== 'C6' && cardToPlay.label !== 'C59') {
       markAttacked(owner, cardToPlay);
     }
-    line.push(cardToPlay);
-    onCharacterEnterBattlefield(cardToPlay, owner);
-    pushHistory('jeu', `${cardAnchor('C104')} : ${cardAnchor(cardToPlay.label)} entre directement dans votre zone de combat !`);
-    playPosecarteSfx();
-    fullRender();
+    askLeftRightPlacement('Long Voyage', `Où placer ${cardAnchor(cardToPlay.label)} dans votre zone de combat ?`, (side) => {
+      if (side === 'left') line.unshift(cardToPlay); else line.push(cardToPlay);
+      onCharacterEnterBattlefield(cardToPlay, owner);
+      pushHistory('jeu', `${cardAnchor('C104')} : ${cardAnchor(cardToPlay.label)} entre directement dans votre zone de combat !`);
+      broadcastAndPlaySfx('posecarte');
+      fullRender();
+    });
     return;
   }
 
@@ -9857,7 +9878,7 @@ function handleLongVoyageChoice(owner, cardToPlay, otherCards) {
     }
     artArray.push(cardToPlay);
     pushHistory('jeu', `${cardAnchor('C104')} : ${cardAnchor(cardToPlay.label)} entre directement dans votre zone d'artefact !`);
-    playPosecarteSfx();
+    broadcastAndPlaySfx('posecarte');
     fullRender();
     return;
   }
@@ -10322,7 +10343,7 @@ if (hitAndRunMode) {
       puddingLine.splice(puddingIdx, 1, playedCard);
       onCharacterEnterBattlefield(playedCard, owner);
       pushHistory('jeu', `${cardAnchor(playedCard.label)} est joué sur le ${cardAnchor('T10')} : +2 PV et trait RAPIDE !${playedCard.capturedMithril ? ` Il conserve aussi ${playedCard.capturedMithril} Mithril capturé.` : ''}`);
-      playPosecarteSfx();
+      broadcastAndPlaySfx('posecarte');
       fullRender();
       return;
     }
@@ -10332,7 +10353,7 @@ if (hitAndRunMode) {
       const famCard = takeCardFromSource(fromId, draggedCard.id);
       if (famCard) {
         attachFamiliarToHost(playingOwner, famCard, card);
-        if (famCard.label === 'C10') { playMozkytoSfx(); }
+        if (famCard.label === 'C10') { broadcastAndPlaySfx('mozkyto'); }
       }
       return;
     }
@@ -10856,12 +10877,12 @@ resetStatsToBaseWhenEnteringBattle(reanimatedCard); // Cette ligne reste pour r�
 if (!hasTag(reanimatedCard, 'rapide')) {
     markAttacked(owner, reanimatedCard);
 }
-playerLine.push(reanimatedCard);
-
-          pushHistory('jeu', `${cardAnchor('C119')} ramène ${cardAnchor(reanimatedCard.label)} de la défausse !`);
-
-          onCharacterEnterBattlefield(reanimatedCard, owner);
-          fullRender();
+askLeftRightPlacement('Noxroc', `Où placer ${cardAnchor(reanimatedCard.label)} dans votre zone de combat ?`, (side) => {
+  if (side === 'left') playerLine.unshift(reanimatedCard); else playerLine.push(reanimatedCard);
+  pushHistory('jeu', `${cardAnchor('C119')} ramène ${cardAnchor(reanimatedCard.label)} de la défausse !`);
+  onCharacterEnterBattlefield(reanimatedCard, owner);
+  fullRender();
+});
         }
       }
     };
@@ -10942,7 +10963,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       if (card.label === 'C6') { nonKryllsAllowance[who] = (nonKryllsAllowance[who]||0) + 1; }
       if (drop === dropLeft) lineArray.unshift(card); else lineArray.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en combat (${playerLabel(who)}).`);
-      playPosecarteSfx();
+      broadcastAndPlaySfx('posecarte');
 
       if (card.label === 'C119') {
         handleNoxrocEffect(who);
@@ -11121,7 +11142,7 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
 
       if (drop === dropLeft) arr.unshift(card); else arr.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en zone Artefacts (${playerLabel(who)}).`);
-      playPosecarteSfx();
+      broadcastAndPlaySfx('posecarte');
       fullRender();
     });
   });
@@ -11911,7 +11932,7 @@ function setupDumpDrop(dumpEl, owner) {
         if (!card) return;
 
         discardCard(card, owner, 'manual');
-        playDiscardSfx();
+        broadcastAndPlaySfx('discard');
         fullRender();
     });
 }
@@ -12081,7 +12102,7 @@ function refillHand(player){
       break;
     }
   }
-  if (hand.length > handSizeBeforeRefill) playShuffleSfx();
+  if (hand.length > handSizeBeforeRefill) broadcastAndPlaySfx('shuffle');
   updateDeckCounters();
   fullRender();
 }
@@ -12130,6 +12151,29 @@ function useRescelleur(owner, card){
   pushHistory('artefact', `${cardAnchor('C8')} scelle 1 carte du deck adverse.`);
   fullRender();
   updateDeckCounters();
+}
+
+// KRYLLS (nouveau lot) : petite fenêtre réutilisable "À gauche / À droite ?"
+// pour tout combattant qui doit rejoindre une zone de combat SANS passer
+// par un glisser-déposer classique (Arakcube, Long Voyage, Noxroc...).
+function askLeftRightPlacement(title, message, onPlace){
+  showHardBlocker();
+  const p = document.createElement('div');
+  p.className = 'actionPrompt';
+  p.style.zIndex = '5001';
+  p.style.left = '50%'; p.style.top = '50%'; p.style.transform = 'translate(-50%,-50%)';
+  p.innerHTML = `
+    <div class="apTitle">${title}</div>
+    <div class="apMsg">${message}</div>
+    <div class="apRow">
+      <button class="apBtn confirm" id="lrLeftPlace">À gauche</button>
+      <button class="apBtn confirm" id="lrRightPlace">À droite</button>
+    </div>
+  `;
+  document.body.appendChild(p);
+  const finish = (side) => { p.remove(); hideHardBlocker(); onPlace(side); };
+  p.querySelector('#lrLeftPlace').addEventListener('click', () => finish('left'));
+  p.querySelector('#lrRightPlace').addEventListener('click', () => finish('right'));
 }
 
 /* ---------- Entretien Narzbok (C13) : invocation Rat-Ky ---------- */
@@ -15629,6 +15673,15 @@ if (ONLINE_MODE) {
       if (payload.type === 'c33Transform') {
         // Diffusé par celui qui joue Pour le bien de tous.
         playC33TransformAnimation(payload.combatantLabel, payload.artifactLabel, () => fullRender());
+      }
+      if (payload.type === 'sfx') {
+        // Type générique : rejoue localement le même petit bruitage que
+        // l'adversaire vient de déclencher (pose de carte, défausse
+        // manuelle, distribution de main, Mozkyto...), pour que les DEUX
+        // joueurs entendent toujours la même chose au même moment.
+        const sfxMap = { posecarte: playPosecarteSfx, discard: playDiscardSfx, shuffle: playShuffleSfx, mozkyto: playMozkytoSfx };
+        const fn = sfxMap[payload.name];
+        if (fn) fn();
       }
     });
   });
