@@ -9231,6 +9231,12 @@ function handleLongVoyageChoice(owner, cardToPlay, otherCards) {
   // Personnage : entre DIRECTEMENT dans la zone de combat (déclenche son effet JOUER).
   if (type === 'personnage') {
     const line = getLineByOwner(owner);
+    resetStatsToBaseWhenEnteringBattle(cardToPlay);
+    // Épuisé comme n'importe quel Personnage fraîchement joué, sauf s'il a le
+    // trait RAPIDE (ou les rares exceptions C6/C59, déjà en place ailleurs).
+    if (!hasTag(cardToPlay, 'rapide') && cardToPlay.label !== 'C6' && cardToPlay.label !== 'C59') {
+      markAttacked(owner, cardToPlay);
+    }
     line.push(cardToPlay);
     onCharacterEnterBattlefield(cardToPlay, owner);
     pushHistory('jeu', `${cardAnchor('C104')} : ${cardAnchor(cardToPlay.label)} entre directement dans votre zone de combat !`);
@@ -11381,19 +11387,23 @@ function refillHand(player){
   const hand = getHandByOwner(player);
   const opp = (player === 'top') ? 'bottom' : 'top';
   const maluxCount = countMaluxOnLine(opp);
-  
+
   // DÉBUT DE LA LOGIQUE MODIFIÉE POUR BUAY (C160)
-  // On compte combien de Buay sont dans la main du joueur.
-  const buayCount = hand.filter(card => card.label === 'C160').length;
-  // La taille de main cible est maintenant 6 + le nombre de Buay.
-  const targetHandSize = Math.max(0, (6 + buayCount) - maluxCount);
+  // Recalculée à CHAQUE itération de la boucle (pas une seule fois avant) :
+  // un Buay pioché PENDANT cette même pioche doit lui aussi étendre la
+  // cible, sinon il se retrouve compté à tort comme une carte "normale" et
+  // le joueur finit avec une carte de moins que prévu.
+  function currentTargetHandSize(){
+    const buayCount = hand.filter(card => card.label === 'C160').length;
+    return Math.max(0, (6 + buayCount) - maluxCount);
+  }
   // FIN DE LA LOGIQUE MODIFIÉE
 
-  if (maluxCount > 0 && hand.length < targetHandSize) {
+  if (maluxCount > 0 && hand.length < currentTargetHandSize()) {
       pushHistory('info', `L'effet de ${cardAnchor('C67')} réduit la taille de la main de ${playerLabel(player)} à ${6 - maluxCount} cartes (hors Buay).`);
   }
 
-  while(hand.length < targetHandSize){
+  while(hand.length < currentTargetHandSize()){
     const deck = (player==='top') ? topDeck : botDeck;
     if(deck.length === 0){
       const reshuffled = reshuffleDiscardIntoDeck(player);
@@ -11675,6 +11685,15 @@ function updateTurnUI(){
 }
 function performEndTurn(){
   if (ONLINE_MODE && currentTurn !== MY_SEAT) return; // en ligne : pas ton tour
+  if (!activeFaction[currentTurn]) {
+    // Le choix de faction est obligatoire avant toute autre action, fin de
+    // tour comprise — sans cela, on pourrait techniquement finir son tour
+    // sans avoir rien pu jouer, ou contourner le choix.
+    pushHistory('info', `Choisissez d'abord votre faction avant de terminer votre tour.`);
+    const btn = document.getElementById('endTurn');
+    if (btn) { btn.classList.add('deny'); setTimeout(()=> btn.classList.remove('deny'), 320); }
+    return;
+  }
   // Le son d'urgence du minuteur doit s'arrêter NET dès qu'on termine son
   // tour, plutôt que de continuer à jouer par-dessus le tour suivant.
   try{ if (typeof timerSfx !== 'undefined' && timerSfx) { timerSfx.pause(); timerSfx.currentTime = 0; } }catch(e){}
