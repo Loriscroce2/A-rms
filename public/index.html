@@ -9328,32 +9328,40 @@ function openMezamorphCopyPrompt(owner, mezamorphCard){
     pushHistory('info', `${cardAnchor('C41')} : aucun autre familier sur le plateau à copier — il reste Mezamorph.`);
     return;
   }
-  const overlay = document.createElement('div');
-  overlay.id = 'mezamorphCopyOverlay';
-  overlay.style.cssText = 'position:fixed; inset:0; z-index:8800; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; background:rgba(3,7,11,.93); padding:24px;';
-  const title = document.createElement('div');
-  title.style.cssText = "font-family:'Cinzel',serif; font-weight:800; font-size:22px; color:#eafdff; text-shadow:0 0 16px rgba(125,249,255,.5); text-align:center; letter-spacing:.03em;";
+  // Réutilise EXACTEMENT la même fenêtre que "Voir Familiers" (même overlay,
+  // mêmes vignettes .dthumb) — mais avec TOUS les familiers de TOUS les
+  // combattants en jeu, et rendue cliquable pour le choix (au lieu d'un
+  // simple aperçu au survol).
+  const carousel = document.getElementById('familiarCarousel');
+  const title = document.getElementById('fcoTitle');
+  if (!familiarCarouselOverlay || !carousel || !title) return;
+
   title.textContent = 'Mezamorph — choisissez le familier à copier';
-  overlay.appendChild(title);
-  const grid = document.createElement('div');
-  grid.style.cssText = 'display:flex; flex-wrap:wrap; gap:16px; justify-content:center; max-width:82vw; max-height:70vh; overflow-y:auto;';
+  carousel.innerHTML = '';
+  carousel.classList.add('selecting');
+
   candidates.forEach(fam => {
     const host = findCardOrArtifactOnBoard(fam.attachedTo);
     const thumb = document.createElement('div');
-    thumb.style.cssText = 'width:110px; height:154px; border-radius:10px; background-size:cover; background-position:center; cursor:pointer; border:2px solid rgba(125,249,255,.4); box-shadow:0 8px 20px rgba(0,0,0,.5); transition:transform .15s ease, border-color .15s ease; flex:none;';
+    thumb.className = 'dthumb';
     const url = getCardImage(fam.label);
-    if (url) thumb.style.backgroundImage = `url(${url})`;
-    thumb.title = `${cardName(fam.label)}${host ? ' (sur ' + cardName(host.label) + ')' : ''}`;
-    thumb.addEventListener('mouseenter', () => { thumb.style.transform = 'scale(1.06)'; thumb.style.borderColor = '#ffd93d'; });
-    thumb.addEventListener('mouseleave', () => { thumb.style.transform = 'scale(1)'; thumb.style.borderColor = 'rgba(125,249,255,.4)'; });
+    if (url) {
+      thumb.style.backgroundImage = `url(${url})`;
+    } else {
+      thumb.textContent = cardName(fam.label);
+    }
+    thumb.title = `${cardName(fam.label)}${host ? ' — sur ' + cardName(host.label) : ''}`;
+    thumb.addEventListener('mouseenter', () => showZoom(fam.label, fam));
+    thumb.addEventListener('mouseleave', hideZoom);
     thumb.addEventListener('click', () => {
-      overlay.remove();
+      carousel.classList.remove('selecting');
+      hideFamiliarCarousel();
       applyMezamorphCopy(mezamorphCard, fam.label);
     });
-    grid.appendChild(thumb);
+    carousel.appendChild(thumb);
   });
-  overlay.appendChild(grid);
-  document.body.appendChild(overlay);
+
+  familiarCarouselOverlay.style.display = 'flex';
 }
 
 function applyMezamorphCopy(mezamorphCard, copiedLabel){
