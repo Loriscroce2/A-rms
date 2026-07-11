@@ -1173,6 +1173,69 @@
     }
     .fgcSubtitle:not(:empty){ opacity:.92; }
 
+    /* KRYLLS : Pour le bien de tous (C33) — combattant → artefact */
+    .c33TransformOverlay{
+      position:fixed; inset:0; z-index:8100; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:24px; background:#03060a; opacity:0; transition:opacity .5s ease; overflow:hidden;
+    }
+    .c33TransformOverlay.show{ opacity:1; }
+    .c33Rays{
+      position:absolute; width:900px; height:900px; pointer-events:none;
+      background:conic-gradient(from 0deg,
+        transparent 0deg, #ffd93d 5deg, transparent 15deg, transparent 55deg,
+        #7df9ff 60deg, transparent 70deg, transparent 110deg,
+        #ffd93d 115deg, transparent 125deg, transparent 165deg,
+        #7df9ff 170deg, transparent 180deg, transparent 220deg,
+        #ffd93d 225deg, transparent 235deg, transparent 275deg,
+        #7df9ff 280deg, transparent 290deg, transparent 330deg,
+        #ffd93d 335deg, transparent 345deg, transparent 360deg);
+      opacity:.18; animation:c33RaysSpin 11s linear infinite;
+      -webkit-mask-image:radial-gradient(circle, black 0%, black 25%, transparent 60%);
+      mask-image:radial-gradient(circle, black 0%, black 25%, transparent 60%);
+    }
+    @keyframes c33RaysSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(-360deg); } }
+    .c33Caption{
+      position:relative; z-index:2; font-family:'Cinzel',serif; font-weight:800; font-size:22px; color:#eafdff;
+      text-shadow:0 0 20px rgba(125,249,255,.55), 0 2px 4px rgba(0,0,0,.6); letter-spacing:.05em; text-align:center;
+      min-height:28px;
+    }
+    .c33Track{
+      position:relative; z-index:2; display:flex; align-items:center; gap:40px;
+    }
+    .c33Zone{
+      font-family:'Cinzel',serif; font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:#8fb8c4;
+      opacity:.55; white-space:nowrap;
+    }
+    .c33Stage{
+      position:relative; width:190px; height:266px;
+      transition:transform 2.1s cubic-bezier(.4,0,.2,1);
+    }
+    .c33Stage.c33Traveling{ transform:translateX(115px) rotate(6deg); }
+    .c33Stage.c33Recompose{ animation:c33RecomposePulse .6s ease; }
+    @keyframes c33RecomposePulse{
+      0%{ transform:translateX(115px) rotate(6deg) scale(1); }
+      40%{ transform:translateX(115px) rotate(6deg) scale(1.25); filter:brightness(1.8); }
+      100%{ transform:translateX(115px) rotate(6deg) scale(1); filter:brightness(1); }
+    }
+    .c33Img{
+      position:absolute; inset:0; width:100%; height:100%; object-fit:contain;
+      filter:drop-shadow(0 14px 28px rgba(0,0,0,.6));
+      transition:opacity .5s ease, filter 2.1s ease;
+    }
+    .c33Stage.c33Traveling .c33From{ filter:drop-shadow(0 14px 28px rgba(0,0,0,.6)) blur(1px) saturate(1.4) brightness(1.3); }
+    .c33Sparkle{ position:absolute; inset:0; pointer-events:none; overflow:visible; }
+    .c33SparkleBit{
+      position:absolute; left:50%; font-size:15px; color:#ffd93d; opacity:0;
+      animation:c33SparkleFly 2.4s ease-in-out infinite;
+      text-shadow:0 0 8px rgba(255,217,61,.8);
+    }
+    @keyframes c33SparkleFly{
+      0%{ opacity:0; transform:translate(0,0) scale(.6); }
+      15%{ opacity:1; }
+      85%{ opacity:.8; }
+      100%{ opacity:0; transform:translate(130px,-14px) scale(1.1); }
+    }
+
     /* Célébration de changement de rang de Menace — vrai logo, rayons de
        lumière tournants, confettis (promotion), effet de brillance. */
     .rankChangeOverlay{
@@ -2923,6 +2986,7 @@ const CARD_IMAGES = {
  'C30': '../cartes/0030.png',
  'C31': '../cartes/0031.png',
  'C32': '../cartes/0032.png',
+ 'C33': '../cartes/0033.png',
  'T11': '../cartes/T11.png',
  'T12': '../cartes/T12.png',
  'T13': '../cartes/T13.png',
@@ -3053,6 +3117,7 @@ const CARD_TYPES  = {
  'C30': 'action',      // Toujours Serein
  'C31': 'artefact',    // Vakxzin
  'C32': 'personnage',  // Bobyz
+ 'C33': 'action',      // Pour le bien de tous
  'T11': 'artefact',    // Pièce détachée
  'T12': 'artefact',    // Pièce détachée
  'T13': 'artefact',    // Pièce détachée
@@ -3182,6 +3247,7 @@ const CARD_NAMES = {
  'C30': 'Toujours Serein',
  'C31': 'Vakxzin',
  'C32': 'Bobyz',
+ 'C33': 'Pour le bien de tous',
  'T11': 'Pièce détachée',
  'T12': 'Pièce détachée',
  'T13': 'Pièce détachée',
@@ -3450,6 +3516,7 @@ const CARD_TAGS = {
  'C30': ['action', 'Krylls'],    // Toujours Serein
  'C31': ['artefact', 'Krylls'],  // Vakxzin
  'C32': ['citoyen', 'Krylls'],   // Bobyz
+ 'C33': ['action', 'Krylls'],    // Pour le bien de tous
  'T11': ['artefact', 'Krylls'],  // Pièce détachée
  'T12': ['artefact', 'Krylls'],  // Pièce détachée
  'T13': ['artefact', 'Krylls'],  // Pièce détachée
@@ -3917,6 +3984,8 @@ let prismisTargetMode = null;
 let kabbaTargetMode = null;
 let krouzpierTargetMode = null;
 let vakxzinTargetMode = null;
+let c33CombatantMode = null;
+let c33ArtifactMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -4489,6 +4558,197 @@ function playActionC30(owner, actionCard){
     }
   });
   fullRender();
+}
+
+// KRYLLS (nouveau lot) : Pour le bien de tous (C33) — transforme un de vos
+// combattants en une copie d'un artefact actuellement en jeu (n'importe quel
+// camp), et le fait passer de la zone de combat à la zone d'artefact.
+function openC33Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  const ownLine = getLineByOwner(owner);
+  if (ownLine.length === 0) {
+    openButtonsPrompt('Pour le bien de tous', `Vous n'avez aucun combattant à transformer.`, anchorEl, [
+      { label:'OK', className:'cancel', onClick:()=>{} },
+    ]);
+    return;
+  }
+  const allArts = topArts.concat(botArts);
+  if (allArts.length === 0) {
+    openButtonsPrompt('Pour le bien de tous', `Aucun artefact en jeu à copier actuellement.`, anchorEl, [
+      { label:'OK', className:'cancel', onClick:()=>{} },
+    ]);
+    return;
+  }
+  openButtonsPrompt('Pour le bien de tous', `Jouer <strong>Pour le bien de tous</strong> ?<br><small>Effet : transforme un de vos
+    combattants en une copie d'un artefact en jeu.</small>`, anchorEl, [
+    { label:'Jouer', className:'confirm', onClick:()=> playActionC33(owner, card) },
+    { label:'Annuler', className:'cancel', onClick:()=>{} },
+  ]);
+}
+
+function playActionC33(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  pushHistory('action', `${cardAnchor('C33')} est jouée.`);
+  fullRender();
+  startC33CombatantTargeting(owner);
+}
+
+function startC33CombatantTargeting(owner){
+  c33CombatantMode = { owner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'c33-combatant-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Pour le bien de tous</div>
+    <div class="apMsg">Cliquez sur le combattant à transformer.</div>
+    <div class="apRow"><button id="c33-combatant-cancel" class="apBtn cancel">Annuler</button></div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  promptEl.querySelector('#c33-combatant-cancel').addEventListener('click', () => {
+    c33CombatantMode = null;
+    closeActionPrompt();
+  });
+  fullRender();
+}
+
+function handleC33CombatantSelection(combatantCard, combatantOwner){
+  if (!c33CombatantMode) return;
+  if (combatantOwner !== c33CombatantMode.owner) return; // uniquement ses propres combattants
+  const { owner } = c33CombatantMode;
+  c33CombatantMode = null;
+  closeActionPrompt();
+  startC33ArtifactTargeting(owner, combatantCard);
+}
+
+function startC33ArtifactTargeting(owner, combatantCard){
+  c33ArtifactMode = { owner, combatantCard };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'c33-artifact-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Pour le bien de tous</div>
+    <div class="apMsg">Cliquez sur l'artefact (n'importe quel camp) à copier avec ${cardAnchor(combatantCard.label)}.</div>
+    <div class="apRow"><button id="c33-artifact-cancel" class="apBtn cancel">Annuler</button></div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  promptEl.querySelector('#c33-artifact-cancel').addEventListener('click', () => {
+    c33ArtifactMode = null;
+    closeActionPrompt();
+  });
+  fullRender();
+}
+
+function handleC33ArtifactSelection(artifactCard, artifactOwner){
+  if (!c33ArtifactMode) return;
+  const { owner, combatantCard } = c33ArtifactMode;
+  c33ArtifactMode = null;
+  closeActionPrompt();
+
+  // Prévient l'adversaire pour qu'il voie, lui aussi, l'animation en même temps.
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket) {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID, seat: owner,
+      payload: { type: 'c33Transform', combatantLabel: combatantCard.label, artifactLabel: artifactCard.label }
+    });
+  }
+  playC33TransformAnimation(combatantCard.label, artifactCard.label, () => {
+    const line = getLineByOwner(owner);
+    const cidx = line.findIndex(c => c.id === combatantCard.id);
+    if (cidx === -1) return;
+    line.splice(cidx, 1);
+    detachFamiliarsOnHost(combatantCard, owner);
+    const artArray = (owner === 'top') ? topArts : botArts;
+    if (artArray.length >= MAX_ARTIFACTS_PER_ZONE) {
+      pushHistory('info', `${cardAnchor('C33')} : zone d'artefact pleine, la transformation échoue.`);
+      fullRender();
+      return;
+    }
+    const copy = createCard(artifactCard.label, owner === 'top' ? 'T' : 'B');
+    artArray.push(copy);
+    pushHistory('action', `${cardAnchor('C33')} transforme ${cardAnchor(combatantCard.label)} en une copie de
+      ${cardAnchor(artifactCard.label)} !`);
+    fullRender();
+  });
+}
+
+// Animation de transition : le combattant se dématérialise en particules
+// dorées, glisse de la zone de combat vers la zone d'artefact, puis se
+// recompose en une copie de l'artefact ciblé.
+function playC33TransformAnimation(combatantLabel, artifactLabel, onDone){
+  try{
+    const overlay = document.createElement('div');
+    overlay.className = 'c33TransformOverlay';
+    overlay.innerHTML = `
+      <div class="c33Rays"></div>
+      <div class="c33Caption" id="c33Caption">Transformation en cours…</div>
+      <div class="c33Track">
+        <div class="c33Zone c33ZoneFrom">Zone de combat</div>
+        <div class="c33Stage" id="c33Stage">
+          <img class="c33Img c33From" id="c33FromImg" src="${getCardImage(combatantLabel)}" alt="">
+          <img class="c33Img c33To" id="c33ToImg" src="${getCardImage(artifactLabel)}" alt="" style="opacity:0;">
+          <div class="c33Sparkle" id="c33Sparkle"></div>
+        </div>
+        <div class="c33Zone c33ZoneTo">Zone d'artefact</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(()=> overlay.classList.add('show'));
+
+    const stage = document.getElementById('c33Stage');
+    const captionEl = document.getElementById('c33Caption');
+    const sparkle = document.getElementById('c33Sparkle');
+
+    // Quelques étincelles dorées qui accompagnent le passage d'une zone à l'autre.
+    const glyphs = ['✦','✧','⟡'];
+    for (let i = 0; i < 16; i++) {
+      const s = document.createElement('div');
+      s.className = 'c33SparkleBit';
+      s.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
+      s.style.top = (30 + Math.random() * 40) + '%';
+      s.style.animationDelay = (Math.random() * 1.6) + 's';
+      sparkle.appendChild(s);
+    }
+
+    setTimeout(()=>{
+      stage.classList.add('c33Traveling');
+      if (captionEl) captionEl.textContent = 'Dématérialisation…';
+    }, 300);
+
+    setTimeout(()=>{
+      if (captionEl) captionEl.textContent = 'Recomposition…';
+      document.getElementById('c33FromImg').style.opacity = '0';
+      document.getElementById('c33ToImg').style.opacity = '1';
+      stage.classList.add('c33Recompose');
+    }, 2600);
+
+    setTimeout(()=>{
+      if (captionEl) captionEl.textContent = 'Transformation achevée !';
+    }, 3500);
+
+    setTimeout(()=>{
+      overlay.classList.remove('show');
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); onDone(); }, 500);
+    }, 4600);
+  }catch(e){ onDone(); }
 }
 
 function playActionC16(owner, actionCard, doForge){
@@ -9064,6 +9324,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C18') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC18Prompt(owner, card, el)); }); }
             if (card.label === 'C16') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC16Prompt(owner, card)); }); }
             if (card.label === 'C30') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC30Prompt(owner, card, el)); }); }
+            if (card.label === 'C33') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC33Prompt(owner, card, el)); }); }
             if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
             if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
             if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
@@ -9631,6 +9892,7 @@ if (hitAndRunMode) {
     if (krouzpierTargetMode) { handleKrouzpierTargetSelection(card, owner); return; }
     if (vakxzinTargetMode) { handleVakxzinTargetSelection(card, owner); return; }
     if (longVoyageFamiliarMode) { handleLongVoyageFamiliarSelection(card, owner); return; }
+    if (c33CombatantMode) { handleC33CombatantSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
     if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
@@ -9856,6 +10118,7 @@ if (chargeboxTargetMode && CHARGEABLE_CARDS.includes(card.label)) {
     if (prismisTargetMode) { handlePrismisTargetSelection(card); return; }
     if (c59DestroyMode) { handleC59DestroySelection(card, owner); return; }
     if (venusylvaDestroyMode.active) { handleVenusylvaDestroySelection(card, owner); return; }
+    if (c33ArtifactMode) { handleC33ArtifactSelection(card, owner); return; }
 
     // Logique de clic pour les actions activables des artefacts
     if (card.label === 'C157') { // Miroir Papillon
@@ -14844,6 +15107,10 @@ if (ONLINE_MODE) {
       if (payload.type === 'forgecoeurAssembly') {
         // Diffusé par celui qui assemble les 3 Pièces détachées.
         playForgecoeurAssemblyAnimation(() => fullRender());
+      }
+      if (payload.type === 'c33Transform') {
+        // Diffusé par celui qui joue Pour le bien de tous.
+        playC33TransformAnimation(payload.combatantLabel, payload.artifactLabel, () => fullRender());
       }
     });
   });
