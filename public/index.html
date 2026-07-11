@@ -8444,7 +8444,9 @@ function isAnyTargetSelectionActive(){
     prismisTargetMode || liensSelectionMode || freedaTargetMode || miroirTargetMode ||
     hitAndRunMode || peinturlurerMode || explorationMode || chargeboxTargetMode ||
     c59DestroyMode || c51SelectMode || c58HealingMode ||
-    c9SelectMode || pilateSelectMode || c18SelectMode || remoteChoiceMode
+    c9SelectMode || pilateSelectMode || c18SelectMode || remoteChoiceMode ||
+    kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
+    c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode
   );
 }
 // Petit rappel visuel/textuel quand une action est refusée à cause d'un choix en attente.
@@ -12170,6 +12172,15 @@ function performEndTurn(){
     // tour comprise — sans cela, on pourrait techniquement finir son tour
     // sans avoir rien pu jouer, ou contourner le choix.
     pushHistory('info', `Choisissez d'abord votre faction avant de terminer votre tour.`);
+    const btn = document.getElementById('endTurn');
+    if (btn) { btn.classList.add('deny'); setTimeout(()=> btn.classList.remove('deny'), 320); }
+    return;
+  }
+  // Même principe pour TOUT choix en cours (cliquer sur un combattant, un
+  // artefact, une carte en main dans une liste...) : tant qu'un effet
+  // attend une action précise du joueur, "FIN DE TOUR" reste bloqué.
+  if (isAnyTargetSelectionActive() || (actionPromptEl && actionPromptEl.parentNode)) {
+    pushHistory('info', `Terminez d'abord le choix en cours avant de finir votre tour.`);
     const btn = document.getElementById('endTurn');
     if (btn) { btn.classList.add('deny'); setTimeout(()=> btn.classList.remove('deny'), 320); }
     return;
