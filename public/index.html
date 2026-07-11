@@ -5418,13 +5418,29 @@ async function playActionReveillezVous(owner, actionCard){
 
   pushHistory('action', `${cardAnchor('C23')} réveille les deux decks…`);
 
+  // Calcul RÉEL (tirage + défausses) fait D'ABORD, très rapidement, sans
+  // aucune animation — pour pouvoir diffuser la séquence exacte à
+  // l'adversaire AVANT que l'animation ne démarre. Les deux joueurs
+  // regardent ensuite la même animation, démarrée quasi simultanément.
+  const topResult = computeReveillezVousSequence('top');
+  const botResult = computeReveillezVousSequence('bottom');
+  const topCard = topResult.revealed;
+  const botCard = botResult.revealed;
+
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID, seat: owner,
+      payload: { type: 'reveillezVous', topSequence: topResult.sequence, botSequence: botResult.sequence }
+    });
+  }
+
   const overlay = buildReveillezVousOverlay();
   document.body.appendChild(overlay);
   requestAnimationFrame(()=> overlay.classList.add('go'));
 
-  const [topCard, botCard] = await Promise.all([
-    revealUntilCombattantAnimated('top', overlay),
-    revealUntilCombattantAnimated('bottom', overlay),
+  await Promise.all([
+    replayRevealAnimation('top', overlay, topResult.sequence),
+    replayRevealAnimation('bottom', overlay, botResult.sequence),
   ]);
 
   const footerEl = overlay.querySelector('#rvFooter');
@@ -5534,38 +5550,62 @@ function buildReveillezVousOverlay(){
   return overlay;
 }
 
-async function revealUntilCombattantAnimated(sideOwner, overlay){
+// Calcule RÉELLEMENT le résultat (tire les cartes du deck, défausse les
+// non-combattants) SANS aucune animation — volontairement rapide, pour
+// pouvoir diffuser la séquence à l'adversaire AVANT que l'animation ne
+// commence, plutôt qu'après (sinon les deux joueurs la verraient à des
+// moments différents, celui qui déclenche en premier, l'autre après coup).
+function computeReveillezVousSequence(sideOwner){
   const deck = getDeckByOwner(sideOwner);
+  let revealed = null;
+  const sequence = [];
+
+  while (deck.length > 0) {
+    const c = deck.shift();
+    const isCombattant = getType(c.label) === 'personnage';
+    sequence.push({ label: c.label, isCombattant });
+    if (isCombattant) {
+      revealed = c;
+      break;
+    } else {
+      discardCard(c, sideOwner, 'other');
+    }
+  }
+  return { revealed, sequence };
+}
+
+// Rejoue, CÔTÉ SPECTATEUR uniquement, la même animation visuelle qu'un
+// autre client vient de calculer — à partir de la séquence de cartes déjà
+// diffusée. Ne touche JAMAIS au vrai deck ni à la vraie défausse : l'état
+// réel arrive comme d'habitude via stateSync.
+async function replayRevealAnimation(sideOwner, overlay, sequence){
   const suffix = (sideOwner === 'top') ? 'Top' : 'Bottom';
   const slotEl = overlay.querySelector(`#rvSlot${suffix}`);
   const statusEl = overlay.querySelector(`#rvStatus${suffix}`);
   const discardCountEl = overlay.querySelector(`#rvDiscardCount${suffix}`);
   const discardPileEl = overlay.querySelector(`#rvDiscard${suffix}`);
-  let revealed = null;
-  let cardsSeen = 0;
   let discardedCount = 0;
+  let revealedLabel = null;
 
-  while (deck.length > 0) {
-    const c = deck.shift();
-    cardsSeen++;
-    slotEl.innerHTML = `<img src="${getCardImage(c.label)}" alt="${cardName(c.label)}">`;
+  for (let i = 0; i < sequence.length; i++) {
+    const { label, isCombattant } = sequence[i];
+    const cardsSeen = i + 1;
+    slotEl.innerHTML = `<img src="${getCardImage(label)}" alt="${cardName(label)}">`;
     slotEl.classList.remove('rvFlip'); void slotEl.offsetWidth; slotEl.classList.add('rvFlip');
-    if (statusEl) { statusEl.textContent = `Carte n°${cardsSeen} : ${cardName(c.label)}`; statusEl.style.color = ''; }
-    await sleep(950); // le joueur a largement le temps de bien voir la carte révélée
+    if (statusEl) { statusEl.textContent = `Carte n°${cardsSeen} : ${cardName(label)}`; statusEl.style.color = ''; }
+    await sleep(950);
 
-    if (getType(c.label) === 'personnage') {
-      revealed = c;
+    if (isCombattant) {
+      revealedLabel = label;
       slotEl.classList.add('rvLocked');
-      if (statusEl) { statusEl.textContent = `✓ ${cardName(c.label)} est un combattant !`; statusEl.style.color = '#7dffb0'; }
+      if (statusEl) { statusEl.textContent = `✓ ${cardName(label)} est un combattant !`; statusEl.style.color = '#7dffb0'; }
       await sleep(900);
       break;
     } else {
-      if (statusEl) { statusEl.textContent = `${cardName(c.label)} n'est pas un combattant → part en défausse.`; statusEl.style.color = '#ffb84d'; }
+      if (statusEl) { statusEl.textContent = `${cardName(label)} n'est pas un combattant → part en défausse.`; statusEl.style.color = '#ffb84d'; }
       await sleep(700);
-      // La carte glisse visiblement vers la pile de défausse juste en dessous.
       slotEl.classList.add('rvDiscarding');
       if (discardPileEl) { discardPileEl.classList.remove('rvPulse'); void discardPileEl.offsetWidth; discardPileEl.classList.add('rvPulse'); }
-      discardCard(c, sideOwner, 'other');
       await sleep(550);
       discardedCount++;
       if (discardCountEl) discardCountEl.textContent = String(discardedCount);
@@ -5575,8 +5615,41 @@ async function revealUntilCombattantAnimated(sideOwner, overlay){
     }
   }
 
-  if (!revealed && statusEl) { statusEl.textContent = 'Deck entièrement épuisé — aucun combattant trouvé.'; statusEl.style.color = '#ff8080'; }
-  return revealed;
+  if (!revealedLabel && statusEl) { statusEl.textContent = 'Deck entièrement épuisé — aucun combattant trouvé.'; statusEl.style.color = '#ff8080'; }
+  return revealedLabel;
+}
+
+// Diffuse et rejoue "Réveillez vous" chez le joueur qui n'a pas déclenché la
+// carte, en synchronisant l'animation complète (les deux côtés à la fois).
+async function playReveillezVousSpectator(topSequence, botSequence){
+  const overlay = buildReveillezVousOverlay();
+  document.body.appendChild(overlay);
+  requestAnimationFrame(()=> overlay.classList.add('go'));
+
+  const [topLabel, botLabel] = await Promise.all([
+    replayRevealAnimation('top', overlay, topSequence || []),
+    replayRevealAnimation('bottom', overlay, botSequence || []),
+  ]);
+
+  const footerEl = overlay.querySelector('#rvFooter');
+  if (footerEl) {
+    if (topLabel && botLabel) {
+      footerEl.textContent = `Les deux combattants sont trouvés — l'affrontement va commencer !`;
+      footerEl.style.color = '#7dffb0';
+    } else if (topLabel || botLabel) {
+      footerEl.textContent = `Un seul combattant a été trouvé — il rejoindra sa zone sans opposition.`;
+      footerEl.style.color = '#ffb84d';
+    } else {
+      footerEl.textContent = `Aucun combattant trouvé dans les deux decks.`;
+      footerEl.style.color = '#ff8080';
+    }
+  }
+
+  await sleep(2000);
+  overlay.classList.remove('go');
+  await sleep(350);
+  if (overlay.parentNode) overlay.remove();
+  fullRender();
 }
 
 
@@ -7634,11 +7707,16 @@ function broadcastKrouzpierStep(step){
 // si ce n'est pas son tour — l'adversaire voit toute la séquence se dérouler
 // en spectateur, narrée en direct via 'krouzpierStep'.
 function startKrouzpierChain(owner){
+  // CORRECTIF CRITIQUE : on diffuse TOUJOURS, quel que soit le client qui
+  // exécute ce code — la mort de Krouzpier peut très bien être calculée sur
+  // l'écran de l'ADVERSAIRE (ex. mort par Poison pendant SON tour à lui),
+  // auquel cas sans ce broadcast systématique, le vrai propriétaire de
+  // Krouzpier n'était jamais prévenu du tout qu'un choix l'attendait.
+  broadcastKrouzpierStep({ type: 'choosing', owner });
   if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && MY_SEAT !== owner) {
     showKrouzpierSpectatorWait(owner);
     return;
   }
-  broadcastKrouzpierStep({ type: 'choosing', owner });
   showKrouzpierChoicePrompt(owner);
 }
 
@@ -7945,7 +8023,19 @@ function closeKrouzpierSpectatorOverlay(){
 
 function playKrouzpierSpectatorStep(step){
   if (!step) return;
-  if (step.type === 'choosing') { showKrouzpierSpectatorWait(step.owner); return; }
+  if (step.type === 'choosing') {
+    // CORRECTIF CRITIQUE : si CE client est le PROPRIÉTAIRE de Krouzpier
+    // (même si sa mort vient d'être calculée sur l'écran de l'adversaire),
+    // c'est ICI qu'on doit lui proposer le VRAI choix interactif — pas un
+    // simple écran d'attente passif, sinon personne ne choisit jamais rien
+    // et la partie reste bloquée pour les deux joueurs.
+    if (typeof MY_SEAT !== 'undefined' && MY_SEAT === step.owner) {
+      showKrouzpierChoicePrompt(step.owner);
+    } else {
+      showKrouzpierSpectatorWait(step.owner);
+    }
+    return;
+  }
   if (step.type === 'choice') {
     closeKrouzpierSpectatorOverlay();
     const label = (step.choice === 'coeur') ? 'Cœur' : 'Pique';
@@ -15769,6 +15859,12 @@ if (ONLINE_MODE) {
       if (payload.type === 'dragStart') { showOpponentDragGhost(payload.cardLabel); }
       if (payload.type === 'dragMove') { moveOpponentDragGhost(payload.x, payload.y); }
       if (payload.type === 'dragEnd') { removeOpponentDragGhost(); }
+      if (payload.type === 'reveillezVous') {
+        // Diffusé par celui qui joue Réveillez vous : les deux joueurs
+        // voient la même animation, démarrée quasi simultanément (voir
+        // computeReveillezVousSequence, calculé et diffusé AVANT l'animation).
+        playReveillezVousSpectator(payload.topSequence, payload.botSequence);
+      }
     });
   });
 }
