@@ -11130,6 +11130,16 @@ function addToExile(card, context = {}){
     // ligne couvre donc automatiquement absolument tous les cas du jeu.
     animateCardToExile(card);
 
+    // KRYLLS (nouveau lot) : Arakcrabe (T15) — reprend son identité
+    // d'Arakcube (C37) dès qu'elle rejoint l'Exil, quelle qu'en soit la
+    // raison (l'animation ci-dessus a déjà capturé son apparence de
+    // familier avant cette transformation, donc rien ne change visuellement
+    // pendant l'absorption elle-même).
+    if (card.label === 'T15') {
+      const owner = ownerOfCardOnBoard(card) || card.playOwner || 'bottom';
+      card = createCard('C37', owner === 'top' ? 'T' : 'B');
+    }
+
     // ===================================================================
     // DÉBUT DE LA LOGIQUE DE RESTITUTION GÉNÉRIQUE DU MITHRIL CAPTURÉ
     // ===================================================================
@@ -11347,6 +11357,15 @@ function returnSealedToOpponentDeck(card, owner){
 }
 
 function discardCard(card, owner, reason='other', context = {}){
+  // KRYLLS (nouveau lot) : Arakcrabe (T15) — elle s'était transformée à
+  // partir d'Arakcube (C37) pour aller s'attacher à un combattant ; dès
+  // qu'elle quitte le jeu pour rejoindre une défausse, quelle qu'en soit la
+  // raison (hôte retiré, effet qui la cible directement...), elle reprend
+  // son identité d'origine d'Arakcube plutôt que d'exister en défausse sous
+  // sa forme de familier.
+  if (card.label === 'T15') {
+    card = createCard('C37', owner === 'top' ? 'T' : 'B');
+  }
   // WADOO : Linkrevable (C212) revient dans la zone de combat au lieu de mourir, tant qu'il lui reste des charges
   if (card.label === 'C212' && reason === 'death') {
     if (typeof card.charges !== 'number') card.charges = 4;
