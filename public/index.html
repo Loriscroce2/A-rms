@@ -3113,6 +3113,9 @@ const CARD_IMAGES = {
  'C35': '../cartes/0035.png',
  'C36': '../cartes/0036.png',
  'C37': '../cartes/0037.png',
+ 'C38': '../cartes/0038.png',
+ 'C39': '../cartes/0039.png',
+ 'C40': '../cartes/0040.png',
  'T15': '../cartes/T15.png',
  'T11': '../cartes/T11.png',
  'T12': '../cartes/T12.png',
@@ -3249,6 +3252,9 @@ const CARD_TYPES  = {
  'C35': 'personnage',  // Tokzik
  'C36': 'personnage',  // Cénewz
  'C37': 'artefact',    // Arakcube
+ 'C38': 'personnage',  // Kryo
+ 'C39': 'artefact',    // Bibliotempz
+ 'C40': 'personnage',  // Zyzy
  'T15': 'familier',    // Arakcrabe
  'T11': 'artefact',    // Pièce détachée
  'T12': 'artefact',    // Pièce détachée
@@ -3384,6 +3390,9 @@ const CARD_NAMES = {
  'C35': 'Tokzik',
  'C36': 'Cénewz',
  'C37': 'Arakcube',
+ 'C38': 'Kryo',
+ 'C39': 'Bibliotempz',
+ 'C40': 'Zyzy',
  'T15': 'Arakcrabe',
  'T11': 'Pièce détachée',
  'T12': 'Pièce détachée',
@@ -3476,13 +3485,15 @@ const CARD_HP_BASE = {
   'C32': 3, // PV non précisé par l'utilisateur — valeur provisoire, à confirmer
   'C34': 6,
   'C35': 5,
+  'C38': 1,
+  'C40': 4,
   'C36': 2,
   'T10': 1,
 };
 
 const CARD_SHIELD_BASE = {
   'C1':0, 'C2':0, 'C3':1, 'C6':0, 'C9':0, 'C13':1, 'C14':1, 'C15':2, 'C17':2,
-  'C22':1, 'C26':4, 'C34':1, 'C36':4,
+  'C22':1, 'C26':4, 'C34':1, 'C36':4, 'C38':3,
   'C52': 0, 'C56': 0, 'C66': 5, 'C68': 1,
   'C105': 1,
   'C108': 0,
@@ -3661,6 +3672,9 @@ const CARD_TAGS = {
  'C35': ['guerrier', 'Krylls', 'poison'],  // Tokzik — Poison imprimé
  'C36': ['citoyen', 'Krylls', 'rapide'],   // Cénewz — Rapide imprimé
  'C37': ['artefact', 'Krylls'],            // Arakcube
+ 'C38': ['guerrier', 'Krylls'],            // Kryo
+ 'C39': ['artefact', 'Krylls'],            // Bibliotempz
+ 'C40': ['citoyen', 'Krylls'],             // Zyzy
  'T15': ['familier', 'Krylls'],            // Arakcrabe
  'T11': ['artefact', 'Krylls'],  // Pièce détachée
  'T12': ['artefact', 'Krylls'],  // Pièce détachée
@@ -4142,6 +4156,8 @@ let c33ArtifactMode = null;
 let tokzikTargetMode = null;
 let arakcubeTargetMode = null;
 let ozokshiArtifactMode = null;
+let kryoTargetMode = null;
+let zyzyHostTargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -7860,6 +7876,116 @@ function handleTokzikTargetSelection(targetCard, targetCardOwner){
   fullRender();
 }
 
+// KRYLLS (nouveau lot) : Kryo (C38) — JOUER et MORT : gèle un combattant
+// adverse choisi par clic direct sur le plateau.
+function startKryoTargeting(casterOwner, targetOwner){
+  kryoTargetMode = { casterOwner, targetOwner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'kryo-target-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Kryo</div>
+    <div class="apMsg">Cliquez sur le combattant ennemi à geler.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+
+function handleKryoTargetSelection(targetCard, targetCardOwner){
+  if (!kryoTargetMode) return;
+  if (targetCardOwner !== kryoTargetMode.targetOwner) return; // uniquement la ligne adverse visée
+  kryoTargetMode = null;
+  closeActionPrompt();
+  applyFreezeToCard(targetCard);
+  fullRender();
+}
+
+// KRYLLS (nouveau lot) : Zyzy (C40) — JOUER : choisit un familier rattaché
+// à N'IMPORTE QUEL combattant (son camp ou l'adverse) et le place sur Zyzy
+// à la place. Ciblage par clic sur l'hôte, puis choix du familier précis si
+// plusieurs sont rattachés au même hôte.
+function startZyzyHostTargeting(zyzyOwner, zyzyCard){
+  zyzyHostTargetMode = { zyzyOwner, zyzyCard };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'zyzy-host-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Zyzy</div>
+    <div class="apMsg">Cliquez sur le combattant (n'importe quel camp) portant le familier à placer sur ${cardAnchor('C40')}.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+
+function handleZyzyHostSelection(hostCard, hostOwner){
+  if (!zyzyHostTargetMode) return;
+  const fams = getFamiliersOnHost(hostCard);
+  if (fams.length === 0) return; // cet hôte n'a pas de familier, clic ignoré
+  const { zyzyOwner, zyzyCard } = zyzyHostTargetMode;
+
+  if (fams.length === 1) {
+    zyzyHostTargetMode = null;
+    closeActionPrompt();
+    moveFamiliarToZyzy(fams[0], hostCard, hostOwner, zyzyCard, zyzyOwner);
+    return;
+  }
+
+  // Plusieurs familiers sur le même hôte : on demande lequel précisément.
+  zyzyHostTargetMode = null;
+  closeActionPrompt();
+  const buttons = fams.map(f => ({
+    label: cardName(f.label),
+    className: 'confirm',
+    onClick: () => moveFamiliarToZyzy(f, hostCard, hostOwner, zyzyCard, zyzyOwner),
+  }));
+  openButtonsPrompt('Zyzy', `${cardName(hostCard.label)} porte plusieurs familiers — lequel placer sur ${cardAnchor('C40')} ?`, null, buttons, { nonCancellable: true });
+}
+
+function moveFamiliarToZyzy(familiarCard, oldHostCard, oldHostOwner, zyzyCard, zyzyOwner){
+  // Nettoyage spécial AVANT le déplacement : Tentacuz (C24) et Blusyte
+  // (C226) recalculent en direct un bonus de Bouclier sur leur hôte à
+  // partir de leur propre attache — sans ce nettoyage explicite, l'ancien
+  // hôte garderait pour toujours le bonus déjà appliqué, personne ne le
+  // retirant jamais après le départ du familier. Tous les autres familiers
+  // du jeu (Arakcrabe, Baro, Coqsix, Scapoo...) se recalculent déjà en
+  // direct à partir de la vraie attache courante et n'ont besoin d'aucun
+  // traitement particulier ici.
+  if (familiarCard.label === 'C24' || familiarCard.label === 'C226') {
+    oldHostCard.shield = getBaseShield(oldHostCard.label) + (oldHostCard.permanentShieldBonus || 0);
+    familiarCard.appliedShieldBonus = 0;
+  }
+
+  // Déplace RÉELLEMENT le familier entre les deux tableaux (pas seulement
+  // ses propriétés) — il doit physiquement quitter le tableau de son ancien
+  // propriétaire pour rejoindre celui de Zyzy, sinon certaines vérifications
+  // basées sur getFamArrayByOwner resteraient incohérentes avec playOwner.
+  const oldFamArray = getFamArrayByOwner(familiarCard.playOwner);
+  const oldIdx = oldFamArray.findIndex(f => f.id === familiarCard.id);
+  if (oldIdx !== -1) oldFamArray.splice(oldIdx, 1);
+
+  familiarCard.attachedTo = zyzyCard.id;
+  familiarCard.playOwner = zyzyOwner;
+  getFamArrayByOwner(zyzyOwner).push(familiarCard);
+
+  pushHistory('familier', `${cardAnchor('C40')} place ${cardAnchor(familiarCard.label)} sur elle, retirée de
+    ${cardAnchor(oldHostCard.label)}.`);
+  fullRender();
+}
+
 // KRYLLS (nouveau lot) : Arakcube (C37) — se transforme en Arakcrabe (T15)
 // et l'attache à un combattant adverse choisi par clic. Tant qu'Arakcrabe
 // reste attachée, ce combattant passe sous notre contrôle et rejoint notre
@@ -8759,7 +8885,7 @@ function isAnyTargetSelectionActive(){
     c9SelectMode || pilateSelectMode || c18SelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
-    arakcubeTargetMode || ozokshiArtifactMode
+    arakcubeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode
   );
 }
 // Petit rappel visuel/textuel quand une action est refusée à cause d'un choix en attente.
@@ -10437,6 +10563,8 @@ if (hitAndRunMode) {
     if (c33CombatantMode) { handleC33CombatantSelection(card, owner); return; }
     if (tokzikTargetMode) { handleTokzikTargetSelection(card, owner); return; }
     if (arakcubeTargetMode) { handleArakcubeTargetSelection(card, owner); return; }
+    if (kryoTargetMode) { handleKryoTargetSelection(card, owner); return; }
+    if (zyzyHostTargetMode) { handleZyzyHostSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
     if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
@@ -10784,6 +10912,11 @@ if (card.label === 'C37') { // KRYLLS : Arakcube
   startArakcubeTargeting(owner, card);
 }
 
+if (card.label === 'C39') { // KRYLLS : Bibliotempz
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  useBibliotempz(owner);
+}
+
   });
 
   return el;
@@ -10859,6 +10992,36 @@ if (card.label === 'C28') {
 }
 // ===================================================================
 // FIN DE LA LOGIQUE D'ENTRÉE POUR KABBA LE ZUNT
+// ===================================================================
+
+// ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR KRYO (C38)
+// ===================================================================
+if (card.label === 'C38') {
+  const kryoOpp = (owner === 'top') ? 'bottom' : 'top';
+  if (getLineByOwner(kryoOpp).length > 0) {
+    startKryoTargeting(owner, kryoOpp);
+  } else {
+    pushHistory('info', `${cardAnchor('C38')} : aucun combattant adverse à geler.`);
+  }
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR KRYO
+// ===================================================================
+
+// ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR ZYZY (C40)
+// ===================================================================
+if (card.label === 'C40') {
+  const allHostsWithFamiliars = topLine.concat(botLine).filter(c => c.id !== card.id && getFamiliersOnHost(c).length > 0);
+  if (allHostsWithFamiliars.length === 0) {
+    pushHistory('info', `${cardAnchor('C40')} : aucun familier rattaché à un combattant sur le plateau.`);
+  } else {
+    startZyzyHostTargeting(owner, card);
+  }
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR ZYZY
 // ===================================================================
 
 // ===================================================================
@@ -11734,6 +11897,15 @@ if (reason === 'manual') {
       startTokzikTargeting(owner, tokzikOpp);
     } else {
       pushHistory('info', `${cardAnchor('C35')} : aucun combattant adverse en zone de combat, son effet ne se déclenche pas.`);
+    }
+  }
+  // KRYLLS (nouveau lot) : Kryo (C38) — MORT : gèle un combattant adverse.
+  if (card.label === 'C38' && reason === 'death') {
+    const kryoOpp = (owner === 'top') ? 'bottom' : 'top';
+    if (getLineByOwner(kryoOpp).length > 0) {
+      startKryoTargeting(owner, kryoOpp);
+    } else {
+      pushHistory('info', `${cardAnchor('C38')} : aucun combattant adverse en zone de combat, son effet ne se déclenche pas.`);
     }
   }
   if (card.label === 'C58' && typeof card.charges === 'number' && card.charges > 0) {
@@ -12792,6 +12964,7 @@ function showVictoryOverlay(winner, reason, iWon){
                   (reason==='cycle') ? '3ᵉ cycle atteint par l’adversaire' : 
                   (reason==='flavio') ? '7 BUTS marqués par Flavio VII' :
                   (reason==='faction-locked') ? 'Choix de faction totalement entravé' :
+                  (reason==='bibliotempz') ? '20 cartes en main grâce à Bibliotempz' :
                   (reason==='surrender') ? 'Abandon de la partie' : 'victoire';
 
   const profiles = window.PLAYER_PROFILES;
@@ -14114,6 +14287,29 @@ function openCenewzRevealPrompt(owner, oppOwner, revealedCard, onResolved){
       if (onResolved) onResolved();
     } },
   ], { nonCancellable: true });
+}
+
+// KRYLLS (nouveau lot) : Bibliotempz (C39) — Action : pioche une carte.
+// Avec 20 cartes en main, victoire immédiate.
+function useBibliotempz(owner){
+  const hand = getHandByOwner(owner);
+  const deck = getDeckByOwner(owner);
+  if (deck.length === 0) {
+    const reshuffled = reshuffleDiscardIntoDeck(owner);
+    if (!reshuffled) {
+      pushHistory('info', `${cardAnchor('C39')} : deck et défausse vides, impossible de piocher.`);
+      return;
+    }
+  }
+  drawOneFor(owner);
+  updateDeckCounters();
+  pushHistory('artefact', `${cardAnchor('C39')} fait piocher une carte à ${playerLabel(owner)} (${hand.length}/20 en main).`);
+  fullRender();
+
+  if (hand.length >= 20) {
+    pushHistory('info', `${cardAnchor('C39')} : 20 cartes en main atteintes — victoire immédiate !`);
+    endGame(owner, 'bibliotempz');
+  }
 }
 
 function useMineEMI(owner, card) {
