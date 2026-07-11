@@ -836,6 +836,15 @@
       50%{ outline-color:#fff6cf; filter:brightness(1.35); }
     }
 
+    /* KRYLLS : Ozokshi (C34) — surbrillance dorée pulsante sur les
+       artefacts de la main éligibles au choix gratuit. */
+    .card.ozokshiEligibleHint{
+      outline:3px solid #ffd93d !important; outline-offset:-4px;
+      box-shadow:0 0 20px rgba(255,217,61,.75) !important;
+      animation:poisonTargetPulse 1.1s ease-in-out infinite;
+      cursor:pointer;
+    }
+
     .card.placed.selectedTargetHint {
       outline: 4px solid #ffca3a; /* Bordure jaune/dorée bien visible */
       box-shadow: 0 0 20px #ffca3a;
@@ -4116,6 +4125,7 @@ let c33CombatantMode = null;
 let c33ArtifactMode = null;
 let tokzikTargetMode = null;
 let arakcubeTargetMode = null;
+let ozokshiArtifactMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -8541,7 +8551,7 @@ function isAnyTargetSelectionActive(){
     c9SelectMode || pilateSelectMode || c18SelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
-    arakcubeTargetMode
+    arakcubeTargetMode || ozokshiArtifactMode
   );
 }
 // Petit rappel visuel/textuel quand une action est refusée à cause d'un choix en attente.
@@ -9202,14 +9212,18 @@ function resolveFight(from, to){
 
     // ===================================================================
     // OZOKSHI (C34) : au combat, permet de jouer un artefact de la main,
-    // gratuitement et sans restriction de faction.
+    // gratuitement et sans restriction de faction. TANT QUE ce choix n'est
+    // pas résolu, le combat lui-même NE SE RÉSOUT PAS (voir continueResolveFight,
+    // appelée uniquement une fois le choix du joueur fait — ou immédiatement
+    // s'il n'y a aucun artefact éligible).
     // ===================================================================
     if (from.card.label === 'C34') {
       const ozokshiOwner = from.owner;
       const ozokshiHand = getHandByOwner(ozokshiOwner);
       const eligibleArtifacts = ozokshiHand.filter(c => getType(c.label) === 'artefact');
       if (eligibleArtifacts.length > 0) {
-        openOzokshiArtifactPrompt(ozokshiOwner, eligibleArtifacts);
+        openOzokshiArtifactPrompt(ozokshiOwner, eligibleArtifacts, () => continueResolveFight(from, to));
+        return;
       }
     }
     // ===================================================================
@@ -9218,14 +9232,17 @@ function resolveFight(from, to){
 
     // ===================================================================
     // CÉNEWZ (C36) : au combat, dévoile la carte du dessus du deck
-    // adverse, choisit de la défausser ou de la remettre sur le deck.
+    // adverse, choisit de la défausser ou de la remettre sur le deck. MÊME
+    // PRINCIPE : le combat attend la résolution de ce choix avant de
+    // continuer.
     // ===================================================================
     if (from.card.label === 'C36') {
       const cenewzOwner = from.owner;
       const cenewzOpp = (cenewzOwner === 'top') ? 'bottom' : 'top';
       const oppDeck = (cenewzOpp === 'top') ? topDeck : botDeck;
       if (oppDeck.length > 0) {
-        openCenewzRevealPrompt(cenewzOwner, cenewzOpp, oppDeck[0]);
+        openCenewzRevealPrompt(cenewzOwner, cenewzOpp, oppDeck[0], () => continueResolveFight(from, to));
+        return;
       } else {
         pushHistory('info', `${cardAnchor('C36')} : le deck adverse est vide, rien à dévoiler.`);
       }
@@ -9234,6 +9251,15 @@ function resolveFight(from, to){
     // FIN DE LA LOGIQUE POUR CÉNEWZ
     // ===================================================================
 
+  continueResolveFight(from, to);
+}
+
+// Suite RÉELLE de la résolution du combat (dégâts, morts, animation...) —
+// extraite de resolveFight pour pouvoir être retardée jusqu'à la résolution
+// complète d'un éventuel effet COMBAT nécessitant un choix du joueur
+// (Ozokshi, Cénewz...), au lieu de s'exécuter en parallèle d'un prompt
+// encore ouvert.
+function continueResolveFight(from, to){
   if (from.card.label === 'C116') {
     const owner = from.owner;
     const line = getLineByOwner(owner);
@@ -9554,6 +9580,13 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
         // Logique pour Buay (C160) : Ne jamais être face cachée
         const isFaceDown = opts.faceDown && card.label !== 'C160';
 
+        // KRYLLS (nouveau lot) : Ozokshi (C34) — pendant son effet COMBAT, les
+        // artefacts éligibles dans la main du joueur concerné sont illuminés
+        // en doré pulsant, et cliquables directement pour faire le choix.
+        if (ozokshiArtifactMode && ozokshiArtifactMode.owner === owner && getType(card.label) === 'artefact' && !isFaceDown) {
+          el.classList.add('ozokshiEligibleHint');
+        }
+
         if (isFaceDown) {
             el.classList.add('back');
         } else {
@@ -9630,6 +9663,12 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C234') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionWagneto(owner, card, el)); }); }
             if (card.label === 'C236') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionFusionnerLesTous(owner, card)); }); }
             if (card.label === 'C23') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionReveillezVous(owner, card)); }); }
+
+            // KRYLLS (nouveau lot) : Ozokshi (C34) — clic direct sur un
+            // artefact illuminé en main pour le jouer gratuitement.
+            if (ozokshiArtifactMode && ozokshiArtifactMode.owner === owner && getType(card.label) === 'artefact') {
+              el.addEventListener('click', () => handleOzokshiHandCardClick(card, owner));
+            }
         }
 
         rowEl.appendChild(el);
@@ -13773,36 +13812,59 @@ function useGousset(owner, card) {
 // autant de Mithril que de combattants adverses ayant du Bouclier en zone de combat.
 // KRYLLS (nouveau lot) : Ozokshi (C34) — au combat, permet de jouer un
 // artefact de la main, gratuitement et sans restriction de faction.
-function openOzokshiArtifactPrompt(owner, eligibleArtifacts){
-  const buttons = eligibleArtifacts.map(c => ({
-    label: cardName(c.label),
-    className: 'confirm',
-    onClick: () => playOzokshiArtifact(owner, c),
-  }));
-  buttons.push({ label: 'Ne pas jouer', className: 'cancel', onClick: () => {} });
-  openButtonsPrompt('Ozokshi', `Choisissez un artefact de votre main à jouer gratuitement — aucune restriction de faction.`, null, buttons, { nonCancellable: true });
+function openOzokshiArtifactPrompt(owner, eligibleArtifacts, onResolved){
+  ozokshiArtifactMode = { owner, onResolved };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'ozokshi-artifact-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Ozokshi</div>
+    <div class="apMsg">Cliquez sur un artefact illuminé dans votre main pour le jouer gratuitement — aucune restriction de
+      faction.</div>
+    <div class="apRow"><button id="ozokshi-artifact-skip" class="apBtn cancel">Ne pas jouer</button></div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  promptEl.querySelector('#ozokshi-artifact-skip').addEventListener('click', () => {
+    const resolve = ozokshiArtifactMode && ozokshiArtifactMode.onResolved;
+    ozokshiArtifactMode = null;
+    closeActionPrompt();
+    fullRender();
+    if (resolve) resolve();
+  });
+  fullRender();
 }
 
-function playOzokshiArtifact(owner, artifactCard){
+function handleOzokshiHandCardClick(artifactCard, owner){
+  if (!ozokshiArtifactMode || ozokshiArtifactMode.owner !== owner) return;
+  const resolve = ozokshiArtifactMode.onResolved;
+  ozokshiArtifactMode = null;
+  closeActionPrompt();
+
   const artArray = (owner === 'top') ? topArts : botArts;
   if (artArray.length >= MAX_ARTIFACTS_PER_ZONE) {
     pushHistory('info', `${cardAnchor('C34')} : zone d'artefact pleine, impossible de jouer ${cardAnchor(artifactCard.label)}.`);
-    closeActionPrompt();
-    return;
+  } else {
+    const hand = getHandByOwner(owner);
+    const idx = hand.findIndex(c => c.id === artifactCard.id);
+    if (idx !== -1) hand.splice(idx, 1);
+    artArray.push(artifactCard);
+    pushHistory('artefact', `${cardAnchor('C34')} permet de jouer ${cardAnchor(artifactCard.label)} gratuitement, sans restriction de faction.`);
   }
-  const hand = getHandByOwner(owner);
-  const idx = hand.findIndex(c => c.id === artifactCard.id);
-  if (idx !== -1) hand.splice(idx, 1);
-  artArray.push(artifactCard);
-  pushHistory('artefact', `${cardAnchor('C34')} permet de jouer ${cardAnchor(artifactCard.label)} gratuitement, sans restriction de faction.`);
-  closeActionPrompt();
   fullRender();
+  if (resolve) resolve();
 }
 
 // KRYLLS (nouveau lot) : Cénewz (C36) — au combat, dévoile la carte du
 // dessus du deck adverse ; le joueur choisit de la défausser ou de la
 // laisser en place.
-function openCenewzRevealPrompt(owner, oppOwner, revealedCard){
+function openCenewzRevealPrompt(owner, oppOwner, revealedCard, onResolved){
   openButtonsPrompt('Cénewz', `Carte dévoilée sur le dessus du deck adverse : <strong>${cardAnchor(revealedCard.label)}</strong>.
     Que faire ?`, null, [
     { label: 'Défausser', className: 'confirm', onClick: () => {
@@ -13812,9 +13874,11 @@ function openCenewzRevealPrompt(owner, oppOwner, revealedCard){
       discardCard(revealedCard, oppOwner, 'other');
       pushHistory('action', `${cardAnchor('C36')} défausse ${cardAnchor(revealedCard.label)} du deck adverse.`);
       fullRender();
+      if (onResolved) onResolved();
     } },
     { label: 'Laisser sur le deck', className: '', onClick: () => {
       pushHistory('info', `${cardAnchor('C36')} laisse ${cardAnchor(revealedCard.label)} sur le dessus du deck adverse.`);
+      if (onResolved) onResolved();
     } },
   ], { nonCancellable: true });
 }
