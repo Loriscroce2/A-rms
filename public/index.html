@@ -13616,8 +13616,39 @@ function checkForgecoeurAssembly(owner){
 // Animation d'assemblage : les 3 Pièces détachées tournoient en cercle au
 // centre de l'écran, le tourbillon se resserre et accélère peu à peu,
 // jusqu'à un éclair final qui révèle Forgecoeur.
+// Séquence sonore de l'animation Forgecoeur : Mechanic.mp3 démarre dès le
+// début ; à sa moitié, yesyes.mp3 se joue par-dessus ; à 2 secondes de sa
+// fin, pasrobot.mp3 se joue également par-dessus. Le minutage se base sur
+// la VRAIE durée du fichier Mechanic.mp3 une fois chargée (avec un filet de
+// sécurité si jamais elle n'arrivait pas à temps).
+function playForgecoeurSoundSequence(){
+  try{
+    const mechanic = new Audio('/assets/Mechanic.mp3');
+    mechanic.volume = 0.9;
+    let scheduled = false;
+    const schedule = (duration) => {
+      if (scheduled) return;
+      scheduled = true;
+      const halfMs = Math.max(0, (duration / 2) * 1000);
+      const nearEndMs = Math.max(0, (duration - 2) * 1000);
+      setTimeout(() => { try{ const a = new Audio('/assets/yesyes.mp3'); a.volume = 0.9; a.play().catch(()=>{}); }catch(e){} }, halfMs);
+      setTimeout(() => { try{ const a = new Audio('/assets/pasrobot.mp3'); a.volume = 0.9; a.play().catch(()=>{}); }catch(e){} }, nearEndMs);
+    };
+    mechanic.addEventListener('loadedmetadata', () => {
+      const duration = (isFinite(mechanic.duration) && mechanic.duration > 0) ? mechanic.duration : 6;
+      schedule(duration);
+    }, { once: true });
+    mechanic.play().catch(()=>{});
+    // Filet de sécurité si "loadedmetadata" ne se déclenche jamais (rare) :
+    // on planifie quand même les deux autres sons, sur une durée estimée.
+    setTimeout(() => schedule(6), 1200);
+  }catch(e){}
+}
+
 function playForgecoeurAssemblyAnimation(onDone){
   try{
+    playForgecoeurSoundSequence();
+
     const overlay = document.createElement('div');
     overlay.className = 'forgecoeurAssemblyOverlay';
     overlay.innerHTML = `
