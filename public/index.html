@@ -2988,6 +2988,7 @@ const CARD_IMAGES = {
  'C32': '../cartes/0032.png',
  'C33': '../cartes/0033.png',
  'C34': '../cartes/0034.png',
+ 'C35': '../cartes/0035.png',
  'T11': '../cartes/T11.png',
  'T12': '../cartes/T12.png',
  'T13': '../cartes/T13.png',
@@ -3120,6 +3121,7 @@ const CARD_TYPES  = {
  'C32': 'personnage',  // Bobyz
  'C33': 'action',      // Pour le bien de tous
  'C34': 'personnage',  // Ozokshi
+ 'C35': 'personnage',  // Tokzik
  'T11': 'artefact',    // Pièce détachée
  'T12': 'artefact',    // Pièce détachée
  'T13': 'artefact',    // Pièce détachée
@@ -3251,6 +3253,7 @@ const CARD_NAMES = {
  'C32': 'Bobyz',
  'C33': 'Pour le bien de tous',
  'C34': 'Ozokshi',
+ 'C35': 'Tokzik',
  'T11': 'Pièce détachée',
  'T12': 'Pièce détachée',
  'T13': 'Pièce détachée',
@@ -3341,6 +3344,7 @@ const CARD_HP_BASE = {
   'C29': 2,
   'C32': 3, // PV non précisé par l'utilisateur — valeur provisoire, à confirmer
   'C34': 6,
+  'C35': 5,
   'T10': 1,
 };
 
@@ -3522,6 +3526,7 @@ const CARD_TAGS = {
  'C32': ['citoyen', 'Krylls'],   // Bobyz
  'C33': ['action', 'Krylls'],    // Pour le bien de tous
  'C34': ['guerrier', 'Krylls'],  // Ozokshi
+ 'C35': ['guerrier', 'Krylls', 'poison'],  // Tokzik — Poison imprimé
  'T11': ['artefact', 'Krylls'],  // Pièce détachée
  'T12': ['artefact', 'Krylls'],  // Pièce détachée
  'T13': ['artefact', 'Krylls'],  // Pièce détachée
@@ -3991,6 +3996,7 @@ let krouzpierTargetMode = null;
 let vakxzinTargetMode = null;
 let c33CombatantMode = null;
 let c33ArtifactMode = null;
+let tokzikTargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -7495,6 +7501,45 @@ function handleKrouzpierTargetSelection(targetCard, targetCardOwner){
   startKrouzpierChain(casterOwner);
 }
 
+// KRYLLS (nouveau lot) : Tokzik (C35) — MORT : exile un combattant adverse
+// choisi par clic direct sur le plateau.
+function startTokzikTargeting(casterOwner, targetOwner){
+  tokzikTargetMode = { casterOwner, targetOwner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'tokzik-target-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Tokzik</div>
+    <div class="apMsg">Cliquez sur le combattant ennemi à exiler.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+
+function handleTokzikTargetSelection(targetCard, targetCardOwner){
+  if (!tokzikTargetMode) return;
+  if (targetCardOwner !== tokzikTargetMode.targetOwner) return; // uniquement la ligne adverse visée
+  const { targetOwner } = tokzikTargetMode;
+  tokzikTargetMode = null;
+  closeActionPrompt();
+
+  detachFamiliarsOnHost(targetCard, targetOwner);
+  const line = getLineByOwner(targetOwner);
+  const idx = line.findIndex(c => c.id === targetCard.id);
+  if (idx !== -1) line.splice(idx, 1);
+  addToExile(targetCard);
+  pushHistory('jeu', `${cardAnchor('C35')} exile ${cardAnchor(targetCard.label)} !`);
+  fullRender();
+}
+
+
 // KRYLLS (nouveau lot) : Vakxzin (C31) — détruit un combattant avec Poison
 // (n'importe quel camp), gagne 2 Mithril si l'opération réussit. Ciblage par
 // clic direct sur le plateau.
@@ -9914,6 +9959,7 @@ if (hitAndRunMode) {
     if (vakxzinTargetMode) { handleVakxzinTargetSelection(card, owner); return; }
     if (longVoyageFamiliarMode) { handleLongVoyageFamiliarSelection(card, owner); return; }
     if (c33CombatantMode) { handleC33CombatantSelection(card, owner); return; }
+    if (tokzikTargetMode) { handleTokzikTargetSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
     if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
@@ -11167,6 +11213,15 @@ if (reason === 'manual') {
       startKrouzpierChain(owner);
     } else {
       pushHistory('info', `${cardAnchor('C25')} : aucun combattant adverse en zone de combat, son effet ne se déclenche pas.`);
+    }
+  }
+  // KRYLLS (nouveau lot) : Tokzik (C35) — MORT : exile un combattant adverse (ciblage par clic).
+  if (card.label === 'C35' && reason === 'death') {
+    const tokzikOpp = (owner === 'top') ? 'bottom' : 'top';
+    if (getLineByOwner(tokzikOpp).length > 0) {
+      startTokzikTargeting(owner, tokzikOpp);
+    } else {
+      pushHistory('info', `${cardAnchor('C35')} : aucun combattant adverse en zone de combat, son effet ne se déclenche pas.`);
     }
   }
   if (card.label === 'C58' && typeof card.charges === 'number' && card.charges > 0) {
