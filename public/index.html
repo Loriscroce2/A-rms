@@ -16398,52 +16398,9 @@ if (ONLINE_MODE) {
       }
     });
 
-    // Déconnexion de l'adversaire : compte à rebours de 30 secondes avant
-    // forfait automatique. S'il se reconnecte à temps (opponentRejoined),
-    // tout reprend normalement ; sinon (matchForfeit), la victoire vous
-    // revient automatiquement.
-    let opponentLeftTimer = null;
-    function removeOpponentLeftOverlay(){
-      if (opponentLeftTimer) { clearInterval(opponentLeftTimer); opponentLeftTimer = null; }
-      const el = document.getElementById('opponentLeftOverlay');
-      if (el) el.remove();
-    }
-
-    socket.on('opponentLeft', ({ seat, graceSeconds }) => {
-      if (seat === MY_SEAT) return; // ne me concerne pas si c'est moi-même
-      removeOpponentLeftOverlay(); // sécurité, au cas où un précédent traînerait encore
-      let remaining = graceSeconds || 30;
-      const total = remaining;
-      const overlay = document.createElement('div');
-      overlay.id = 'opponentLeftOverlay';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;background:rgba(0,10,15,.93);color:#e8fdff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-align:center;padding:24px;';
-      overlay.innerHTML = `
-        <div>
-          <div style="font-size:24px;font-weight:800;margin-bottom:12px;">Votre adversaire s'est déconnecté</div>
-          <div style="font-size:15px;opacity:.85;margin-bottom:20px;max-width:420px;">Il a <strong id="opponentLeftCountdown">${remaining}</strong> secondes pour se reconnecter, sans quoi vous remportez la partie automatiquement.</div>
-          <div style="width:240px;height:8px;border-radius:999px;background:rgba(255,255,255,.15);margin:0 auto;overflow:hidden;">
-            <div id="opponentLeftBar" style="height:100%;width:100%;background:linear-gradient(90deg,#19e27a,#ffd93d);transition:width 1s linear;"></div>
-          </div>
-        </div>`;
-      document.body.appendChild(overlay);
-      const countdownEl = document.getElementById('opponentLeftCountdown');
-      const barEl = document.getElementById('opponentLeftBar');
-      opponentLeftTimer = setInterval(() => {
-        remaining--;
-        if (countdownEl) countdownEl.textContent = String(Math.max(0, remaining));
-        if (barEl) barEl.style.width = `${Math.max(0, (remaining / total) * 100)}%`;
-        if (remaining <= 0) { clearInterval(opponentLeftTimer); opponentLeftTimer = null; }
-      }, 1000);
-    });
-
-    socket.on('opponentRejoined', ({ seat }) => {
-      if (seat === MY_SEAT) return;
-      removeOpponentLeftOverlay();
-      pushHistory('info', `Votre adversaire s'est reconnecté.`);
-    });
-
+    // Déconnexion de l'adversaire = victoire immédiate. Pas de délai de
+    // grâce, pas de reconnexion possible.
     socket.on('matchForfeit', ({ winnerSeat }) => {
-      removeOpponentLeftOverlay();
       endGame(winnerSeat, 'disconnect');
     });
 
