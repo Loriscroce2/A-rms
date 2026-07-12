@@ -3983,9 +3983,10 @@ function attachHP(el, card){
   if (isBruitzeurActive()) {
     effectiveShield = 0;
   }
-  if (effectiveShield > 0){
-    const sh = document.createElement('div'); sh.className='shield'; sh.textContent = effectiveShield; el.appendChild(sh);
-  }
+  // Le Bouclier s'affiche désormais TOUJOURS, même à 0 — pour que chaque
+  // combattant montre systématiquement ses deux statistiques (PV et PB)
+  // partout dans le jeu, sans exception ni incohérence entre les cartes.
+  const sh = document.createElement('div'); sh.className='shield'; sh.textContent = effectiveShield; el.appendChild(sh);
 }
 
 // NOUVEAU : Affiche le compteur de BUTS pour Flavio VII (C154)
@@ -15657,128 +15658,177 @@ function checkForLarvaFusion(owner) {
 
     if (larvas.length >= 3) {
         pushHistory('info', `Trois ${cardAnchor('T02')} commencent à fusionner !`);
-        
+
         const larvasToFuse = larvas.slice(0, 3);
         const larvaIDs = larvasToFuse.map(l => l.id);
 
-        // Prévient l'adversaire pour qu'il voie, lui aussi, l'animation en même temps.
-        if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
-          window.__socket.emit('vfx', {
-            matchId: ONLINE_MATCH_ID, seat: owner,
-            payload: { type: 'larvaFusion', owner }
-          });
-        }
-        playFusionAnimation(owner);
-        
         const newLine = playerLine.filter(c => !larvaIDs.includes(c.id));
         playerLine.length = 0;
         playerLine.push(...newLine);
-        
-        fullRender();
-        
-        // ===================================================================
-        // DÉBUT DE LA CORRECTION POUR IDOLE DE FIEL (C53)
-        // ===================================================================
-        // On envoie les larves en exil en passant le contexte nécessaire
-        // à l'activation de l'Idole de Fiel.
+
         larvasToFuse.forEach(larva => {
             addToExile(larva, { hpBefore: getEffectiveHP(larva) });
         });
-        // ===================================================================
-        // FIN DE LA CORRECTION
-        // ===================================================================
+
+        // La transformation s'applique IMMÉDIATEMENT (comme Kabba/Forgecoeur/
+        // Pour le bien de tous) — le placement gauche/droite est décidé ICI,
+        // AVANT l'animation, qui n'est plus qu'un habillage purement visuel
+        // joué PAR-DESSUS un état déjà correct. L'ANCIENNE version exigeait un
+        // clic en fin d'animation pour choisir le placement — comme les deux
+        // joueurs voyaient la même animation cliquable, l'adversaire pouvait
+        // cliquer lui aussi et déclencher la création d'un second Anomaly en
+        // double. Cette version élimine totalement ce risque : plus aucune
+        // interaction requise pendant l'animation, quel que soit le joueur.
+        askLeftRightPlacement('Anomaly', `Où placer ${cardAnchor('T03')} dans votre zone de combat ?`, (side) => {
+            const ownerPrefix = owner === 'top' ? 'T' : 'B';
+            const anomaly = createCard('T03', ownerPrefix);
+            const line = getLineByOwner(owner);
+            if (side === 'left') line.unshift(anomaly); else line.push(anomaly);
+            pushHistory('jeu', `${cardAnchor('T03')} est invoquée par fusion !`);
+            fullRender();
+
+            // Prévient l'adversaire pour qu'il voie, lui aussi, l'animation en
+            // même temps — purement décorative de son côté, sans le moindre
+            // bouton ni possibilité d'interagir.
+            if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+              window.__socket.emit('vfx', {
+                matchId: ONLINE_MATCH_ID, seat: owner,
+                payload: { type: 'larvaFusion', owner }
+              });
+            }
+            playFusionAnimation(owner, () => {
+              onCharacterEnterBattlefield(anomaly, owner);
+              fullRender();
+            });
+        });
     }
 }
 
-function playFusionAnimation(owner) {
+// Animation de fusion propre à l'Anomaly : thème de corruption/mutation
+// toxique, en 5 temps, entièrement autonome (son propre <style> injecté,
+// aucune dépendance aux anciennes classes CSS externes) et SANS LA MOINDRE
+// INTERACTION — plus aucun clic requis pour continuer, ce qui élimine
+// totalement le risque de double création vu par les deux joueurs.
+function playFusionAnimation(owner, onDone){
+  try{
+    const style = document.createElement('style');
+    style.textContent = `
+      .anomFusionOverlay{ position:fixed; inset:0; z-index:8100; display:flex; align-items:center; justify-content:center;
+        background:radial-gradient(circle, #0a1408 0%, #030503 70%); opacity:0; transition:opacity .5s ease; overflow:hidden; }
+      .anomFusionOverlay.show{ opacity:1; }
+      .anomStage{ position:relative; width:min(560px,80vw); height:min(560px,80vw); display:flex; align-items:center; justify-content:center; }
+      .anomLarva{ position:absolute; width:70px; height:98px; border-radius:8px; background-size:cover; background-position:center;
+        box-shadow:0 0 20px rgba(140,255,90,.5); filter:saturate(1.3); opacity:0; }
+      .anomLarva.fly{ animation:anomLarvaFly 1s cubic-bezier(.2,.8,.25,1) forwards; }
+      .anomLarva.orbit{ animation:anomOrbit 1.6s linear infinite; }
+      .anomLarva.implode{ animation:anomImplode .4s ease-in forwards; }
+      @keyframes anomLarvaFly{ from{ opacity:0; transform:translate(var(--fromX),var(--fromY)) scale(.4); } to{ opacity:1; transform:translate(0,0) scale(1); } }
+      @keyframes anomOrbit{ from{ transform:rotate(0deg) translateX(120px) rotate(0deg); } to{ transform:rotate(360deg) translateX(120px) rotate(-360deg); } }
+      @keyframes anomImplode{ to{ transform:translate(0,0) scale(0); opacity:0; } }
+      .anomTendril{ position:absolute; inset:0; opacity:0; transition:opacity .4s ease; }
+      .anomTendril.show{ opacity:.85; }
+      .anomCore{ position:absolute; width:24px; height:24px; border-radius:50%;
+        background:radial-gradient(circle, #d4ff6a 0%, #6ea832 55%, transparent 75%);
+        box-shadow:0 0 40px rgba(160,255,80,.85), 0 0 90px rgba(120,255,60,.5);
+        opacity:0; transform:scale(.3); transition:opacity .4s ease, transform .4s ease; }
+      .anomCore.show{ opacity:1; transform:scale(1); animation:anomCorePulse 1s ease-in-out infinite; }
+      @keyframes anomCorePulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.5); } }
+      .anomFlash{ position:absolute; inset:0; background:radial-gradient(circle, #f2ffcf 0%, #b7ff6e 30%, transparent 70%);
+        opacity:0; pointer-events:none; }
+      .anomFlash.pop{ opacity:1; animation:anomFlashFade .5s ease-out forwards; }
+      @keyframes anomFlashFade{ to{ opacity:0; } }
+      .anomReveal{ position:relative; width:min(280px,60vw); height:min(392px,84vw); border-radius:16px; background-size:cover; background-position:center;
+        border:3px solid rgba(160,255,80,.7); box-shadow:0 0 60px rgba(140,255,80,.6), 0 24px 50px rgba(0,0,0,.7);
+        opacity:0; transform:scale(.3); transition:opacity .7s cubic-bezier(.2,.8,.2,1.2), transform .7s cubic-bezier(.2,.8,.2,1.2); }
+      .anomReveal.show{ opacity:1; transform:scale(1); }
+      .anomSpore{ position:absolute; bottom:-10px; border-radius:50%; background:radial-gradient(circle, rgba(180,255,110,.9), transparent 70%);
+        opacity:0; animation:anomSporeRise linear forwards; }
+      @keyframes anomSporeRise{ 0%{ opacity:0; transform:translateY(0) scale(.6); } 15%{ opacity:.9; } 100%{ opacity:0; transform:translateY(-260px) scale(1.1); } }
+      .anomCaption{ position:absolute; bottom:26px; left:0; right:0; text-align:center; font-family:'Cinzel',serif; font-weight:800;
+        font-size:clamp(22px,3.4vw,34px); letter-spacing:.14em; text-transform:uppercase; color:#d8ffb0;
+        text-shadow:0 0 18px rgba(160,255,80,.8), 0 4px 10px rgba(0,0,0,.7); opacity:0; transition:opacity .6s ease; }
+      .anomCaption.show{ opacity:1; }
+      .anomFusionOverlay.exit{ opacity:0; }
+    `;
+    document.head.appendChild(style);
+
     const overlay = document.createElement('div');
-    overlay.id = 'fusionOverlay';
+    overlay.className = 'anomFusionOverlay';
+    const sporesHtml = Array.from({length:14}, () => {
+      const left = 20 + Math.random()*60;
+      const size = 4 + Math.random()*7;
+      const dur = 2.4 + Math.random()*1.8;
+      const delay = Math.random()*2.5;
+      return `<div class="anomSpore" style="left:${left}%; width:${size}px; height:${size}px; animation-duration:${dur}s; animation-delay:${delay}s;"></div>`;
+    }).join('');
+    overlay.innerHTML = `
+      <div class="anomStage" id="anomStage">
+        <div class="anomFlash" id="anomFlash"></div>
+        <div class="anomCore" id="anomCore"></div>
+        <div class="anomReveal" id="anomReveal">${sporesHtml}<div class="anomCaption" id="anomCaption">Anomaly émerge</div></div>
+      </div>
+    `;
     document.body.appendChild(overlay);
-    overlay.style.display = 'block';
+    requestAnimationFrame(() => overlay.classList.add('show'));
 
-    // Étape 1 : Les 3 larves arrivent et orbitent
-    for (let i = 1; i <= 3; i++) {
-        const el = document.createElement('div');
-        el.className = 'fusion-larva';
-        el.style.backgroundImage = `url(${getCardImage('T02')})`;
-        overlay.appendChild(el);
-        el.style.animation = `larva-fly-in-${i} 1s ease-out forwards`;
+    const stage = document.getElementById('anomStage');
+    const angles = [0, 120, 240];
+    const larvaEls = angles.map((angle, i) => {
+      const el = document.createElement('div');
+      el.className = 'anomLarva';
+      el.style.backgroundImage = `url(${getCardImage('T02')})`;
+      const rad = angle * Math.PI / 180;
+      el.style.setProperty('--fromX', `${Math.cos(rad) * 340}px`);
+      el.style.setProperty('--fromY', `${Math.sin(rad) * 340}px`);
+      stage.insertBefore(el, document.getElementById('anomFlash'));
+      return el;
+    });
 
-        setTimeout(() => {
-            el.style.animation = `larva-orbit 2s linear infinite`;
-            const angle = (360 / 3) * (i - 1);
-            el.style.transformOrigin = `center 120px`;
-            el.style.transform = `rotate(${angle}deg)`;
-        }, 1200);
-        
-        // Étape 2 : Les larves implosent
-        setTimeout(() => {
-            el.style.animation = `final-fusion-flash 0.3s ease-in forwards`;
-        }, 3500);
-    }
+    // Phase 1 : les 3 larves convergent depuis les bords
+    setTimeout(() => { larvaEls.forEach(el => el.classList.add('fly')); }, 150);
 
-    // Étape 3 : Le cœur d'énergie apparaît et pulse
-    const coreStartTime = 3700; // Le cœur apparaît juste après l'implosion des larves
+    // Phase 2 : elles se mettent à orbiter rapidement, tandis qu'un noyau
+    // toxique grandit au centre — l'énergie s'accumule visiblement.
     setTimeout(() => {
-        const core = document.createElement('div');
-        core.className = 'fusion-core';
-        overlay.appendChild(core);
+      larvaEls.forEach((el, i) => {
+        el.classList.remove('fly');
+        el.style.animationDelay = `${i * -0.53}s`;
+        el.classList.add('orbit');
+      });
+      document.getElementById('anomCore').classList.add('show');
+    }, 1150);
 
-        // Étape 4 : L'Anomaly émerge du cœur en s'agrandissant
-        const anomalyEmergenceTime = 1400; // Commence après 1.4s de pulsation du cœur
-        setTimeout(() => {
-            core.remove(); // On supprime le cœur
-            document.body.classList.add('fusion-shake'); // IMPACT : Secousse d'écran
-            
-            // L'Anomaly apparaît maintenant et s'anime en sortant du centre
-            const anomalyZoomEl = document.createElement('div');
-            anomalyZoomEl.className = 'fusion-anomaly-zoom';
-            anomalyZoomEl.style.backgroundImage = `url(${getCardImage('T03')})`;
-            overlay.appendChild(anomalyZoomEl);
+    // Phase 3 : implosion — les larves s'effondrent dans le noyau, flash.
+    setTimeout(() => {
+      larvaEls.forEach(el => { el.classList.remove('orbit'); el.classList.add('implode'); });
+    }, 2950);
+    setTimeout(() => {
+      document.getElementById('anomCore').classList.remove('show');
+      document.getElementById('anomFlash').classList.add('pop');
+      document.body.style.transition = 'transform .08s ease';
+      document.body.style.transform = 'translateX(-4px)';
+      setTimeout(() => { document.body.style.transform = 'translateX(3px)'; }, 80);
+      setTimeout(() => { document.body.style.transform = ''; document.body.style.transition = ''; }, 160);
+    }, 3350);
 
-            overlay.style.pointerEvents = 'auto';
-            anomalyZoomEl.style.cursor = 'pointer';
-            anomalyZoomEl.title = 'Cliquez pour placer l\'Anomaly';
+    // Phase 4 : l'Anomaly émerge du flash, grandit, la légende apparaît.
+    setTimeout(() => {
+      const reveal = document.getElementById('anomReveal');
+      reveal.style.backgroundImage = `url(${getCardImage('T03')})`;
+      reveal.classList.add('show');
+      setTimeout(() => { document.getElementById('anomCaption').classList.add('show'); }, 400);
+    }, 3700);
 
-            // Étape 5 : Le clic sur l'Anomaly déclenche le choix de placement
-            overlay.addEventListener('click', () => {
-                overlay.remove();
-                document.body.classList.remove('fusion-shake');
-                spawnAnomaly(owner);
-            }, { once: true });
-            
-        }, anomalyEmergenceTime); // Le cœur pulse pendant ce temps avant que l'Anomaly n'émerge.
-
-    }, coreStartTime);
-}
-
-function spawnAnomaly(owner) {
-    const ownerPrefix = owner === 'top' ? 'T' : 'B';
-    const anomaly = createCard('T03', ownerPrefix);
-
-    openButtonsPrompt(
-        'Fusion terminée !',
-        `<strong>Anomaly</strong> est apparue ! Où la placer ?`,
-        null,
-        [
-            { label: 'À gauche', className: 'confirm', onClick: () => placeAnomaly(owner, anomaly, 'left') },
-            { label: 'À droite', className: 'confirm', onClick: () => placeAnomaly(owner, anomaly, 'right') }
-        ],
-        { nonCancellable: true }
-    );
-}
-
-function placeAnomaly(owner, anomalyCard, position) {
-    const playerLine = getLineByOwner(owner);
-
-    if (position === 'left') {
-        playerLine.unshift(anomalyCard);
-    } else {
-        playerLine.push(anomalyCard);
-    }
-    pushHistory('jeu', `${cardAnchor('T03')} est invoquée par fusion !`);
-    onCharacterEnterBattlefield(anomalyCard, owner);
-    fullRender();
+    // Tenue, puis sortie en fondu.
+    setTimeout(() => {
+      overlay.classList.add('exit');
+      setTimeout(() => {
+        overlay.remove();
+        style.remove();
+        if (typeof onDone === 'function') onDone();
+      }, 550);
+    }, 6200);
+  }catch(e){ if (typeof onDone === 'function') onDone(); }
 }
 // ===================================================================
 // FIN DE LA LOGIQUE (TUNNEL DE LUMIÈRE) POUR REYNA / LARVE / ANOMALY
