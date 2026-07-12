@@ -5,6 +5,7 @@
 
 require('dotenv').config();
 const path = require('path');
+const fs = require('fs');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
@@ -1152,6 +1153,74 @@ io.on('connection', (socket) => {
     liveMatches.delete(matchId);
   });
 });
+
+// ===================================================================
+// Régénération automatique de public/data/card-stats.json — évite que ce
+// fichier ne devienne obsolète à chaque nouvelle carte ajoutée au jeu. Il
+// est entièrement reconstruit à CHAQUE démarrage du serveur (donc à chaque
+// déploiement), directement à partir des vraies tables de données du jeu
+// (CARD_TYPES / CARD_HP_BASE / CARD_SHIELD_BASE dans public/index.html),
+// croisées avec la liste officielle des cartes implémentées (ALL_CARDS
+// dans cards-catalog.js). Plus jamais besoin de le régénérer à la main :
+// il suffit d'ajouter une carte normalement (dans index.html ET
+// cards-catalog.js, comme d'habitude) et le prochain déploiement s'occupe
+// du reste automatiquement.
+// ===================================================================
+function regenerateCardStats() {
+  try {
+    const htmlPath = path.join(__dirname, 'public', 'index.html');
+    const html = fs.readFileSync(htmlPath, 'utf-8');
+
+    function extractTable(varName) {
+      const startIdx = html.indexOf(`const ${varName}`);
+      if (startIdx === -1) return {};
+      const braceStart = html.indexOf('{', startIdx);
+      let depth = 0, i = braceStart;
+      while (i < html.length) {
+        if (html[i] === '{') depth++;
+        else if (html[i] === '}') { depth--; if (depth === 0) break; }
+        i++;
+      }
+      const body = html.slice(braceStart + 1, i);
+      const pairs = {};
+      const re = /'([CT]\d+)'\s*:\s*(-?\d+|'[^']*'|"[^"]*")/g;
+      let m;
+      while ((m = re.exec(body)) !== null) {
+        let val = m[2];
+        if (val.startsWith("'") || val.startsWith('"')) val = val.slice(1, -1);
+        else val = parseInt(val, 10);
+        pairs[m[1]] = val;
+      }
+      return pairs;
+    }
+
+    const cardTypes = extractTable('CARD_TYPES');
+    const cardHp = extractTable('CARD_HP_BASE');
+    const cardShield = extractTable('CARD_SHIELD_BASE');
+
+    const result = {};
+    catalog.ALL_CARDS.forEach(({ num, code }) => {
+      const label = `C${num}`;
+      if (cardTypes[label] !== 'personnage') return;
+      result[code] = {
+        type: 'personnage',
+        hp: cardHp[label] || 0,
+        shield: cardShield[label] || 0,
+      };
+    });
+
+    const outPath = path.join(__dirname, 'public', 'data', 'card-stats.json');
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
+    fs.writeFileSync(outPath, JSON.stringify(result), 'utf-8');
+    console.log(`[card-stats] Régénéré automatiquement au démarrage : ${Object.keys(result).length} cartes personnage.`);
+  } catch (err) {
+    // En cas d'échec (fichier index.html introuvable, format inattendu...),
+    // on ne bloque JAMAIS le démarrage du serveur pour autant — le fichier
+    // existant (s'il y en a un) reste simplement en place tel quel.
+    console.error('[card-stats] Échec de la régénération automatique — le fichier existant reste inchangé :', err.message);
+  }
+}
+regenerateCardStats();
 
 // ===================================================================
 // Fichiers statiques
