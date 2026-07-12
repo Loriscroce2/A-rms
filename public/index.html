@@ -1487,6 +1487,16 @@
     }
     #zoom .provocateurBadge.espritBadge{ top:70px; }
 
+    /* KRYLLS : Vers l'infini (C42) — badge décalé plus bas que Esprit pour
+       ne jamais se chevaucher si les deux étaient présents en même temps. */
+    .provocateurBadge.versLInfiniBadge{
+      top:64px;
+      background:linear-gradient(90deg, rgba(190,130,255,.92), rgba(190,130,255,.55));
+      box-shadow:0 0 10px rgba(190,130,255,.6);
+      color:#1c0a30;
+    }
+    #zoom .provocateurBadge.versLInfiniBadge{ top:96px; }
+
     .chargePip.compact {
       width: 22px; height: 22px; font-size: 11px; font-weight: 900;
       display: flex; align-items: center; justify-content: center;
@@ -3224,6 +3234,8 @@ const CARD_IMAGES = {
  'C39': '../cartes/0039.png',
  'C40': '../cartes/0040.png',
  'C41': '../cartes/0041.png',
+ 'C42': '../cartes/0042.png',
+ 'T16': '../cartes/T16.png',
  'T15': '../cartes/T15.png',
  'T11': '../cartes/T11.png',
  'T12': '../cartes/T12.png',
@@ -3364,6 +3376,8 @@ const CARD_TYPES  = {
  'C39': 'artefact',    // Bibliotempz
  'C40': 'personnage',  // Zyzy
  'C41': 'familier',    // Mezamorph
+ 'C42': 'action',      // Vers l'infini
+ 'T16': 'personnage',  // Kamykaz
  'T15': 'familier',    // Arakcrabe
  'T11': 'artefact',    // Pièce détachée
  'T12': 'artefact',    // Pièce détachée
@@ -3503,6 +3517,8 @@ const CARD_NAMES = {
  'C39': 'Bibliotempz',
  'C40': 'Zyzy',
  'C41': 'Mezamorph',
+ 'C42': "Vers l'infini",
+ 'T16': 'Kamykaz',
  'T15': 'Arakcrabe',
  'T11': 'Pièce détachée',
  'T12': 'Pièce détachée',
@@ -3597,6 +3613,7 @@ const CARD_HP_BASE = {
   'C35': 5,
   'C38': 1,
   'C40': 4,
+  'T16': 2,
   'C36': 2,
   'T10': 1,
 };
@@ -3786,6 +3803,8 @@ const CARD_TAGS = {
  'C39': ['artefact', 'Krylls'],            // Bibliotempz
  'C40': ['citoyen', 'Krylls'],             // Zyzy
  'C41': ['familier', 'Krylls'],            // Mezamorph
+ 'C42': ['action', 'Krylls'],              // Vers l'infini
+ 'T16': ['guerrier', 'Krylls'],            // Kamykaz
  'T15': ['familier', 'Krylls'],            // Arakcrabe
  'T11': ['artefact', 'Krylls'],  // Pièce détachée
  'T12': ['artefact', 'Krylls'],  // Pièce détachée
@@ -4051,6 +4070,20 @@ function attachEspritBadge(el, card){
   el.appendChild(badge);
 }
 
+// KRYLLS (nouveau lot) : Vers l'infini (C42) — badge visuel PERMANENT sur
+// tout combattant marqué, pour que les DEUX joueurs se souviennent en
+// permanence qu'il se transformera en Kamykaz à sa mort (pas seulement au
+// moment du marquage).
+function attachVersLInfiniBadge(el, card){
+  const old = el.querySelector('.versLInfiniBadge'); if (old) old.remove();
+  if (!card || !card.versLInfini) return;
+  const badge = document.createElement('div');
+  badge.className = 'provocateurBadge versLInfiniBadge';
+  badge.title = "VERS L'INFINI : à sa mort, ce combattant se transforme en Kamykaz au lieu de mourir normalement.";
+  badge.textContent = '♾ INFINI';
+  el.appendChild(badge);
+}
+
 function attachCapturedMithril(el, card) {
   const old = el.querySelector('.capturedMithrilWrap'); if (old) old.remove();
   if (typeof card.capturedMithril !== 'number' || card.capturedMithril <= 0) return;
@@ -4268,6 +4301,8 @@ let arakcubeTargetMode = null;
 let ozokshiArtifactMode = null;
 let kryoTargetMode = null;
 let zyzyHostTargetMode = null;
+let c42TargetMode = null;
+let kamykazTargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -8017,6 +8052,122 @@ function handleKryoTargetSelection(targetCard, targetCardOwner){
   fullRender();
 }
 
+// KRYLLS (nouveau lot) : Vers l'infini (C42) — marque un combattant
+// (n'importe quel camp) : à sa mort, il se transforme en Kamykaz (T16) au
+// lieu de mourir normalement. Un badge visuel persistant rappelle cette
+// marque aux DEUX joueurs, en permanence, tant que le combattant est vivant.
+function openC42Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  const allCombattants = topLine.concat(botLine);
+  if (allCombattants.length === 0) {
+    openButtonsPrompt("Vers l'infini", `Aucun combattant sur le plateau à marquer.`, anchorEl, [
+      { label: 'OK', className: 'cancel', onClick: ()=>{} },
+    ]);
+    return;
+  }
+  openButtonsPrompt("Vers l'infini", `Jouer <strong>Vers l'infini</strong> ?<br><small>Effet : choisissez un combattant — à sa mort, il se
+    transforme en ${cardAnchor('T16')} au lieu de mourir normalement.</small>`, anchorEl, [
+    { label: 'Jouer', className: 'confirm', onClick: () => playActionC42(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
+  ]);
+}
+
+function playActionC42(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  pushHistory('action', `${cardAnchor('C42')} est jouée.`);
+  fullRender();
+  startC42Targeting(owner);
+}
+
+function startC42Targeting(owner){
+  c42TargetMode = { owner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'c42-target-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Vers l'infini</div>
+    <div class="apMsg">Cliquez sur le combattant (n'importe quel camp) à marquer.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+
+function handleC42TargetSelection(targetCard, targetCardOwner){
+  if (!c42TargetMode) return;
+  c42TargetMode = null;
+  closeActionPrompt();
+  targetCard.versLInfini = true;
+  pushHistory('action', `${cardAnchor('C42')} marque ${cardAnchor(targetCard.label)} : il se transformera en
+    ${cardAnchor('T16')} à sa mort.`);
+  fullRender();
+}
+
+// KRYLLS (nouveau lot) : Kamykaz (T16) — MORT : inflige -2 PV à un
+// combattant (n'importe quel camp), puis se duplique dans sa propre zone
+// de combat au lieu de rejoindre la défausse. S'il devait un jour repartir
+// en main ou être exilé (par un tout autre effet), il disparaît purement et
+// simplement à la place (voir discardCard et addToExile).
+function startKamykazTargeting(owner){
+  kamykazTargetMode = { owner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'kamykaz-target-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Kamykaz</div>
+    <div class="apMsg">Cliquez sur le combattant (n'importe quel camp) qui subit -2 PV.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+
+function handleKamykazTargetSelection(targetCard, targetCardOwner){
+  if (!kamykazTargetMode) return;
+  const { owner } = kamykazTargetMode;
+  kamykazTargetMode = null;
+  closeActionPrompt();
+
+  targetCard.hp = getEffectiveHP(targetCard) - 2;
+  pushHistory('jeu', `${cardAnchor('T16')} inflige <strong>-2 PV</strong> à ${cardAnchor(targetCard.label)}.`);
+  playHPHitEffect(targetCard);
+  if (targetCard.hp <= 0) {
+    const line = getLineByOwner(targetCardOwner);
+    const lidx = line.findIndex(x => x.id === targetCard.id);
+    if (lidx !== -1) {
+      line.splice(lidx, 1);
+      detachFamiliarsOnHost(targetCard, targetCardOwner);
+      discardCard(targetCard, targetCardOwner, 'death');
+    }
+  }
+
+  spawnKamykazDuplicate(owner);
+  fullRender();
+}
+
+function spawnKamykazDuplicate(owner){
+  const newKamykaz = createCard('T16', owner === 'top' ? 'T' : 'B');
+  getLineByOwner(owner).push(newKamykaz);
+  pushHistory('jeu', `${cardAnchor('T16')} se duplique dans la zone de combat !`);
+}
+
 // KRYLLS (nouveau lot) : Zyzy (C40) — JOUER : choisit un familier rattaché
 // à N'IMPORTE QUEL combattant (son camp ou l'adverse) et le place sur Zyzy
 // à la place. Ciblage par clic sur l'hôte, puis choix du familier précis si
@@ -8995,7 +9146,8 @@ function isAnyTargetSelectionActive(){
     c9SelectMode || pilateSelectMode || c18SelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
-    arakcubeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode
+    arakcubeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
+    c42TargetMode || kamykazTargetMode
   );
 }
 // Petit rappel visuel/textuel quand une action est refusée à cause d'un choix en attente.
@@ -9879,6 +10031,18 @@ function continueResolveFight(from, to){
     const familiars = getFamiliersOnHost(card);
     const hasGluangel = familiars.some(f => f.label === 'C169' && !isFamiliarEffectSuppressed(card, 'C169'));
 
+    // KRYLLS (nouveau lot) : Kamykaz (T16) — s'il devait repartir en main
+    // via cet effet, il disparaît purement et simplement à la place.
+    if (hasGluangel && card.label === 'T16') {
+      detachFamiliarsOnHost(card, owner);
+      const line = (owner==='top')? topLine : botLine;
+      const kidx = line.findIndex(c => c.id === card.id);
+      if (kidx !== -1) line.splice(kidx, 1);
+      pushHistory('info', `${cardAnchor('T16')} disparaît au lieu de retourner en main.`);
+      fullRender();
+      return;
+    }
+
     if (hasGluangel) {
       // 1. On détache tous les familiars (ils iront à la défausse)
       detachFamiliarsOnHost(card, owner);
@@ -10157,6 +10321,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C16') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC16Prompt(owner, card)); }); }
             if (card.label === 'C30') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC30Prompt(owner, card, el)); }); }
             if (card.label === 'C33') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC33Prompt(owner, card, el)); }); }
+            if (card.label === 'C42') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC42Prompt(owner, card, el)); }); }
             if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
             if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
             if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
@@ -10496,6 +10661,8 @@ attachCapturedMithril(el, card);
     attachPoupeeBadge(el, card);
     // KRYLLS (nouveau lot) : badge Esprit visible sur toute carte portant ce trait.
     attachEspritBadge(el, card);
+    // KRYLLS (nouveau lot) : badge Vers l'infini, permanent tant que le combattant est marqué.
+    attachVersLInfiniBadge(el, card);
   };
 
   clearFallbackName(el);
@@ -10739,6 +10906,8 @@ if (hitAndRunMode) {
     if (arakcubeTargetMode) { handleArakcubeTargetSelection(card, owner); return; }
     if (kryoTargetMode) { handleKryoTargetSelection(card, owner); return; }
     if (zyzyHostTargetMode) { handleZyzyHostSelection(card, owner); return; }
+    if (c42TargetMode) { handleC42TargetSelection(card, owner); return; }
+    if (kamykazTargetMode) { handleKamykazTargetSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
     if (c231TargetMode) { handleC231TargetSelection(card, owner); return; }
@@ -11710,6 +11879,15 @@ function checkForIdoleDeFielTrigger(exiledCard, hpBeforeExile) {
 }
 
 function addToExile(card, context = {}){
+    // KRYLLS (nouveau lot) : Kamykaz (T16) — s'il devait un jour être exilé
+    // par un effet quelconque, il disparaît purement et simplement à la
+    // place (ni animation d'absorption, ni présence en pile d'Exil).
+    if (card.label === 'T16') {
+      pushHistory('info', `${cardAnchor('T16')} disparaît au lieu de rejoindre l'Exil.`);
+      fullRender();
+      return;
+    }
+
     // Animation "absorption par le portail" — capturée ICI, avant toute
     // mutation d'état, pendant que l'élément DOM de la carte existe encore
     // réellement à l'écran (il ne sera retiré qu'au prochain fullRender()).
@@ -11967,6 +12145,31 @@ function discardCard(card, owner, reason='other', context = {}){
   if (card.mezamorphOriginal) {
     card = createCard('C41', owner === 'top' ? 'T' : 'B');
   }
+  // KRYLLS (nouveau lot) : Vers l'infini (C42) — un combattant marqué se
+  // transforme en Kamykaz (T16) au lieu de mourir normalement, dans la
+  // même zone de combat, chez le même propriétaire.
+  if (card.versLInfini && reason === 'death') {
+    const kamykaz = createCard('T16', owner === 'top' ? 'T' : 'B');
+    getLineByOwner(owner).push(kamykaz);
+    pushHistory('jeu', `${cardAnchor(card.label)} se transforme en ${cardAnchor('T16')} sous l'effet de
+      ${cardAnchor('C42')} !`);
+    fullRender();
+    return;
+  }
+  // KRYLLS (nouveau lot) : Kamykaz (T16) — MORT : inflige -2 PV à un
+  // combattant, puis se duplique dans sa propre zone de combat au lieu de
+  // rejoindre la défausse (voir aussi handleKamykazTargetSelection pour la
+  // résolution du ciblage).
+  if (card.label === 'T16' && reason === 'death') {
+    if (topLine.concat(botLine).length > 0) {
+      startKamykazTargeting(owner);
+    } else {
+      spawnKamykazDuplicate(owner);
+      fullRender();
+    }
+    return;
+  }
+
   // WADOO : Linkrevable (C212) revient dans la zone de combat au lieu de mourir, tant qu'il lui reste des charges
   if (card.label === 'C212' && reason === 'death') {
     if (typeof card.charges !== 'number') card.charges = 4;
