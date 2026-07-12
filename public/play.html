@@ -1052,6 +1052,61 @@
       overlay.addEventListener('click', dismiss);
       setTimeout(dismiss, 6000);
     }
+
+    // Même mécanisme que sur la page d'accueil : si ce joueur revient sur
+    // le site alors qu'un compte à rebours de déconnexion est en cours pour
+    // lui, il doit être forcé de se reconnecter avant de pouvoir faire quoi
+    // que ce soit d'autre sur cette page.
+    (async function checkActiveMatch(){
+      try{
+        const res = await fetch('/api/matchmaking/active-match');
+        const data = await res.json();
+        if (!res.ok || !data.active || !data.matchId || !data.seat) return;
+        if (data.disconnected && data.graceSecondsRemaining > 0) {
+          let remaining = data.graceSecondsRemaining;
+          const total = remaining;
+          const overlay = document.createElement('div');
+          overlay.id = 'forcedReconnectOverlay';
+          overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,10,15,.95);color:#e8fdff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-align:center;padding:24px;';
+          overlay.innerHTML = `
+            <div style="max-width:420px;">
+              <div style="font-size:40px;margin-bottom:10px;">⚔</div>
+              <div style="font-size:24px;font-weight:800;margin-bottom:12px;">Une partie vous attend !</div>
+              <div style="font-size:15px;opacity:.85;margin-bottom:22px;">Votre adversaire attend votre retour. Il vous reste <strong id="frCountdown">${remaining}</strong> secondes pour vous reconnecter, sans quoi vous perdrez la partie par forfait.</div>
+              <div style="width:240px;height:8px;border-radius:999px;background:rgba(255,255,255,.15);margin:0 auto 22px;overflow:hidden;">
+                <div id="frBar" style="height:100%;width:100%;background:linear-gradient(90deg,#ff5d5d,#ffd93d);transition:width 1s linear;"></div>
+              </div>
+              <button id="frReconnectBtn" style="padding:14px 34px;border-radius:12px;font-weight:900;font-size:16px;cursor:pointer;background:linear-gradient(180deg,#19e27a,#11985b);color:#052319;border:1px solid #4df7a8;box-shadow:0 8px 20px rgba(25,226,122,.35);">Se reconnecter maintenant</button>
+            </div>`;
+          document.body.appendChild(overlay);
+          const blockEvent = (e) => { if (!overlay.contains(e.target)) { e.stopPropagation(); e.preventDefault(); } };
+          document.addEventListener('click', blockEvent, true);
+          document.addEventListener('keydown', blockEvent, true);
+          const countdownEl = document.getElementById('frCountdown');
+          const barEl = document.getElementById('frBar');
+          const timer = setInterval(() => {
+            remaining--;
+            if (countdownEl) countdownEl.textContent = String(Math.max(0, remaining));
+            if (barEl) barEl.style.width = `${Math.max(0, (remaining / total) * 100)}%`;
+            if (remaining <= 0) {
+              clearInterval(timer);
+              document.removeEventListener('click', blockEvent, true);
+              document.removeEventListener('keydown', blockEvent, true);
+              overlay.innerHTML = `
+                <div style="max-width:420px;">
+                  <div style="font-size:40px;margin-bottom:10px;">⏱</div>
+                  <div style="font-size:22px;font-weight:800;margin-bottom:10px;">Temps écoulé</div>
+                  <div style="font-size:15px;opacity:.85;">La partie a été déclarée perdue par forfait, faute de reconnexion à temps.</div>
+                </div>`;
+              setTimeout(() => overlay.remove(), 3500);
+            }
+          }, 1000);
+          document.getElementById('frReconnectBtn').addEventListener('click', () => {
+            window.location.href = `/index.html?matchId=${encodeURIComponent(data.matchId)}&seat=${encodeURIComponent(data.seat)}`;
+          });
+        }
+      }catch(e){}
+    })();
   </script>
 </body>
 </html>

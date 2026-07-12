@@ -644,27 +644,87 @@
     })();
 
     // Une partie en ligne était en cours au moment où ce joueur a quitté
-    // (déconnexion, fermeture d'onglet...) : on la retrouve automatiquement
-    // et on propose de la reprendre, sans qu'il ait besoin de l'URL exacte.
+    // (déconnexion, fermeture d'onglet...) : on la retrouve automatiquement.
+    // Si un compte à rebours de 30 secondes est ACTUELLEMENT en cours pour
+    // lui (l'adversaire attend son retour), une fenêtre BLOQUANTE s'impose —
+    // impossible d'interagir avec quoi que ce soit d'autre tant qu'il ne
+    // s'est pas reconnecté ou que le délai n'est pas écoulé.
     (async function checkActiveMatch(){
       try{
         const res = await fetch('/api/matchmaking/active-match');
         const data = await res.json();
-        if (res.ok && data.active && data.matchId && data.seat) {
-          const banner = document.createElement('div');
-          banner.style.cssText = 'position:fixed; top:84px; left:50%; transform:translateX(-50%); z-index:5500; display:flex; align-items:center; gap:12px; max-width:min(92vw,520px); background:linear-gradient(145deg,#0a2530,#051820); border:1.5px solid rgba(125,249,255,.5); border-radius:14px; padding:12px 16px; box-shadow:0 10px 26px rgba(0,0,0,.5), 0 0 22px rgba(125,249,255,.25); color:#e8fdff; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
-          banner.innerHTML = `
-            <span style="font-size:22px;">⚔</span>
-            <span style="font-size:12.5px; line-height:1.4; flex:1;"><strong>Une partie en ligne est toujours en cours.</strong> Vous pouvez la reprendre où vous l'avez laissée.</span>
-            <button id="resumeMatchBtn" style="flex:none; padding:9px 16px; border-radius:10px; font-weight:900; font-size:12.5px; cursor:pointer; background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border:1px solid #4df7a8;">Reprendre</button>
-          `;
-          document.body.appendChild(banner);
-          document.getElementById('resumeMatchBtn').addEventListener('click', () => {
-            window.location.href = `/index.html?matchId=${encodeURIComponent(data.matchId)}&seat=${encodeURIComponent(data.seat)}`;
-          });
+        if (!res.ok || !data.active || !data.matchId || !data.seat) return;
+
+        if (data.disconnected && data.graceSecondsRemaining > 0) {
+          showForcedReconnectModal(data.matchId, data.seat, data.graceSecondsRemaining);
+        } else {
+          showResumeMatchBanner(data.matchId, data.seat);
         }
       }catch(e){}
     })();
+
+    function showResumeMatchBanner(matchId, seat){
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed; top:84px; left:50%; transform:translateX(-50%); z-index:5500; display:flex; align-items:center; gap:12px; max-width:min(92vw,520px); background:linear-gradient(145deg,#0a2530,#051820); border:1.5px solid rgba(125,249,255,.5); border-radius:14px; padding:12px 16px; box-shadow:0 10px 26px rgba(0,0,0,.5), 0 0 22px rgba(125,249,255,.25); color:#e8fdff; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
+      banner.innerHTML = `
+        <span style="font-size:22px;">⚔</span>
+        <span style="font-size:12.5px; line-height:1.4; flex:1;"><strong>Une partie en ligne est toujours en cours.</strong> Vous pouvez la reprendre où vous l'avez laissée.</span>
+        <button id="resumeMatchBtn" style="flex:none; padding:9px 16px; border-radius:10px; font-weight:900; font-size:12.5px; cursor:pointer; background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border:1px solid #4df7a8;">Reprendre</button>
+      `;
+      document.body.appendChild(banner);
+      document.getElementById('resumeMatchBtn').addEventListener('click', () => {
+        window.location.href = `/index.html?matchId=${encodeURIComponent(matchId)}&seat=${encodeURIComponent(seat)}`;
+      });
+    }
+
+    function showForcedReconnectModal(matchId, seat, graceSecondsRemaining){
+      let remaining = graceSecondsRemaining;
+      const total = remaining;
+      const overlay = document.createElement('div');
+      overlay.id = 'forcedReconnectOverlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,10,15,.95);color:#e8fdff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-align:center;padding:24px;';
+      overlay.innerHTML = `
+        <div style="max-width:420px;">
+          <div style="font-size:40px;margin-bottom:10px;">⚔</div>
+          <div style="font-size:24px;font-weight:800;margin-bottom:12px;">Une partie vous attend !</div>
+          <div style="font-size:15px;opacity:.85;margin-bottom:22px;">Votre adversaire attend votre retour. Il vous reste <strong id="frCountdown">${remaining}</strong> secondes pour vous reconnecter, sans quoi vous perdrez la partie par forfait.</div>
+          <div style="width:240px;height:8px;border-radius:999px;background:rgba(255,255,255,.15);margin:0 auto 22px;overflow:hidden;">
+            <div id="frBar" style="height:100%;width:100%;background:linear-gradient(90deg,#ff5d5d,#ffd93d);transition:width 1s linear;"></div>
+          </div>
+          <button id="frReconnectBtn" style="padding:14px 34px;border-radius:12px;font-weight:900;font-size:16px;cursor:pointer;background:linear-gradient(180deg,#19e27a,#11985b);color:#052319;border:1px solid #4df7a8;box-shadow:0 8px 20px rgba(25,226,122,.35);">Se reconnecter maintenant</button>
+        </div>`;
+      document.body.appendChild(overlay);
+      // Bloque toute interaction avec le reste de la page (clics, clavier)
+      // tant que cette fenêtre est affichée — seul le bouton de reconnexion
+      // (à l'intérieur de la fenêtre elle-même) reste utilisable.
+      const blockEvent = (e) => { if (!overlay.contains(e.target)) { e.stopPropagation(); e.preventDefault(); } };
+      document.addEventListener('click', blockEvent, true);
+      document.addEventListener('keydown', blockEvent, true);
+
+      const countdownEl = document.getElementById('frCountdown');
+      const barEl = document.getElementById('frBar');
+      const timer = setInterval(() => {
+        remaining--;
+        if (countdownEl) countdownEl.textContent = String(Math.max(0, remaining));
+        if (barEl) barEl.style.width = `${Math.max(0, (remaining / total) * 100)}%`;
+        if (remaining <= 0) {
+          clearInterval(timer);
+          document.removeEventListener('click', blockEvent, true);
+          document.removeEventListener('keydown', blockEvent, true);
+          overlay.innerHTML = `
+            <div style="max-width:420px;">
+              <div style="font-size:40px;margin-bottom:10px;">⏱</div>
+              <div style="font-size:22px;font-weight:800;margin-bottom:10px;">Temps écoulé</div>
+              <div style="font-size:15px;opacity:.85;">La partie a été déclarée perdue par forfait, faute de reconnexion à temps.</div>
+            </div>`;
+          setTimeout(() => overlay.remove(), 3500);
+        }
+      }, 1000);
+
+      document.getElementById('frReconnectBtn').addEventListener('click', () => {
+        window.location.href = `/index.html?matchId=${encodeURIComponent(matchId)}&seat=${encodeURIComponent(seat)}`;
+      });
+    }
   </script>
 </body>
 </html>

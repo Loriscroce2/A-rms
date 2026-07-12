@@ -1005,7 +1005,22 @@ app.get('/api/matchmaking/active-match', authMiddleware, (req, res) => {
     if (!st.userSeats) continue;
     for (const seat of ['bottom', 'top']) {
       if (st.userSeats[seat] === req.user.id) {
-        return res.json({ ok: true, active: true, matchId, seat });
+        // Si CE joueur précis est celui actuellement déconnecté avec un
+        // compte à rebours en cours, on calcule le temps restant EXACT
+        // (basé sur l'horodatage serveur, pas une simple estimation), pour
+        // que le client puisse afficher une fenêtre de reconnexion forcée
+        // avec un minuteur fidèle à la réalité.
+        let disconnected = false;
+        let graceSecondsRemaining = null;
+        if (st.disconnectedAt && st.disconnectedAt[seat]) {
+          const elapsedMs = Date.now() - st.disconnectedAt[seat];
+          const remainingMs = 30000 - elapsedMs;
+          if (remainingMs > 0) {
+            disconnected = true;
+            graceSecondsRemaining = Math.ceil(remainingMs / 1000);
+          }
+        }
+        return res.json({ ok: true, active: true, matchId, seat, disconnected, graceSecondsRemaining });
       }
     }
   }
@@ -1068,6 +1083,7 @@ io.on('connection', (socket) => {
     if (st.disconnectTimers[seat]) {
       clearTimeout(st.disconnectTimers[seat]);
       delete st.disconnectTimers[seat];
+      if (st.disconnectedAt) delete st.disconnectedAt[seat];
       socket.to(matchId).emit('opponentRejoined', { seat });
     }
 
@@ -1195,6 +1211,8 @@ io.on('connection', (socket) => {
     // annule ce minuteur s'il se reconnecte à temps) avant d'être déclaré
     // perdant par forfait, l'autre joueur remportant alors la partie.
     if (!st.disconnectTimers) st.disconnectTimers = {};
+    if (!st.disconnectedAt) st.disconnectedAt = {};
+    st.disconnectedAt[seat] = Date.now();
     st.disconnectTimers[seat] = setTimeout(() => {
       const stNow = liveMatches.get(matchId);
       if (!stNow) return;

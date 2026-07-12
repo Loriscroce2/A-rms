@@ -3042,6 +3042,42 @@ function fadeOutChargementMusic(durationMs){
   requestAnimationFrame(step);
 }
 
+// Fondu de sortie GÉNÉRIQUE, réutilisable pour n'importe quel élément audio
+// (contrairement à fadeOutChargementMusic qui ne concerne que la musique de
+// chargement) — remet le volume à sa valeur d'origine une fois terminé.
+function fadeOutAudioElement(audioEl, durationMs){
+  if (!audioEl) return;
+  durationMs = durationMs || 450;
+  const startVolume = audioEl.volume;
+  const startTime = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - startTime) / durationMs);
+    audioEl.volume = Math.max(0, startVolume * (1 - t));
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      audioEl.pause();
+      audioEl.currentTime = 0;
+      audioEl.volume = startVolume; // remis à sa valeur normale pour la prochaine fois
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// Version de shuffle.mp3 spécifiquement coupée en fondu peu après son
+// déclenchement, plutôt que de laisser le fichier jouer jusqu'à sa fin
+// naturelle — un bref "riffle" de cartes, pas un son qui traîne.
+function playShuffleSfxWithFade(){
+  broadcastAndPlaySfx('shuffle');
+  setTimeout(() => { if (shuffleSfx) fadeOutAudioElement(shuffleSfx, 400); }, 850);
+}
+// Même chose, mais SANS diffusion réseau — utilisée côté réception, pour ne
+// pas rediffuser indéfiniment ce que l'adversaire vient déjà de partager.
+function playShuffleSfxLocalWithFade(){
+  playShuffleSfx();
+  setTimeout(() => { if (shuffleSfx) fadeOutAudioElement(shuffleSfx, 400); }, 850);
+}
+
 // Joue un petit bruitage LOCALEMENT, et le diffuse aussi à l'adversaire en
 // ligne (canal vfx déjà utilisé pour les animations), pour que les deux
 // joueurs entendent toujours la même chose au même moment.
@@ -4188,7 +4224,6 @@ function drawInitialHand(deck) {
   while (hand.filter(card => card.label !== 'C160').length < 6 && deck.length > 0) {
     hand.push(deck.shift());
   }
-  broadcastAndPlaySfx('shuffle');
   return hand;
 }
 
@@ -12617,7 +12652,7 @@ function refillHand(player){
       break;
     }
   }
-  if (hand.length > handSizeBeforeRefill) broadcastAndPlaySfx('shuffle');
+  if (hand.length > handSizeBeforeRefill) playShuffleSfxWithFade();
   updateDeckCounters();
   fullRender();
 }
@@ -16072,11 +16107,11 @@ if (ONLINE_MODE) {
       .vsDrawCard.vsWinner{ transform:translateY(0) scale(1.1) !important; z-index:2; }
       .vsDrawCard.vsLoser{ opacity:.4; transform:translateY(0) scale(.92) !important; }
 
-      .vsDrawResult{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(19px,2.6vw,28px); color:#ffd93d; text-align:center;
-        min-height:34px; text-shadow:0 0 16px rgba(255,217,61,.6); max-width:86vw; opacity:0; transform:translateY(10px);
+      .vsDrawResult{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(16px,2.1vw,22px); color:#ffd93d; text-align:center;
+        min-height:30px; text-shadow:0 0 16px rgba(255,217,61,.6); max-width:86vw; opacity:0; transform:translateY(10px);
         transition:opacity .5s ease, transform .5s ease; }
       .vsDrawResult.show{ opacity:1; transform:translateY(0); }
-      .vsDrawSub{ font-family:'Manrope',system-ui,sans-serif; font-weight:700; font-size:clamp(13px,1.6vw,16px); color:#bfefff; text-align:center;
+      .vsDrawSub{ font-family:'Manrope',system-ui,sans-serif; font-weight:700; font-size:clamp(12px,1.35vw,14px); color:#bfefff; text-align:center;
         max-width:74vw; opacity:0; transform:translateY(8px); transition:opacity .5s ease, transform .5s ease; }
       .vsDrawSub.show{ opacity:.9; transform:translateY(0); }
     `;
@@ -16461,7 +16496,7 @@ if (ONLINE_MODE) {
         // l'adversaire vient de déclencher (pose de carte, défausse
         // manuelle, distribution de main, Mozkyto...), pour que les DEUX
         // joueurs entendent toujours la même chose au même moment.
-        const sfxMap = { posecarte: playPosecarteSfx, discard: playDiscardSfx, shuffle: playShuffleSfx, mozkyto: playMozkytoSfx };
+        const sfxMap = { posecarte: playPosecarteSfx, discard: playDiscardSfx, shuffle: playShuffleSfxLocalWithFade, mozkyto: playMozkytoSfx };
         const fn = sfxMap[payload.name];
         if (fn) fn();
       }
