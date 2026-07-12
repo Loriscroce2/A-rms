@@ -8023,8 +8023,8 @@ function handleTokzikTargetSelection(targetCard, targetCardOwner){
 
 // KRYLLS (nouveau lot) : Kryo (C38) — JOUER et MORT : gèle un combattant
 // adverse choisi par clic direct sur le plateau.
-function startKryoTargeting(casterOwner, targetOwner){
-  kryoTargetMode = { casterOwner, targetOwner };
+function startKryoTargeting(owner){
+  kryoTargetMode = { owner };
   closeActionPrompt();
   const promptEl = document.createElement('div');
   promptEl.id = 'kryo-target-prompt';
@@ -8036,7 +8036,7 @@ function startKryoTargeting(casterOwner, targetOwner){
   promptEl.style.zIndex = '8700';
   promptEl.innerHTML = `
     <div class="apTitle">Kryo</div>
-    <div class="apMsg">Cliquez sur le combattant ennemi à geler.</div>
+    <div class="apMsg">Cliquez sur le combattant (n'importe quel camp) à geler.</div>
   `;
   document.body.appendChild(promptEl);
   actionPromptEl = promptEl;
@@ -8045,7 +8045,6 @@ function startKryoTargeting(casterOwner, targetOwner){
 
 function handleKryoTargetSelection(targetCard, targetCardOwner){
   if (!kryoTargetMode) return;
-  if (targetCardOwner !== kryoTargetMode.targetOwner) return; // uniquement la ligne adverse visée
   kryoTargetMode = null;
   closeActionPrompt();
   applyFreezeToCard(targetCard);
@@ -11342,11 +11341,10 @@ if (card.label === 'C28') {
 // DÉBUT DE LA LOGIQUE D'ENTRÉE POUR KRYO (C38)
 // ===================================================================
 if (card.label === 'C38') {
-  const kryoOpp = (owner === 'top') ? 'bottom' : 'top';
-  if (getLineByOwner(kryoOpp).length > 0) {
-    startKryoTargeting(owner, kryoOpp);
+  if (topLine.concat(botLine).length > 0) {
+    startKryoTargeting(owner);
   } else {
-    pushHistory('info', `${cardAnchor('C38')} : aucun combattant adverse à geler.`);
+    pushHistory('info', `${cardAnchor('C38')} : aucun combattant sur le plateau à geler.`);
   }
 }
 // ===================================================================
@@ -12293,11 +12291,10 @@ if (reason === 'manual') {
   }
   // KRYLLS (nouveau lot) : Kryo (C38) — MORT : gèle un combattant adverse.
   if (card.label === 'C38' && reason === 'death') {
-    const kryoOpp = (owner === 'top') ? 'bottom' : 'top';
-    if (getLineByOwner(kryoOpp).length > 0) {
-      startKryoTargeting(owner, kryoOpp);
+    if (topLine.concat(botLine).length > 0) {
+      startKryoTargeting(owner);
     } else {
-      pushHistory('info', `${cardAnchor('C38')} : aucun combattant adverse en zone de combat, son effet ne se déclenche pas.`);
+      pushHistory('info', `${cardAnchor('C38')} : aucun combattant sur le plateau, son effet ne se déclenche pas.`);
     }
   }
   if (card.label === 'C58' && typeof card.charges === 'number' && card.charges > 0) {
