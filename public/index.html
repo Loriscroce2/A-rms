@@ -954,17 +954,17 @@
     }
     body.fusionShake{ animation:fusionShakeKeyframes .65s cubic-bezier(.36,.07,.19,.97) both; }
 
-    /* Assombrissement pourpre progressif de tout l'écran pendant la fusion,
-       pour une ambiance plus monstrueuse/oppressante. */
-    .fusionVignette{
-      position:fixed; inset:0; z-index:1440; pointer-events:none;
-      opacity:0; transition:opacity .45s ease, background .45s ease;
-      background:radial-gradient(ellipse at center, transparent 30%, rgba(60,10,90,0) 55%, rgba(10,0,20,0) 100%);
+    /* Spotlight de fusion : tout l'écran s'éteint COMPLÈTEMENT, ne laissant
+       visible que la zone de combat concernée (là où Ignominie apparaît et
+       erre) — via une immense ombre portée qui découpe une fenêtre exacte
+       sur cette zone precise, plutôt qu'un simple assombrissement uniforme. */
+    .fusionSpotlight{
+      position:fixed; z-index:7500; pointer-events:none; border-radius:20px;
+      opacity:0; transition:opacity .9s ease, top .6s ease, left .6s ease, width .6s ease, height .6s ease;
+      box-shadow:0 0 0 9999px rgba(2,1,5,.985), inset 0 0 60px rgba(120,30,170,.35);
+      border:1px solid rgba(160,60,220,.4);
     }
-    .fusionVignette.go{
-      opacity:1;
-      background:radial-gradient(ellipse at center, transparent 15%, rgba(90,15,140,.4) 55%, rgba(8,0,16,.8) 100%);
-    }
+    .fusionSpotlight.go{ opacity:1; }
 
     /* Ignominie (T08) errant dans sa zone pendant Ignominie.mp3 : la case
        elle-même tremble en continu (distinct de la secousse ponctuelle de
@@ -5934,6 +5934,17 @@ function playActionFusionnerLesTous(owner, actionCard){
   pushHistory('action', `${cardAnchor('C236')} fusionne ${mergedLabels.length} combattant${mergedLabels.length>1?'s':''} adverse${mergedLabels.length>1?'s':''} en ${cardAnchor('T08')} !` +
     (totalCapturedMithril > 0 ? ` Elle hérite de ${totalCapturedMithril} Mithril capturé.` : ''));
 
+  // Prévient l'adversaire pour qu'il voie, lui aussi, la séquence complète
+  // en même temps (spotlight + vagabondage + grand plan final) — sa propre
+  // zone (celle qui vient de fusionner) reste éclairée chez lui aussi,
+  // puisque c'est exactement la même zone physique des deux côtés.
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID, seat: owner,
+      payload: { type: 'fusionnerLesTous', targetOwner: opp, ignominieId: ignominie.id }
+    });
+  }
+
   animateFusionFrenzy(mergedEls, opp);
   fullRender();
 
@@ -6007,7 +6018,10 @@ function startIgnominieWander(card, owner){
         el.style.filter = '';
       }
       // Présentation finale : Ignominie zoomée au centre de l'écran, avec
-      // une explication de ce qui vient de se passer.
+      // une explication de ce qui vient de se passer. Le spotlight s'éteint
+      // juste avant — le grand plan prend alors toute la place.
+      removeFusionSpotlight(currentFusionSpotlight);
+      currentFusionSpotlight = null;
       showIgnominieReveal(card, owner);
     }, IGNOMINIE_SOUND_DURATION_MS);
   }catch(e){ }
@@ -6051,24 +6065,62 @@ function showIgnominieReveal(card, owner){
    visuel de la carte), avec un léger décalage entre chacune pour un effet de
    "convergence" progressive, puis une onde de choc marque l'apparition
    d'Ignominie à l'endroit exact de l'impact. */
+// Crée le spotlight qui éteint tout l'écran SAUF la zone de combat visée —
+// repositionné dynamiquement si la zone bouge légèrement (redimensionnement,
+// nouvelles cartes qui changent sa taille) pendant toute la séquence.
+function createFusionSpotlight(targetOwner){
+  const spot = document.createElement('div');
+  spot.className = 'fusionSpotlight';
+  document.body.appendChild(spot);
+  const reposition = () => {
+    const zoneEl = document.getElementById(targetOwner === 'top' ? 'battleTop' : 'battleBottom');
+    if (!zoneEl || !spot.parentNode) return;
+    const r = zoneEl.getBoundingClientRect();
+    const pad = 14;
+    spot.style.left = `${r.left - pad}px`;
+    spot.style.top = `${r.top - pad}px`;
+    spot.style.width = `${r.width + pad * 2}px`;
+    spot.style.height = `${r.height + pad * 2}px`;
+  };
+  reposition();
+  requestAnimationFrame(() => { reposition(); spot.classList.add('go'); });
+  const resizeHandler = () => reposition();
+  window.addEventListener('resize', resizeHandler);
+  spot._reposition = reposition;
+  spot._resizeHandler = resizeHandler;
+  return spot;
+}
+function removeFusionSpotlight(spot){
+  if (!spot) return;
+  window.removeEventListener('resize', spot._resizeHandler);
+  spot.classList.remove('go');
+  setTimeout(() => { if (spot.parentNode) spot.remove(); }, 700);
+}
+
+let currentFusionSpotlight = null;
+
 function animateFusionFrenzy(mergedEls, targetOwner){
   try{
-    if (!mergedEls || mergedEls.length === 0) return;
+    // Son + spotlight qui éteint TOUT l'écran sauf la zone concernée, dès le
+    // lancement — persiste tout au long de la séquence (vol des cartes,
+    // vagabondage d'Ignominie), et ne s'éteint que juste avant le grand plan
+    // final (showIgnominieReveal prend alors toute la place).
+    playIgnominieSfx();
+    currentFusionSpotlight = createFusionSpotlight(targetOwner);
+
     const zoneEl = document.querySelector(targetOwner === 'top' ? '#battleTop .battleInner' : '#battleBottom .battleInner');
     if (!zoneEl) return;
     const zoneRect = zoneEl.getBoundingClientRect();
     const target = { x: zoneRect.left + zoneRect.width / 2, y: zoneRect.top + zoneRect.height / 2 };
 
-    // Son + assombrissement progressif de tout l'écran dès le lancement,
-    // pour poser une ambiance monstrueuse avant même que les cartes ne
-    // commencent à converger.
-    playIgnominieSfx();
-    const vignette = document.createElement('div');
-    vignette.className = 'fusionVignette';
-    document.body.appendChild(vignette);
-    requestAnimationFrame(()=> vignette.classList.add('go'));
-
-    mergedEls.forEach((el, i) => {
+    // Vol des cartes fusionnées vers le centre de la zone — n'a lieu que si
+    // les éléments DOM existent réellement (le joueur qui déclenche l'effet
+    // les a encore sous les yeux au moment de l'appel ; côté spectateur, son
+    // plateau a déjà été mis à jour via la synchronisation d'état classique
+    // au moment où l'animation démarre, donc rien à faire voler ici — le
+    // spotlight, la secousse et le flash suffisent à transmettre l'impact).
+    const els = mergedEls || [];
+    els.forEach((el, i) => {
       const start = centerOf(el);
       const ghost = document.createElement('div');
       ghost.className = 'card fusionGhost';
@@ -6087,7 +6139,7 @@ function animateFusionFrenzy(mergedEls, targetOwner){
       setTimeout(()=>{ if (ghost.parentNode) ghost.remove(); }, 900 + i * 70);
     });
 
-    const shockDelay = 550 + mergedEls.length * 70;
+    const shockDelay = 550 + els.length * 70;
 
     // Secousse d'écran : déclenchée juste avant l'impact pour culminer
     // exactement au moment du flash, façon "montée de tension → choc".
@@ -6105,12 +6157,6 @@ function animateFusionFrenzy(mergedEls, targetOwner){
       requestAnimationFrame(()=> flash.classList.add('go'));
       setTimeout(()=>{ if (flash.parentNode) flash.remove(); }, 700);
     }, shockDelay);
-
-    // La vignette se dissipe une fois l'impact passé.
-    setTimeout(()=>{
-      vignette.classList.remove('go');
-      setTimeout(()=>{ if (vignette.parentNode) vignette.remove(); }, 500);
-    }, shockDelay + 350);
   }catch(e){ }
 }
 
@@ -16891,6 +16937,26 @@ if (ONLINE_MODE) {
           if (payload.kind === 'kryo') { openKryoPromptReal(payload.owner); }
           if (payload.kind === 'kamykaz') { openKamykazPromptReal(payload.owner); }
         }
+      }
+      if (payload.type === 'fusionnerLesTous') {
+        // Diffusé par Fusionner les tous (C236) : le spectateur voit la même
+        // séquence (spotlight + vagabondage + grand plan final) — sans
+        // aucune carte à faire voler (son plateau reflète déjà le résultat
+        // via la synchronisation d'état classique), mais avec exactement la
+        // même ambiance et la même zone qui reste éclairée.
+        const findIgnominie = () => findCardOnBoard(payload.ignominieId);
+        const startWhenReady = (attemptsLeft) => {
+          const ignominieCard = findIgnominie();
+          if (ignominieCard) {
+            animateFusionFrenzy(null, payload.targetOwner);
+            requestAnimationFrame(()=> requestAnimationFrame(()=> startIgnominieWander(ignominieCard, payload.targetOwner)));
+          } else if (attemptsLeft > 0) {
+            // La synchronisation d'état n'est peut-être pas encore arrivée —
+            // on retente très brièvement avant d'abandonner proprement.
+            setTimeout(()=> startWhenReady(attemptsLeft - 1), 120);
+          }
+        };
+        startWhenReady(8);
       }
     });
   });
