@@ -15895,6 +15895,9 @@ if (ONLINE_MODE) {
       .vsAvatarWrap.vsTop{top:6%;right:6%;transform:translate(70px,-50px) scale(.55) rotate(6deg);}
       .vsAvatarWrap.vsBottom{bottom:6%;left:6%;transform:translate(-70px,50px) scale(.55) rotate(-6deg);}
       #versusIntro.show .vsAvatarWrap{opacity:1;transform:none;transition-delay:.15s;}
+      /* Une fois la phase de tirage lancée, les avatars s'effacent doucement
+         au second plan pour ne jamais distraire de l'action au centre. */
+      .vsAvatarWrap.vsFaded{opacity:.28 !important; transition:opacity 1s ease;}
 
       .vsRingWrap{position:relative;width:min(460px,42vw);height:min(460px,42vw);display:flex;align-items:center;justify-content:center;}
       .vsRingSpin{position:absolute;inset:-14px;border-radius:50%;
@@ -15922,10 +15925,22 @@ if (ONLINE_MODE) {
       .vsName{font-family:'Cinzel',serif;font-weight:800;font-size:clamp(17px,2.2vw,25px);color:#fff9e0;text-shadow:0 2px 6px rgba(0,0,0,.8);
         white-space:nowrap;letter-spacing:.03em;}
 
-      .vsCenter{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
-      .vsEmblem{position:relative;display:flex;align-items:center;justify-content:center;transform:scale(2.6) rotate(-14deg);opacity:0;
+      /* IMPORTANT : .vsCenter n'est qu'une ANCRE de positionnement (inset:0),
+         PLUS un conteneur flex avec plusieurs enfants — chaque phase
+         (vsEmblem, vsDrawPhase) est positionnée en absolu par-dessus,
+         indépendamment des autres. Avant, vsDrawPhase existait comme
+         second enfant flex du même conteneur que vsEmblem : même invisible
+         (opacity:0), il occupait de la place dans la répartition flex et
+         poussait le "VS" hors du centre exact. */
+      .vsCenter{position:absolute;inset:0;pointer-events:none;}
+      .vsEmblem{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+      .vsEmblemInner{transform:scale(2.6) rotate(-14deg);opacity:0;
         transition:transform .6s cubic-bezier(.16,1.3,.25,1), opacity .3s ease; transition-delay:1.05s;}
-      #versusIntro.show .vsEmblem{transform:scale(1) rotate(-3deg);opacity:1;}
+      #versusIntro.show .vsEmblemInner{transform:scale(1) rotate(-3deg);opacity:1;}
+      /* Éclatement du VS avant de laisser place au tirage : zoom + rotation
+         + dispersion, plutôt qu'un simple fondu abrupt. */
+      .vsEmblem.vsShatter .vsEmblemInner{transform:scale(2.4) rotate(18deg);opacity:0;
+        transition:transform .7s cubic-bezier(.4,0,.6,1), opacity .6s ease;}
       .vsText{font-family:'Cinzel',serif;font-weight:800;font-size:clamp(70px,15vw,170px);letter-spacing:.04em;
         background:linear-gradient(180deg,#fff6d8 0%,#ffd93d 45%,#c98a00 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
         filter:drop-shadow(0 0 24px rgba(255,217,61,.65)) drop-shadow(0 8px 18px rgba(0,0,0,.6));}
@@ -15936,29 +15951,59 @@ if (ONLINE_MODE) {
       .vsStreak.right{left:100%;transform:translateY(-50%) scaleX(0);}
       #versusIntro.show .vsStreak.left{transform:translateY(-50%) scaleX(1);transform-origin:right center;}
       #versusIntro.show .vsStreak.right{transform:translateY(-50%) scaleX(1);transform-origin:left center;}
+      .vsEmblem.vsShatter ~ .vsStreak, .vsStreakFade{opacity:0 !important; transition:opacity .5s ease;}
 
       .vsFlash{position:absolute;inset:0;background:radial-gradient(circle, #fff, #ffe98a 60%, transparent 100%);opacity:0;pointer-events:none;}
       #versusIntro.flash .vsFlash{opacity:.9; transition:opacity .12s ease;}
       #versusIntro.flash2 .vsFlash{opacity:0; transition:opacity .5s ease;}
 
-      #versusIntro.exit{transition:opacity .55s ease;}
+      #versusIntro.exit{transition:opacity .7s ease;}
       #versusIntro.exit{opacity:0;}
 
-      /* Phase de tirage au sort : dévoile les deux cartes, compare, annonce
-         qui commence et la compensation du second joueur. */
-      .vsDrawPhase{ position:relative; display:flex; flex-direction:column; align-items:center; gap:16px; opacity:0; transition:opacity .5s ease; pointer-events:none; }
+      /* ---------------------------------------------------------------
+         PHASE DE TIRAGE AU SORT — cartes x3, bascule 3D, rythme posé.
+         Positionnée en ABSOLU par-dessus .vsCenter, jamais en flex-sibling
+         du VS, pour ne jamais perturber son centrage.
+         --------------------------------------------------------------- */
+      .vsDrawPhase{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px; opacity:0; transition:opacity .6s ease; pointer-events:none; }
       .vsDrawPhase.show{ opacity:1; }
-      .vsDrawTitle{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(15px,2vw,20px); color:#eafdff; letter-spacing:.06em; text-transform:uppercase; text-shadow:0 0 14px rgba(125,249,255,.5); }
-      .vsDrawCards{ display:flex; align-items:center; gap:22px; }
-      .vsDrawCard{ width:min(108px,11vw); height:min(151px,15.4vw); border-radius:10px; background:#0a161a; border:2px solid rgba(125,249,255,.4); box-shadow:0 10px 24px rgba(0,0,0,.55); overflow:hidden; position:relative; transition:transform .35s cubic-bezier(.2,.8,.25,1.3), border-color .3s ease, box-shadow .3s ease, opacity .3s ease; }
-      .vsDrawCardInner{ width:100%; height:100%; }
-      .vsDrawCardInner img{ width:100%; height:100%; object-fit:cover; opacity:0; transition:opacity .4s ease; }
-      .vsDrawCardInner img.show{ opacity:1; }
-      .vsDrawCardLabel{ position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,.68); color:#fff; font-family:'Cinzel',serif; font-weight:800; font-size:12px; text-align:center; padding:4px 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-      .vsDrawVs{ font-family:'Cinzel',serif; color:#ffd93d; font-weight:800; font-size:13px; opacity:.85; letter-spacing:.04em; }
-      .vsDrawCard.vsWinner{ transform:scale(1.14); border-color:#ffd93d; box-shadow:0 0 32px rgba(255,217,61,.75), 0 10px 24px rgba(0,0,0,.55); }
-      .vsDrawCard.vsLoser{ opacity:.45; }
-      .vsDrawResult{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(14px,1.8vw,19px); color:#ffd93d; text-align:center; min-height:26px; text-shadow:0 0 12px rgba(255,217,61,.55); max-width:80vw; }
+      .vsDrawTitle{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(20px,2.6vw,30px); color:#eafdff; letter-spacing:.08em; text-transform:uppercase;
+        text-shadow:0 0 18px rgba(125,249,255,.55); opacity:0; transform:translateY(-8px); transition:opacity .5s ease, transform .5s ease; }
+      .vsDrawTitle.show{ opacity:1; transform:translateY(0); }
+
+      .vsDrawCards{ display:flex; align-items:center; gap:min(48px,4vw); }
+      .vsDrawCard{ width:min(320px,30vw); height:min(448px,42vw); perspective:1400px; position:relative;
+        opacity:0; transition:opacity .5s ease, transform .5s cubic-bezier(.2,.8,.25,1.15); }
+      .vsDrawCard.vsSlideTop{ transform:translateY(-60px); }
+      .vsDrawCard.vsSlideBottom{ transform:translateY(60px); }
+      .vsDrawCard.vsSlideIn{ opacity:1; transform:translateY(0); }
+      .vsDrawCardFlipper{ position:relative; width:100%; height:100%; transform-style:preserve-3d; transition:transform .85s cubic-bezier(.4,.15,.2,1); }
+      .vsDrawCardFlipper.flipped{ transform:rotateY(180deg); }
+      .vsDrawCardFace{ position:absolute; inset:0; border-radius:16px; backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden; }
+      .vsDrawCardBack{ background:linear-gradient(150deg,#123039,#071418 65%); border:3px solid rgba(125,249,255,.5);
+        display:flex; align-items:center; justify-content:center; box-shadow:0 20px 46px rgba(0,0,0,.6), inset 0 0 40px rgba(125,249,255,.08); }
+      .vsDrawCardBack::after{ content:'✦'; font-size:clamp(38px,4.5vw,56px); color:rgba(125,249,255,.4); text-shadow:0 0 20px rgba(125,249,255,.4); }
+      .vsDrawCardFront{ transform:rotateY(180deg); border:3px solid rgba(255,217,61,.55); background:#0a161a;
+        box-shadow:0 20px 46px rgba(0,0,0,.6); transition:border-color .35s ease, box-shadow .35s ease; }
+      .vsDrawCardFront img{ width:100%; height:100%; object-fit:cover; display:block; }
+      .vsDrawCardLabel{ text-align:center; font-family:'Cinzel',serif; font-weight:800; font-size:clamp(13px,1.5vw,16px); color:#eafdff;
+        opacity:0; transition:opacity .4s ease; letter-spacing:.02em; text-shadow:0 0 10px rgba(0,0,0,.6); margin-top:4px; }
+      .vsDrawCardLabel.show{ opacity:1; }
+      .vsDrawVs{ font-family:'Cinzel',serif; color:#ffd93d; font-weight:800; font-size:clamp(15px,1.8vw,19px); opacity:0; letter-spacing:.05em;
+        text-shadow:0 0 12px rgba(255,217,61,.5); transition:opacity .5s ease; }
+      .vsDrawVs.show{ opacity:.9; }
+
+      .vsDrawCard.vsWinner .vsDrawCardFront{ border-color:#ffd93d; box-shadow:0 0 46px rgba(255,217,61,.8), 0 20px 46px rgba(0,0,0,.6); }
+      .vsDrawCard.vsWinner{ transform:translateY(0) scale(1.1) !important; z-index:2; }
+      .vsDrawCard.vsLoser{ opacity:.4; transform:translateY(0) scale(.92) !important; }
+
+      .vsDrawResult{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(19px,2.6vw,28px); color:#ffd93d; text-align:center;
+        min-height:34px; text-shadow:0 0 16px rgba(255,217,61,.6); max-width:86vw; opacity:0; transform:translateY(10px);
+        transition:opacity .5s ease, transform .5s ease; }
+      .vsDrawResult.show{ opacity:1; transform:translateY(0); }
+      .vsDrawSub{ font-family:'Manrope',system-ui,sans-serif; font-weight:700; font-size:clamp(13px,1.6vw,16px); color:#bfefff; text-align:center;
+        max-width:74vw; opacity:0; transform:translateY(8px); transition:opacity .5s ease, transform .5s ease; }
+      .vsDrawSub.show{ opacity:.9; transform:translateY(0); }
     `;
     document.head.appendChild(style);
 
@@ -16004,23 +16049,31 @@ if (ONLINE_MODE) {
 
       <div class="vsCenter">
         <div class="vsStreak left"></div>
-        <div class="vsEmblem"><div class="vsText">VS</div></div>
+        <div class="vsEmblem" id="vsEmblem"><div class="vsEmblemInner"><div class="vsText">VS</div></div></div>
+        <div class="vsStreak right"></div>
+
         <div class="vsDrawPhase" id="vsDrawPhase">
-          <div class="vsDrawTitle" id="vsDrawTitle">Tirage au sort…</div>
+          <div class="vsDrawTitle" id="vsDrawTitle">Tirage au sort</div>
           <div class="vsDrawCards">
-            <div class="vsDrawCard" id="vsDrawCardTop">
-              <div class="vsDrawCardInner"><img id="vsDrawImgTop" src="" alt=""></div>
+            <div class="vsDrawCard vsSlideTop" id="vsDrawCardTop">
+              <div class="vsDrawCardFlipper" id="vsDrawFlipperTop">
+                <div class="vsDrawCardFace vsDrawCardBack"></div>
+                <div class="vsDrawCardFace vsDrawCardFront"><img id="vsDrawImgTop" src="" alt=""></div>
+              </div>
               <div class="vsDrawCardLabel" id="vsDrawLabelTop"></div>
             </div>
-            <div class="vsDrawVs">contre</div>
-            <div class="vsDrawCard" id="vsDrawCardBottom">
-              <div class="vsDrawCardInner"><img id="vsDrawImgBottom" src="" alt=""></div>
+            <div class="vsDrawVs" id="vsDrawVsWord">contre</div>
+            <div class="vsDrawCard vsSlideBottom" id="vsDrawCardBottom">
+              <div class="vsDrawCardFlipper" id="vsDrawFlipperBottom">
+                <div class="vsDrawCardFace vsDrawCardBack"></div>
+                <div class="vsDrawCardFace vsDrawCardFront"><img id="vsDrawImgBottom" src="" alt=""></div>
+              </div>
               <div class="vsDrawCardLabel" id="vsDrawLabelBottom"></div>
             </div>
           </div>
           <div class="vsDrawResult" id="vsDrawResult"></div>
+          <div class="vsDrawSub" id="vsDrawSub"></div>
         </div>
-        <div class="vsStreak right"></div>
       </div>
       <div class="vsFlash"></div>
     `;
@@ -16034,61 +16087,82 @@ if (ONLINE_MODE) {
       setTimeout(() => overlay.classList.add('flash2'), 90);
     }, 1300);
 
-    // Phase de tirage au sort : dévoile les deux cartes tirées par le
-    // serveur, compare leur numéro, et annonce qui commence — puis explique
-    // la carte de compensation accordée au second joueur. N'a lieu que si
-    // le serveur a bien fourni ce tirage (une partie locale/hors-ligne n'a
-    // personne à départager de cette façon).
     const hasDraw = !!(drawReveal && firstSeat && compensationSeat);
-    if (hasDraw) {
-      setTimeout(() => {
-        const emblem = overlay.querySelector('.vsEmblem');
-        if (emblem) emblem.style.display = 'none';
-        const drawPhase = overlay.querySelector('#vsDrawPhase');
-        if (drawPhase) drawPhase.classList.add('show');
-      }, 1700);
 
+    if (hasDraw) {
+      const $ = (sel) => overlay.querySelector(sel);
+
+      // Le "VS" tient la pose un bon moment (les joueurs le voient
+      // clairement), PUIS éclate proprement pour laisser place au tirage —
+      // jamais de coupure brutale.
+      setTimeout(() => {
+        $('#vsEmblem').classList.add('vsShatter');
+        overlay.querySelectorAll('.vsStreak').forEach(s => s.classList.add('vsStreakFade'));
+        overlay.querySelectorAll('.vsAvatarWrap').forEach(a => a.classList.add('vsFaded'));
+      }, 3600);
+
+      setTimeout(() => {
+        $('#vsEmblem').style.display = 'none';
+        $('#vsDrawPhase').classList.add('show');
+        $('#vsDrawTitle').classList.add('show');
+      }, 4400);
+
+      // Les deux cartes glissent en douceur jusqu'au centre, DOS TOURNÉ.
+      setTimeout(() => {
+        $('#vsDrawCardTop').classList.add('vsSlideIn');
+        $('#vsDrawCardBottom').classList.add('vsSlideIn');
+      }, 5100);
+
+      // Bascule 3D de la première carte (léger effet de suspense entre les deux).
       setTimeout(() => {
         const topLabel = codeToLabel(drawReveal.top);
-        const botLabel = codeToLabel(drawReveal.bottom);
-        const imgTop = overlay.querySelector('#vsDrawImgTop');
-        const imgBot = overlay.querySelector('#vsDrawImgBottom');
-        const lblTop = overlay.querySelector('#vsDrawLabelTop');
-        const lblBot = overlay.querySelector('#vsDrawLabelBottom');
-        if (imgTop) { imgTop.src = getCardImage(topLabel); imgTop.classList.add('show'); }
-        if (imgBot) { imgBot.src = getCardImage(botLabel); imgBot.classList.add('show'); }
-        if (lblTop) lblTop.textContent = cardName(topLabel);
-        if (lblBot) lblBot.textContent = cardName(botLabel);
-      }, 2000);
+        const imgTop = $('#vsDrawImgTop');
+        if (imgTop) imgTop.src = getCardImage(topLabel);
+        $('#vsDrawFlipperTop').classList.add('flipped');
+        setTimeout(() => { const l = $('#vsDrawLabelTop'); if (l) { l.textContent = cardName(topLabel); l.classList.add('show'); } }, 500);
+      }, 6800);
 
       setTimeout(() => {
-        const cardTop = overlay.querySelector('#vsDrawCardTop');
-        const cardBot = overlay.querySelector('#vsDrawCardBottom');
-        const titleEl = overlay.querySelector('#vsDrawTitle');
-        const resultEl = overlay.querySelector('#vsDrawResult');
+        const botLabel = codeToLabel(drawReveal.bottom);
+        const imgBot = $('#vsDrawImgBottom');
+        if (imgBot) imgBot.src = getCardImage(botLabel);
+        $('#vsDrawFlipperBottom').classList.add('flipped');
+        setTimeout(() => { const l = $('#vsDrawLabelBottom'); if (l) { l.textContent = cardName(botLabel); l.classList.add('show'); } }, 500);
+        $('#vsDrawVsWord').classList.add('show');
+      }, 7500);
+
+      // Temps de lecture : les deux cartes restent affichées, bien
+      // visibles, sans rien d'autre qui bouge — le temps de vraiment
+      // regarder les numéros et les noms.
+      setTimeout(() => {
+        const cardTop = $('#vsDrawCardTop');
+        const cardBot = $('#vsDrawCardBottom');
         const winnerName = (firstSeat === 'top') ? profiles.top.name : profiles.bottom.name;
         if (firstSeat === 'top') { cardTop.classList.add('vsWinner'); cardBot.classList.add('vsLoser'); }
         else { cardBot.classList.add('vsWinner'); cardTop.classList.add('vsLoser'); }
+        const titleEl = $('#vsDrawTitle');
+        const resultEl = $('#vsDrawResult');
         if (titleEl) titleEl.textContent = 'Le tirage le plus fort commence !';
-        if (resultEl) resultEl.textContent = `${winnerName} commence la partie !`;
-      }, 3300);
+        if (resultEl) { resultEl.textContent = `${winnerName} commence la partie !`; resultEl.classList.add('show'); }
+      }, 10500);
 
       setTimeout(() => {
-        const resultEl = overlay.querySelector('#vsDrawResult');
+        const subEl = $('#vsDrawSub');
         const loserName = (compensationSeat === 'top') ? profiles.top.name : profiles.bottom.name;
-        if (resultEl) resultEl.textContent = `En compensation, ${loserName} reçoit 1 carte supplémentaire dans sa main de départ.`;
-      }, 4800);
+        if (subEl) { subEl.textContent = `En compensation, ${loserName} reçoit 1 carte supplémentaire dans sa main de départ.`; subEl.classList.add('show'); }
+      }, 12800);
     }
 
-    // Tenue prolongée avant la sortie en fondu vers le plateau
+    // Tenue prolongée avant la sortie en fondu vers le plateau — largement
+    // le temps de tout lire, sans jamais se sentir précipité.
     setTimeout(() => {
       overlay.classList.add('exit');
       setTimeout(() => {
         overlay.remove();
         style.remove();
         onDone();
-      }, 600);
-    }, hasDraw ? 7200 : 5600);
+      }, 700);
+    }, hasDraw ? 17200 : 5600);
   }
 
   function buildInitialStateFromDeckCodes(deckCodes, compensationSeat) {
