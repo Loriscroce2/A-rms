@@ -8413,8 +8413,8 @@ function clearPoisonedTargetHighlight(){
   document.querySelectorAll('.poisonTargetHint').forEach(el => el.classList.remove('poisonTargetHint'));
 }
 
-function startVakxzinTargeting(casterOwner){
-  vakxzinTargetMode = { casterOwner };
+function startVakxzinTargeting(casterOwner, artifactCard){
+  vakxzinTargetMode = { casterOwner, artifactCard };
   closeActionPrompt();
   const promptEl = document.createElement('div');
   promptEl.id = 'vakxzin-target-prompt';
@@ -8444,11 +8444,12 @@ function startVakxzinTargeting(casterOwner){
 function handleVakxzinTargetSelection(targetCard, targetCardOwner){
   if (!vakxzinTargetMode) return;
   if (!hasTag(targetCard, 'poison')) return; // seules les cibles empoisonnées sont valides
-  const { casterOwner } = vakxzinTargetMode;
+  const { casterOwner, artifactCard } = vakxzinTargetMode;
   vakxzinTargetMode = null;
   clearPoisonedTargetHighlight();
   closeActionPrompt();
 
+  if (artifactCard) exhaustArtifact(casterOwner, artifactCard);
   detachFamiliarsOnHost(targetCard, targetCardOwner);
   const line = getLineByOwner(targetCardOwner);
   const idx = line.findIndex(c => c.id === targetCard.id);
@@ -11304,12 +11305,13 @@ if (card.label === 'C27') { // KRYLLS : Mine E.M.I
 
 if (card.label === 'C31') { // KRYLLS : Vakxzin
   if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(artifactExhausted[owner].has(card.id)){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
   const poisonedCount = topLine.concat(botLine).filter(c => hasTag(c, 'poison')).length;
   if (poisonedCount === 0) {
     pushHistory('info', `${cardAnchor('C31')} : aucun combattant avec Poison sur le plateau.`);
     return;
   }
-  startVakxzinTargeting(owner);
+  startVakxzinTargeting(owner, card);
 }
 
 if (card.label === 'C37') { // KRYLLS : Arakcube
