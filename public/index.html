@@ -13000,8 +13000,13 @@ function refillHand(player){
     // de combat (pas la main, contrairement à Buay), +2 cartes piochées en
     // fin de tour. Recalculé ici aussi à chaque itération, pour rester
     // cohérent avec le même principe que Buay.
-    const hasBabykween = getLineByOwner(player).some(c => c.label === 'C45');
-    return Math.max(0, (6 + buayCount + (hasBabykween ? 2 : 0)) - maluxCount);
+    // KRYLLS (nouveau lot) : Babykween (C45) — chaque exemplaire présent
+    // dans la zone de combat (peu importe son origine : jouée normalement,
+    // copiée par Peinturlurer, ou contrôlée via Arakcrabe/Arakcube — toutes
+    // ces situations la placent physiquement dans getLineByOwner) accorde
+    // +2 cartes piochées en fin de tour, de façon cumulable.
+    const babykweenCount = getLineByOwner(player).filter(c => c.label === 'C45').length;
+    return Math.max(0, (6 + buayCount + babykweenCount * 2) - maluxCount);
   }
   // FIN DE LA LOGIQUE MODIFIÉE
 
