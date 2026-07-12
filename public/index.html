@@ -3227,6 +3227,10 @@ const CARD_IMAGES = {
  'C44': '../cartes/0044.png',
  'C45': '../cartes/0045.png',
  'C46': '../cartes/0046.png',
+ 'C47': '../cartes/0047.png',
+ 'C48': '../cartes/0048.png',
+ 'C49': '../cartes/0049.png',
+ 'C50': '../cartes/0050.png',
  'T16': '../cartes/T16.png',
  'T15': '../cartes/T15.png',
  'T11': '../cartes/T11.png',
@@ -3373,6 +3377,10 @@ const CARD_TYPES  = {
  'C44': 'personnage',  // Loozoxe
  'C45': 'personnage',  // Babykween
  'C46': 'personnage',  // Zock-lee
+ 'C47': 'personnage',  // Pezske
+ 'C48': 'personnage',  // Kzunade
+ 'C49': 'personnage',  // Kyraza
+ 'C50': 'artefact',    // Temkorisk
  'T16': 'personnage',  // Kamykaz
  'T15': 'familier',    // Arakcrabe
  'T11': 'artefact',    // Pièce détachée
@@ -3518,6 +3526,10 @@ const CARD_NAMES = {
  'C44': 'Loozoxe',
  'C45': 'Babykween',
  'C46': 'Zock-lee',
+ 'C47': 'Pezske',
+ 'C48': 'Kzunade',
+ 'C49': 'Kyraza',
+ 'C50': 'Temkorisk',
  'T16': 'Kamykaz',
  'T15': 'Arakcrabe',
  'T11': 'Pièce détachée',
@@ -3617,6 +3629,9 @@ const CARD_HP_BASE = {
   'C44': 4,
   'C45': 6,
   'C46': 4,
+  'C47': 3,
+  'C48': 6,
+  'C49': 4,
   'C36': 2,
   'T10': 1,
 };
@@ -3811,6 +3826,10 @@ const CARD_TAGS = {
  'C44': ['citoyen', 'Krylls'],             // Loozoxe
  'C45': ['citoyen', 'Krylls'],             // Babykween
  'C46': ['citoyen', 'Krylls', 'rapide'],   // Zock-lee — Rapide imprimé
+ 'C47': ['citoyen', 'Krylls', 'poison', 'provocateur'],  // Pezske — Poison + Provocateur imprimés
+ 'C48': ['médic', 'Krylls', 'provocateur'],              // Kzunade — Provocateur imprimé
+ 'C49': ['citoyen', 'Krylls'],             // Kyraza
+ 'C50': ['artefact', 'Krylls'],            // Temkorisk
  'T16': ['guerrier', 'Krylls'],            // Kamykaz
  'T15': ['familier', 'Krylls'],            // Arakcrabe
  'T11': ['artefact', 'Krylls'],  // Pièce détachée
@@ -4659,6 +4678,7 @@ function isMyTurnToChoose(owner){
 let currentDragInfo = null;
 let factionAfkTimer = null;
 let nextCombattantGainsRapide = { top: false, bottom: false };
+let ownerTurnCount = { top: 0, bottom: 0 };
 
 // ===================================================================
 // STREAMING DE POSITION EN DIRECT — l'adversaire, en ligne, voit en temps
@@ -7808,6 +7828,9 @@ function playHPHitEffect(card){
 /* --- Triggers sur perte effective de PV (Barbara C11) --- */
 function onHPDamaged(owner, hostCard, hpLost, cause){
   if(hpLost<=0) return;
+  // KRYLLS (nouveau lot) : Kzunade (C48) — se déclenche à chaque fois
+  // qu'elle-même est la carte endommagée, peu importe la cause.
+  checkKzunadeReactiveTrigger(owner, hostCard);
   const fams = getFamiliersOnHost(hostCard).filter(f=>f.label==='C11' && !isFamiliarEffectSuppressed(hostCard, 'C11'));
   fams.forEach(f=>{
     const who = f.playOwner || owner;
@@ -7928,6 +7951,49 @@ function recalcHypnotikaaAura(){
       } else if (!hasHypnotikaa && idx !== -1 && c._hypnotikaaGrantedEsprit) {
         c.addedTags.splice(idx, 1);
         c._hypnotikaaGrantedEsprit = false;
+      }
+    });
+  });
+}
+
+// KRYLLS (nouveau lot) : Pezske (C47) — gagne ESPRIT un tour sur deux (sur
+// les tours IMPAIRS de son propriétaire : 1er, 3e, 5e...). Recalculé en
+// direct à chaque rendu, sur le même principe qu'Hypnotikaa.
+// KRYLLS (nouveau lot) : Kzunade (C48) — chaque fois qu'ELLE subit des
+// dégâts, les combattants immédiatement à droite et à gauche gagnent
+// +3 PV. Appelée depuis onHPDamaged, qui couvre déjà pratiquement toutes
+// les sources de dégâts du jeu (combat, actions, minage, upkeep...).
+function checkKzunadeReactiveTrigger(owner, hostCard){
+  if (!hostCard || hostCard.label !== 'C48') return;
+  const line = getLineByOwner(owner);
+  const idx = line.findIndex(c => c.id === hostCard.id);
+  if (idx === -1) return;
+
+  const neighbors = [];
+  if (idx > 0) neighbors.push(line[idx - 1]);
+  if (idx < line.length - 1) neighbors.push(line[idx + 1]);
+  if (neighbors.length === 0) return;
+
+  neighbors.forEach(n => {
+    n.hp = getEffectiveHP(n) + 3;
+    playHPHitEffect(n);
+  });
+  pushHistory('pv', `${cardAnchor('C48')} subit des dégâts : ${neighbors.map(n=>cardAnchor(n.label)).join(' et ')}
+    gagne${neighbors.length>1?'nt':''} <strong>+3 PV</strong> !`);
+}
+
+function recalcPezskeEsprit(){
+  ['top', 'bottom'].forEach(owner => {
+    const line = getLineByOwner(owner);
+    const shouldHaveEsprit = ((ownerTurnCount[owner] || 0) % 2) === 1;
+    line.forEach(c => {
+      if (c.label !== 'C47') return;
+      if (!Array.isArray(c.addedTags)) c.addedTags = [];
+      const idx = c.addedTags.indexOf('Esprit');
+      if (shouldHaveEsprit && idx === -1) {
+        c.addedTags.push('Esprit');
+      } else if (!shouldHaveEsprit && idx !== -1) {
+        c.addedTags.splice(idx, 1);
       }
     });
   });
@@ -9757,6 +9823,106 @@ function applyMezamorphCopy(mezamorphCard, copiedLabel){
   fullRender();
 }
 
+// KRYLLS (nouveau lot) : Kyraza (C49) — JOUER : joue n'importe quelle carte
+// Action piochée dans l'une des deux défausses (gratuitement, sans
+// restriction de faction), qui retourne ensuite dans SA défausse d'origine.
+function openKyrazaDiscardPicker(owner){
+  const topActions = topDiscard.filter(c => getType(c.label) === 'action').map(c => ({ card: c, pile: 'top' }));
+  const botActions = botDiscard.filter(c => getType(c.label) === 'action').map(c => ({ card: c, pile: 'bottom' }));
+  const allActions = [...topActions, ...botActions];
+
+  if (allActions.length === 0) {
+    pushHistory('info', `${cardAnchor('C49')} : aucune carte Action dans les défausses.`);
+    return;
+  }
+
+  // Réutilise la même fenêtre que "Voir Familiers" (même overlay, mêmes
+  // vignettes .dthumb), rendue cliquable pour le choix.
+  const carousel = document.getElementById('familiarCarousel');
+  const title = document.getElementById('fcoTitle');
+  if (!familiarCarouselOverlay || !carousel || !title) return;
+
+  title.textContent = 'Kyraza — choisissez une Action à rejouer depuis une défausse';
+  carousel.innerHTML = '';
+  carousel.classList.add('selecting');
+
+  allActions.forEach(({ card: actionCard, pile }) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'dthumb';
+    const url = getCardImage(actionCard.label);
+    if (url) {
+      thumb.style.backgroundImage = `url(${url})`;
+    } else {
+      thumb.textContent = cardName(actionCard.label);
+    }
+    thumb.title = `${cardName(actionCard.label)} — défausse ${pile === 'top' ? 'adverse/haut' : 'bas'}`;
+    thumb.addEventListener('mouseenter', () => showZoom(actionCard.label, actionCard));
+    thumb.addEventListener('mouseleave', hideZoom);
+    thumb.addEventListener('click', () => {
+      carousel.classList.remove('selecting');
+      hideFamiliarCarousel();
+      resolveKyrazaChoice(owner, actionCard, pile);
+    });
+    carousel.appendChild(thumb);
+  });
+
+  familiarCarouselOverlay.style.display = 'flex';
+}
+
+function resolveKyrazaChoice(owner, chosenCard, originPile){
+  const pileArr = (originPile === 'top') ? topDiscard : botDiscard;
+  const idx = pileArr.findIndex(c => c.id === chosenCard.id);
+  if (idx === -1) return;
+  pileArr.splice(idx, 1);
+
+  // Ajoutée temporairement à la main du propriétaire de Kyraza, avec
+  // autorisation de jeu gratuite (le mécanisme déjà utilisé par Long
+  // Voyage) — contourne toute restriction de faction, conformément au
+  // texte "n'importe quelle carte Action".
+  const hand = getHandByOwner(owner);
+  hand.push(chosenCard);
+  pendingFreePlay = { owner, cardId: chosenCard.id };
+
+  pushHistory('action', `${cardAnchor('C49')} permet de rejouer ${cardAnchor(chosenCard.label)} depuis la défausse !`);
+  fullRender();
+
+  // Déclenche le VRAI clic sur la carte fraîchement rendue en main, pour
+  // réutiliser exactement la même logique que si le joueur l'avait
+  // cliquée lui-même — quelle que soit la carte Action concernée.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-id="${chosenCard.id}"]`);
+      if (el) el.click();
+      else pushHistory('info', `${cardAnchor('C49')} : impossible de déclencher ${cardAnchor(chosenCard.label)} automatiquement.`);
+    });
+  });
+
+  // Filet de sécurité : une fois son effet résolu, cette carte doit
+  // retourner dans SA défausse d'origine, pas dans celle du propriétaire de
+  // Kyraza (où la logique normale de défausse l'aurait envoyée). Vérifié à
+  // intervalles réguliers pendant jusqu'à 20 secondes, le temps que
+  // certains effets nécessitant un choix supplémentaire du joueur aient
+  // fini de se résoudre.
+  if (originPile !== owner) {
+    let attempts = 0;
+    const relocateInterval = setInterval(() => {
+      attempts++;
+      const wrongPile = (owner === 'top') ? topDiscard : botDiscard;
+      const wIdx = wrongPile.findIndex(c => c.id === chosenCard.id);
+      if (wIdx !== -1) {
+        const moved = wrongPile.splice(wIdx, 1)[0];
+        const correctPile = (originPile === 'top') ? topDiscard : botDiscard;
+        correctPile.unshift(moved);
+        pushHistory('info', `${cardAnchor(moved.label)} retourne dans sa défausse d'origine.`);
+        fullRender();
+        clearInterval(relocateInterval);
+        return;
+      }
+      if (attempts >= 40) clearInterval(relocateInterval); // abandon après ~20s
+    }, 500);
+  }
+}
+
 function attachFamiliersZoom(zoomEl, hostCard){
   const fams = getFamiliersOnHost(hostCard);
   if(fams.length===0) return;
@@ -11524,6 +11690,16 @@ if (card.label === 'C46') {
 // ===================================================================
 
 // ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR KYRAZA (C49)
+// ===================================================================
+if (card.label === 'C49') {
+  openKyrazaDiscardPicker(owner);
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR KYRAZA
+// ===================================================================
+
+// ===================================================================
 // DÉBUT DE LA LOGIQUE D'ENTRÉE POUR HARVEY (C166)
 // ===================================================================
 if (card.label === 'C166') {
@@ -12715,6 +12891,8 @@ function fullRender(){
   recalcTentacuzBonuses();
   // KRYLLS (nouveau lot) : Hypnotikaa (C29) — aura Esprit en direct.
   recalcHypnotikaaAura();
+  // KRYLLS (nouveau lot) : Pezske (C47) — Esprit un tour sur deux, en direct.
+  recalcPezskeEsprit();
   // KRYLLS (nouveau lot) : Arakcrabe (T15) — contrôle mental en direct.
   recalcArakcrabeControl();
   updateHandsUI();
@@ -13384,6 +13562,16 @@ endBtn.addEventListener('click', performEndTurn);
 // ne jamais pénaliser un joueur en train de résoudre un effet obligatoire.
 // ===================================================================
 const TURN_TIME_LIMIT = 90;
+
+// KRYLLS (nouveau lot) : Temkorisk (C50) — tant qu'il est en jeu, le temps
+// de tour de l'ADVERSAIRE de son propriétaire est réduit de 15 secondes par
+// exemplaire (cumulable, peu importe l'origine de chaque exemplaire).
+function getTurnTimeLimitForOwner(owner){
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppArts = (opp === 'top') ? topArts : botArts;
+  const temkoriskCount = oppArts.filter(a => a.label === 'C50').length;
+  return Math.max(10, TURN_TIME_LIMIT - temkoriskCount * 15);
+}
 const TURN_TIME_URGENT_SFX_AT = 15;
 let turnTimerInterval = null;
 let turnTimerSecondsLeft = TURN_TIME_LIMIT;
@@ -13431,7 +13619,7 @@ function updateTurnTimerVisual(){
     }
     wrap.classList.remove('hidden');
 
-    const ratio = Math.max(0, Math.min(1, turnTimerSecondsLeft / TURN_TIME_LIMIT));
+    const ratio = Math.max(0, Math.min(1, turnTimerSecondsLeft / getTurnTimeLimitForOwner(currentTurn)));
     barFill.style.width = (ratio * 100) + '%';
     label.textContent = String(Math.max(0, Math.ceil(turnTimerSecondsLeft)));
 
@@ -13464,7 +13652,7 @@ function setupTurnTimer(){
       if (label) label.style.removeProperty('display');
     }
     if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
-    turnTimerSecondsLeft = TURN_TIME_LIMIT;
+    turnTimerSecondsLeft = getTurnTimeLimitForOwner(currentTurn);
     turnTimerUrgentSfxPlayed = false;
     updateTurnTimerVisual();
 
@@ -14072,6 +14260,10 @@ function processScapooDuplication(player){
 }
 
 function startTurn(player){
+  // KRYLLS (nouveau lot) : compteur de tour PAR JOUEUR, utilisé notamment
+  // par Pezske (C47) pour alterner un tour sur deux.
+  ownerTurnCount[player] = (ownerTurnCount[player] || 0) + 1;
+
   // Minuteur de tour : redémarré à 90s à chaque nouveau tour. Enveloppé pour
   // garantir qu'il ne puisse JAMAIS interrompre le reste de la mise en place
   // du tour, même en cas d'erreur imprévue.
