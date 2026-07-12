@@ -16072,7 +16072,7 @@ if (ONLINE_MODE) {
          Positionnée en ABSOLU par-dessus .vsCenter, jamais en flex-sibling
          du VS, pour ne jamais perturber son centrage.
          --------------------------------------------------------------- */
-      .vsDrawPhase{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px; opacity:0; transition:opacity .6s ease; pointer-events:none; }
+      .vsDrawPhase{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:34px; opacity:0; transition:opacity .6s ease; pointer-events:none; }
       .vsDrawPhase.show{ opacity:1; }
       .vsDrawTitle{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(20px,2.6vw,30px); color:#eafdff; letter-spacing:.08em; text-transform:uppercase;
         text-shadow:0 0 18px rgba(125,249,255,.55); opacity:0; transform:translateY(-8px); transition:opacity .5s ease, transform .5s ease; }
@@ -16107,11 +16107,16 @@ if (ONLINE_MODE) {
       .vsDrawCard.vsWinner{ transform:translateY(0) scale(1.1) !important; z-index:2; }
       .vsDrawCard.vsLoser{ opacity:.4; transform:translateY(0) scale(.92) !important; }
 
-      .vsDrawResult{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(16px,2.1vw,22px); color:#ffd93d; text-align:center;
-        min-height:30px; text-shadow:0 0 16px rgba(255,217,61,.6); max-width:86vw; opacity:0; transform:translateY(10px);
-        transition:opacity .5s ease, transform .5s ease; }
+      .vsDrawResult{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(18px,2.4vw,26px); color:#ffd93d; text-align:center;
+        min-height:32px; text-shadow:0 0 16px rgba(255,217,61,.6); max-width:86vw; opacity:0; transform:translateY(10px);
+        transition:opacity .5s ease, transform .5s ease;
+        /* Espace supplémentaire au-dessus : la carte gagnante s'agrandit via
+           un transform CSS (scale), qui ne pousse PAS les éléments suivants
+           dans le flux — sans cette marge, ce texte pouvait chevaucher
+           visuellement le bas de la carte agrandie. */
+        margin-top:28px; }
       .vsDrawResult.show{ opacity:1; transform:translateY(0); }
-      .vsDrawSub{ font-family:'Manrope',system-ui,sans-serif; font-weight:700; font-size:clamp(12px,1.35vw,14px); color:#bfefff; text-align:center;
+      .vsDrawSub{ font-family:'Manrope',system-ui,sans-serif; font-weight:700; font-size:clamp(13px,1.5vw,16px); color:#bfefff; text-align:center;
         max-width:74vw; opacity:0; transform:translateY(8px); transition:opacity .5s ease, transform .5s ease; }
       .vsDrawSub.show{ opacity:.9; transform:translateY(0); }
     `;
