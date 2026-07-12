@@ -11761,8 +11761,10 @@ const MAX_ARTIFACTS_PER_ZONE = 10;
 // d'artefact d'un joueur, sa limite de combattants augmente de +2.
 function getMaxCombatantsForOwner(owner){
   const arts = (owner === 'top') ? topArts : botArts;
-  const hasEtendardz = arts.some(a => a.label === 'C43');
-  return MAX_COMBATANTS_PER_ZONE_BASE + (hasEtendardz ? 2 : 0);
+  // Chaque exemplaire présent (dupliqué ou volé y compris) accorde +2
+  // emplacements, de façon cumulable.
+  const etendardzCount = arts.filter(a => a.label === 'C43').length;
+  return MAX_COMBATANTS_PER_ZONE_BASE + etendardzCount * 2;
 }
 
 function setupDrops(dropLeft, dropRight, lineArray, who){
