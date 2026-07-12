@@ -4454,17 +4454,30 @@ function openFactionPrompt(player, onChosen){
 
     b.addEventListener('click', ()=>{
       if (b.disabled) return;
-      activeFaction[player]=f;
-      factionOverlay.style.display='none';
-      const handEl = document.getElementById(player === 'top' ? 'handTop' : 'handBottom');
-      if (handEl) handEl.classList.remove('faction-select-zoom');
-      pushHistory('info', `Faction choisie par ${player===MY_SEAT?'vous (Joueur 1)':'Joueur 2 (adversaire)'} : <strong>${f}</strong>.`);
-      if(typeof onChosen === 'function') onChosen();
+      if (factionAfkTimer) { clearTimeout(factionAfkTimer); factionAfkTimer = null; }
+      chooseFactionAndProceed(player, f, onChosen);
     });
     fpButtons.appendChild(b);
   });
   fpTitle.textContent = (player===MY_SEAT ? 'Choix de faction — Joueur 1 (vous)' : 'Choix de faction — Joueur 2 (adversaire)');
   factionOverlay.style.display='flex';
+
+  // Minuteur anti-AFK : si aucune faction n'est choisie au bout d'une
+  // minute, une faction disponible (non bloquée) est sélectionnée
+  // automatiquement — permet d'éviter qu'une partie ne reste bloquée
+  // indéfiniment si un joueur est absent au moment de son choix.
+  if (factionAfkTimer) { clearTimeout(factionAfkTimer); factionAfkTimer = null; }
+  const autoPickCandidates = availableFactions.filter(f => !blockedFactions.has(f));
+  if (autoPickCandidates.length > 0) {
+    factionAfkTimer = setTimeout(() => {
+      factionAfkTimer = null;
+      if (activeFaction[player]) return; // déjà choisi entre-temps, rien à faire
+      const autoPick = autoPickCandidates[Math.floor(Math.random() * autoPickCandidates.length)];
+      pushHistory('info', `Aucune faction choisie après 1 minute : ${playerLabel(player)} se voit attribuer automatiquement
+        <strong>${autoPick}</strong>, pour éviter de bloquer la partie.`);
+      chooseFactionAndProceed(player, autoPick, onChosen);
+    }, 60000);
+  }
 
   {
     const handEl = document.getElementById(player === 'top' ? 'handTop' : 'handBottom');
@@ -4474,6 +4487,18 @@ function openFactionPrompt(player, onChosen){
       handEl.classList.add('faction-select-zoom');
     }
   }
+}
+
+// Choisit réellement une faction pour ce joueur et ferme la fenêtre —
+// factorisé pour être appelé aussi bien par un clic manuel que par le
+// minuteur anti-AFK de 60 secondes.
+function chooseFactionAndProceed(player, f, onChosen){
+  activeFaction[player]=f;
+  factionOverlay.style.display='none';
+  const handEl = document.getElementById(player === 'top' ? 'handTop' : 'handBottom');
+  if (handEl) handEl.classList.remove('faction-select-zoom');
+  pushHistory('info', `Faction choisie par ${player===MY_SEAT?'vous (Joueur 1)':'Joueur 2 (adversaire)'} : <strong>${f}</strong>.`);
+  if(typeof onChosen === 'function') onChosen();
 }
 
 // VERSION CORRIGÉE À UTILISER
@@ -4596,23 +4621,10 @@ let hoveredTarget = null;
 // Krouzpier — appliqué ici à Tokzik, Kryo et Kamykaz, qui partagent le
 // même risque).
 // ===================================================================
-function showOwnerGatedWaitOverlay(message){
-  removeOwnerGatedWaitOverlay();
-  const el = document.createElement('div');
-  el.id = 'ownerGatedWaitOverlay';
-  el.className = 'actionPrompt';
-  el.style.position = 'fixed';
-  el.style.bottom = '100px';
-  el.style.left = '50%';
-  el.style.transform = 'translateX(-50%)';
-  el.style.zIndex = '8700';
-  el.innerHTML = `<div class="apMsg">${message}</div>`;
-  document.body.appendChild(el);
-}
-function removeOwnerGatedWaitOverlay(){
-  const el = document.getElementById('ownerGatedWaitOverlay');
-  if (el) el.remove();
-}
+// NOTE : l'affichage utilise désormais showWaitOverlay()/hideWaitOverlay()
+// (le grand message pulsant central, partagé avec Pestrass/Dolly/Paraction)
+// plutôt qu'un système d'affichage séparé — un seul style cohérent, bien
+// visible, dans tout le jeu.
 // Diffuse systématiquement (peu importe quel client exécute ce code) pour
 // que le VRAI propriétaire soit toujours notifié de son choix à faire.
 function broadcastOwnerGatedTargeting(kind, owner){
@@ -4628,6 +4640,7 @@ function isMyTurnToChoose(owner){
 }
 
 let currentDragInfo = null;
+let factionAfkTimer = null;
 
 // ===================================================================
 // STREAMING DE POSITION EN DIRECT — l'adversaire, en ligne, voit en temps
@@ -8029,13 +8042,13 @@ function handleKrouzpierTargetSelection(targetCard, targetCardOwner){
 function startTokzikTargeting(casterOwner, targetOwner){
   broadcastOwnerGatedTargeting('tokzik', casterOwner);
   if (!isMyTurnToChoose(casterOwner)) {
-    showOwnerGatedWaitOverlay("Votre adversaire choisit la cible de l'effet de Tokzik…");
+    showWaitOverlay("Votre adversaire choisit la cible de l'effet de Tokzik…");
     return;
   }
   openTokzikPromptReal(casterOwner, targetOwner);
 }
 function openTokzikPromptReal(casterOwner, targetOwner){
-  removeOwnerGatedWaitOverlay();
+  hideWaitOverlay();
   tokzikTargetMode = { casterOwner, targetOwner };
   closeActionPrompt();
   const promptEl = document.createElement('div');
@@ -8076,13 +8089,13 @@ function handleTokzikTargetSelection(targetCard, targetCardOwner){
 function startKryoTargeting(owner){
   broadcastOwnerGatedTargeting('kryo', owner);
   if (!isMyTurnToChoose(owner)) {
-    showOwnerGatedWaitOverlay("Votre adversaire choisit la cible de l'effet de Kryo…");
+    showWaitOverlay("Votre adversaire choisit la cible de l'effet de Kryo…");
     return;
   }
   openKryoPromptReal(owner);
 }
 function openKryoPromptReal(owner){
-  removeOwnerGatedWaitOverlay();
+  hideWaitOverlay();
   kryoTargetMode = { owner };
   closeActionPrompt();
   const promptEl = document.createElement('div');
@@ -8180,13 +8193,13 @@ function handleC42TargetSelection(targetCard, targetCardOwner){
 function startKamykazTargeting(owner){
   broadcastOwnerGatedTargeting('kamykaz', owner);
   if (!isMyTurnToChoose(owner)) {
-    showOwnerGatedWaitOverlay("Votre adversaire choisit la cible de l'effet de Kamykaz…");
+    showWaitOverlay("Votre adversaire choisit la cible de l'effet de Kamykaz…");
     return;
   }
   openKamykazPromptReal(owner);
 }
 function openKamykazPromptReal(owner){
-  removeOwnerGatedWaitOverlay();
+  hideWaitOverlay();
   kamykazTargetMode = { owner };
   closeActionPrompt();
   const promptEl = document.createElement('div');
@@ -9130,27 +9143,50 @@ chatText.addEventListener('keydown', e=>{ if(e.key==='Enter') chatSend.click(); 
 // tchat restent autorisés, pour ne pas donner l'impression que le jeu est figé.
 function showWaitOverlay(message) {
   hideWaitOverlay();
+  // Style CSS de la pulsation — injecté une seule fois, réutilisé par tous
+  // les appels (Pestrass, Dolly, Paraction, Tokzik, Kryo, Kamykaz...).
+  if (!document.getElementById('waitOverlayPulseStyle')) {
+    const style = document.createElement('style');
+    style.id = 'waitOverlayPulseStyle';
+    style.textContent = `
+      @keyframes waitOverlayPulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(255,217,61,.35), 0 20px 50px rgba(0,0,0,.6); }
+        50% { transform: scale(1.035); box-shadow: 0 0 64px rgba(255,217,61,.6), 0 20px 50px rgba(0,0,0,.6); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
   const ov = document.createElement('div');
   ov.id = 'waitOverlay';
   ov.style.position = 'fixed';
   ov.style.inset = '0';
-  ov.style.zIndex = '9000';
-  ov.style.background = 'rgba(0,10,15,.55)';
+  ov.style.zIndex = '9700';
+  ov.style.background = 'rgba(0,6,10,.5)';
   ov.style.display = 'flex';
-  ov.style.alignItems = 'flex-start';
+  ov.style.alignItems = 'center';
   ov.style.justifyContent = 'center';
-  ov.style.color = '#e8fdff';
-  ov.style.fontFamily = 'system-ui, sans-serif';
-  ov.style.fontSize = '18px';
-  ov.style.fontWeight = '700';
-  ov.style.textAlign = 'center';
-  ov.style.padding = '20px';
-  ov.style.paddingTop = '40px';
+  ov.style.padding = '24px';
   // pointer-events:none : la teinte ne bloque rien elle-même — le survol des
   // cartes (zoom) doit continuer à fonctionner normalement en dessous. Le
   // blocage réel des ACTIONS est assuré par enableWaitInputBlock() ci-dessous.
   ov.style.pointerEvents = 'none';
-  ov.innerHTML = `<div style="background:rgba(0,10,15,.9);padding:14px 22px;border-radius:12px;border:1px solid rgba(125,249,255,.35);">⏳ ${message}</div>`;
+  ov.innerHTML = `
+    <div style="
+      background:rgba(4,12,16,.82);
+      backdrop-filter:blur(2px);
+      padding:28px 44px;
+      border-radius:18px;
+      border:2px solid rgba(255,217,61,.6);
+      color:#fff9e0;
+      font-family:'Cinzel',serif,system-ui;
+      font-weight:800;
+      font-size:clamp(20px,3vw,32px);
+      text-align:center;
+      line-height:1.4;
+      max-width:min(640px,90vw);
+      text-shadow:0 2px 8px rgba(0,0,0,.7);
+      animation:waitOverlayPulse 1.4s ease-in-out infinite;
+    ">⏳ ${message}</div>`;
   document.body.appendChild(ov);
   enableWaitInputBlock();
 }
@@ -11294,6 +11330,11 @@ if (card.label === 'C213') { // WADOO : Gousset
 
 if (card.label === 'C27') { // KRYLLS : Mine E.M.I
   if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C27')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
   const mineOpp = (owner === 'top') ? 'bottom' : 'top';
   const mineOppLine = getLineByOwner(mineOpp);
   const mineShieldedCount = mineOppLine.filter(c => ((c.shield||0) + (c.tempShield||0)) > 0).length;
@@ -11305,6 +11346,11 @@ if (card.label === 'C27') { // KRYLLS : Mine E.M.I
 
 if (card.label === 'C31') { // KRYLLS : Vakxzin
   if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C31')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
   if(artifactExhausted[owner].has(card.id)){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
   const poisonedCount = topLine.concat(botLine).filter(c => hasTag(c, 'poison')).length;
   if (poisonedCount === 0) {
@@ -11316,6 +11362,11 @@ if (card.label === 'C31') { // KRYLLS : Vakxzin
 
 if (card.label === 'C37') { // KRYLLS : Arakcube
   if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C37')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
   const oppOwner = (owner === 'top') ? 'bottom' : 'top';
   if (getLineByOwner(oppOwner).length === 0) {
     pushHistory('info', `${cardAnchor('C37')} : aucun combattant adverse à cibler.`);
@@ -11326,6 +11377,11 @@ if (card.label === 'C37') { // KRYLLS : Arakcube
 
 if (card.label === 'C39') { // KRYLLS : Bibliotempz
   if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C39')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
   if(artifactExhausted[owner].has(card.id)){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
   useBibliotempz(owner, card);
 }
@@ -13286,6 +13342,18 @@ function isAnyBlockingModalOpen(){
   if (hb && hb.style.display === 'block') return true;
   const wo = document.getElementById('waitOverlay');
   if (wo && wo.style.display && wo.style.display !== 'none') return true;
+  // Le choix de faction est obligatoire avant toute autre action — le
+  // chronomètre du TOUR n'a aucune raison de s'écouler tant que ce choix
+  // n'est pas fait (il a son propre minuteur anti-AFK séparé, à 60s).
+  const fo = document.getElementById('factionOverlay');
+  if (fo && fo.style.display && fo.style.display !== 'none') return true;
+  // Mes propres ciblages personnalisés (Tokzik, Kryo, Kamykaz, Zyzy, C42,
+  // Arakcube, Ozokshi, Vakxzin, Krouzpier, Kabba, C33...) construisent leur
+  // propre fenêtre SANS jamais passer par showHardBlocker() — sans cette
+  // vérification supplémentaire, le chronomètre continuait de s'écouler
+  // pendant ces choix, ce qui n'a aucun sens pour un effet en cours.
+  if (typeof isAnyTargetSelectionActive === 'function' && isAnyTargetSelectionActive()) return true;
+  if (actionPromptEl && actionPromptEl.parentNode) return true;
   return false;
 }
 
@@ -14798,6 +14866,10 @@ function useMineEMI(owner, card) {
 let bobyzCycleCount = { top: 0, bottom: 0 };
 function openBobyzActionPrompt(owner, card, fromEl){
   if (currentTurn !== owner || isFrozen(card) || hasAttacked(owner, card)) return;
+  if (!isCardAllowedThisTurn(owner, card)) {
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C32')} n'appartient pas à la faction active de ce tour.`);
+    return;
+  }
   const cycleLabel = ['T11','T12','T13'][bobyzCycleCount[owner] % 3];
   openButtonsPrompt('Bobyz', `Créer une <strong>${cardAnchor(cycleLabel)}</strong> dans votre zone d'artefact ?`, fromEl, [
     { label:'Créer', className:'confirm', onClick:()=>useBobyzAction(owner, card) },
@@ -16398,6 +16470,17 @@ if (ONLINE_MODE) {
     }
     const topAvatarUrl = vsAvatarUrl(profiles.top.avatar);
     const bottomAvatarUrl = vsAvatarUrl(profiles.bottom.avatar);
+    // Mon propre profil doit TOUJOURS apparaître en bas (comme le reste du
+    // plateau, qui place systématiquement ma zone en bas via flip-view) —
+    // peu importe si je suis réellement le siège "top" ou "bottom" côté
+    // serveur. Sans cette logique, mon propre profil pouvait apparaître en
+    // haut si j'étais le siège "top", ce qui semblait inversé.
+    const mySeatForVs = (typeof MY_SEAT !== 'undefined') ? MY_SEAT : 'bottom';
+    const oppSeatForVs = (mySeatForVs === 'top') ? 'bottom' : 'top';
+    const myProfile = profiles[mySeatForVs];
+    const opponentProfile = profiles[oppSeatForVs];
+    const myAvatarUrl = (mySeatForVs === 'top') ? topAvatarUrl : bottomAvatarUrl;
+    const opponentAvatarUrl = (oppSeatForVs === 'top') ? topAvatarUrl : bottomAvatarUrl;
     const reduceMotion = (function(){ try { return localStorage.getItem('arms_reduce_motion') === '1'; } catch(e){ return false; } })();
 
     const embersHtml = reduceMotion ? '' : Array.from({length: 10}, (_, i) => {
@@ -16419,17 +16502,17 @@ if (ONLINE_MODE) {
       <div class="vsAvatarWrap vsTop">
         <div class="vsRingWrap">
           <div class="vsRingSpin"></div>
-          <div class="vsAvatarRing" style="background-image:url('${topAvatarUrl}')"></div>
+          <div class="vsAvatarRing" style="background-image:url('${opponentAvatarUrl}')"></div>
         </div>
-        <div class="vsNamePlate"><div class="vsName">${profiles.top.name}</div></div>
+        <div class="vsNamePlate"><div class="vsName">${opponentProfile.name}</div></div>
       </div>
 
       <div class="vsAvatarWrap vsBottom">
         <div class="vsRingWrap">
           <div class="vsRingSpin"></div>
-          <div class="vsAvatarRing" style="background-image:url('${bottomAvatarUrl}')"></div>
+          <div class="vsAvatarRing" style="background-image:url('${myAvatarUrl}')"></div>
         </div>
-        <div class="vsNamePlate"><div class="vsName">${profiles.bottom.name}</div></div>
+        <div class="vsNamePlate"><div class="vsName">${myProfile.name}</div></div>
       </div>
 
       <div class="vsCenter">
