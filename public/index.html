@@ -4586,6 +4586,47 @@ let aimArrowEl = null;
 let hoveredTarget = null;
 
 /* ---- Drag courant (C4 / C10 / C16) ---- */
+// ===================================================================
+// SYSTÈME GÉNÉRIQUE DE PROTECTION "PROPRIÉTAIRE" — pour tout ciblage
+// déclenché par un effet de MORT qui doit toujours être résolu par le
+// PROPRIÉTAIRE de la carte, même si sa mort est calculée sur l'écran
+// adverse (ex. mort en combat pendant le tour de l'adversaire). Sans ce
+// système, le ciblage pouvait s'ouvrir sur le mauvais écran, laissant le
+// propriétaire réel sans jamais voir son choix (même bug déjà corrigé pour
+// Krouzpier — appliqué ici à Tokzik, Kryo et Kamykaz, qui partagent le
+// même risque).
+// ===================================================================
+function showOwnerGatedWaitOverlay(message){
+  removeOwnerGatedWaitOverlay();
+  const el = document.createElement('div');
+  el.id = 'ownerGatedWaitOverlay';
+  el.className = 'actionPrompt';
+  el.style.position = 'fixed';
+  el.style.bottom = '100px';
+  el.style.left = '50%';
+  el.style.transform = 'translateX(-50%)';
+  el.style.zIndex = '8700';
+  el.innerHTML = `<div class="apMsg">${message}</div>`;
+  document.body.appendChild(el);
+}
+function removeOwnerGatedWaitOverlay(){
+  const el = document.getElementById('ownerGatedWaitOverlay');
+  if (el) el.remove();
+}
+// Diffuse systématiquement (peu importe quel client exécute ce code) pour
+// que le VRAI propriétaire soit toujours notifié de son choix à faire.
+function broadcastOwnerGatedTargeting(kind, owner){
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID, seat: owner,
+      payload: { type: 'ownerGatedTargeting', kind, owner }
+    });
+  }
+}
+function isMyTurnToChoose(owner){
+  return (typeof ONLINE_MODE === 'undefined' || !ONLINE_MODE || MY_SEAT === owner);
+}
+
 let currentDragInfo = null;
 
 // ===================================================================
@@ -7986,6 +8027,15 @@ function handleKrouzpierTargetSelection(targetCard, targetCardOwner){
 // KRYLLS (nouveau lot) : Tokzik (C35) — MORT : exile un combattant adverse
 // choisi par clic direct sur le plateau.
 function startTokzikTargeting(casterOwner, targetOwner){
+  broadcastOwnerGatedTargeting('tokzik', casterOwner);
+  if (!isMyTurnToChoose(casterOwner)) {
+    showOwnerGatedWaitOverlay("Votre adversaire choisit la cible de l'effet de Tokzik…");
+    return;
+  }
+  openTokzikPromptReal(casterOwner, targetOwner);
+}
+function openTokzikPromptReal(casterOwner, targetOwner){
+  removeOwnerGatedWaitOverlay();
   tokzikTargetMode = { casterOwner, targetOwner };
   closeActionPrompt();
   const promptEl = document.createElement('div');
@@ -8024,6 +8074,15 @@ function handleTokzikTargetSelection(targetCard, targetCardOwner){
 // KRYLLS (nouveau lot) : Kryo (C38) — JOUER et MORT : gèle un combattant
 // adverse choisi par clic direct sur le plateau.
 function startKryoTargeting(owner){
+  broadcastOwnerGatedTargeting('kryo', owner);
+  if (!isMyTurnToChoose(owner)) {
+    showOwnerGatedWaitOverlay("Votre adversaire choisit la cible de l'effet de Kryo…");
+    return;
+  }
+  openKryoPromptReal(owner);
+}
+function openKryoPromptReal(owner){
+  removeOwnerGatedWaitOverlay();
   kryoTargetMode = { owner };
   closeActionPrompt();
   const promptEl = document.createElement('div');
@@ -8119,6 +8178,15 @@ function handleC42TargetSelection(targetCard, targetCardOwner){
 // en main ou être exilé (par un tout autre effet), il disparaît purement et
 // simplement à la place (voir discardCard et addToExile).
 function startKamykazTargeting(owner){
+  broadcastOwnerGatedTargeting('kamykaz', owner);
+  if (!isMyTurnToChoose(owner)) {
+    showOwnerGatedWaitOverlay("Votre adversaire choisit la cible de l'effet de Kamykaz…");
+    return;
+  }
+  openKamykazPromptReal(owner);
+}
+function openKamykazPromptReal(owner){
+  removeOwnerGatedWaitOverlay();
   kamykazTargetMode = { owner };
   closeActionPrompt();
   const promptEl = document.createElement('div');
@@ -16676,6 +16744,19 @@ if (ONLINE_MODE) {
       if (payload.type === 'larvaFusion') {
         // Diffusé quand 3 Larves (T02) fusionnent automatiquement en Anomaly.
         playFusionAnimation(payload.owner);
+      }
+      if (payload.type === 'ownerGatedTargeting') {
+        // Diffusé par Tokzik/Kryo/Kamykaz à chaque fois que leur effet doit
+        // être résolu — permet au VRAI propriétaire de recevoir son choix
+        // même si sa mort a été calculée sur l'écran adverse.
+        if (typeof MY_SEAT !== 'undefined' && MY_SEAT === payload.owner) {
+          if (payload.kind === 'tokzik') {
+            const tokzikTargetOwner = (payload.owner === 'top') ? 'bottom' : 'top';
+            openTokzikPromptReal(payload.owner, tokzikTargetOwner);
+          }
+          if (payload.kind === 'kryo') { openKryoPromptReal(payload.owner); }
+          if (payload.kind === 'kamykaz') { openKamykazPromptReal(payload.owner); }
+        }
       }
     });
   });
