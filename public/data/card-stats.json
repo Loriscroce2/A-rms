@@ -1,617 +1,397 @@
 {
-  "0001": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0002": {
-    "type": "personnage",
-    "hp": 1,
-    "shield": 0
-  },
-  "0003": {
-    "type": "personnage",
-    "hp": 5,
-    "shield": 1
-  },
-  "0004": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0005": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0006": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 0
-  },
-  "0007": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0008": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0009": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 0
-  },
-  "0010": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0011": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0012": {
-    "type": "personnage",
-    "hp": 1,
-    "shield": 0
-  },
-  "0013": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 1
-  },
-  "0014": {
-    "type": "personnage",
-    "hp": 6,
-    "shield": 1
-  },
-  "0015": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 2
-  },
-  "0016": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0017": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 2
-  },
-  "0018": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0019": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0020": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 0
-  },
-  "0021": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0022": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 1
-  },
-  "0051": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0052": {
-    "type": "personnage",
-    "hp": 5,
-    "shield": 0
-  },
-  "0053": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0054": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0055": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 0
-  },
-  "0056": {
-    "type": "personnage",
-    "hp": 6,
-    "shield": 0
-  },
-  "0057": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0058": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0059": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0060": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 0
-  },
-  "0061": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0062": {
-    "type": "personnage",
-    "hp": 0,
-    "shield": 0
-  },
-  "0063": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0064": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0065": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 0
-  },
-  "0066": {
-    "type": "personnage",
-    "hp": 1,
-    "shield": 5
-  },
-  "0067": {
-    "type": "personnage",
-    "hp": 5,
-    "shield": 0
-  },
-  "0068": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 1
-  },
-  "0101": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0102": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0103": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0104": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0105": {
-    "type": "personnage",
-    "hp": 5,
-    "shield": 1
-  },
-  "0106": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0107": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0108": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 0
-  },
-  "0109": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0110": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0111": {
-    "type": "personnage",
-    "hp": 1,
-    "shield": 3
-  },
-  "0112": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0113": {
-    "type": "personnage",
-    "hp": 8,
-    "shield": 0
-  },
-  "0114": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 0
-  },
-  "0115": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0116": {
-    "type": "personnage",
-    "hp": 6,
-    "shield": 0
-  },
-  "0117": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 0
-  },
-  "0118": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0119": {
-    "type": "personnage",
-    "hp": 5,
-    "shield": 0
-  },
-  "0120": {
-    "type": "personnage",
-    "hp": 5,
-    "shield": 0
-  },
-  "0151": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 2
-  },
-  "0152": {
-    "type": "personnage",
-    "hp": 5,
-    "shield": 0
-  },
-  "0153": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0154": {
-    "type": "personnage",
-    "hp": 7,
-    "shield": 1
-  },
-  "0155": {
-    "type": "personnage",
-    "hp": 1,
-    "shield": 3
-  },
-  "0156": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0157": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0158": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 0
-  },
-  "0159": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0160": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0161": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0162": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0163": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0164": {
-    "type": "personnage",
-    "hp": 6,
-    "shield": 0
-  },
-  "0165": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 0
-  },
-  "0166": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0167": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0168": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0169": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0170": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 1
-  },
-  "0171": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0172": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0173": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 0
-  },
-  "0174": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0201": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 0
-  },
-  "0202": {
-    "type": "personnage",
-    "hp": 1,
-    "shield": 0
-  },
-  "0203": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 1
-  },
-  "0204": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0205": {
-    "type": "personnage",
-    "hp": 5,
-    "shield": 1
-  },
-  "0206": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 1
-  },
-  "0207": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 0
-  },
-  "0208": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0209": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0210": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0211": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0212": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 2
-  },
-  "0213": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0214": {
-    "type": "personnage",
-    "hp": 1,
-    "shield": 0
-  },
-  "0215": {
-    "type": "personnage",
-    "hp": 7,
-    "shield": 0
-  },
-  "0216": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 0
-  },
-  "0217": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0218": {
-    "type": "personnage",
-    "hp": 1,
-    "shield": 3
-  },
-  "0219": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0220": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0221": {
-    "type": "personnage",
-    "hp": 1,
-    "shield": 0
-  },
-  "0222": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 0
-  },
-  "0223": {
-    "type": "personnage",
-    "hp": 2,
-    "shield": 2
-  },
-  "0224": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0225": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 2
-  },
-  "0226": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0227": {
-    "type": "artefact",
-    "hp": 0,
-    "shield": 0
-  },
-  "0228": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0229": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 1
-  },
-  "0230": {
-    "type": "personnage",
-    "hp": 4,
-    "shield": 0
-  },
-  "0231": {
-    "type": "personnage",
-    "hp": 5,
-    "shield": 0
-  },
-  "0232": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 0
-  },
-  "0233": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0234": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 3
-  },
-  "0235": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0236": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0023": {
-    "type": "action",
-    "hp": 0,
-    "shield": 0
-  },
-  "0024": {
-    "type": "familier",
-    "hp": 0,
-    "shield": 0
-  },
-  "0025": {
-    "type": "personnage",
-    "hp": 3,
-    "shield": 0
-  }
+"0001":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0002":{
+"type":"personnage",
+"hp":1,
+"shield":0
+},
+"0003":{
+"type":"personnage",
+"hp":5,
+"shield":1
+},
+"0006":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0009":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0012":{
+"type":"personnage",
+"hp":1,
+"shield":0
+},
+"0013":{
+"type":"personnage",
+"hp":2,
+"shield":1
+},
+"0014":{
+"type":"personnage",
+"hp":6,
+"shield":1
+},
+"0015":{
+"type":"personnage",
+"hp":3,
+"shield":2
+},
+"0017":{
+"type":"personnage",
+"hp":2,
+"shield":2
+},
+"0020":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0022":{
+"type":"personnage",
+"hp":2,
+"shield":1
+},
+"0025":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0026":{
+"type":"personnage",
+"hp":2,
+"shield":4
+},
+"0028":{
+"type":"personnage",
+"hp":7,
+"shield":0
+},
+"0029":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0032":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0034":{
+"type":"personnage",
+"hp":6,
+"shield":1
+},
+"0035":{
+"type":"personnage",
+"hp":5,
+"shield":0
+},
+"0036":{
+"type":"personnage",
+"hp":2,
+"shield":4
+},
+"0038":{
+"type":"personnage",
+"hp":1,
+"shield":3
+},
+"0040":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0052":{
+"type":"personnage",
+"hp":5,
+"shield":0
+},
+"0055":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0056":{
+"type":"personnage",
+"hp":6,
+"shield":0
+},
+"0059":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0060":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0061":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0062":{
+"type":"personnage",
+"hp":0,
+"shield":0
+},
+"0065":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0066":{
+"type":"personnage",
+"hp":1,
+"shield":5
+},
+"0067":{
+"type":"personnage",
+"hp":5,
+"shield":0
+},
+"0068":{
+"type":"personnage",
+"hp":4,
+"shield":1
+},
+"0101":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0105":{
+"type":"personnage",
+"hp":5,
+"shield":1
+},
+"0108":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0109":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0110":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0111":{
+"type":"personnage",
+"hp":1,
+"shield":3
+},
+"0113":{
+"type":"personnage",
+"hp":8,
+"shield":0
+},
+"0114":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0116":{
+"type":"personnage",
+"hp":6,
+"shield":0
+},
+"0117":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0119":{
+"type":"personnage",
+"hp":5,
+"shield":0
+},
+"0120":{
+"type":"personnage",
+"hp":5,
+"shield":0
+},
+"0151":{
+"type":"personnage",
+"hp":3,
+"shield":2
+},
+"0152":{
+"type":"personnage",
+"hp":5,
+"shield":0
+},
+"0154":{
+"type":"personnage",
+"hp":7,
+"shield":1
+},
+"0155":{
+"type":"personnage",
+"hp":1,
+"shield":3
+},
+"0158":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0160":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0164":{
+"type":"personnage",
+"hp":6,
+"shield":0
+},
+"0165":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0166":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0167":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0170":{
+"type":"personnage",
+"hp":3,
+"shield":1
+},
+"0173":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0201":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0202":{
+"type":"personnage",
+"hp":1,
+"shield":0
+},
+"0203":{
+"type":"personnage",
+"hp":2,
+"shield":1
+},
+"0205":{
+"type":"personnage",
+"hp":5,
+"shield":1
+},
+"0206":{
+"type":"personnage",
+"hp":3,
+"shield":1
+},
+"0207":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0211":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0212":{
+"type":"personnage",
+"hp":2,
+"shield":2
+},
+"0214":{
+"type":"personnage",
+"hp":1,
+"shield":0
+},
+"0215":{
+"type":"personnage",
+"hp":7,
+"shield":0
+},
+"0216":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0218":{
+"type":"personnage",
+"hp":1,
+"shield":3
+},
+"0220":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0221":{
+"type":"personnage",
+"hp":1,
+"shield":0
+},
+"0222":{
+"type":"personnage",
+"hp":2,
+"shield":0
+},
+"0223":{
+"type":"personnage",
+"hp":2,
+"shield":2
+},
+"0225":{
+"type":"personnage",
+"hp":4,
+"shield":2
+},
+"0229":{
+"type":"personnage",
+"hp":4,
+"shield":1
+},
+"0230":{
+"type":"personnage",
+"hp":4,
+"shield":0
+},
+"0231":{
+"type":"personnage",
+"hp":5,
+"shield":0
+},
+"0232":{
+"type":"personnage",
+"hp":3,
+"shield":0
+},
+"0234":{
+"type":"personnage",
+"hp":3,
+"shield":3
+}
 }

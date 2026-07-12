@@ -3983,10 +3983,9 @@ function attachHP(el, card){
   if (isBruitzeurActive()) {
     effectiveShield = 0;
   }
-  // Le Bouclier s'affiche désormais TOUJOURS, même à 0 — pour que chaque
-  // combattant montre systématiquement ses deux statistiques (PV et PB)
-  // partout dans le jeu, sans exception ni incohérence entre les cartes.
-  const sh = document.createElement('div'); sh.className='shield'; sh.textContent = effectiveShield; el.appendChild(sh);
+  if (effectiveShield > 0){
+    const sh = document.createElement('div'); sh.className='shield'; sh.textContent = effectiveShield; el.appendChild(sh);
+  }
 }
 
 // NOUVEAU : Affiche le compteur de BUTS pour Flavio VII (C154)
