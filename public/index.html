@@ -954,18 +954,6 @@
     }
     body.fusionShake{ animation:fusionShakeKeyframes .65s cubic-bezier(.36,.07,.19,.97) both; }
 
-    /* Spotlight de fusion : tout l'écran s'éteint COMPLÈTEMENT, ne laissant
-       visible que la zone de combat concernée (là où Ignominie apparaît et
-       erre) — via une immense ombre portée qui découpe une fenêtre exacte
-       sur cette zone precise, plutôt qu'un simple assombrissement uniforme. */
-    .fusionSpotlight{
-      position:fixed; z-index:7500; pointer-events:none; border-radius:20px;
-      opacity:0; transition:opacity .9s ease, top .6s ease, left .6s ease, width .6s ease, height .6s ease;
-      box-shadow:0 0 0 9999px rgba(2,1,5,.985), inset 0 0 60px rgba(120,30,170,.35);
-      border:1px solid rgba(160,60,220,.4);
-    }
-    .fusionSpotlight.go{ opacity:1; }
-
     /* Ignominie (T08) errant dans sa zone pendant Ignominie.mp3 : la case
        elle-même tremble en continu (distinct de la secousse ponctuelle de
        la fusion), et chaque déplacement laisse un reflet éthéré qui s'estompe. */
@@ -5903,8 +5891,6 @@ function playActionFusionnerLesTous(owner, actionCard){
   if (idx !== -1) hand.splice(idx, 1);
   discardCard(actionCard, owner, 'action');
 
-  // Capture des éléments DOM AVANT toute suppression, pour l'animation.
-  const mergedEls = oppLine.map(c => findLiveCardElement(c)).filter(Boolean);
   const mergedLabels = oppLine.map(c => c.label);
 
   // Le Mithril capturé (Malocux/Scaracy) par N'IMPORTE LAQUELLE des créatures
@@ -5933,231 +5919,146 @@ function playActionFusionnerLesTous(owner, actionCard){
 
   pushHistory('action', `${cardAnchor('C236')} fusionne ${mergedLabels.length} combattant${mergedLabels.length>1?'s':''} adverse${mergedLabels.length>1?'s':''} en ${cardAnchor('T08')} !` +
     (totalCapturedMithril > 0 ? ` Elle hérite de ${totalCapturedMithril} Mithril capturé.` : ''));
+  fullRender();
 
-  // Prévient l'adversaire pour qu'il voie, lui aussi, la séquence complète
-  // en même temps (spotlight + vagabondage + grand plan final) — sa propre
-  // zone (celle qui vient de fusionner) reste éclairée chez lui aussi,
-  // puisque c'est exactement la même zone physique des deux côtés.
+  // L'état est déjà appliqué à cet instant (comme pour Kabba/Forgecoeur) —
+  // l'animation qui suit n'est plus qu'un habillage visuel. Diffusée à
+  // l'adversaire avec la liste des cartes fusionnées (pas les éléments DOM,
+  // qui n'existeraient plus chez lui) pour qu'il voie EXACTEMENT la même
+  // séquence, construite à partir des mêmes images.
   if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
     window.__socket.emit('vfx', {
       matchId: ONLINE_MATCH_ID, seat: owner,
-      payload: { type: 'fusionnerLesTous', targetOwner: opp, ignominieId: ignominie.id }
+      payload: { type: 'fusionnerLesTous', targetOwner: opp, mergedLabels, ownerLabel: opp, capturedMithril: totalCapturedMithril }
     });
   }
 
-  animateFusionFrenzy(mergedEls, opp);
-  fullRender();
-
-  // Le vagabondage démarre une fois la carte réellement affichée dans le DOM
-  // (juste après ce fullRender), pour toute la durée du son Ignominie.mp3.
-  requestAnimationFrame(()=> requestAnimationFrame(()=> startIgnominieWander(ignominie, opp)));
+  playFusionCenterStageAnimation(mergedLabels, ignominie, opp, totalCapturedMithril);
 }
 
-/* Ignominie erre dans sa zone de combat pendant toute la durée du son
-   Ignominie.mp3 (13,08s) : la case tremble en continu, la carte se déplace
-   aléatoirement en laissant des reflets éthérés (traînée violette qui
-   s'estompe) derrière son passage, puis se stabilise à sa position normale
-   une fois le son terminé — ne restant alors QUE la carte Ignominie. */
-function startIgnominieWander(card, owner){
+// Animation propre à "Fusionner les tous" (C236) : l'écran s'éteint
+// COMPLÈTEMENT (noir total), tous les combattants fusionnés apparaissent
+// zoomés au centre en éventail, tourbillonnent et convergent visuellement,
+// pour finir en Ignominie qui émerge dans un flash. Construite entièrement
+// à partir des LABELS des cartes (pas d'éléments DOM), pour être
+// rigoureusement identique chez les deux joueurs — y compris côté
+// spectateur, dont le plateau a déjà changé au moment où il la reçoit.
+// Tenue prolongée à la fin pour laisser largement le temps de lire ce qui
+// vient de se passer.
+function playFusionCenterStageAnimation(mergedLabels, ignominieCard, targetOwner, capturedMithril){
   try{
-    const IGNOMINIE_SOUND_DURATION_MS = 13080;
-    const zoneEl = document.getElementById(owner === 'top' ? 'battleTop' : 'battleBottom');
-    if (!zoneEl) return;
-    zoneEl.classList.add('ignominieZoneShake');
-
-    // La main du joueur du haut est repoussée hors de vue pendant tout le
-    // vagabondage : sa position pouvait sinon venir chevaucher visuellement
-    // l'animation (peu importe le côté où Ignominie apparaît).
-    const handTopEl = document.getElementById('handTop');
-    if (handTopEl) handTopEl.classList.add('hiddenDuringIgnominieWander');
-
-    const findCardEl = () => document.querySelector(`[data-id="${card.id}"]`);
-
-    const spawnTrailGhost = (el) => {
-      try{
-        const rect = el.getBoundingClientRect();
-        const ghost = document.createElement('div');
-        ghost.className = 'card ignominieTrailGhost';
-        const bg = el.style.backgroundImage || getComputedStyle(el).backgroundImage;
-        if (bg) ghost.style.backgroundImage = bg;
-        ghost.style.left = `${rect.left}px`;
-        ghost.style.top = `${rect.top}px`;
-        ghost.style.width = `${rect.width}px`;
-        ghost.style.height = `${rect.height}px`;
-        aimLayer.appendChild(ghost);
-        requestAnimationFrame(()=> ghost.classList.add('fade'));
-        setTimeout(()=>{ if (ghost.parentNode) ghost.remove(); }, 1300);
-      }catch(e){ }
-    };
-
-    const wanderStep = () => {
-      const el = findCardEl();
-      if (!el) return;
-      spawnTrailGhost(el);
-      const rx = (Math.random() * 2 - 1) * 26;
-      const ry = (Math.random() * 2 - 1) * 18;
-      const rot = (Math.random() * 2 - 1) * 12;
-      el.style.transition = 'transform .42s cubic-bezier(.4,0,.2,1)';
-      el.style.transform = `translate(${rx}px, ${ry}px) rotate(${rot}deg) scale(1.06)`;
-      el.style.zIndex = '60';
-      el.style.filter = 'drop-shadow(0 0 14px rgba(160,50,210,.75))';
-    };
-
-    wanderStep();
-    const wanderInterval = setInterval(wanderStep, 400);
-
-    setTimeout(()=>{
-      clearInterval(wanderInterval);
-      zoneEl.classList.remove('ignominieZoneShake');
-      if (handTopEl) handTopEl.classList.remove('hiddenDuringIgnominieWander');
-      const el = findCardEl();
-      if (el) {
-        el.style.transition = 'transform .55s ease';
-        el.style.transform = 'none';
-        el.style.zIndex = '';
-        el.style.filter = '';
-      }
-      // Présentation finale : Ignominie zoomée au centre de l'écran, avec
-      // une explication de ce qui vient de se passer. Le spotlight s'éteint
-      // juste avant — le grand plan prend alors toute la place.
-      removeFusionSpotlight(currentFusionSpotlight);
-      currentFusionSpotlight = null;
-      showIgnominieReveal(card, owner);
-    }, IGNOMINIE_SOUND_DURATION_MS);
-  }catch(e){ }
-}
-
-/* Grand plan de présentation d'Ignominie une fois le vagabondage terminé —
-   carte zoomée au centre de l'écran + explication, avec entrée/sortie
-   animées. Se ferme automatiquement après quelques secondes, ou au clic. */
-function showIgnominieReveal(card, owner){
-  try{
-    const overlay = document.createElement('div');
-    overlay.className = 'ignominieReveal';
-    const ownerLabel = playerLabel(owner);
-    const mithrilNote = (typeof card.capturedMithril === 'number' && card.capturedMithril > 0)
-      ? ` Elle porte encore ${card.capturedMithril} Mithril capturé hérité de la fusion.`
-      : '';
-    overlay.innerHTML = `
-      <div class="ignominieRevealCard" style="background-image:url(${getCardImage(card.label)})"></div>
-      <div class="ignominieRevealText">
-        <h2>Ignominie s'éveille</h2>
-        <p>Les combattants de ${ownerLabel} viennent de fusionner en une seule et unique horreur à <strong>15 PV</strong>, appartenant à toutes les factions à la fois.${mithrilNote}</p>
-      </div>
+    const style = document.createElement('style');
+    style.textContent = `
+      .fcsOverlay{ position:fixed; inset:0; z-index:8200; background:#000; opacity:0; transition:opacity .7s ease;
+        display:flex; align-items:center; justify-content:center; overflow:hidden; }
+      .fcsOverlay.show{ opacity:1; }
+      .fcsOverlay.exit{ opacity:0; }
+      .fcsStage{ position:relative; width:min(680px,88vw); height:min(680px,88vw); display:flex; align-items:center; justify-content:center; }
+      .fcsCard{ position:absolute; width:112px; height:157px; border-radius:10px; background-size:cover; background-position:center;
+        box-shadow:0 0 26px rgba(160,60,220,.55); border:2px solid rgba(190,110,255,.5); opacity:0; }
+      .fcsCard.enter{ animation:fcsEnter .65s cubic-bezier(.2,.8,.2,1.15) forwards; }
+      .fcsCard.swirl{ animation:fcsSwirl 1.5s cubic-bezier(.5,0,.5,1) forwards; }
+      @keyframes fcsEnter{ from{ opacity:0; transform:translate(var(--fx),var(--fy)) scale(.2) rotate(0deg); } to{ opacity:1; transform:translate(var(--fx),var(--fy)) scale(1) rotate(0deg); } }
+      @keyframes fcsSwirl{ from{ transform:translate(var(--fx),var(--fy)) scale(1) rotate(0deg); opacity:1; } to{ transform:translate(0,0) scale(.05) rotate(680deg); opacity:0; } }
+      .fcsFlash{ position:absolute; width:140px; height:140px; left:50%; top:50%; margin:-70px 0 0 -70px; border-radius:50%;
+        background:radial-gradient(circle, #f0d8ff 0%, #9a3dd6 35%, transparent 70%); opacity:0; pointer-events:none; }
+      .fcsFlash.pop{ animation:fcsFlashFade .6s ease-out forwards; }
+      @keyframes fcsFlashFade{ 0%{ opacity:1; transform:scale(.3); } 100%{ opacity:0; transform:scale(2.6); } }
+      .fcsReveal{ position:relative; width:min(300px,62vw); height:min(420px,86vw); border-radius:18px; background-size:cover; background-position:center;
+        border:3px solid rgba(190,110,255,.75); box-shadow:0 0 70px rgba(160,60,220,.7), 0 24px 54px rgba(0,0,0,.8);
+        opacity:0; transform:scale(.25); transition:opacity .8s cubic-bezier(.2,.8,.2,1.2), transform .8s cubic-bezier(.2,.8,.2,1.2); }
+      .fcsReveal.show{ opacity:1; transform:scale(1); }
+      .fcsCaption{ position:absolute; bottom:-96px; left:50%; transform:translateX(-50%); width:max(320px,80vw); text-align:center;
+        opacity:0; transition:opacity .7s ease; }
+      .fcsCaption.show{ opacity:1; }
+      .fcsCaption h2{ margin:0 0 8px; font-family:'Cinzel',serif; font-size:clamp(22px,3.2vw,32px); font-weight:800; letter-spacing:.1em;
+        text-transform:uppercase; color:#e8d0ff; text-shadow:0 0 20px rgba(190,110,255,.8); }
+      .fcsCaption p{ margin:0; font-family:'Manrope',system-ui,sans-serif; font-size:clamp(13px,1.6vw,16px); color:#cbb8e0; line-height:1.5; }
     `;
+    document.head.appendChild(style);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'fcsOverlay';
+    overlay.innerHTML = `<div class="fcsStage" id="fcsStage"></div>`;
     document.body.appendChild(overlay);
-    requestAnimationFrame(()=> overlay.classList.add('go'));
-
-    const dismiss = () => {
-      if (overlay.dataset.dismissed) return;
-      overlay.dataset.dismissed = '1';
-      overlay.classList.remove('go');
-      overlay.classList.add('leaving');
-      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); }, 500);
-    };
-    overlay.addEventListener('click', dismiss);
-    setTimeout(dismiss, 9000);
-  }catch(e){ }
-}
-
-/* Animation de fusion : chaque carte adverse est aspirée façon vortex vers
-   le centre de sa propre zone de combat (teinte violette/pourpre, en écho au
-   visuel de la carte), avec un léger décalage entre chacune pour un effet de
-   "convergence" progressive, puis une onde de choc marque l'apparition
-   d'Ignominie à l'endroit exact de l'impact. */
-// Crée le spotlight qui éteint tout l'écran SAUF la zone de combat visée —
-// repositionné dynamiquement si la zone bouge légèrement (redimensionnement,
-// nouvelles cartes qui changent sa taille) pendant toute la séquence.
-function createFusionSpotlight(targetOwner){
-  const spot = document.createElement('div');
-  spot.className = 'fusionSpotlight';
-  document.body.appendChild(spot);
-  const reposition = () => {
-    const zoneEl = document.getElementById(targetOwner === 'top' ? 'battleTop' : 'battleBottom');
-    if (!zoneEl || !spot.parentNode) return;
-    const r = zoneEl.getBoundingClientRect();
-    const pad = 14;
-    spot.style.left = `${r.left - pad}px`;
-    spot.style.top = `${r.top - pad}px`;
-    spot.style.width = `${r.width + pad * 2}px`;
-    spot.style.height = `${r.height + pad * 2}px`;
-  };
-  reposition();
-  requestAnimationFrame(() => { reposition(); spot.classList.add('go'); });
-  const resizeHandler = () => reposition();
-  window.addEventListener('resize', resizeHandler);
-  spot._reposition = reposition;
-  spot._resizeHandler = resizeHandler;
-  return spot;
-}
-function removeFusionSpotlight(spot){
-  if (!spot) return;
-  window.removeEventListener('resize', spot._resizeHandler);
-  spot.classList.remove('go');
-  setTimeout(() => { if (spot.parentNode) spot.remove(); }, 700);
-}
-
-let currentFusionSpotlight = null;
-
-function animateFusionFrenzy(mergedEls, targetOwner){
-  try{
-    // Son + spotlight qui éteint TOUT l'écran sauf la zone concernée, dès le
-    // lancement — persiste tout au long de la séquence (vol des cartes,
-    // vagabondage d'Ignominie), et ne s'éteint que juste avant le grand plan
-    // final (showIgnominieReveal prend alors toute la place).
+    requestAnimationFrame(()=> overlay.classList.add('show'));
     playIgnominieSfx();
-    currentFusionSpotlight = createFusionSpotlight(targetOwner);
 
-    const zoneEl = document.querySelector(targetOwner === 'top' ? '#battleTop .battleInner' : '#battleBottom .battleInner');
-    if (!zoneEl) return;
-    const zoneRect = zoneEl.getBoundingClientRect();
-    const target = { x: zoneRect.left + zoneRect.width / 2, y: zoneRect.top + zoneRect.height / 2 };
-
-    // Vol des cartes fusionnées vers le centre de la zone — n'a lieu que si
-    // les éléments DOM existent réellement (le joueur qui déclenche l'effet
-    // les a encore sous les yeux au moment de l'appel ; côté spectateur, son
-    // plateau a déjà été mis à jour via la synchronisation d'état classique
-    // au moment où l'animation démarre, donc rien à faire voler ici — le
-    // spotlight, la secousse et le flash suffisent à transmettre l'impact).
-    const els = mergedEls || [];
-    els.forEach((el, i) => {
-      const start = centerOf(el);
-      const ghost = document.createElement('div');
-      ghost.className = 'card fusionGhost';
-      const url = el.style.backgroundImage;
-      if (url) ghost.style.backgroundImage = url;
-      ghost.style.left = `${start.x}px`;
-      ghost.style.top = `${start.y}px`;
-      ghost.style.transitionDelay = `${i * 70}ms`;
-      aimLayer.appendChild(ghost);
-      requestAnimationFrame(()=>{
-        const dx = target.x - start.x;
-        const dy = target.y - start.y;
-        ghost.style.transform = `translate(${dx}px, ${dy}px) scale(.06) rotate(${520 + i * 110}deg)`;
-        ghost.style.opacity = '0';
-      });
-      setTimeout(()=>{ if (ghost.parentNode) ghost.remove(); }, 900 + i * 70);
+    const stage = document.getElementById('fcsStage');
+    const n = Math.max(1, mergedLabels.length);
+    const radius = Math.min(210, 70 + n * 16);
+    const cardEls = mergedLabels.map((label, i) => {
+      const angle = (360 / n) * i - 90;
+      const rad = angle * Math.PI / 180;
+      const fx = Math.cos(rad) * radius;
+      const fy = Math.sin(rad) * radius;
+      const el = document.createElement('div');
+      el.className = 'fcsCard';
+      el.style.backgroundImage = `url(${getCardImage(label)})`;
+      el.style.setProperty('--fx', `${fx}px`);
+      el.style.setProperty('--fy', `${fy}px`);
+      el.style.animationDelay = `${i * 90}ms`;
+      stage.appendChild(el);
+      return el;
     });
 
-    const shockDelay = 550 + els.length * 70;
+    // Phase 1 : chaque carte fusionnée surgit et se présente en éventail
+    // autour du centre, sur fond entièrement noir.
+    setTimeout(()=>{ cardEls.forEach(el => el.classList.add('enter')); }, 300);
 
-    // Secousse d'écran : déclenchée juste avant l'impact pour culminer
-    // exactement au moment du flash, façon "montée de tension → choc".
+    // Phase 2 : elles tourbillonnent et convergent vers le centre en
+    // rétrécissant — la fusion visuelle proprement dite.
+    const swirlStart = 300 + 650 + Math.min(n, 6) * 90 + 350;
+    setTimeout(()=>{
+      cardEls.forEach((el, i) => {
+        el.style.animationDelay = `${i * 45}ms`;
+        el.classList.remove('enter');
+        el.classList.add('swirl');
+      });
+    }, swirlStart);
+
+    // Phase 3 : flash d'implosion + secousse d'écran, à l'instant précis où
+    // tout converge au centre.
+    const flashStart = swirlStart + 1550;
     setTimeout(()=>{
       document.body.classList.add('fusionShake');
       setTimeout(()=> document.body.classList.remove('fusionShake'), 650);
-    }, Math.max(0, shockDelay - 150));
-
-    setTimeout(()=>{
       const flash = document.createElement('div');
-      flash.className = 'fusionFlash';
-      flash.style.left = `${target.x}px`;
-      flash.style.top = `${target.y}px`;
-      aimLayer.appendChild(flash);
-      requestAnimationFrame(()=> flash.classList.add('go'));
-      setTimeout(()=>{ if (flash.parentNode) flash.remove(); }, 700);
-    }, shockDelay);
-  }catch(e){ }
+      flash.className = 'fcsFlash';
+      stage.appendChild(flash);
+      requestAnimationFrame(()=> flash.classList.add('pop'));
+    }, flashStart);
+
+    // Phase 4 : Ignominie émerge et grandit dramatiquement, avec sa légende.
+    const revealStart = flashStart + 500;
+    setTimeout(()=>{
+      cardEls.forEach(el => { if (el.parentNode) el.remove(); });
+      const reveal = document.createElement('div');
+      reveal.className = 'fcsReveal';
+      reveal.style.backgroundImage = `url(${getCardImage('T08')})`;
+      const mithrilNote = (capturedMithril > 0) ? ` Elle hérite de ${capturedMithril} Mithril capturé.` : '';
+      reveal.innerHTML = `
+        <div class="fcsCaption" id="fcsCaption">
+          <h2>Ignominie s'éveille</h2>
+          <p>Les combattants de ${playerLabel(targetOwner)} viennent de fusionner en une seule et unique horreur à
+            <strong>15 PV</strong>, appartenant à toutes les factions à la fois.${mithrilNote}</p>
+        </div>`;
+      stage.appendChild(reveal);
+      requestAnimationFrame(()=> reveal.classList.add('show'));
+      setTimeout(()=>{ const cap = document.getElementById('fcsCaption'); if (cap) cap.classList.add('show'); }, 500);
+    }, revealStart);
+
+    // Tenue prolongée (temps de lecture confortable) avant la sortie en fondu.
+    const exitStart = revealStart + 6200;
+    setTimeout(()=>{
+      overlay.classList.add('exit');
+      setTimeout(()=>{
+        overlay.remove();
+        style.remove();
+        fullRender();
+      }, 750);
+    }, exitStart);
+  }catch(e){ fullRender(); }
 }
 
 function updateForgeTaxUI() {
@@ -16939,24 +16840,12 @@ if (ONLINE_MODE) {
         }
       }
       if (payload.type === 'fusionnerLesTous') {
-        // Diffusé par Fusionner les tous (C236) : le spectateur voit la même
-        // séquence (spotlight + vagabondage + grand plan final) — sans
-        // aucune carte à faire voler (son plateau reflète déjà le résultat
-        // via la synchronisation d'état classique), mais avec exactement la
-        // même ambiance et la même zone qui reste éclairée.
-        const findIgnominie = () => findCardOnBoard(payload.ignominieId);
-        const startWhenReady = (attemptsLeft) => {
-          const ignominieCard = findIgnominie();
-          if (ignominieCard) {
-            animateFusionFrenzy(null, payload.targetOwner);
-            requestAnimationFrame(()=> requestAnimationFrame(()=> startIgnominieWander(ignominieCard, payload.targetOwner)));
-          } else if (attemptsLeft > 0) {
-            // La synchronisation d'état n'est peut-être pas encore arrivée —
-            // on retente très brièvement avant d'abandonner proprement.
-            setTimeout(()=> startWhenReady(attemptsLeft - 1), 120);
-          }
-        };
-        startWhenReady(8);
+        // Diffusé par Fusionner les tous (C236) : le spectateur voit
+        // EXACTEMENT la même séquence (écran noir, fusion centrale,
+        // Ignominie qui émerge), construite uniquement à partir des labels
+        // des cartes fusionnées — ne dépend donc d'aucun élément DOM ni
+        // d'un quelconque délai de synchronisation d'état.
+        playFusionCenterStageAnimation(payload.mergedLabels || [], null, payload.targetOwner, payload.capturedMithril || 0);
       }
     });
   });
