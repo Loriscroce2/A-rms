@@ -338,6 +338,13 @@
       font-size:clamp(20px,2.4vw,26px); margin:0; color:#cfffff;
       text-shadow:0 0 14px rgba(0,230,255,.3);
     }
+    .loreTagline{
+      display:inline-flex; align-items:center; gap:8px; margin-top:8px; padding:6px 16px;
+      border-radius:999px; font-weight:800; font-size:13px; letter-spacing:.04em; text-transform:uppercase;
+      color:var(--accent,#7df9ff); border:1.5px solid color-mix(in oklab, var(--accent,#7df9ff) 55%, transparent);
+      background:color-mix(in oklab, var(--accent,#7df9ff) 12%, transparent);
+      box-shadow:0 0 14px color-mix(in oklab, var(--accent,#7df9ff) 30%, transparent);
+    }
     .loreBody{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     @media (max-width:860px){ .loreBody{ grid-template-columns:1fr; } }
 
@@ -497,6 +504,7 @@
       <div class="loreHeader">
         <span class="loreBadge" id="loreBadge">FACTION</span>
         <h3 class="loreTitle" id="loreTitle">Titre</h3>
+        <div class="loreTagline" id="loreTagline"></div>
       </div>
       <div class="loreBody">
         <div class="loreBlock">
@@ -556,6 +564,7 @@
     const LORE = {
       krylls:{
         title:"Krylls — Dockers des Cités-Cargos",
+        tagline:"Pioche / Artefact",
         origin:"Peuple céphalopode bon vivant, élevé dans les soutes pressurisées des cargos dérivants. Ils bricolent l’impossible, troquent des modules et transforment des épaves en palais flottants. Chez les Krylls, tout se répare, tout se recycle — y compris les corps.",
         reason:"Les 5 A’rms activent le Dôme-Pression « Thalassée », un bouclier mobile qui libère leurs cités des taxes des guildes et leur ouvre des routes commerciales sûres.",
         style:[
@@ -571,6 +580,7 @@
       },
       impy:{
         title:"Impy — Sangs Maudits",
+        tagline:"Exil / Entrave",
         origin:"Créatures difformes nées d’un pacte brisé. Chacun est une punition vivante : un œil, trop de dents, corps tordu. Ils prospèrent dans l’odeur du fer et des braises, et n’hésitent jamais à faire couler leur propre sang pour obtenir ce qu’ils veulent.",
         reason:"Les 5 A’rms complètent le Scellement du « Cœur Hémolithe ». Soit ils brisent leur malédiction, soit ils l’arment pour régner par la peur.",
         style:[
@@ -586,6 +596,7 @@
       },
       savage:{
         title:"Savage — Meutes de la Lune Fendue",
+        tagline:"Puissance / Rapidité",
         origin:"Loups humanoïdes bardés de peaux, forgés par les blizzards. Leurs clans se rassemblent aux feux d’ambre et se défient pour l’honneur sous la Lune. Chez les Savage, la vitesse et la loyauté de meute comptent plus que la ruse.",
         reason:"Les 5 A’rms reforgent la Hache-Totem « Lune-Scindée », symbole d’unité. Avec elle, ils réunissent les meutes et revendiquent les Routes de Neige.",
         style:[
@@ -601,6 +612,7 @@
       },
       chimeria:{
         title:"Chimeria — Cour des Voiles Prismatiques",
+        tagline:"Don de cartes / Polyvalence",
         origin:"Élégants papillons-mantes aux gestes de danseurs. Leur musique façonne la lumière ; leurs cités flottent sur des arches iridescentes. Rien chez les Chimeria n’est laissé au hasard — sauf quand ils décident délibérément d’y jouer.",
         reason:"Les 5 A’rms forment l’« Archet Prismatique », un chef d’orchestre d’énergie capable de réparer leurs Voiles fracturées et d’accorder la tempête.",
         style:[
@@ -616,6 +628,7 @@
       },
       wadoo:{
         title:"Wadoo — Poupées de Rituel",
+        tagline:"Lien poupée / Contrôle",
         origin:"Êtres aborigènes au corps piqué d’aiguilles, peints de symboles ésotériques. Demi-mécaniques, demi-spirituels, ils cousent le monde aux souvenirs et lient le destin de leurs Poupées à celui de leurs ennemis.",
         reason:"Les 5 A’rms tissent l’« Aiguille-Mère », un totem-mécanisme qui rattache les âmes perdues à des enveloppes nouvelles… ou les libère.",
         style:[
@@ -635,6 +648,7 @@
     const card  = document.getElementById('loreCard');
     const badge = document.getElementById('loreBadge');
     const title = document.getElementById('loreTitle');
+    const tagline = document.getElementById('loreTagline');
     const origin= document.getElementById('loreOrigin');
     const reason= document.getElementById('loreReason');
     const style = document.getElementById('loreStyle');
@@ -646,6 +660,7 @@
       card.dataset.race = key;
       badge.textContent = key.toUpperCase();
       title.textContent = data.title;
+      tagline.textContent = data.tagline || '';
       origin.textContent = data.origin;
       reason.textContent = data.reason;
       style.innerHTML = data.style.map(i=>`<li>${i}</li>`).join('');
@@ -671,6 +686,29 @@
         const data = await res.json();
         if (res.ok && data.user && data.user.hasSeenTutorial === false) {
           window.location.href = '/tutorial.html';
+        }
+      }catch(e){}
+    })();
+
+    // Une partie en ligne était en cours au moment où ce joueur a quitté
+    // (déconnexion, fermeture d'onglet...) : on la retrouve automatiquement
+    // et on propose de la reprendre, sans qu'il ait besoin de l'URL exacte.
+    (async function checkActiveMatch(){
+      try{
+        const res = await fetch('/api/matchmaking/active-match');
+        const data = await res.json();
+        if (res.ok && data.active && data.matchId && data.seat) {
+          const banner = document.createElement('div');
+          banner.style.cssText = 'position:fixed; top:84px; left:50%; transform:translateX(-50%); z-index:5500; display:flex; align-items:center; gap:12px; max-width:min(92vw,520px); background:linear-gradient(145deg,#0a2530,#051820); border:1.5px solid rgba(125,249,255,.5); border-radius:14px; padding:12px 16px; box-shadow:0 10px 26px rgba(0,0,0,.5), 0 0 22px rgba(125,249,255,.25); color:#e8fdff; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;';
+          banner.innerHTML = `
+            <span style="font-size:22px;">⚔</span>
+            <span style="font-size:12.5px; line-height:1.4; flex:1;"><strong>Une partie en ligne est toujours en cours.</strong> Vous pouvez la reprendre où vous l'avez laissée.</span>
+            <button id="resumeMatchBtn" style="flex:none; padding:9px 16px; border-radius:10px; font-weight:900; font-size:12.5px; cursor:pointer; background:linear-gradient(180deg,#19e27a,#11985b); color:#052319; border:1px solid #4df7a8;">Reprendre</button>
+          `;
+          document.body.appendChild(banner);
+          document.getElementById('resumeMatchBtn').addEventListener('click', () => {
+            window.location.href = `/index.html?matchId=${encodeURIComponent(data.matchId)}&seat=${encodeURIComponent(data.seat)}`;
+          });
         }
       }catch(e){}
     })();

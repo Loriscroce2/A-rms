@@ -2733,6 +2733,8 @@ const POSECARTE_SFX_URL = new URL('/assets/posecarte.mp3', location.href).href;
 const SHUFFLE_SFX_URL = new URL('/assets/shuffle.mp3', location.href).href;
 const DISCARD_SFX_URL = new URL('/assets/Discard.mp3', location.href).href;
 const MOZKYTO_SFX_URL = new URL('/assets/Mozkyto.mp3', location.href).href;
+const FLIPCARD_SFX_URL = new URL('/assets/flipcard.mp3', location.href).href;
+const CHARGEMENT_MUSIC_URL = new URL('/assets/chargement.mp3', location.href).href;
 
 let matchMusic = null;
 let victorySfx = null;
@@ -2743,6 +2745,8 @@ let posecarteSfx = null;
 let shuffleSfx = null;
 let discardSfx = null;
 let mozkytoSfx = null;
+let flipcardSfx = null;
+let chargementMusic = null;
 let gameAudioUnlocked = false;
 let matchMusicStarted = false;
 
@@ -2785,6 +2789,16 @@ function initGameAudio(){
   mozkytoSfx = new Audio();
   mozkytoSfx.src = MOZKYTO_SFX_URL;
   mozkytoSfx.preload = 'auto';
+
+  flipcardSfx = new Audio();
+  flipcardSfx.src = FLIPCARD_SFX_URL;
+  flipcardSfx.preload = 'auto';
+
+  chargementMusic = new Audio();
+  chargementMusic.src = CHARGEMENT_MUSIC_URL;
+  chargementMusic.loop = true;
+  chargementMusic.volume = 0.5;
+  chargementMusic.preload = 'auto';
 }
 
 /* Prime les 5 pistes au 1er geste utilisateur (indispensable iOS/Safari, dont
@@ -2796,7 +2810,7 @@ function initGameAudio(){
 async function unlockGameAudio(){
   initGameAudio();
   let atLeastOneOk = false;
-  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx, posecarteSfx, shuffleSfx, discardSfx, mozkytoSfx]) {
+  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx, posecarteSfx, shuffleSfx, discardSfx, mozkytoSfx, flipcardSfx, chargementMusic]) {
     try{
       a.muted = true;
       await a.play();
@@ -2969,6 +2983,58 @@ async function playMozkytoSfx(){
     };
     ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
   }
+}
+
+/* Se joue chaque fois qu'une carte se retourne (écran Versus). */
+async function playFlipcardSfx(){
+  initGameAudio();
+  if (!flipcardSfx) return;
+  try{
+    flipcardSfx.currentTime = 0;
+    await flipcardSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ flipcardSfx.currentTime = 0; await flipcardSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
+/* Musique de fond de l'écran Versus/chargement — bouclée, avec fondu de
+   sortie propre quand le plateau de jeu arrive. */
+async function playChargementMusic(){
+  initGameAudio();
+  if (!chargementMusic) return;
+  try{
+    chargementMusic.currentTime = 0;
+    chargementMusic.volume = 0.5;
+    await chargementMusic.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ chargementMusic.currentTime = 0; chargementMusic.volume = 0.5; await chargementMusic.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+function fadeOutChargementMusic(durationMs){
+  if (!chargementMusic) return;
+  durationMs = durationMs || 800;
+  const startVolume = chargementMusic.volume;
+  const startTime = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - startTime) / durationMs);
+    chargementMusic.volume = Math.max(0, startVolume * (1 - t));
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      chargementMusic.pause();
+      chargementMusic.currentTime = 0;
+      chargementMusic.volume = 0.5; // remis à sa valeur normale pour la prochaine fois
+    }
+  }
+  requestAnimationFrame(step);
 }
 
 // Joue un petit bruitage LOCALEMENT, et le diffuse aussi à l'adversaire en
@@ -13048,6 +13114,7 @@ function showVictoryOverlay(winner, reason, iWon){
                   (reason==='flavio') ? '7 BUTS marqués par Flavio VII' :
                   (reason==='faction-locked') ? 'Choix de faction totalement entravé' :
                   (reason==='bibliotempz') ? '20 cartes en main grâce à Bibliotempz' :
+                  (reason==='disconnect') ? 'Déconnexion de l\u2019adversaire (30s écoulées)' :
                   (reason==='surrender') ? 'Abandon de la partie' : 'victoire';
 
   const profiles = window.PLAYER_PROFILES;
@@ -15989,6 +16056,9 @@ if (ONLINE_MODE) {
       .vsDrawCardLabel{ text-align:center; font-family:'Cinzel',serif; font-weight:800; font-size:clamp(13px,1.5vw,16px); color:#eafdff;
         opacity:0; transition:opacity .4s ease; letter-spacing:.02em; text-shadow:0 0 10px rgba(0,0,0,.6); margin-top:4px; }
       .vsDrawCardLabel.show{ opacity:1; }
+      .vsDrawCardNum{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(15px,1.8vw,19px); color:#bfefff; margin-left:6px; letter-spacing:.03em; }
+      .vsDrawCardNum.vsHighestNum{ color:#ffd93d; text-shadow:0 0 14px rgba(255,217,61,.8); animation:vsNumPulse 1s ease-in-out infinite; }
+      @keyframes vsNumPulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.25); } }
       .vsDrawVs{ font-family:'Cinzel',serif; color:#ffd93d; font-weight:800; font-size:clamp(15px,1.8vw,19px); opacity:0; letter-spacing:.05em;
         text-shadow:0 0 12px rgba(255,217,61,.5); transition:opacity .5s ease; }
       .vsDrawVs.show{ opacity:.9; }
@@ -16080,6 +16150,7 @@ if (ONLINE_MODE) {
     document.body.appendChild(overlay);
 
     requestAnimationFrame(() => overlay.classList.add('show'));
+    playChargementMusic();
 
     // Petit flash lumineux au moment où l'emblème VS claque au centre
     setTimeout(() => {
@@ -16113,21 +16184,42 @@ if (ONLINE_MODE) {
         $('#vsDrawCardBottom').classList.add('vsSlideIn');
       }, 5100);
 
+      const topCode = drawReveal.top;
+      const botCode = drawReveal.bottom;
+      const topNum = parseInt(topCode, 10);
+      const botNum = parseInt(botCode, 10);
+
       // Bascule 3D de la première carte (léger effet de suspense entre les deux).
       setTimeout(() => {
-        const topLabel = codeToLabel(drawReveal.top);
+        const topLabel = codeToLabel(topCode);
         const imgTop = $('#vsDrawImgTop');
         if (imgTop) imgTop.src = getCardImage(topLabel);
         $('#vsDrawFlipperTop').classList.add('flipped');
-        setTimeout(() => { const l = $('#vsDrawLabelTop'); if (l) { l.textContent = cardName(topLabel); l.classList.add('show'); } }, 500);
+        playFlipcardSfx();
+        setTimeout(() => {
+          const l = $('#vsDrawLabelTop');
+          if (l) {
+            const highCls = (topNum > botNum) ? ' vsHighestNum' : '';
+            l.innerHTML = `${cardName(topLabel)}<span class="vsDrawCardNum${highCls}">${topCode}</span>`;
+            l.classList.add('show');
+          }
+        }, 500);
       }, 6800);
 
       setTimeout(() => {
-        const botLabel = codeToLabel(drawReveal.bottom);
+        const botLabel = codeToLabel(botCode);
         const imgBot = $('#vsDrawImgBottom');
         if (imgBot) imgBot.src = getCardImage(botLabel);
         $('#vsDrawFlipperBottom').classList.add('flipped');
-        setTimeout(() => { const l = $('#vsDrawLabelBottom'); if (l) { l.textContent = cardName(botLabel); l.classList.add('show'); } }, 500);
+        playFlipcardSfx();
+        setTimeout(() => {
+          const l = $('#vsDrawLabelBottom');
+          if (l) {
+            const highCls = (botNum > topNum) ? ' vsHighestNum' : '';
+            l.innerHTML = `${cardName(botLabel)}<span class="vsDrawCardNum${highCls}">${botCode}</span>`;
+            l.classList.add('show');
+          }
+        }, 500);
         $('#vsDrawVsWord').classList.add('show');
       }, 7500);
 
@@ -16157,6 +16249,7 @@ if (ONLINE_MODE) {
     // le temps de tout lire, sans jamais se sentir précipité.
     setTimeout(() => {
       overlay.classList.add('exit');
+      fadeOutChargementMusic(700); // la musique de chargement s'éteint en douceur pile quand le plateau arrive
       setTimeout(() => {
         overlay.remove();
         style.remove();
@@ -16260,14 +16353,53 @@ if (ONLINE_MODE) {
       }
     });
 
-    socket.on('opponentLeft', () => {
-      document.body.insertAdjacentHTML('beforeend', `
-        <div style="position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;background:rgba(0,10,15,.92);color:#e8fdff;font-family:system-ui,sans-serif;">
-          <div style="text-align:center;">
-            <div style="font-size:22px;font-weight:800;margin-bottom:10px;">Ton adversaire s'est déconnecté</div>
-            <a href="/play.html" style="color:#7df9ff;">← Retour à la collection</a>
+    // Déconnexion de l'adversaire : compte à rebours de 30 secondes avant
+    // forfait automatique. S'il se reconnecte à temps (opponentRejoined),
+    // tout reprend normalement ; sinon (matchForfeit), la victoire vous
+    // revient automatiquement.
+    let opponentLeftTimer = null;
+    function removeOpponentLeftOverlay(){
+      if (opponentLeftTimer) { clearInterval(opponentLeftTimer); opponentLeftTimer = null; }
+      const el = document.getElementById('opponentLeftOverlay');
+      if (el) el.remove();
+    }
+
+    socket.on('opponentLeft', ({ seat, graceSeconds }) => {
+      if (seat === MY_SEAT) return; // ne me concerne pas si c'est moi-même
+      removeOpponentLeftOverlay(); // sécurité, au cas où un précédent traînerait encore
+      let remaining = graceSeconds || 30;
+      const total = remaining;
+      const overlay = document.createElement('div');
+      overlay.id = 'opponentLeftOverlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:9500;display:flex;align-items:center;justify-content:center;background:rgba(0,10,15,.93);color:#e8fdff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-align:center;padding:24px;';
+      overlay.innerHTML = `
+        <div>
+          <div style="font-size:24px;font-weight:800;margin-bottom:12px;">Votre adversaire s'est déconnecté</div>
+          <div style="font-size:15px;opacity:.85;margin-bottom:20px;max-width:420px;">Il a <strong id="opponentLeftCountdown">${remaining}</strong> secondes pour se reconnecter, sans quoi vous remportez la partie automatiquement.</div>
+          <div style="width:240px;height:8px;border-radius:999px;background:rgba(255,255,255,.15);margin:0 auto;overflow:hidden;">
+            <div id="opponentLeftBar" style="height:100%;width:100%;background:linear-gradient(90deg,#19e27a,#ffd93d);transition:width 1s linear;"></div>
           </div>
-        </div>`);
+        </div>`;
+      document.body.appendChild(overlay);
+      const countdownEl = document.getElementById('opponentLeftCountdown');
+      const barEl = document.getElementById('opponentLeftBar');
+      opponentLeftTimer = setInterval(() => {
+        remaining--;
+        if (countdownEl) countdownEl.textContent = String(Math.max(0, remaining));
+        if (barEl) barEl.style.width = `${Math.max(0, (remaining / total) * 100)}%`;
+        if (remaining <= 0) { clearInterval(opponentLeftTimer); opponentLeftTimer = null; }
+      }, 1000);
+    });
+
+    socket.on('opponentRejoined', ({ seat }) => {
+      if (seat === MY_SEAT) return;
+      removeOpponentLeftOverlay();
+      pushHistory('info', `Votre adversaire s'est reconnecté.`);
+    });
+
+    socket.on('matchForfeit', ({ winnerSeat }) => {
+      removeOpponentLeftOverlay();
+      endGame(winnerSeat, 'disconnect');
     });
 
     socket.on('actionError', ({ message }) => {

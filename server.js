@@ -996,6 +996,22 @@ app.post('/api/matchmaking/join', authMiddleware, (req, res) => {
   }
 });
 
+// Permet à un joueur qui revient sur son compte (après une déconnexion,
+// une fermeture d'onglet, un rafraîchissement de page...) de retrouver
+// automatiquement une partie en ligne toujours active à laquelle il
+// participe, sans avoir besoin de l'URL exacte de la partie.
+app.get('/api/matchmaking/active-match', authMiddleware, (req, res) => {
+  for (const [matchId, st] of liveMatches.entries()) {
+    if (!st.userSeats) continue;
+    for (const seat of ['bottom', 'top']) {
+      if (st.userSeats[seat] === req.user.id) {
+        return res.json({ ok: true, active: true, matchId, seat });
+      }
+    }
+  }
+  res.json({ ok: true, active: false });
+});
+
 // NOUVELLE ROUTE — elle manquait, alors que le front-end (play.html)
 // l'appelait déjà pour savoir si un adversaire a été trouvé.
 app.get('/api/matchmaking/status', authMiddleware, (req, res) => {
@@ -1036,13 +1052,28 @@ io.on('connection', (socket) => {
     if (!st) {
       const matchData = mmMatches.get(matchId);
       if (matchData) {
-        st = { sockets: { bottom: null, top: null }, gameState: matchData.gameState };
+        const userSeats = {};
+        matchData.players.forEach(p => { userSeats[p.seat] = p.userId; });
+        st = { sockets: { bottom: null, top: null }, gameState: matchData.gameState, userSeats, disconnectTimers: {} };
         liveMatches.set(matchId, st);
       } else {
         return;
       }
     }
+    if (!st.disconnectTimers) st.disconnectTimers = {};
+
+    // Si ce siège avait un compte à rebours de déconnexion en cours (le
+    // joueur revient à temps, avant les 30 secondes), on l'annule et
+    // prévient l'adversaire qu'il est bien de retour.
+    if (st.disconnectTimers[seat]) {
+      clearTimeout(st.disconnectTimers[seat]);
+      delete st.disconnectTimers[seat];
+      socket.to(matchId).emit('opponentRejoined', { seat });
+    }
+
     st.sockets[seat] = socket.id;
+    socket.data.matchId = matchId;
+    socket.data.seat = seat;
     socket.to(matchId).emit('opponentJoined', { seat });
     if (st.sockets.bottom && st.sockets.top) {
       io.to(matchId).emit('playersReady', { turn: st.gameState.turn });
@@ -1134,19 +1165,44 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    for (const [mid, st] of liveMatches.entries()) {
-      let changed = false;
-      if (st.sockets.bottom === socket.id) { st.sockets.bottom = null; changed = true; }
-      if (st.sockets.top === socket.id) { st.sockets.top = null; changed = true; }
-      if (changed) {
-        io.to(mid).emit('opponentLeft');
-        if (!st.sockets.bottom && !st.sockets.top) {
-          liveMatches.delete(mid);
-        } else {
-          liveMatches.set(mid, st);
-        }
+    const matchId = socket.data.matchId;
+    const seat = socket.data.seat;
+    if (!matchId || !seat) return;
+    const st = liveMatches.get(matchId);
+    if (!st) return;
+    // Si une reconnexion plus récente a déjà pris le relais sur ce siège
+    // (nouvel onglet, refresh...), ce socket-ci n'a plus rien à faire ici.
+    if (st.sockets[seat] !== socket.id) return;
+    st.sockets[seat] = null;
+
+    const otherSeat = (seat === 'bottom') ? 'top' : 'bottom';
+    // Prévient l'adversaire encore connecté, avec le délai de grâce exact,
+    // pour qu'il puisse afficher un vrai compte à rebours.
+    io.to(matchId).emit('opponentLeft', { seat, graceSeconds: 30 });
+
+    // Si l'AUTRE joueur n'est lui non plus plus connecté du tout, la partie
+    // est totalement abandonnée des deux côtés : on nettoie sans attendre
+    // de délai, personne n'est là pour recevoir un quelconque forfait.
+    if (!st.sockets[otherSeat]) {
+      if (st.disconnectTimers) {
+        Object.values(st.disconnectTimers).forEach(t => clearTimeout(t));
       }
+      liveMatches.delete(matchId);
+      return;
     }
+
+    // Le joueur déconnecté a 30 secondes pour revenir (voir joinMatch, qui
+    // annule ce minuteur s'il se reconnecte à temps) avant d'être déclaré
+    // perdant par forfait, l'autre joueur remportant alors la partie.
+    if (!st.disconnectTimers) st.disconnectTimers = {};
+    st.disconnectTimers[seat] = setTimeout(() => {
+      const stNow = liveMatches.get(matchId);
+      if (!stNow) return;
+      if (stNow.sockets[seat]) return; // reconnecté entre-temps : rien à faire
+      io.to(matchId).emit('matchForfeit', { winnerSeat: otherSeat, loserSeat: seat });
+      liveMatches.delete(matchId);
+    }, 30000);
+    liveMatches.set(matchId, st);
   });
 });
 
