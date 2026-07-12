@@ -3223,6 +3223,10 @@ const CARD_IMAGES = {
  'C40': '../cartes/0040.png',
  'C41': '../cartes/0041.png',
  'C42': '../cartes/0042.png',
+ 'C43': '../cartes/0043.png',
+ 'C44': '../cartes/0044.png',
+ 'C45': '../cartes/0045.png',
+ 'C46': '../cartes/0046.png',
  'T16': '../cartes/T16.png',
  'T15': '../cartes/T15.png',
  'T11': '../cartes/T11.png',
@@ -3365,6 +3369,10 @@ const CARD_TYPES  = {
  'C40': 'personnage',  // Zyzy
  'C41': 'familier',    // Mezamorph
  'C42': 'action',      // Vers l'infini
+ 'C43': 'artefact',    // Etendardz
+ 'C44': 'personnage',  // Loozoxe
+ 'C45': 'personnage',  // Babykween
+ 'C46': 'personnage',  // Zock-lee
  'T16': 'personnage',  // Kamykaz
  'T15': 'familier',    // Arakcrabe
  'T11': 'artefact',    // Pièce détachée
@@ -3506,6 +3514,10 @@ const CARD_NAMES = {
  'C40': 'Zyzy',
  'C41': 'Mezamorph',
  'C42': "Vers l'infini",
+ 'C43': 'Etendardz',
+ 'C44': 'Loozoxe',
+ 'C45': 'Babykween',
+ 'C46': 'Zock-lee',
  'T16': 'Kamykaz',
  'T15': 'Arakcrabe',
  'T11': 'Pièce détachée',
@@ -3602,6 +3614,9 @@ const CARD_HP_BASE = {
   'C38': 1,
   'C40': 4,
   'T16': 2,
+  'C44': 4,
+  'C45': 6,
+  'C46': 4,
   'C36': 2,
   'T10': 1,
 };
@@ -3792,6 +3807,10 @@ const CARD_TAGS = {
  'C40': ['citoyen', 'Krylls'],             // Zyzy
  'C41': ['familier', 'Krylls'],            // Mezamorph
  'C42': ['action', 'Krylls'],              // Vers l'infini
+ 'C43': ['artefact', 'Krylls'],            // Etendardz
+ 'C44': ['citoyen', 'Krylls'],             // Loozoxe
+ 'C45': ['citoyen', 'Krylls'],             // Babykween
+ 'C46': ['citoyen', 'Krylls', 'rapide'],   // Zock-lee — Rapide imprimé
  'T16': ['guerrier', 'Krylls'],            // Kamykaz
  'T15': ['familier', 'Krylls'],            // Arakcrabe
  'T11': ['artefact', 'Krylls'],  // Pièce détachée
@@ -4132,7 +4151,7 @@ if (label === 'C154') {
   return c;
 }
 // NOUVELLE FONCTION (CORRIGÉE)
-function resetStatsToBaseWhenEnteringBattle(card){
+function resetStatsToBaseWhenEnteringBattle(card, owner){
   if (getType(card.label) !== 'personnage') return;
 
   // La ligne "card.hp = getBaseHP(card.label);" a été VOLONTAIREMENT supprimée ici.
@@ -4147,6 +4166,16 @@ function resetStatsToBaseWhenEnteringBattle(card){
   
   if (card.label === 'C152') {
     card.prismisLinks = [];
+  }
+
+  // KRYLLS (nouveau lot) : Zock-lee (C46) — le PROCHAIN combattant mis en
+  // jeu par ce propriétaire gagne RAPIDE (effet à usage unique, consommé
+  // dès qu'il s'applique). Placé APRÈS la remise à zéro de addedTags
+  // ci-dessus, sinon le trait accordé serait immédiatement effacé.
+  if (owner && nextCombattantGainsRapide[owner]) {
+    nextCombattantGainsRapide[owner] = false;
+    if (!card.addedTags.includes('rapide')) card.addedTags.push('rapide');
+    pushHistory('info', `${cardAnchor(card.label)} gagne <strong>RAPIDE</strong> grâce à ${cardAnchor('C46')} !`);
   }
 }
 function cloneCard(card, ownerPrefix){
@@ -4629,6 +4658,7 @@ function isMyTurnToChoose(owner){
 
 let currentDragInfo = null;
 let factionAfkTimer = null;
+let nextCombattantGainsRapide = { top: false, bottom: false };
 
 // ===================================================================
 // STREAMING DE POSITION EN DIRECT — l'adversaire, en ligne, voit en temps
@@ -7222,6 +7252,12 @@ function openMiningPrompt(owner, card, fromEl){
     } else if (card.label === 'C22') {
       title = 'Khromafayl';
       buttons.push(mineButton, { label:'Capacité (Piocher)', className:'confirm', onClick:()=>{ useKhromafaylAbility(owner, card); } });
+    } else if (card.label === 'C44') {
+      title = 'Loozoxe';
+      const line = getLineByOwner(owner);
+      const idx = line.findIndex(c => c.id === card.id);
+      const hasNeighbor = (idx > 0) || (idx < line.length - 1);
+      buttons.push(mineButton, { label:'Capacité (Renforcer voisins)', className:'confirm' + (hasNeighbor ? '' : ' disabled'), disabled:!hasNeighbor, onClick:()=>{ if(hasNeighbor) useLoozoxeAbility(owner, card); } });
     } else if (card.label === 'C105') {
       title = 'Venusylva';
       const canDestroy = topArts.length > 0 || botArts.length > 0;
@@ -7359,6 +7395,43 @@ function useKhromafaylAbility(owner, card){
   } else {
     pushHistory('info', `${cardAnchor('C22')} utilise sa capacité, mais le deck (et la défausse) sont vides.`);
   }
+  closeActionPrompt();
+  fullRender();
+}
+
+// KRYLLS (nouveau lot) : Loozoxe (C44) — ACTION : les combattants
+// immédiatement à droite et à gauche gagnent ESPRIT et +2 PV / +2 PB,
+// de façon permanente.
+function useLoozoxeAbility(owner, card){
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+
+  const line = getLineByOwner(owner);
+  const idx = line.findIndex(c => c.id === card.id);
+  const neighbors = [];
+  if (idx > 0) neighbors.push(line[idx - 1]);
+  if (idx < line.length - 1) neighbors.push(line[idx + 1]);
+
+  if (neighbors.length === 0) {
+    pushHistory('info', `${cardAnchor('C44')} : aucun voisin à renforcer.`);
+    closeActionPrompt();
+    return;
+  }
+
+  markAttacked(owner, card);
+
+  neighbors.forEach(n => {
+    if (!hasTag(n, 'Esprit')) {
+      if (!Array.isArray(n.addedTags)) n.addedTags = [];
+      if (!n.addedTags.includes('Esprit')) n.addedTags.push('Esprit');
+    }
+    n.hp = getEffectiveHP(n) + 2;
+    n.shield = (typeof n.shield === 'number' ? n.shield : getBaseShield(n.label)) + 2;
+    playHPHitEffect(n);
+  });
+
+  pushHistory('action', `${cardAnchor('C44')} renforce ${neighbors.map(n=>cardAnchor(n.label)).join(' et ')} : +2 PV, +2 PB, et
+    ${neighbors.length>1?'gagnent':'gagne'} <strong>ESPRIT</strong> !`);
   closeActionPrompt();
   fullRender();
 }
@@ -10556,7 +10629,7 @@ function handleLongVoyageChoice(owner, cardToPlay, otherCards) {
   // Personnage : entre DIRECTEMENT dans la zone de combat (déclenche son effet JOUER).
   if (type === 'personnage') {
     const line = getLineByOwner(owner);
-    resetStatsToBaseWhenEnteringBattle(cardToPlay);
+    resetStatsToBaseWhenEnteringBattle(cardToPlay, owner);
     // Épuisé comme n'importe quel Personnage fraîchement joué, sauf s'il a le
     // trait RAPIDE (ou les rares exceptions C6/C59, déjà en place ailleurs).
     if (!hasTag(cardToPlay, 'rapide') && cardToPlay.label !== 'C6' && cardToPlay.label !== 'C59') {
@@ -11040,7 +11113,7 @@ if (hitAndRunMode) {
       const puddingIdx = puddingLine.findIndex(c => c.id === card.id);
       if (puddingIdx === -1) return;
       consumeAllowanceIfNeeded(playingOwner, playedCard);
-      resetStatsToBaseWhenEnteringBattle(playedCard);
+      resetStatsToBaseWhenEnteringBattle(playedCard, owner);
       playedCard.hp = getBaseHP(playedCard.label) + 2;
       if (!Array.isArray(playedCard.addedTags)) playedCard.addedTags = [];
       if (!playedCard.addedTags.includes('rapide')) playedCard.addedTags.push('rapide');
@@ -11440,6 +11513,17 @@ if (card.label === 'C40') {
 // ===================================================================
 
 // ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR ZOCK-LEE (C46)
+// ===================================================================
+if (card.label === 'C46') {
+  nextCombattantGainsRapide[owner] = true;
+  pushHistory('info', `${cardAnchor('C46')} : le prochain combattant que vous mettez en jeu gagnera RAPIDE.`);
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR ZOCK-LEE
+// ===================================================================
+
+// ===================================================================
 // DÉBUT DE LA LOGIQUE D'ENTRÉE POUR HARVEY (C166)
 // ===================================================================
 if (card.label === 'C166') {
@@ -11640,7 +11724,7 @@ const playerLine = getLineByOwner(owner);
 reanimatedCard.hp = getBaseHP(reanimatedCard.label);
 reanimatedCard.shield = getBaseShield(reanimatedCard.label);
 
-resetStatsToBaseWhenEnteringBattle(reanimatedCard); // Cette ligne reste pour réinitialiser les autres effets (tags, etc.)
+resetStatsToBaseWhenEnteringBattle(reanimatedCard, owner); // Cette ligne reste pour réinitialiser les autres effets (tags, etc.)
 if (!hasTag(reanimatedCard, 'rapide')) {
     markAttacked(owner, reanimatedCard);
 }
@@ -11670,8 +11754,16 @@ askLeftRightPlacement('Noxroc', `Où placer ${cardAnchor(reanimatedCard.label)} 
 }
 
 // Limites de zone : au maximum 10 combattants ET 10 artefacts par joueur.
-const MAX_COMBATANTS_PER_ZONE = 10;
+const MAX_COMBATANTS_PER_ZONE_BASE = 10;
 const MAX_ARTIFACTS_PER_ZONE = 10;
+
+// KRYLLS (nouveau lot) : Etendardz (C43) — tant qu'il est dans la zone
+// d'artefact d'un joueur, sa limite de combattants augmente de +2.
+function getMaxCombatantsForOwner(owner){
+  const arts = (owner === 'top') ? topArts : botArts;
+  const hasEtendardz = arts.some(a => a.label === 'C43');
+  return MAX_COMBATANTS_PER_ZONE_BASE + (hasEtendardz ? 2 : 0);
+}
 
 function setupDrops(dropLeft, dropRight, lineArray, who){
   [dropLeft, dropRight].forEach(drop=>{
@@ -11685,7 +11777,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
         flashDenied(drop);
         return;
       }
-      if (lineArray.length >= MAX_COMBATANTS_PER_ZONE) { flashDenied(drop); return; }
+      if (lineArray.length >= getMaxCombatantsForOwner(who)) { flashDenied(drop); return; }
       if (!canPlayThisCardNow(who, card)) return;
       e.preventDefault();
       drop.classList.add('highlight');
@@ -11703,10 +11795,11 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       const peek = findCardInSource(fromId, currentDragInfo.id);
       if (!peek) return;
 
-      // Limite de zone : 10 combattants maximum par joueur.
-      if (lineArray.length >= MAX_COMBATANTS_PER_ZONE) {
+      // Limite de zone : 10 combattants maximum par joueur (12 avec Etendardz).
+      const maxCombatants = getMaxCombatantsForOwner(who);
+      if (lineArray.length >= maxCombatants) {
         flashDenied(drop);
-        pushHistory('info', `Zone de combat pleine (${MAX_COMBATANTS_PER_ZONE} combattants maximum) : impossible de poser ${cardAnchor(peek.card.label)}.`);
+        pushHistory('info', `Zone de combat pleine (${maxCombatants} combattants maximum) : impossible de poser ${cardAnchor(peek.card.label)}.`);
         return;
       }
 
@@ -11720,7 +11813,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
 
       consumeAllowanceIfNeeded(who, card);
 
-      resetStatsToBaseWhenEnteringBattle(card);
+      resetStatsToBaseWhenEnteringBattle(card, who);
 
       if (!hasTag(card, 'rapide') && card.label !== 'C6' && card.label !== 'C59') {
         markAttacked(who, card);
@@ -12595,8 +12688,8 @@ function clearEligibleZones(){
 // une fois la limite atteinte, pour bien montrer pourquoi un dépôt échoue.
 function updateZoneCounts(){
   const pairs = [
-    ['battleCountTop', topLine.length, MAX_COMBATANTS_PER_ZONE],
-    ['battleCountBottom', botLine.length, MAX_COMBATANTS_PER_ZONE],
+    ['battleCountTop', topLine.length, getMaxCombatantsForOwner('top')],
+    ['battleCountBottom', botLine.length, getMaxCombatantsForOwner('bottom')],
     ['artifactCountTop', topArts.length, MAX_ARTIFACTS_PER_ZONE],
     ['artifactCountBottom', botArts.length, MAX_ARTIFACTS_PER_ZONE],
   ];
@@ -12903,7 +12996,12 @@ function refillHand(player){
   // le joueur finit avec une carte de moins que prévu.
   function currentTargetHandSize(){
     const buayCount = hand.filter(card => card.label === 'C160').length;
-    return Math.max(0, (6 + buayCount) - maluxCount);
+    // KRYLLS (nouveau lot) : Babykween (C45) — tant qu'elle est dans la zone
+    // de combat (pas la main, contrairement à Buay), +2 cartes piochées en
+    // fin de tour. Recalculé ici aussi à chaque itération, pour rester
+    // cohérent avec le même principe que Buay.
+    const hasBabykween = getLineByOwner(player).some(c => c.label === 'C45');
+    return Math.max(0, (6 + buayCount + (hasBabykween ? 2 : 0)) - maluxCount);
   }
   // FIN DE LA LOGIQUE MODIFIÉE
 
