@@ -2811,6 +2811,11 @@ async function unlockGameAudio(){
   initGameAudio();
   let atLeastOneOk = false;
   for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx, posecarteSfx, shuffleSfx, discardSfx, mozkytoSfx, flipcardSfx, chargementMusic]) {
+    // CORRECTIF : si ce son est déjà en train de jouer légitimement (ex.
+    // chargementMusic pendant l'écran Versus), on ne le touche surtout pas —
+    // le "test silencieux" ci-dessous (muet, jouer, pause, remise à zéro)
+    // interromprait et réinitialiserait une lecture en cours par erreur.
+    if (!a.paused) { atLeastOneOk = true; continue; }
     try{
       a.muted = true;
       await a.play();
