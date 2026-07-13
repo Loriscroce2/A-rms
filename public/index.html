@@ -3424,7 +3424,7 @@ const CARD_NAMES = {
   'C60':"Silenta'rms", 'C61':'Pestrass', 'C62':'Decebale', 'C63':'Coupe-Jarret', 'C64':'Sanik Edgefog',
   'C65':'Crassyopea', 'C66':'Boomba', 'C67':'Malux', 'C68':'Malocux',
   'C69':'Ouvrir les plaies', 'C70':'Entravax', 'C71':'Soubrsot',
-  'C72':'Oraclex', 'C73':'Zayuka', 'C74':'Gazocubateu',
+  'C72':'Oraclex', 'C73':'Zayuka', 'C74':'Gazocubateur',
   'C101':'Jupithors',
   'C102': 'Why Me',
   'C103': 'Totemoon',
@@ -10390,7 +10390,7 @@ function resolveFight(from, to){
 // complète d'un éventuel effet COMBAT nécessitant un choix du joueur
 // (Ozokshi, Cénewz...), au lieu de s'exécuter en parallèle d'un prompt
 // encore ouvert.
-// IMPY (nouveau lot) : Gazocubateu (C74) — accumule les charges gagnées par
+// IMPY (nouveau lot) : Gazocubateur (C74) — accumule les charges gagnées par
 // les kills empoisonnés de son propriétaire ; victoire immédiate à 20.
 function addGazocubateuCharge(owner){
   const arts = (owner === 'top') ? topArts : botArts;
@@ -10497,10 +10497,10 @@ function continueResolveFight(from, to){
     newlyFrozenAttacker: to.card.label === 'C229' && resFrom.hpLost > 0 && getEffectiveHP(from.card) > 0,
   };
 
-  // IMPY (nouveau lot) : Gazocubateu (C74) — chaque fois qu'un combattant
+  // IMPY (nouveau lot) : Gazocubateur (C74) — chaque fois qu'un combattant
   // avec Poison tue un combattant adverse (peu importe si la mort vient du
   // Poison lui-même ou simplement des dégâts), +1 charge sur le
-  // Gazocubateu de son propriétaire s'il en possède un ; à 20 charges,
+  // Gazocubateur de son propriétaire s'il en possède un ; à 20 charges,
   // victoire immédiate.
   if (cvAfter.defenderDied && hasTag(from.card, 'poison')) {
     addGazocubateuCharge(from.owner);
@@ -13973,7 +13973,7 @@ function showVictoryOverlay(winner, reason, iWon){
                   (reason==='flavio') ? '7 BUTS marqués par Flavio VII' :
                   (reason==='faction-locked') ? 'Choix de faction totalement entravé' :
                   (reason==='bibliotempz') ? '20 cartes en main grâce à Bibliotempz' :
-                  (reason==='gazocubateu') ? '20 charges accumulées sur Gazocubateu' :
+                  (reason==='gazocubateu') ? '20 charges accumulées sur Gazocubateur' :
                   (reason==='disconnect') ? 'Déconnexion de l\u2019adversaire (30s écoulées)' :
                   (reason==='surrender') ? 'Abandon de la partie' : 'victoire';
 
