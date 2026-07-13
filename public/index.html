@@ -3140,6 +3140,7 @@ const CARD_IMAGES = {
   'C63':'../cartes/0063.png', 'C64':'../cartes/0064.png', 'C65':'../cartes/0065.png',
   'C66':'../cartes/0066.png', 'C67':'../cartes/0067.png', 'C68':'../cartes/0068.png',
   'C69':'../cartes/0069.png', 'C70':'../cartes/0070.png', 'C71':'../cartes/0071.png',
+  'C72':'../cartes/0072.png', 'C73':'../cartes/0073.png', 'C74':'../cartes/0074.png',
   'C101':'../cartes/0101.png',
   'C102': '../cartes/0102.png',
   'C103': '../cartes/0103.png',
@@ -3271,6 +3272,7 @@ const CARD_TYPES  = {
   'C60':'personnage', 'C61':'personnage', 'C62':'personnage', 'C63':'action', 'C64':'familier',
   'C65':'personnage', 'C66':'personnage', 'C67':'personnage', 'C68':'personnage',
   'C69':'action', 'C70':'familier', 'C71':'personnage',
+  'C72':'artefact', 'C73':'personnage', 'C74':'artefact',
   'C101':'personnage',
   'C102': 'action',
   'C103': 'artefact',
@@ -3422,6 +3424,7 @@ const CARD_NAMES = {
   'C60':"Silenta'rms", 'C61':'Pestrass', 'C62':'Decebale', 'C63':'Coupe-Jarret', 'C64':'Sanik Edgefog',
   'C65':'Crassyopea', 'C66':'Boomba', 'C67':'Malux', 'C68':'Malocux',
   'C69':'Ouvrir les plaies', 'C70':'Entravax', 'C71':'Soubrsot',
+  'C72':'Oraclex', 'C73':'Zayuka', 'C74':'Gazocubateu',
   'C101':'Jupithors',
   'C102': 'Why Me',
   'C103': 'Totemoon',
@@ -3567,7 +3570,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 const CARD_HP_BASE = {
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
-  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1,
+  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7,
   'C101': 4,
   'C105': 5,
   'C108': 3,
@@ -3717,6 +3720,7 @@ const CARD_TAGS = {
   'C65':['citoyen', 'Impy', 'provocateur', 'poison'], 'C66':['citoyen', 'Impy'], 'C67':['guerrier', 'Impy'],
   'C68':['citoyen', 'Impy'],
   'C69':['action', 'Impy'], 'C70':['familier', 'Impy'], 'C71':['citoyen', 'Impy', 'rapide'],
+  'C72':['artefact', 'Impy'], 'C73':['guerrier', 'Impy', 'rapide', 'poison'], 'C74':['artefact', 'Impy'],
   'C101':['guerrier', 'Savage'],
   'C102': ['action', 'Savage'],
   'C103': ['artefact', 'Savage'],
@@ -10365,6 +10369,19 @@ function resolveFight(from, to){
     // FIN DE LA LOGIQUE POUR CÉNEWZ
     // ===================================================================
 
+    // ===================================================================
+    // IMPY (nouveau lot) : Zayuka (C73) — COMBAT : gagne +3 PV, de façon
+    // entièrement automatique (aucun choix du joueur, pas besoin de
+    // retarder la résolution du combat).
+    // ===================================================================
+    if (from.card.label === 'C73') {
+      from.card.hp = getEffectiveHP(from.card) + 3;
+      pushHistory('jeu', `${cardAnchor('C73')} gagne <strong>+3 PV</strong> au combat !`);
+    }
+    // ===================================================================
+    // FIN DE LA LOGIQUE POUR ZAYUKA
+    // ===================================================================
+
   continueResolveFight(from, to);
 }
 
@@ -10373,6 +10390,20 @@ function resolveFight(from, to){
 // complète d'un éventuel effet COMBAT nécessitant un choix du joueur
 // (Ozokshi, Cénewz...), au lieu de s'exécuter en parallèle d'un prompt
 // encore ouvert.
+// IMPY (nouveau lot) : Gazocubateu (C74) — accumule les charges gagnées par
+// les kills empoisonnés de son propriétaire ; victoire immédiate à 20.
+function addGazocubateuCharge(owner){
+  const arts = (owner === 'top') ? topArts : botArts;
+  const gazo = arts.find(a => a.label === 'C74');
+  if (!gazo) return;
+  gazo.charges = (gazo.charges || 0) + 1;
+  pushHistory('artefact', `${cardAnchor('C74')} gagne une charge grâce à un kill empoisonné (${gazo.charges}/20).`);
+  if (gazo.charges >= 20) {
+    pushHistory('info', `${cardAnchor('C74')} atteint 20 charges — victoire immédiate !`);
+    endGame(owner, 'gazocubateu');
+  }
+}
+
 function continueResolveFight(from, to){
   if (from.card.label === 'C116') {
     const owner = from.owner;
@@ -10465,6 +10496,18 @@ function continueResolveFight(from, to){
     newlyFrozenDefender: from.card.label === 'C229' && resTo.hpLost > 0 && getEffectiveHP(to.card) > 0,
     newlyFrozenAttacker: to.card.label === 'C229' && resFrom.hpLost > 0 && getEffectiveHP(from.card) > 0,
   };
+
+  // IMPY (nouveau lot) : Gazocubateu (C74) — chaque fois qu'un combattant
+  // avec Poison tue un combattant adverse (peu importe si la mort vient du
+  // Poison lui-même ou simplement des dégâts), +1 charge sur le
+  // Gazocubateu de son propriétaire s'il en possède un ; à 20 charges,
+  // victoire immédiate.
+  if (cvAfter.defenderDied && hasTag(from.card, 'poison')) {
+    addGazocubateuCharge(from.owner);
+  }
+  if (cvAfter.attackerDied && hasTag(to.card, 'poison')) {
+    addGazocubateuCharge(to.owner);
+  }
 
   const riposteMessage = isTargetFrozen
     ? `Aucune riposte car ${cardAnchor(to.card.label)} est GELÉ.`
@@ -12980,8 +13023,14 @@ function updateHandsUI(){
   const canDragTop = (currentTurn==='top') && (!ONLINE_MODE || MY_SEAT==='top');
   const canDragBottom = (currentTurn==='bottom') && (!ONLINE_MODE || MY_SEAT==='bottom');
   // En ligne : on ne voit jamais le contenu de la main adverse, seulement la sienne.
-  const topFaceDown = ONLINE_MODE && MY_SEAT !== 'top';
-  const bottomFaceDown = ONLINE_MODE && MY_SEAT !== 'bottom';
+  // IMPY (nouveau lot) : Oraclex (C72) — tant qu'il est en jeu, la main de
+  // l'adversaire de son propriétaire devient visible (normalement cachée
+  // uniquement en ligne — en local/hotseat, les deux mains sont déjà
+  // visibles sur l'écran partagé).
+  const hasOraclexTop = topArts.some(a => a.label === 'C72');
+  const hasOraclexBottom = botArts.some(a => a.label === 'C72');
+  const topFaceDown = ONLINE_MODE && MY_SEAT !== 'top' && !hasOraclexBottom;
+  const bottomFaceDown = ONLINE_MODE && MY_SEAT !== 'bottom' && !hasOraclexTop;
   renderHand(document.getElementById('handTop'),   topHand, {faceDown:topFaceDown,  draggable:canDragTop});
   renderHand(document.getElementById('handBottom'),botHand,{faceDown:bottomFaceDown, draggable:canDragBottom});
   const cT = document.getElementById('handCountTop');
@@ -13924,6 +13973,7 @@ function showVictoryOverlay(winner, reason, iWon){
                   (reason==='flavio') ? '7 BUTS marqués par Flavio VII' :
                   (reason==='faction-locked') ? 'Choix de faction totalement entravé' :
                   (reason==='bibliotempz') ? '20 cartes en main grâce à Bibliotempz' :
+                  (reason==='gazocubateu') ? '20 charges accumulées sur Gazocubateu' :
                   (reason==='disconnect') ? 'Déconnexion de l\u2019adversaire (30s écoulées)' :
                   (reason==='surrender') ? 'Abandon de la partie' : 'victoire';
 
