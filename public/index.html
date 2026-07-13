@@ -761,6 +761,21 @@
     .mithrilBox{ padding:8px 14px; border-radius:999px; background:linear-gradient(145deg,#0d3e4a,#031619); border:1px solid rgba(125,249,255,.55);
       color:var(--mithril); box-shadow:0 0 16px rgba(125,249,255,.35), inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 10px rgba(125,249,255,.1); font-weight:800; font-size:13px;
       font-family:'Cinzel','Manrope',sans-serif; letter-spacing:.02em; white-space:nowrap; display: flex; align-items: center; gap: 7px; }
+
+    /* Puces de coût de forge : chaque modificateur actif (Éventail, Anomaly,
+       Gousset...) affiché clairement, toujours visible — plus besoin de
+       survoler pour comprendre le détail du coût. */
+    .forgeChips{ display:flex; flex-wrap:wrap; gap:4px; justify-content:center; max-width:220px; margin-top:2px; }
+    .forgeChip{
+      display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px;
+      font-family:'Manrope',system-ui,sans-serif; font-weight:800; font-size:10.5px; letter-spacing:.01em;
+      white-space:nowrap; border:1px solid; animation:forgeChipIn .3s cubic-bezier(.2,.9,.3,1.3);
+    }
+    .forgeChip.malus{ color:#ff8080; background:rgba(255,60,60,.12); border-color:rgba(255,90,90,.5); }
+    .forgeChip.bonus{ color:#7dffb0; background:rgba(60,255,140,.12); border-color:rgba(90,255,150,.5); }
+    .forgeChip .forgeChipTotal{ font-weight:900; margin-left:2px; padding-left:5px; border-left:1px solid currentColor; opacity:.85; }
+    @keyframes forgeChipIn{ from{ opacity:0; transform:scale(.6); } to{ opacity:1; transform:none; } }
+
     .factionBadge{ display:flex; align-items:center; gap:7px; padding:6px 14px; border-radius:999px;
       background:linear-gradient(145deg,var(--fbGlow,rgba(125,249,255,.25)),rgba(2,10,13,.7)); border:1.5px solid var(--fbColor,rgba(125,249,255,.6));
       box-shadow:0 0 14px var(--fbColor,rgba(125,249,255,.4)); animation:factionBadgeIn .3s cubic-bezier(.2,.9,.3,1.3); }
@@ -827,12 +842,30 @@
       75%{ opacity:1; transform:translate(-50%, calc(-50% - 50px)) scale(1); }
       100%{ opacity:0; transform:translate(-50%, calc(-50% - 70px)) scale(.9); }
     }
+    @keyframes floatingHitFall{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); }
+      12%{ opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+      75%{ opacity:1; transform:translate(-50%, calc(-50% + 50px)) scale(1); }
+      100%{ opacity:0; transform:translate(-50%, calc(-50% + 70px)) scale(.9); }
+    }
     .floatingHitPopup{
       position:fixed; z-index:7800; pointer-events:none; left:0; top:0;
       font-family:'Cinzel',serif; font-weight:900; font-size:28px; color:#ff4d4d;
       text-shadow:0 0 12px rgba(255,20,20,.75), 0 2px 5px rgba(0,0,0,.85);
       animation:floatingHitRise 1.3s cubic-bezier(.2,.7,.3,1) forwards;
     }
+    /* Système générique de Hit — réutilisé pour le Mithril (or/rouge, monte/descend)
+       et les gains de PV/Bouclier (vert/bleu, montent toujours). */
+    .resourceHitPopup{
+      position:fixed; z-index:7900; pointer-events:none; left:0; top:0;
+      font-family:'Cinzel',serif; font-weight:900; font-size:22px;
+    }
+    .resourceHitPopup.dirUp{ animation:floatingHitRise 1.3s cubic-bezier(.2,.7,.3,1) forwards; }
+    .resourceHitPopup.dirDown{ animation:floatingHitFall 1.3s cubic-bezier(.2,.7,.3,1) forwards; }
+    .resourceHitPopup.gold{ color:#ffd93d; text-shadow:0 0 12px rgba(255,217,61,.85), 0 2px 5px rgba(0,0,0,.85); }
+    .resourceHitPopup.redDown{ color:#ff4d4d; text-shadow:0 0 12px rgba(255,20,20,.85), 0 2px 5px rgba(0,0,0,.85); }
+    .resourceHitPopup.green{ color:#4dff8a; text-shadow:0 0 12px rgba(60,255,120,.85), 0 2px 5px rgba(0,0,0,.85); }
+    .resourceHitPopup.blue{ color:#4dc8ff; text-shadow:0 0 12px rgba(60,190,255,.85), 0 2px 5px rgba(0,0,0,.85); }
 
     /* Viseur attaque */
     #aimLayer{ position:fixed; inset:0; pointer-events:none; z-index:1300; }
@@ -2489,6 +2522,7 @@ body.fusion-shake {
         <div class="resHUD top">
   <div class="armsRow" id="armsTop"></div>
   <div class="mithrilBox" id="mithrilBoxTop">⟡ Mithril : <span id="mithrilTop">0</span><span class="mithrilCostMod" id="mithrilCostModTop"></span></div>
+  <div class="forgeChips" id="forgeChipsTop"></div>
   <div class="factionBadge" id="factionBadgeTop" style="display:none;"><img id="factionBadgeTopImg" alt=""><span id="factionBadgeTopText"></span></div>
 </div>
       </div>
@@ -2529,6 +2563,7 @@ body.fusion-shake {
         <div class="deck" id="deckBottom" data-count="30"></div>
         <div class="resHUD bottom">
   <div class="mithrilBox" id="mithrilBoxBottom">⟡ Mithril : <span id="mithrilBottom">0</span><span class="mithrilCostMod" id="mithrilCostModBottom"></span></div>
+  <div class="forgeChips" id="forgeChipsBottom"></div>
   <div class="armsRow" id="armsBottom"></div>
   <div class="factionBadge" id="factionBadgeBottom" style="display:none;"><img id="factionBadgeBottomImg" alt=""><span id="factionBadgeBottomText"></span></div>
   </div>
@@ -6170,17 +6205,16 @@ function updateForgeTaxUI() {
 
     const box = document.getElementById(`mithrilBox${player.charAt(0).toUpperCase() + player.slice(1)}`);
     const modSpan = document.getElementById(`mithrilCostMod${player.charAt(0).toUpperCase() + player.slice(1)}`);
+    const chipsBox = document.getElementById(`forgeChips${player.charAt(0).toUpperCase() + player.slice(1)}`);
 
     const totalTaxAmount = forgeTax[player].reduce((sum, effect) => sum + effect.amount, 0);
     const gousseActive = gousseDiscountActive[player];
+    const gousseDiscount = gousseActive ? getLineByOwner(player).filter(c => hasTag(c, 'poupée')).length : 0;
 
     if (totalTaxAmount !== 0 || gousseActive) {
       const tooltipLines = forgeTax[player]
         .map(effect => `${effect.source}: ${effect.amount > 0 ? '+' : ''}${effect.amount} Mithril`);
-      if (gousseActive) {
-        const gousseDiscount = getLineByOwner(player).filter(c => hasTag(c, 'poupée')).length;
-        if (gousseDiscount > 0) tooltipLines.push(`Gousset (C213): -${gousseDiscount} Mithril`);
-      }
+      if (gousseActive && gousseDiscount > 0) tooltipLines.push(`Gousset (C213): -${gousseDiscount} Mithril`);
 
       const finalCost = computeForgeCost(player);
       const delta = finalCost - 3; // écart réel par rapport au coût de base (3), après tous les plafonds
@@ -6189,10 +6223,35 @@ function updateForgeTaxUI() {
       // Vert = réduction de coût (bon pour le joueur), Rouge = surcoût (pénalité)
       modSpan.style.color = (delta < 0) ? 'var(--green)' : (delta > 0 ? 'var(--red)' : '');
       box.title = tooltipLines.join('\n');
+
+      // Puces toujours visibles, une par source active — chacune clairement
+      // colorée (vert = réduction, rouge = surcoût), plus besoin de survoler
+      // la boîte de Mithril pour comprendre le détail du coût de forge.
+      if (chipsBox) {
+        chipsBox.innerHTML = '';
+        forgeTax[player].forEach(effect => {
+          if (effect.amount === 0) return;
+          const chip = document.createElement('span');
+          chip.className = 'forgeChip ' + (effect.amount > 0 ? 'malus' : 'bonus');
+          chip.textContent = `${effect.source} ${effect.amount > 0 ? '+' : ''}${effect.amount}`;
+          chipsBox.appendChild(chip);
+        });
+        if (gousseActive && gousseDiscount > 0) {
+          const chip = document.createElement('span');
+          chip.className = 'forgeChip bonus';
+          chip.textContent = `Gousset (C213) -${gousseDiscount}`;
+          chipsBox.appendChild(chip);
+        }
+        const totalChip = document.createElement('span');
+        totalChip.className = 'forgeChip ' + (delta < 0 ? 'bonus' : (delta > 0 ? 'malus' : 'bonus'));
+        totalChip.innerHTML = `Coût final <span class="forgeChipTotal">${finalCost} Mithril</span>`;
+        chipsBox.appendChild(totalChip);
+      }
     } else {
       modSpan.textContent = '';
       modSpan.style.color = '';
       box.title = '';
+      if (chipsBox) chipsBox.innerHTML = '';
     }
   });
 }
@@ -7497,6 +7556,8 @@ function useLoozoxeAbility(owner, card){
     n.hp = getEffectiveHP(n) + 2;
     n.shield = (typeof n.shield === 'number' ? n.shield : getBaseShield(n.label)) + 2;
     playHPHitEffect(n);
+    broadcastStatGainHit(n, 2, 'green');
+    setTimeout(() => broadcastStatGainHit(n, 2, 'blue'), 220);
   });
 
   pushHistory('action', `${cardAnchor('C44')} renforce ${neighbors.map(n=>cardAnchor(n.label)).join(' et ')} : +2 PV, +2 PB, et
@@ -7903,6 +7964,52 @@ function broadcastFloatingHitEffect(card, amount){
   }
 }
 
+// Hit générique ancré sur un ÉLÉMENT DE L'INTERFACE (ex. le compteur de
+// Mithril) plutôt que sur une carte — utilisé pour les ressources globales.
+function showResourceHit(elementId, amount, colorClass, direction){
+  if (!amount) return;
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const popup = document.createElement('div');
+  popup.className = `resourceHitPopup ${colorClass} ${direction === 'up' ? 'dirUp' : 'dirDown'}`;
+  popup.textContent = `${amount > 0 ? '+' : ''}${amount}`;
+  popup.style.left = `${rect.left + rect.width / 2}px`;
+  popup.style.top = `${rect.top + rect.height / 2}px`;
+  document.body.appendChild(popup);
+  setTimeout(() => { if (popup.parentNode) popup.remove(); }, 1350);
+}
+
+// Hit générique ancré sur une CARTE, pour les GAINS de PV (vert) ou de
+// Bouclier (bleu) — toujours vers le haut, contrairement aux dégâts (rouge,
+// voir showFloatingHitEffect) qui utilisent le même principe mais montent
+// aussi (convention : un Hit qui monte = quelque chose se passe sur la
+// carte, la couleur seule distingue gain de PV / gain de PB / dégât).
+function showStatGainHit(cardId, amount, colorClass){
+  if (!amount || amount <= 0) return;
+  const holder = document.querySelector(`.lane .card.placed[data-id="${cardId}"]`);
+  if (!holder) return;
+  const rect = holder.getBoundingClientRect();
+  const popup = document.createElement('div');
+  popup.className = `resourceHitPopup ${colorClass} dirUp`;
+  popup.textContent = `+${amount}`;
+  popup.style.left = `${rect.left + rect.width / 2}px`;
+  popup.style.top = `${rect.top + rect.height * 0.32}px`;
+  document.body.appendChild(popup);
+  setTimeout(() => { if (popup.parentNode) popup.remove(); }, 1350);
+}
+// Diffuse un gain de PV/Bouclier à l'adversaire, pour qu'il le voie lui
+// aussi au même moment.
+function broadcastStatGainHit(card, amount, colorClass){
+  showStatGainHit(card.id, amount, colorClass);
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID,
+      payload: { type: 'statGainHit', cardId: card.id, amount, colorClass }
+    });
+  }
+}
+
 /* --- Triggers sur perte effective de PV (Barbara C11) --- */
 function onHPDamaged(owner, hostCard, hpLost, cause){
   if(hpLost<=0) return;
@@ -8060,6 +8167,7 @@ function checkKzunadeReactiveTrigger(owner, hostCard){
   neighbors.forEach(n => {
     n.hp = getEffectiveHP(n) + 3;
     playHPHitEffect(n);
+    broadcastStatGainHit(n, 3, 'green');
   });
   pushHistory('pv', `${cardAnchor('C48')} subit des dégâts : ${neighbors.map(n=>cardAnchor(n.label)).join(' et ')}
     gagne${neighbors.length>1?'nt':''} <strong>+3 PV</strong> !`);
@@ -9844,13 +9952,13 @@ function detachFamiliarsOnHost(hostCard, hostOwner){
         }
 
         // IMPY (nouveau lot) : Entravax (C70) — MORT : quand son hôte meurt,
-        // l'ADVERSAIRE du propriétaire d'Entravax (donc le propriétaire de
-        // l'hôte, dans le cas normal d'attache à un combattant ennemi)
-        // gagne +2 Mithril.
+        // c'est le PROPRIÉTAIRE d'Entravax (celui qui l'a rattaché à un
+        // combattant ennemi) qui récupère les +2 Mithril.
         if(familiar.label === 'C70'){
-          mithril[hostOwner] = (mithril[hostOwner] || 0) + 2;
+          const entravaxOwner = familiar.playOwner || originalOwner;
+          mithril[entravaxOwner] = (mithril[entravaxOwner] || 0) + 2;
           pushHistory('mithril', `${cardAnchor('C70')} : la mort de ${cardAnchor(hostCard.label)} donne
-            +2 Mithril à ${playerLabel(hostOwner)} !`);
+            +2 Mithril à ${playerLabel(entravaxOwner)} !`);
           updateMithril();
         }
 
@@ -10370,13 +10478,18 @@ function resolveFight(from, to){
     // ===================================================================
 
     // ===================================================================
-    // IMPY (nouveau lot) : Zayuka (C73) — COMBAT : gagne +3 PV, de façon
-    // entièrement automatique (aucun choix du joueur, pas besoin de
-    // retarder la résolution du combat).
+    // IMPY (nouveau lot) : Zayuka (C73) — COMBAT : gagne +3 PV, affiché
+    // clairement AVANT que le combat ne se résolve (petite pause), pour que
+    // le gain soit bien visible et pas noyé dans l'animation Versus qui
+    // suit immédiatement.
     // ===================================================================
     if (from.card.label === 'C73') {
       from.card.hp = getEffectiveHP(from.card) + 3;
       pushHistory('jeu', `${cardAnchor('C73')} gagne <strong>+3 PV</strong> au combat !`);
+      broadcastStatGainHit(from.card, 3, 'green');
+      fullRender();
+      setTimeout(() => continueResolveFight(from, to), 650);
+      return;
     }
     // ===================================================================
     // FIN DE LA LOGIQUE POUR ZAYUKA
@@ -13282,9 +13395,25 @@ setupDumpDrop(document.getElementById('dumpBottom'), 'bottom');
 const mithril={top:0,bottom:0}; const arms={top:0,bottom:0};
 const forgedThisTurn = { top:false, bottom:false };
 const armColors = ["#aaffaa", "#55dd55", "#ffeb3b", "#ff9800", "#ff3030"];
+// Retient la dernière valeur de Mithril connue par joueur, pour détecter
+// automatiquement tout changement (peu importe où dans le code il a eu
+// lieu) et afficher le Hit approprié — or qui monte pour un gain, rouge
+// qui descend pour une perte. Fonctionne aussi en ligne, puisque updateMithril()
+// est appelée après CHAQUE synchronisation d'état reçue de l'adversaire.
+let lastKnownMithril = { top: null, bottom: null };
 function updateMithril(){
-  document.getElementById('mithrilTop').textContent = mithril.top;
-  document.getElementById('mithrilBottom').textContent = mithril.bottom;
+  ['top', 'bottom'].forEach(owner => {
+    const elId = (owner === 'top') ? 'mithrilTop' : 'mithrilBottom';
+    const el = document.getElementById(elId);
+    if (el) el.textContent = mithril[owner];
+    const prev = lastKnownMithril[owner];
+    if (prev !== null && mithril[owner] !== prev) {
+      const delta = mithril[owner] - prev;
+      if (delta > 0) showResourceHit(elId, delta, 'gold', 'up');
+      else showResourceHit(elId, delta, 'redDown', 'down');
+    }
+    lastKnownMithril[owner] = mithril[owner];
+  });
 }
 function renderArms(){
   ['top','bottom'].forEach(player=>{
@@ -17369,6 +17498,11 @@ if (ONLINE_MODE) {
         // Diffusé à chaque dégât HORS combat — l'adversaire voit le même
         // Hit flottant au même moment, purement visuel.
         showFloatingHitEffect(payload.cardId, payload.amount);
+      }
+      if (payload.type === 'statGainHit') {
+        // Diffusé à chaque gain de PV/Bouclier — l'adversaire voit le même
+        // Hit (vert ou bleu) au même moment, purement visuel.
+        showStatGainHit(payload.cardId, payload.amount, payload.colorClass);
       }
       if (payload.type === 'ownerGatedTargeting') {
         // Diffusé par Tokzik/Kryo/Kamykaz à chaque fois que leur effet doit
