@@ -820,6 +820,20 @@
     @keyframes hpHit { 0%{ transform:translateY(-50%) scale(1.08); box-shadow:0 0 18px rgba(255,0,0,.65), inset 0 0 10px rgba(255,0,0,.45);} 100%{ transform:translateY(-50%) scale(1.0); box-shadow:0 0 12px rgba(255,0,0,.45), inset 0 0 8px rgba(255,0,0,.35);} }
     .hp.hit{ animation:hpHit .3s ease; }
 
+    /* Hit flottant façon jeu vidéo, pour les dégâts hors combat */
+    @keyframes floatingHitRise{
+      0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); }
+      12%{ opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+      75%{ opacity:1; transform:translate(-50%, calc(-50% - 50px)) scale(1); }
+      100%{ opacity:0; transform:translate(-50%, calc(-50% - 70px)) scale(.9); }
+    }
+    .floatingHitPopup{
+      position:fixed; z-index:7800; pointer-events:none; left:0; top:0;
+      font-family:'Cinzel',serif; font-weight:900; font-size:28px; color:#ff4d4d;
+      text-shadow:0 0 12px rgba(255,20,20,.75), 0 2px 5px rgba(0,0,0,.85);
+      animation:floatingHitRise 1.3s cubic-bezier(.2,.7,.3,1) forwards;
+    }
+
     /* Viseur attaque */
     #aimLayer{ position:fixed; inset:0; pointer-events:none; z-index:1300; }
     .aimArrow{ position:absolute; height:4px; background:linear-gradient(90deg,#b00000,#ff2a2a); box-shadow:0 0 12px #ff2a2a; transform-origin:left center; border-radius:4px; }
@@ -7234,6 +7248,17 @@ function openMiningPrompt(owner, card, fromEl){
     if (currentTurn === owner) {
       fromEl.classList.add('deny');
       setTimeout(()=>fromEl.classList.remove('deny'), 260);
+      // Message explicatif — auparavant un simple flash rouge sans texte,
+      // ce qui pouvait donner l'impression d'un bug ("ce combattant ne peut
+      // pas miner") alors qu'il s'agit en réalité d'une restriction normale
+      // (mauvaise faction active, déjà épuisé, ou gelé).
+      if (isFrozen(card)) {
+        pushHistory('info', `${cardAnchor(card.label)} est GELÉ : impossible d'agir ce tour-ci.`);
+      } else if (hasAttacked(owner, card)) {
+        pushHistory('info', `${cardAnchor(card.label)} a déjà agi ce tour-ci.`);
+      } else if (!canUnitActThisTurn(owner, card)) {
+        pushHistory('info', `${cardAnchor(card.label)} n'appartient pas à la faction active de ce tour : impossible d'agir.`);
+      }
     }
     return;
   }
@@ -7845,9 +7870,43 @@ function playHPHitEffect(card){
   hp.classList.remove('hit'); void hp.offsetWidth; hp.classList.add('hit');
 }
 
+// Affiche un "Hit" flottant façon jeu vidéo au-dessus d'une carte : un
+// nombre qui monte puis s'estompe. Utilisé pour les dégâts subis EN DEHORS
+// du combat (Ouvrir les plaies, Kamykaz...), qui n'ont sinon aucun retour
+// visuel clair — le combat classique garde sa propre mise en scène dédiée
+// (showCombatVersus) et n'a pas besoin de ce système en plus.
+function showFloatingHitEffect(cardId, amount){
+  const holder = document.querySelector(`.lane .card.placed[data-id="${cardId}"]`);
+  if (!holder) return;
+  const rect = holder.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'floatingHitPopup';
+  el.textContent = `-${amount}`;
+  el.style.left = `${rect.left + rect.width / 2}px`;
+  el.style.top = `${rect.top + rect.height * 0.32}px`;
+  document.body.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, 1350);
+}
+// Diffuse le Hit flottant à l'adversaire, pour qu'il le voie lui aussi au
+// même moment — purement visuel, ne modifie jamais l'état du jeu.
+function broadcastFloatingHitEffect(card, amount){
+  showFloatingHitEffect(card.id, amount);
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID,
+      payload: { type: 'floatingHit', cardId: card.id, amount }
+    });
+  }
+}
+
 /* --- Triggers sur perte effective de PV (Barbara C11) --- */
 function onHPDamaged(owner, hostCard, hpLost, cause){
   if(hpLost<=0) return;
+  // Hit flottant façon jeu vidéo pour tout dégât HORS combat (le combat a
+  // déjà sa propre mise en scène dédiée via showCombatVersus).
+  if (cause !== 'combat' && cause !== 'riposte') {
+    broadcastFloatingHitEffect(hostCard, hpLost);
+  }
   // KRYLLS (nouveau lot) : Kzunade (C48) — se déclenche à chaque fois
   // qu'elle-même est la carte endommagée, peu importe la cause.
   checkKzunadeReactiveTrigger(owner, hostCard);
@@ -11907,6 +11966,14 @@ if (card.label === 'C166') {
     // === WADOO 2e lot : Golgoth (C215) et Mboria (C220) — JOUER : lier cette Poupée
     // à un combattant ennemi de son choix (rituel automatique à l'entrée en jeu) ===
     if (card.label === 'C215' || card.label === 'C220') {
+        // CORRECTIF : Golgoth doit TOUJOURS être Provocateur dès son entrée
+        // en jeu, qu'elle parvienne ou non à se lier à un ennemi ensuite —
+        // auparavant, ce trait n'était accordé QUE si la liaison réussissait,
+        // la laissant sans Provocateur s'il n'y avait aucune cible disponible.
+        if (card.label === 'C215' && !hasTag(card, 'provocateur')) {
+          if (!Array.isArray(card.addedTags)) card.addedTags = [];
+          if (!card.addedTags.includes('provocateur')) card.addedTags.push('provocateur');
+        }
         const opp = (owner === 'top') ? 'bottom' : 'top';
         const hasEnemyTarget = getLineByOwner(opp).some(c => getType(c.label) === 'personnage');
         if (hasEnemyTarget) {
@@ -17247,6 +17314,11 @@ if (ONLINE_MODE) {
       if (payload.type === 'larvaFusion') {
         // Diffusé quand 3 Larves (T02) fusionnent automatiquement en Anomaly.
         playFusionAnimation(payload.owner);
+      }
+      if (payload.type === 'floatingHit') {
+        // Diffusé à chaque dégât HORS combat — l'adversaire voit le même
+        // Hit flottant au même moment, purement visuel.
+        showFloatingHitEffect(payload.cardId, payload.amount);
       }
       if (payload.type === 'ownerGatedTargeting') {
         // Diffusé par Tokzik/Kryo/Kamykaz à chaque fois que leur effet doit
