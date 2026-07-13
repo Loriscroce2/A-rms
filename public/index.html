@@ -5769,12 +5769,38 @@ async function playActionReveillezVous(owner, actionCard){
   ]);
 
   const footerEl = overlay.querySelector('#rvFooter');
+
+  // Les deux combattants trouvés rejoignent D'ABORD leur zone de combat
+  // (avant même de fermer la fenêtre), pour que le message affiché
+  // corresponde exactement à ce qui vient de se passer.
+  if (topCard) getLineByOwner('top').push(topCard);
+  if (botCard) getLineByOwner('bottom').push(botCard);
+  fullRender();
+
+  // Règle "Esprit" (identique à une attaque normale) : si un seul des deux
+  // combattants révélés porte le trait Esprit, le combat n'a tout
+  // simplement pas lieu. Vérifiée ICI, PENDANT que la fenêtre de révélation
+  // est encore affichée, pour que ce cas ait enfin un message clair et bien
+  // visible au centre de l'écran — auparavant, la fenêtre se fermait avant
+  // cette vérification, ne laissant qu'une simple ligne dans l'historique,
+  // facile à manquer.
+  let espritMismatch = false;
+  if (topCard && botCard) {
+    const isTopEsprit = hasTag(topCard, 'Esprit');
+    const isBotEsprit = hasTag(botCard, 'Esprit');
+    espritMismatch = (isTopEsprit !== isBotEsprit);
+  }
+
   if (footerEl) {
-    if (topCard && botCard) {
+    if (espritMismatch) {
+      footerEl.textContent = `${cardName(topCard.label)} et ${cardName(botCard.label)} ne peuvent pas s'affronter : seul l'un des
+        deux porte le trait ESPRIT. Les deux combattants rejoignent leur zone de combat, SANS combat.`;
+      footerEl.style.color = '#bfa1ff';
+    } else if (topCard && botCard) {
       footerEl.textContent = `Les deux combattants sont trouvés — l'affrontement va commencer !`;
       footerEl.style.color = '#7dffb0';
     } else if (topCard || botCard) {
-      footerEl.textContent = `Un seul combattant a été trouvé — il rejoindra sa zone sans opposition.`;
+      footerEl.textContent = `Un seul combattant a été trouvé — il rejoint sa zone sans opposition.`;
       footerEl.style.color = '#ffb84d';
     } else {
       footerEl.textContent = `Aucun combattant trouvé dans les deux decks.`;
@@ -5782,7 +5808,9 @@ async function playActionReveillezVous(owner, actionCard){
     }
   }
 
-  await sleep(2000);
+  // Tenue un peu plus longue si un message doit être lu (cas Esprit),
+  // sinon la durée habituelle.
+  await sleep(espritMismatch ? 3200 : 2000);
   overlay.classList.remove('go');
   await sleep(350);
   if (overlay.parentNode) overlay.remove();
@@ -5796,41 +5824,34 @@ async function playActionReveillezVous(owner, actionCard){
     return;
   }
 
-  // Un seul camp a pu révéler un combattant : il rejoint sa zone directement.
+  // Un seul camp a pu révéler un combattant : il rejoint déjà sa zone
+  // (poussé plus haut), rien de plus à faire.
   if (topCard && !botCard) {
-    getLineByOwner('top').push(topCard);
     pushHistory('jeu', `${cardAnchor(topCard.label)} rejoint la zone de combat sans opposition.`);
     fullRender();
     return;
   }
   if (botCard && !topCard) {
-    getLineByOwner('bottom').push(botCard);
     pushHistory('jeu', `${cardAnchor(botCard.label)} rejoint la zone de combat sans opposition.`);
     fullRender();
     return;
   }
 
-  // Les deux combattants rejoignent D'ABORD leur zone de combat, puis
-  // s'affrontent avec le moteur de combat RÉEL (resolveFight) : mêmes
-  // dégâts, même animation Versus, mêmes effets déclenchés (poison, gel,
-  // etc.) qu'un combat classique. Le(s) survivant(s) reste(nt) simplement
-  // sur le plateau avec ses/leurs PV restants — resolveFight s'en charge.
-  getLineByOwner('top').push(topCard);
-  getLineByOwner('bottom').push(botCard);
-  fullRender();
-
-  // Règle "Esprit" (identique à une attaque normale) : si un seul des deux
-  // combattants révélés porte le trait Esprit, le combat n'a tout simplement
-  // pas lieu — les deux rejoignent leur zone sans s'affronter.
-  const isTopEsprit = hasTag(topCard, 'Esprit');
-  const isBotEsprit = hasTag(botCard, 'Esprit');
-  if (isTopEsprit !== isBotEsprit) {
+  // Disparité Esprit : les deux combattants restent simplement dans leur
+  // zone de combat respective, sans jamais s'affronter.
+  if (espritMismatch) {
     pushHistory('info', `${cardAnchor(topCard.label)} et ${cardAnchor(botCard.label)} ne peuvent pas s'affronter — seul l'un des
-      deux porte le trait <strong>Esprit</strong>, qui ne peut interagir qu'avec ses semblables. Les deux combattants rejoignent
-      simplement leur zone de combat, sans combat.`);
+      deux porte le trait <strong>Esprit</strong>, qui ne peut interagir qu'avec ses semblables. Les deux combattants restent
+      dans leur zone de combat respective, sans combat.`);
+    fullRender();
     return;
   }
 
+  // Aucune disparité : les deux combattants s'affrontent avec le moteur de
+  // combat RÉEL (resolveFight) : mêmes dégâts, même animation Versus, mêmes
+  // effets déclenchés (poison, gel, etc.) qu'un combat classique. Le(s)
+  // survivant(s) reste(nt) simplement sur le plateau avec ses/leurs PV
+  // restants — resolveFight s'en charge.
   await sleep(450);
   resolveFight({ card: topCard, owner: 'top' }, { card: botCard, owner: 'bottom' });
 }
@@ -5958,7 +5979,19 @@ async function playReveillezVousSpectator(topSequence, botSequence){
 
   const footerEl = overlay.querySelector('#rvFooter');
   if (footerEl) {
-    if (topLabel && botLabel) {
+    // Vérification "au mieux" (traits imprimés uniquement, le spectateur ne
+    // reçoit que des labels, pas les cartes complètes avec leurs traits
+    // accordés dynamiquement) — l'état réel du jeu, lui, est de toute façon
+    // toujours correct via la synchronisation classique.
+    const isTopEspritStatic = topLabel && (CARD_TAGS[topLabel] || []).includes('Esprit');
+    const isBotEspritStatic = botLabel && (CARD_TAGS[botLabel] || []).includes('Esprit');
+    const espritMismatchSpectator = topLabel && botLabel && (isTopEspritStatic !== isBotEspritStatic);
+
+    if (espritMismatchSpectator) {
+      footerEl.textContent = `${cardName(topLabel)} et ${cardName(botLabel)} ne peuvent pas s'affronter : seul l'un des deux
+        porte le trait ESPRIT. Les deux combattants rejoignent leur zone de combat, SANS combat.`;
+      footerEl.style.color = '#bfa1ff';
+    } else if (topLabel && botLabel) {
       footerEl.textContent = `Les deux combattants sont trouvés — l'affrontement va commencer !`;
       footerEl.style.color = '#7dffb0';
     } else if (topLabel || botLabel) {
@@ -7787,6 +7820,65 @@ function animateVortexTransfer(fromEl, toEl, label){
     });
     ghost.addEventListener('transitionend', ()=>{ ghost.remove(); }, {once:true});
   }catch(e){ }
+}
+
+// Présentation centrale de Vortex (C5) : montre clairement la carte
+// piochée au hasard dans une défausse, et précise explicitement dans
+// quel deck (avec le VRAI pseudo du joueur) elle vient de rejoindre —
+// visible des DEUX joueurs en même temps.
+function playVortexCentralReveal(cardLabel, targetOwner, onDone){
+  try{
+    const style = document.createElement('style');
+    style.textContent = `
+      .vortexRevealOverlay{ position:fixed; inset:0; z-index:8300; display:flex; align-items:center; justify-content:center;
+        background:rgba(3,8,14,.88); opacity:0; transition:opacity .5s ease; }
+      .vortexRevealOverlay.show{ opacity:1; }
+      .vortexRevealOverlay.exit{ opacity:0; }
+      .vortexRevealStage{ display:flex; flex-direction:column; align-items:center; gap:18px; }
+      .vortexRevealCard{ width:min(230px,54vw); height:min(322px,76vw); border-radius:16px; background-size:cover; background-position:center;
+        border:3px solid rgba(125,249,255,.7); box-shadow:0 0 50px rgba(125,249,255,.55), 0 24px 50px rgba(0,0,0,.7);
+        opacity:0; transform:scale(.3) rotate(-8deg); transition:opacity .6s cubic-bezier(.2,.8,.2,1.2), transform .6s cubic-bezier(.2,.8,.2,1.2); }
+      .vortexRevealCard.show{ opacity:1; transform:scale(1) rotate(0deg); }
+      .vortexRevealText{ font-family:'Cinzel',serif; font-weight:800; font-size:clamp(16px,2.4vw,22px); color:#eafdff; text-align:center;
+        text-shadow:0 0 16px rgba(125,249,255,.6); opacity:0; transition:opacity .6s ease; max-width:80vw; }
+      .vortexRevealText.show{ opacity:1; }
+    `;
+    document.head.appendChild(style);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'vortexRevealOverlay';
+    overlay.innerHTML = `
+      <div class="vortexRevealStage">
+        <div class="vortexRevealCard" id="vortexRevealCard" style="background-image:url(${getCardImage(cardLabel)})"></div>
+        <div class="vortexRevealText" id="vortexRevealText">${cardAnchor(cardLabel)} rejoint le deck de <strong>${playerLabel(targetOwner)}</strong> !</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(()=> overlay.classList.add('show'));
+
+    setTimeout(()=>{ document.getElementById('vortexRevealCard').classList.add('show'); }, 200);
+    setTimeout(()=>{ document.getElementById('vortexRevealText').classList.add('show'); }, 550);
+
+    setTimeout(()=>{
+      overlay.classList.add('exit');
+      setTimeout(()=>{
+        overlay.remove();
+        style.remove();
+        if (typeof onDone === 'function') onDone();
+      }, 550);
+    }, 3200);
+  }catch(e){ if (typeof onDone === 'function') onDone(); }
+}
+// Diffuse la présentation de Vortex à l'adversaire, pour qu'il la voie
+// lui aussi au même moment.
+function broadcastVortexReveal(cardLabel, targetOwner){
+  playVortexCentralReveal(cardLabel, targetOwner);
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID,
+      payload: { type: 'vortexReveal', cardLabel, targetOwner }
+    });
+  }
 }
 
 // ===================================================================
@@ -11011,9 +11103,7 @@ function playActionC5(owner, actionCard){
   const pos = Math.floor(Math.random()*(deck.length+1));
   deck.splice(pos,0,pickedCard);
 
-  const fromEl = (sourcePlayer==='top') ? document.getElementById('dumpTop') : document.getElementById('dumpBottom');
-  const toEl   = (owner==='top') ? document.getElementById('deckTop') : document.getElementById('deckBottom');
-  animateVortexTransfer(fromEl, toEl, pickedCard.label);
+  broadcastVortexReveal(pickedCard.label, owner);
 
   discardCard({ ...actionCard }, owner, 'action');
 
@@ -17503,6 +17593,12 @@ if (ONLINE_MODE) {
         // Diffusé à chaque gain de PV/Bouclier — l'adversaire voit le même
         // Hit (vert ou bleu) au même moment, purement visuel.
         showStatGainHit(payload.cardId, payload.amount, payload.colorClass);
+      }
+      if (payload.type === 'vortexReveal') {
+        // Diffusé par Vortex (C5) : l'adversaire voit la même présentation
+        // centrale, avec le même message précisant dans quel deck la carte
+        // vient de rejoindre.
+        playVortexCentralReveal(payload.cardLabel, payload.targetOwner);
       }
       if (payload.type === 'ownerGatedTargeting') {
         // Diffusé par Tokzik/Kryo/Kamykaz à chaque fois que leur effet doit
