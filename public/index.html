@@ -3125,6 +3125,7 @@ const CARD_IMAGES = {
   'C60':'../cartes/0060.png', 'C61':'../cartes/0061.png', 'C62':'../cartes/0062.png',
   'C63':'../cartes/0063.png', 'C64':'../cartes/0064.png', 'C65':'../cartes/0065.png',
   'C66':'../cartes/0066.png', 'C67':'../cartes/0067.png', 'C68':'../cartes/0068.png',
+  'C69':'../cartes/0069.png', 'C70':'../cartes/0070.png', 'C71':'../cartes/0071.png',
   'C101':'../cartes/0101.png',
   'C102': '../cartes/0102.png',
   'C103': '../cartes/0103.png',
@@ -3255,6 +3256,7 @@ const CARD_TYPES  = {
   'C55':'personnage', 'C56':'personnage', 'C57':'action', 'C58':'artefact', 'C59':'personnage',
   'C60':'personnage', 'C61':'personnage', 'C62':'personnage', 'C63':'action', 'C64':'familier',
   'C65':'personnage', 'C66':'personnage', 'C67':'personnage', 'C68':'personnage',
+  'C69':'action', 'C70':'familier', 'C71':'personnage',
   'C101':'personnage',
   'C102': 'action',
   'C103': 'artefact',
@@ -3404,7 +3406,9 @@ const CARD_NAMES = {
   'C51':'Violence', 'C52':'Styx', 'C53':'Idole de fiel', 'C54':'Paradlex',
   'C55':'Loloth', 'C56':'Bruitzeur', 'C57':'Necrobsorb', 'C58':'Demon Core', 'C59':'Chitinox',
   'C60':"Silenta'rms", 'C61':'Pestrass', 'C62':'Decebale', 'C63':'Coupe-Jarret', 'C64':'Sanik Edgefog',
-  'C65':'Crassyopea', 'C66':'Boomba', 'C67':'Malux', 'C68':'Malocux', 'C101':'Jupithors',
+  'C65':'Crassyopea', 'C66':'Boomba', 'C67':'Malux', 'C68':'Malocux',
+  'C69':'Ouvrir les plaies', 'C70':'Entravax', 'C71':'Soubrsot',
+  'C101':'Jupithors',
   'C102': 'Why Me',
   'C103': 'Totemoon',
   'C104': 'Long Voyage',
@@ -3549,7 +3553,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 const CARD_HP_BASE = {
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
-  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4,
+  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1,
   'C101': 4,
   'C105': 5,
   'C108': 3,
@@ -3697,7 +3701,9 @@ const CARD_TAGS = {
   'C60':['guerrier', 'Impy', 'Esprit'], 'C61':['citoyen', 'Impy', 'provocateur'],
   'C62':['Diplomate', 'Impy'], 'C63':['action', 'Impy'], 'C64':['familier', 'Impy'],
   'C65':['citoyen', 'Impy', 'provocateur', 'poison'], 'C66':['citoyen', 'Impy'], 'C67':['guerrier', 'Impy'],
-  'C68':['citoyen', 'Impy'], 'C101':['guerrier', 'Savage'],
+  'C68':['citoyen', 'Impy'],
+  'C69':['action', 'Impy'], 'C70':['familier', 'Impy'], 'C71':['citoyen', 'Impy', 'rapide'],
+  'C101':['guerrier', 'Savage'],
   'C102': ['action', 'Savage'],
   'C103': ['artefact', 'Savage'],
   'C104': ['action', 'Savage'],
@@ -4339,6 +4345,7 @@ let kryoTargetMode = null;
 let zyzyHostTargetMode = null;
 let c42TargetMode = null;
 let kamykazTargetMode = null;
+let c69TargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -6578,6 +6585,13 @@ function startAiming(card, owner, fromEl){
     return;
   }
 
+// IMPY (nouveau lot) : tout combattant portant Entravax (C70) ne peut ni
+// attaquer, ni miner.
+  if (getFamiliersOnHost(card).some(f => f.label === 'C70')) {
+    pushHistory('info', `${cardAnchor(card.label)} est entravé par ${cardAnchor('C70')} : il ne peut pas attaquer.`);
+    return;
+  }
+
 // WADOO : Golgoth (C215) est une carte purement défensive, elle ne peut jamais attaquer
 // (seulement miner, ou utiliser son rituel de liaison à l'entrée en jeu).
   if (card.label === 'C215') {
@@ -7191,6 +7205,12 @@ function openMiningPrompt(owner, card, fromEl){
 
   if (card.label === 'T10') {
     pushHistory('info', `${cardAnchor('T10')} ne peut pas miner.`);
+    return;
+  }
+
+  // IMPY (nouveau lot) : tout combattant portant Entravax (C70) ne peut pas miner.
+  if (getFamiliersOnHost(card).some(f => f.label === 'C70')) {
+    pushHistory('info', `${cardAnchor(card.label)} est entravé par ${cardAnchor('C70')} : il ne peut pas miner.`);
     return;
   }
 
@@ -8271,6 +8291,80 @@ function handleC42TargetSelection(targetCard, targetCardOwner){
   fullRender();
 }
 
+// IMPY (nouveau lot) : Ouvrir les plaies (C69) — inflige à un combattant
+// (n'importe quel camp) -X PV, X étant le double du nombre de cartes dans
+// l'Exil.
+function openC69Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  const allCombattants = topLine.concat(botLine);
+  const dmg = exilePile.length * 2;
+  if (allCombattants.length === 0) {
+    openButtonsPrompt('Ouvrir les plaies', `Aucun combattant sur le plateau à cibler.`, anchorEl, [
+      { label: 'OK', className: 'cancel', onClick: ()=>{} },
+    ]);
+    return;
+  }
+  openButtonsPrompt('Ouvrir les plaies', `Jouer <strong>Ouvrir les plaies</strong> ?<br><small>Effet : inflige <strong>-${dmg} PV</strong>
+    à un combattant (${exilePile.length} carte${exilePile.length>1?'s':''} actuellement dans l'Exil).</small>`, anchorEl, [
+    { label: 'Jouer', className: 'confirm', onClick: () => playActionC69(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
+  ]);
+}
+
+function playActionC69(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  pushHistory('action', `${cardAnchor('C69')} est jouée.`);
+  fullRender();
+  startC69Targeting(owner);
+}
+
+function startC69Targeting(owner){
+  c69TargetMode = { owner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'c69-target-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Ouvrir les plaies</div>
+    <div class="apMsg">Cliquez sur le combattant (n'importe quel camp) à blesser.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+
+function handleC69TargetSelection(targetCard, targetCardOwner){
+  if (!c69TargetMode) return;
+  c69TargetMode = null;
+  closeActionPrompt();
+
+  const dmg = exilePile.length * 2;
+  targetCard.hp = getEffectiveHP(targetCard) - dmg;
+  pushHistory('jeu', `${cardAnchor('C69')} inflige <strong>-${dmg} PV</strong> à ${cardAnchor(targetCard.label)}.`);
+  playHPHitEffect(targetCard);
+
+  if (targetCard.hp <= 0) {
+    const line = getLineByOwner(targetCardOwner);
+    const lidx = line.findIndex(c => c.id === targetCard.id);
+    if (lidx !== -1) {
+      line.splice(lidx, 1);
+      detachFamiliarsOnHost(targetCard, targetCardOwner);
+      discardCard(targetCard, targetCardOwner, 'death');
+    }
+  }
+  fullRender();
+}
+
 // KRYLLS (nouveau lot) : Kamykaz (T16) — MORT : inflige -2 PV à un
 // combattant (n'importe quel camp), puis se duplique dans sa propre zone
 // de combat au lieu de rejoindre la défausse. S'il devait un jour repartir
@@ -9337,7 +9431,7 @@ function isAnyTargetSelectionActive(){
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
     arakcubeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
-    c42TargetMode || kamykazTargetMode
+    c42TargetMode || kamykazTargetMode || c69TargetMode
   );
 }
 // Petit rappel visuel/textuel quand une action est refusée à cause d'un choix en attente.
@@ -9684,6 +9778,17 @@ function detachFamiliarsOnHost(hostCard, hostOwner){
 
         if(familiar.label === 'C106'){
           pushHistory('info', `${cardAnchor(hostCard.label)} n'est plus gelé.`);
+        }
+
+        // IMPY (nouveau lot) : Entravax (C70) — MORT : quand son hôte meurt,
+        // l'ADVERSAIRE du propriétaire d'Entravax (donc le propriétaire de
+        // l'hôte, dans le cas normal d'attache à un combattant ennemi)
+        // gagne +2 Mithril.
+        if(familiar.label === 'C70'){
+          mithril[hostOwner] = (mithril[hostOwner] || 0) + 2;
+          pushHistory('mithril', `${cardAnchor('C70')} : la mort de ${cardAnchor(hostCard.label)} donne
+            +2 Mithril à ${playerLabel(hostOwner)} !`);
+          updateMithril();
         }
 
         if(familiar.label === 'C10'){
@@ -10612,6 +10717,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C30') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC30Prompt(owner, card, el)); }); }
             if (card.label === 'C33') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC33Prompt(owner, card, el)); }); }
             if (card.label === 'C42') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC42Prompt(owner, card, el)); }); }
+            if (card.label === 'C69') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC69Prompt(owner, card, el)); }); }
             if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
             if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
             if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
@@ -11197,6 +11303,7 @@ if (hitAndRunMode) {
     if (kryoTargetMode) { handleKryoTargetSelection(card, owner); return; }
     if (zyzyHostTargetMode) { handleZyzyHostSelection(card, owner); return; }
     if (c42TargetMode) { handleC42TargetSelection(card, owner); return; }
+    if (c69TargetMode) { handleC69TargetSelection(card, owner); return; }
     if (kamykazTargetMode) { handleKamykazTargetSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
@@ -12639,6 +12746,24 @@ if (reason === 'manual') {
       startKryoTargeting(owner);
     } else {
       pushHistory('info', `${cardAnchor('C38')} : aucun combattant sur le plateau, son effet ne se déclenche pas.`);
+    }
+  }
+  // IMPY (nouveau lot) : Soubrsot (C71) — MORT : détruit une A'rms
+  // adverse SI l'Exil contient au moins 10 cartes au moment de sa mort.
+  if (card.label === 'C71' && reason === 'death') {
+    if (exilePile.length >= 10) {
+      const opp = (owner === 'top') ? 'bottom' : 'top';
+      if (arms[opp] > 0) {
+        arms[opp] = arms[opp] - 1;
+        renderArms();
+        pushHistory('jeu', `${cardAnchor('C71')} : l'Exil contient ${exilePile.length} cartes — une A'rms de
+          ${playerLabel(opp)} est détruite !`);
+      } else {
+        pushHistory('info', `${cardAnchor('C71')} : ${playerLabel(opp)} n'a aucune A'rms forgée à détruire.`);
+      }
+    } else {
+      pushHistory('info', `${cardAnchor('C71')} : l'Exil ne contient que ${exilePile.length} carte${exilePile.length>1?'s':''}
+        (10 requises), son effet ne se déclenche pas.`);
     }
   }
   if (card.label === 'C58' && typeof card.charges === 'number' && card.charges > 0) {
