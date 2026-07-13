@@ -3176,6 +3176,7 @@ const CARD_IMAGES = {
   'C66':'../cartes/0066.png', 'C67':'../cartes/0067.png', 'C68':'../cartes/0068.png',
   'C69':'../cartes/0069.png', 'C70':'../cartes/0070.png', 'C71':'../cartes/0071.png',
   'C72':'../cartes/0072.png', 'C73':'../cartes/0073.png', 'C74':'../cartes/0074.png',
+  'C75':'../cartes/0075.png', 'C76':'../cartes/0076.png', 'C77':'../cartes/0077.png',
   'C101':'../cartes/0101.png',
   'C102': '../cartes/0102.png',
   'C103': '../cartes/0103.png',
@@ -3308,6 +3309,7 @@ const CARD_TYPES  = {
   'C65':'personnage', 'C66':'personnage', 'C67':'personnage', 'C68':'personnage',
   'C69':'action', 'C70':'familier', 'C71':'personnage',
   'C72':'artefact', 'C73':'personnage', 'C74':'artefact',
+  'C75':'action', 'C76':'personnage', 'C77':'personnage',
   'C101':'personnage',
   'C102': 'action',
   'C103': 'artefact',
@@ -3460,6 +3462,7 @@ const CARD_NAMES = {
   'C65':'Crassyopea', 'C66':'Boomba', 'C67':'Malux', 'C68':'Malocux',
   'C69':'Ouvrir les plaies', 'C70':'Entravax', 'C71':'Soubrsot',
   'C72':'Oraclex', 'C73':'Zayuka', 'C74':'Gazocubateur',
+  'C75':'Horde toxique', 'C76':'Corbrax', 'C77':'Healard',
   'C101':'Jupithors',
   'C102': 'Why Me',
   'C103': 'Totemoon',
@@ -3605,7 +3608,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 const CARD_HP_BASE = {
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
-  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7,
+  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4,
   'C101': 4,
   'C105': 5,
   'C108': 3,
@@ -3756,6 +3759,7 @@ const CARD_TAGS = {
   'C68':['citoyen', 'Impy'],
   'C69':['action', 'Impy'], 'C70':['familier', 'Impy'], 'C71':['citoyen', 'Impy', 'rapide'],
   'C72':['artefact', 'Impy'], 'C73':['guerrier', 'Impy', 'rapide', 'poison'], 'C74':['artefact', 'Impy'],
+  'C75':['action', 'Impy'], 'C76':['citoyen', 'Impy', 'poison'], 'C77':['médic', 'Impy'],
   'C101':['guerrier', 'Savage'],
   'C102': ['action', 'Savage'],
   'C103': ['artefact', 'Savage'],
@@ -8628,6 +8632,47 @@ function handleC69TargetSelection(targetCard, targetCardOwner){
   fullRender();
 }
 
+// IMPY (nouveau lot) : Horde toxique (C75) — remplit votre zone de combat
+// de Corbrax (C76), jusqu'à la limite maximale (tenant compte d'Etendardz
+// s'il est en jeu).
+function openC75Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  const line = getLineByOwner(owner);
+  const maxCombatants = getMaxCombatantsForOwner(owner);
+  const freeSlots = Math.max(0, maxCombatants - line.length);
+  if (freeSlots === 0) {
+    openButtonsPrompt('Horde toxique', `Votre zone de combat est déjà pleine (${maxCombatants}/${maxCombatants}).`, anchorEl, [
+      { label: 'OK', className: 'cancel', onClick: ()=>{} },
+    ]);
+    return;
+  }
+  openButtonsPrompt('Horde toxique', `Jouer <strong>Horde toxique</strong> ?<br><small>Effet : remplit votre zone de combat de
+    ${cardAnchor('C76')} (${freeSlots} emplacement${freeSlots>1?'s':''} libre${freeSlots>1?'s':''}).</small>`, anchorEl, [
+    { label: 'Jouer', className: 'confirm', onClick: () => playActionC75(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
+  ]);
+}
+
+function playActionC75(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const line = getLineByOwner(owner);
+  const maxCombatants = getMaxCombatantsForOwner(owner);
+  let created = 0;
+  while (line.length < maxCombatants) {
+    const corbrax = createCard('C76', owner === 'top' ? 'T' : 'B');
+    line.push(corbrax);
+    created++;
+  }
+  pushHistory('action', `${cardAnchor('C75')} remplit votre zone de combat de ${created} ${cardAnchor('C76')} !`);
+  fullRender();
+}
+
 // KRYLLS (nouveau lot) : Kamykaz (T16) — MORT : inflige -2 PV à un
 // combattant (n'importe quel camp), puis se duplique dans sa propre zone
 // de combat au lieu de rejoindre la défausse. S'il devait un jour repartir
@@ -10291,6 +10336,73 @@ function resolveKyrazaChoice(owner, chosenCard, originPile){
   }
 }
 
+// IMPY (nouveau lot) : Healard (C77) — JOUER : renvoie un combattant de
+// l'Exil dans votre zone de combat, il gagne +3 PV.
+function openHealardExilePicker(owner){
+  const eligibleCards = exilePile.filter(c => getType(c.label) === 'personnage');
+  if (eligibleCards.length === 0) {
+    pushHistory('info', `${cardAnchor('C77')} : aucun combattant dans l'Exil.`);
+    return;
+  }
+  const maxCombatants = getMaxCombatantsForOwner(owner);
+  if (getLineByOwner(owner).length >= maxCombatants) {
+    pushHistory('info', `${cardAnchor('C77')} : votre zone de combat est pleine (${maxCombatants}/${maxCombatants}).`);
+    return;
+  }
+
+  // Réutilise la même fenêtre que "Voir Familiers"/Mezamorph/Kyraza (même
+  // overlay, mêmes vignettes .dthumb), rendue cliquable pour le choix.
+  const carousel = document.getElementById('familiarCarousel');
+  const title = document.getElementById('fcoTitle');
+  if (!familiarCarouselOverlay || !carousel || !title) return;
+
+  title.textContent = "Healard — choisissez un combattant à ramener de l'Exil";
+  carousel.innerHTML = '';
+  carousel.classList.add('selecting');
+
+  eligibleCards.forEach(exiledCard => {
+    const thumb = document.createElement('div');
+    thumb.className = 'dthumb';
+    const url = getCardImage(exiledCard.label);
+    if (url) {
+      thumb.style.backgroundImage = `url(${url})`;
+    } else {
+      thumb.textContent = cardName(exiledCard.label);
+    }
+    thumb.title = cardName(exiledCard.label);
+    thumb.addEventListener('mouseenter', () => showZoom(exiledCard.label, exiledCard));
+    thumb.addEventListener('mouseleave', hideZoom);
+    thumb.addEventListener('click', () => {
+      carousel.classList.remove('selecting');
+      hideFamiliarCarousel();
+      resolveHealardChoice(owner, exiledCard);
+    });
+    carousel.appendChild(thumb);
+  });
+
+  familiarCarouselOverlay.style.display = 'flex';
+}
+
+function resolveHealardChoice(owner, chosenCard){
+  const idx = exilePile.findIndex(c => c.id === chosenCard.id);
+  if (idx === -1) return;
+  exilePile.splice(idx, 1);
+  if (typeof updateExileUI === 'function') updateExileUI();
+
+  resetStatsToBaseWhenEnteringBattle(chosenCard, owner);
+  chosenCard.hp = getBaseHP(chosenCard.label) + 3;
+
+  askLeftRightPlacement('Healard', `Où placer ${cardAnchor(chosenCard.label)} dans votre zone de combat ?`, (side) => {
+    const line = getLineByOwner(owner);
+    if (side === 'left') line.unshift(chosenCard); else line.push(chosenCard);
+    pushHistory('action', `${cardAnchor('C77')} ramène ${cardAnchor(chosenCard.label)} de l'Exil : <strong>+3 PV</strong> !`);
+    playPosecarteSfx();
+    broadcastStatGainHit(chosenCard, 3, 'green');
+    onCharacterEnterBattlefield(chosenCard, owner);
+    fullRender();
+  });
+}
+
 function attachFamiliersZoom(zoomEl, hostCard){
   const fams = getFamiliersOnHost(hostCard);
   if(fams.length===0) return;
@@ -11025,6 +11137,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C33') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC33Prompt(owner, card, el)); }); }
             if (card.label === 'C42') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC42Prompt(owner, card, el)); }); }
             if (card.label === 'C69') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC69Prompt(owner, card, el)); }); }
+            if (card.label === 'C75') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC75Prompt(owner, card, el)); }); }
             if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
             if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
             if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
@@ -12109,6 +12222,16 @@ if (card.label === 'C49') {
 }
 // ===================================================================
 // FIN DE LA LOGIQUE D'ENTRÉE POUR KYRAZA
+// ===================================================================
+
+// ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR HEALARD (C77)
+// ===================================================================
+if (card.label === 'C77') {
+  openHealardExilePicker(owner);
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR HEALARD
 // ===================================================================
 
 // ===================================================================
