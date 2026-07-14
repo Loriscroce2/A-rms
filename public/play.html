@@ -368,9 +368,13 @@
   <script>
     const MAX_DECKS = 10;
     const MAX_COPIES = 2;
-    const DECK_SIZE = 36;
+    // IMPY (nouveau lot) : Syphon (0083) — change complètement la règle de
+    // construction quand il est inclus dans le deck : 30 cartes au lieu de
+    // 36, 10 par faction au lieu de 12. Recalculé en direct à chaque
+    // ajout/retrait de carte.
+    function getDeckSize(){ return deck.includes('0083') ? 30 : 36; }
+    function getCardsPerFaction(){ return deck.includes('0083') ? 10 : 12; }
     const REQUIRED_FACTIONS = 3;
-    const CARDS_PER_FACTION = 12;
 
     const FACTIONS = ["Krylls","Impy","Savage","Chimeria","Wadoo"];
     function factionOf(num){
@@ -382,7 +386,7 @@
     }
     function pad4(n){ return String(n).padStart(4,'0'); }
 
-    const IMPLEMENTED_CODES = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236];
+    const IMPLEMENTED_CODES = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,101,102,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,118,119,120,151,152,153,154,155,156,157,158,159,160,161,162,163,164,165,166,167,168,169,170,171,172,173,174,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,226,227,228,229,230,231,232,233,234,235,236];
     const IMPLEMENTED_SET = new Set(IMPLEMENTED_CODES);
 
     // La Saison 1 réserve 250 emplacements (1 à 250 — 50 par faction), même
@@ -621,7 +625,7 @@
           <div class="box"></div>
           <div class="packInfo">
             <div class="packName">${d.name}</div>
-            <div class="packMeta">${d.cards.length}/${DECK_SIZE} — ${facsSummary}</div>
+            <div class="packMeta">${d.cards.length}/${getDeckSize()} — ${facsSummary}</div>
             <div class="packBtns">
               <button class="btn play-btn">▶ Jouer</button>
               <button class="btn-secondary danger delete-btn">Supprimer</button>
@@ -734,10 +738,10 @@
       const curFacCount = countsByFaction.get(fac) || 0;
       const owned = OWNED.get(code) || 0;
       const maxCopies = Math.min(maxCopiesFor(code), owned);
-      if (deck.length >= DECK_SIZE) { showToast(`Deck plein (${DECK_SIZE}/${DECK_SIZE})`); return; }
+      if (deck.length >= getDeckSize()) { showToast(`Deck plein (${getDeckSize()}/${getDeckSize()})`); return; }
       if (curCardCount >= maxCopies) { showToast(owned === 0 ? `Vous ne possédez pas cette carte.` : `Vous ne possédez que ${owned} exemplaire${owned>1?'s':''} de cette carte.`); return; }
       if (!countsByFaction.has(fac) && countsByFaction.size >= REQUIRED_FACTIONS) { showToast(`Vous ne pouvez avoir que ${REQUIRED_FACTIONS} factions.`); return; }
-      if (curFacCount >= CARDS_PER_FACTION) { showToast(`Max ${CARDS_PER_FACTION} cartes pour ${fac}`); return; }
+      if (curFacCount >= getCardsPerFaction()) { showToast(`Max ${getCardsPerFaction()} cartes pour ${fac}`); return; }
       deck.push(code);
       countsByCode.set(code, curCardCount + 1);
       countsByFaction.set(fac, curFacCount + 1);
@@ -761,22 +765,22 @@
     }
     
     function deckIsValid() {
-      if (deck.length !== DECK_SIZE) return false;
+      if (deck.length !== getDeckSize()) return false;
       if (countsByFaction.size !== REQUIRED_FACTIONS) return false;
       for (const count of countsByFaction.values()) {
-        if (count !== CARDS_PER_FACTION) return false;
+        if (count !== getCardsPerFaction()) return false;
       }
       return true;
     }
 
     function updateChipsAndButton(){
-      document.getElementById('totalChip').textContent = `${deck.length} / ${DECK_SIZE} cartes`;
+      document.getElementById('totalChip').textContent = `${deck.length} / ${getDeckSize()} cartes`;
       const facsText = Array.from(countsByFaction.entries()).map(([f, c]) => `${f}: ${c}`).join(' • ');
       document.getElementById('facsChip').textContent = `Factions : ${countsByFaction.size} / ${REQUIRED_FACTIONS}` + (facsText ? ` — ${facsText}` : '');
       const ok = deckIsValid();
       const ruleChip = document.getElementById('ruleChip');
       ruleChip.className = 'chip ' + (ok ? 'ok' : '');
-      ruleChip.textContent = ok ? 'Conforme — prêt à valider' : `Règle : ${CARDS_PER_FACTION} cartes par faction`;
+      ruleChip.textContent = ok ? 'Conforme — prêt à valider' : `Règle : ${getCardsPerFaction()} cartes par faction`;
       validateBtn.disabled = !ok || !deckNameInput.value.trim();
     }
 

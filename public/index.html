@@ -3179,6 +3179,7 @@ const CARD_IMAGES = {
   'C75':'../cartes/0075.png', 'C76':'../cartes/0076.png', 'C77':'../cartes/0077.png',
   'C78':'../cartes/0078.png', 'T17':'../cartes/T17.png', 'T18':'../cartes/T18.png',
   'C79':'../cartes/0079.png', 'C80':'../cartes/0080.png', 'C81':'../cartes/0081.png',
+  'C82':'../cartes/0082.png', 'C83':'../cartes/0083.png', 'C84':'../cartes/0084.png',
   'C101':'../cartes/0101.png',
   'C102': '../cartes/0102.png',
   'C103': '../cartes/0103.png',
@@ -3314,6 +3315,7 @@ const CARD_TYPES  = {
   'C75':'action', 'C76':'personnage', 'C77':'personnage',
   'C78':'personnage', 'T17':'personnage', 'T18':'personnage',
   'C79':'personnage', 'C80':'personnage', 'C81':'familier',
+  'C82':'personnage', 'C83':'personnage', 'C84':'action',
   'C101':'personnage',
   'C102': 'action',
   'C103': 'artefact',
@@ -3469,6 +3471,7 @@ const CARD_NAMES = {
   'C75':'Horde toxique', 'C76':'Corbrax', 'C77':'Healard',
   'C78':'Fou-Ego', 'T17':'Ego', 'T18':'Fou',
   'C79':'Vilunion', 'C80':'Imuna', 'C81':'Desaxe',
+  'C82':'Feufo', 'C83':'Syphon', 'C84':'Shmilblix',
   'C101':'Jupithors',
   'C102': 'Why Me',
   'C103': 'Totemoon',
@@ -3614,7 +3617,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 const CARD_HP_BASE = {
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
-  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7,
+  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7, 'C82': 1, 'C83': 2,
   'C101': 4,
   'C105': 5,
   'C108': 3,
@@ -3768,6 +3771,7 @@ const CARD_TAGS = {
   'C75':['action', 'Impy'], 'C76':['citoyen', 'Impy', 'poison'], 'C77':['médic', 'Impy'],
   'C78':['guerrier', 'Impy'], 'T17':['guerrier', 'Impy'], 'T18':['guerrier', 'Impy'],
   'C79':['diplomate', 'Impy'], 'C80':['citoyen', 'Impy', 'provocateur'], 'C81':['familier', 'Impy'],
+  'C82':['citoyen', 'Impy', 'Esprit'], 'C83':['citoyen', 'Impy'], 'C84':['action', 'Impy'],
   'C101':['guerrier', 'Savage'],
   'C102': ['action', 'Savage'],
   'C103': ['artefact', 'Savage'],
@@ -4381,10 +4385,25 @@ function drawInitialHand(deck) {
   return hand;
 }
 
+// IMPY (nouveau lot) : Feufo (C82) — vérifié UNE SEULE FOIS, à la
+// distribution de la main de départ. Si présent, un malus PERMANENT de +1
+// Mithril s'applique à l'adversaire jusqu'à la fin de la partie, peu
+// importe ce qu'il advient ensuite de Feufo (jouée, défaussée...).
+let feufoActivated = { top: false, bottom: false };
+function checkFeufoStartingHand(){
+  ['top', 'bottom'].forEach(owner => {
+    const hand = (owner === 'top') ? topHand : botHand;
+    if (hand.some(c => c.label === 'C82')) {
+      feufoActivated[owner] = true;
+    }
+  });
+}
+
 // On utilise la nouvelle fonction pour distribuer les mains de départ.
 if (!ONLINE_MODE) {
   botHand = drawInitialHand(botDeck);
   topHand = drawInitialHand(topDeck);
+  checkFeufoStartingHand();
 }
 // ===================================================================
 // FIN DE LA MODIFICATION
@@ -6289,6 +6308,24 @@ function updateForgeTaxUI() {
     }
     // ===================================================================
     // FIN DE LA LOGIQUE POUR DESAXE
+    // ===================================================================
+
+    // ===================================================================
+    // IMPY (nouveau lot) : Feufo (C82) — malus PERMANENT (pas recalculé,
+    // contrairement aux autres sources ci-dessus) : si Feufo était dans la
+    // main de départ de l'ADVERSAIRE de ce joueur, +1 Mithril s'applique
+    // ici, jusqu'à la fin de la partie.
+    // ===================================================================
+    const feufoOpp = (player === 'top') ? 'bottom' : 'top';
+    if (feufoActivated[feufoOpp]) {
+        forgeTax[player].push({
+            source: 'Feufo (C82)',
+            amount: 1,
+            turns: 1 // Recalculé à chaque update, mais la condition elle-même est permanente
+        });
+    }
+    // ===================================================================
+    // FIN DE LA LOGIQUE POUR FEUFO
     // ===================================================================
 
     const box = document.getElementById(`mithrilBox${player.charAt(0).toUpperCase() + player.slice(1)}`);
@@ -8814,6 +8851,71 @@ function playActionC75(owner, actionCard){
     pushHistory('action', `${cardAnchor('C75')} remplit votre zone de combat de ${toCreate} ${cardAnchor('C76')} !`);
     fullRender();
   });
+}
+
+// IMPY (nouveau lot) : Shmilblix (C84) — transforme tous les combattants
+// adverses en combattants ALÉATOIRES de la MÊME faction que chacun.
+//
+// Construite pour être AUTOMATIQUEMENT à jour avec toute nouvelle carte
+// ajoutée au jeu par la suite : elle n'utilise AUCUNE liste figée de
+// cartes, mais interroge directement CARD_TYPES et CARD_TAGS (les deux
+// tables déjà mises à jour à chaque nouvelle carte implémentée) pour
+// composer sa liste de candidats à la volée. Aucune maintenance
+// supplémentaire n'est donc nécessaire ici lors de futurs ajouts.
+function getAllPersonnageLabelsOfFaction(faction){
+  return Object.keys(CARD_TYPES).filter(label =>
+    CARD_TYPES[label] === 'personnage' &&
+    Array.isArray(CARD_TAGS[label]) &&
+    CARD_TAGS[label].includes(faction)
+  );
+}
+
+function openC84Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+  if (oppLine.length === 0) {
+    openButtonsPrompt('Shmilblix', `Aucun combattant adverse à transformer.`, anchorEl, [
+      { label: 'OK', className: 'cancel', onClick: ()=>{} },
+    ]);
+    return;
+  }
+  openButtonsPrompt('Shmilblix', `Jouer <strong>Shmilblix</strong> ?<br><small>Effet : transforme tous les combattants adverses
+    en combattants aléatoires de leur propre faction.</small>`, anchorEl, [
+    { label: 'Jouer', className: 'confirm', onClick: () => playActionC84(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
+  ]);
+}
+
+function playActionC84(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+  const transformations = [];
+
+  oppLine.forEach(c => {
+    const faction = (CARD_TAGS[c.label] || []).find(t => ['Krylls','Impy','Savage','Chimeria','Wadoo'].includes(t));
+    if (!faction) return; // sécurité : carte sans faction identifiable, on la laisse telle quelle
+    const candidates = getAllPersonnageLabelsOfFaction(faction).filter(l => l !== c.label);
+    if (candidates.length === 0) return; // aucune autre carte de cette faction disponible
+    const newLabel = candidates[Math.floor(Math.random() * candidates.length)];
+    const oldLabel = c.label;
+    c.label = newLabel;
+    c.hp = getBaseHP(newLabel);
+    c.shield = getBaseShield(newLabel);
+    c.addedTags = [];
+    c.removedTags = [];
+    transformations.push(`${cardAnchor(oldLabel)} → ${cardAnchor(newLabel)}`);
+  });
+
+  pushHistory('action', `${cardAnchor('C84')} transforme les combattants adverses : ${transformations.join(', ')} !`);
+  fullRender();
 }
 
 // KRYLLS (nouveau lot) : Kamykaz (T16) — MORT : inflige -2 PV à un
@@ -11344,6 +11446,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C42') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC42Prompt(owner, card, el)); }); }
             if (card.label === 'C69') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC69Prompt(owner, card, el)); }); }
             if (card.label === 'C75') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC75Prompt(owner, card, el)); }); }
+            if (card.label === 'C84') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC84Prompt(owner, card, el)); }); }
             if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
             if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
             if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
@@ -17798,6 +17901,7 @@ if (ONLINE_MODE) {
     // rééquilibrer l'absence d'initiative — en Classée comme en Non classée.
     if (compensationSeat === 'top' && topDeck.length > 0) topHand.push(topDeck.shift());
     if (compensationSeat === 'bottom' && botDeck.length > 0) botHand.push(botDeck.shift());
+    checkFeufoStartingHand();
   }
 
   // Démarre startTurn() localement UNIQUEMENT dans le navigateur du joueur
