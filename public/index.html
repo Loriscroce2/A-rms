@@ -4396,12 +4396,38 @@ function generateRandomAIDeck(){
       /^C\d+$/.test(label) && Array.isArray(CARD_TAGS[label]) && CARD_TAGS[label].includes(fac)
     );
     if (pool.length === 0) return;
+
+    // Recherche d'une synergie simple : le trait secondaire (poison,
+    // rapide, Esprit, provocateur...) le plus représenté dans cette
+    // faction, pour orienter le tirage vers un thème cohérent plutôt que
+    // purement aléatoire — sans jamais l'imposer strictement (le reste du
+    // deck se remplit normalement, aucun risque de deck dégénéré).
+    const secondaryTagCounts = {};
+    pool.forEach(label => {
+      (CARD_TAGS[label] || []).forEach(tag => {
+        if (['personnage','action','artefact','familier',fac].includes(tag)) return;
+        secondaryTagCounts[tag] = (secondaryTagCounts[tag] || 0) + 1;
+      });
+    });
+    let synergyTag = null, synergyCount = 0;
+    Object.keys(secondaryTagCounts).forEach(tag => {
+      if (secondaryTagCounts[tag] > synergyCount) { synergyTag = tag; synergyCount = secondaryTagCounts[tag]; }
+    });
+    const themedPool = synergyTag ? pool.filter(l => (CARD_TAGS[l]||[]).includes(synergyTag)) : [];
+
     const counts = {};
     let total = 0;
     let guard = 0;
     while (total < 12 && guard < 3000) {
       guard++;
-      const label = pool[Math.floor(Math.random() * pool.length)];
+      // Tirage pondéré : une carte partageant le thème retenu a nettement
+      // plus de chances d'être choisie qu'une carte hors thème.
+      let label;
+      if (themedPool.length > 0 && Math.random() < 0.6) {
+        label = themedPool[Math.floor(Math.random() * themedPool.length)];
+      } else {
+        label = pool[Math.floor(Math.random() * pool.length)];
+      }
       const maxCopies = (label === 'C214') ? 12 : (label === 'C32') ? 1 : 2;
       const cur = counts[label] || 0;
       if (cur < maxCopies) {
@@ -15429,6 +15455,13 @@ let aiTurnActionsThisTurn = 0;
 // reste silencieusement en main sans jamais être vraiment jouée, donc sans
 // cette protection l'IA la retenterait indéfiniment.
 let aiCardsTriedThisTurn = new Set();
+// Compteur PERSISTANT (tour après tour, contrairement à aiCardsTriedThisTurn
+// qui se réinitialise à chaque tour) du nombre de tours consécutifs où un
+// TYPE de carte Action (par label) a échoué à produire le moindre effet.
+// Au-delà d'un certain seuil, l'IA la juge durablement inutilisable dans
+// cette partie et s'en défausse elle-même, plutôt que de l'accumuler en
+// main pour rien.
+let aiCardFailStreak = {};
 
 function maybeStartAITurn(player){
   if (!VS_AI_MODE || player !== AI_SEAT) return;
@@ -15572,12 +15605,45 @@ function aiTryPlayFromHand(){
   // confirmation/ciblage, résolue ensuite par aiResolveAnyOpenPrompt).
   // Exclut celles déjà tentées ce tour-ci, pour ne jamais boucler sur une
   // carte dont l'effet ne peut concrètement rien faire dans la situation
-  // actuelle (elle reste alors simplement en main jusqu'au prochain tour).
+  // actuelle. Priorise les types de cartes qui n'ont pas encore échoué,
+  // pour laisser une vraie chance aux nouvelles avant de retenter celles
+  // déjà suspectées inutiles.
   const actions = hand.filter(c => getType(c.label) === 'action' && canPlayThisCardNow(AI_SEAT, c) && !aiCardsTriedThisTurn.has(c.id));
   if (actions.length > 0) {
-    const chosen = actions[Math.floor(Math.random() * actions.length)];
+    actions.sort((a,b) => (aiCardFailStreak[a.label]||0) - (aiCardFailStreak[b.label]||0));
+    const chosen = actions[0];
     aiCardsTriedThisTurn.add(chosen.id);
-    if (aiClickHandCard(AI_SEAT, chosen)) return true;
+
+    const handBefore = hand.length;
+    const promptCountBefore = document.querySelectorAll('.actionPrompt').length;
+    const carouselEl = document.getElementById('familiarCarouselOverlay');
+    const carouselBefore = !!(carouselEl && carouselEl.style.display && carouselEl.style.display !== 'none');
+
+    const clicked = aiClickHandCard(AI_SEAT, chosen);
+    if (clicked) {
+      const handAfter = getHandByOwner(AI_SEAT).length;
+      const promptCountAfter = document.querySelectorAll('.actionPrompt').length;
+      const carouselAfter = !!(carouselEl && carouselEl.style.display && carouselEl.style.display !== 'none');
+      // Un vrai progrès s'est produit si la carte a quitté la main, ou
+      // qu'une fenêtre de confirmation/ciblage vient de s'ouvrir (qui sera
+      // résolue au prochain pas de la boucle IA).
+      const progressed = (handAfter < handBefore) || (promptCountAfter > promptCountBefore) || (!carouselBefore && carouselAfter);
+      if (!progressed) {
+        aiCardFailStreak[chosen.label] = (aiCardFailStreak[chosen.label] || 0) + 1;
+        if (aiCardFailStreak[chosen.label] >= 2) {
+          const idx = hand.findIndex(c => c.id === chosen.id);
+          if (idx !== -1) {
+            hand.splice(idx, 1);
+            discardCard(chosen, AI_SEAT, 'other');
+            pushHistory('info', `${cardAnchor(chosen.label)} : jugée inutilisable pour le moment, l'IA s'en défausse volontairement.`);
+            fullRender();
+          }
+        }
+      } else {
+        aiCardFailStreak[chosen.label] = 0;
+      }
+      return true;
+    }
   }
 
   return false;
@@ -15597,11 +15663,27 @@ function aiTryAttack(){
   const oppSeat = (AI_SEAT === 'top') ? 'bottom' : 'top';
   const myLine = getLineByOwner(AI_SEAT);
   const oppLine = getLineByOwner(oppSeat);
-  if (oppLine.length === 0) return false; // pas d'attaque directe automatisée dans cette première version
 
   const attackers = myLine.filter(c => aiCanAttackWith(c, AI_SEAT));
   if (attackers.length === 0) return false;
 
+  // Zone adverse vide : une attaque DIRECTE via Flavio VII (C154) reste
+  // possible et doit être exploitée — c'est une pression que l'adversaire
+  // ne peut pas éviter en gardant sa zone de combat vide.
+  if (oppLine.length === 0) {
+    const flavio = attackers.find(c => c.label === 'C154');
+    if (flavio && typeof resolveDirectAttack === 'function') {
+      resolveDirectAttack(flavio, AI_SEAT);
+      return true;
+    }
+    return false;
+  }
+
+  // Priorité forte au combat : un kill vaut toujours mieux que rien, et
+  // parmi les kills, on élimine en priorité la MENACE la plus dangereuse
+  // (le plus d'ATK) plutôt que la cible la plus faible. Sans kill possible,
+  // on tape quand même — de préférence la cible la plus dangereuse pour
+  // réduire les dégâts futurs — l'IA n'a jamais intérêt à rester passive.
   let best = null;
   attackers.forEach(attacker => {
     const atk = getATK(attacker);
@@ -15610,9 +15692,24 @@ function aiTryAttack(){
       const tEsprit = hasTag(target, 'Esprit');
       if (aEsprit !== tEsprit) return; // règle Esprit
       if (isTargetBlockedByTaunt(target, oppSeat)) return; // Provocation adverse
+
       const targetHp = getEffectiveHP(target);
+      const targetAtk = getATK(target);
       const wouldKill = atk >= targetHp;
-      const score = (wouldKill ? 1000 : 0) - targetHp;
+
+      let score;
+      if (wouldKill) {
+        // Kill assuré : priorise la cible la plus menaçante à éliminer.
+        score = 5000 + targetAtk * 10 - targetHp;
+      } else {
+        // Pas de kill : on tape quand même la cible la plus dangereuse
+        // (le plus d'ATK), en acceptant une légère pénalité si ça nous
+        // coûte cher en riposte — mais sans jamais s'interdire l'attaque.
+        const riposteDamage = Math.max(0, targetAtk);
+        const attackerHp = getEffectiveHP(attacker);
+        const wouldDieToRiposte = riposteDamage >= attackerHp;
+        score = targetAtk * 5 - targetHp - (wouldDieToRiposte ? 30 : 0);
+      }
       if (!best || score > best.score) best = { attacker, target, score };
     });
   });
