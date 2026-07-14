@@ -15562,7 +15562,37 @@ function maybeStartAITurn(player){
   if (GAME.over) return;
   aiTurnActionsThisTurn = 0;
   aiCardsTriedThisTurn = new Set();
+  aiStuckPromptAttempts = 0;
   setTimeout(() => runAITurnStep(), 1800);
+}
+
+// Filet de sécurité ULTIME : si l'IA reste bloquée à essayer de résoudre un
+// mode de ciblage (carte au comportement non prévu, cas limite) pendant trop
+// de tentatives consécutives, on réinitialise TOUS les modes de ciblage
+// connus plutôt que de laisser la partie se figer indéfiniment sur le tour
+// de l'IA — un joueur humain a toujours la possibilité de cliquer
+// "Annuler" lui-même ; l'IA doit disposer du même filet.
+let aiStuckPromptAttempts = 0;
+function aiForceCancelAllTargetModes(){
+  try {
+    venusylvaDestroyMode = { active: false, venusylvaId: null };
+    c112TargetMode = null; c114TargetMode = null; c231TargetMode = null;
+    wadooLinkMode = null; dollyHealMode = null; prismisTargetMode = null;
+    liensSelectionMode = null; freedaTargetMode = null; miroirTargetMode = null;
+    hitAndRunMode = null; peinturlurerMode = null; explorationMode = null;
+    chargeboxTargetMode = null; c59DestroyMode = null;
+    c51SelectMode = null; c58HealingMode = null; c9SelectMode = null;
+    pilateSelectMode = null; c18SelectMode = null; remoteChoiceMode = null;
+    kabbaTargetMode = null; krouzpierTargetMode = null; vakxzinTargetMode = null;
+    c33CombatantMode = null; c33ArtifactMode = null; tokzikTargetMode = null;
+    longVoyageFamiliarMode = null; arakcubeTargetMode = null; ozokshiArtifactMode = null;
+    kryoTargetMode = null; zyzyHostTargetMode = null; c42TargetMode = null;
+    kamykazTargetMode = null; c69TargetMode = null; vilunionTargetMode = null;
+    if (typeof closeActionPrompt === 'function') closeActionPrompt();
+    if (typeof clearPoisonedTargetHighlight === 'function') clearPoisonedTargetHighlight();
+    pushHistory('info', `L'IA abandonne une action bloquée pour ne pas figer la partie.`);
+    if (typeof fullRender === 'function') fullRender();
+  } catch(e) { console.error('[IA] échec du filet de sécurité anti-blocage :', e); }
 }
 
 // Détermine si le Mithril doit passer AVANT le combat ce tour-ci : c'est
@@ -15601,7 +15631,24 @@ function runAITurnStep(){
 
   try {
     // 1. Résout en priorité tout prompt/ciblage laissé en attente par
-    // l'action précédente (targeting, confirmation, placement...).
+    // l'action précédente (targeting, confirmation, placement...). Compteur
+    // dédié : si l'IA reste bloquée à "résoudre" un ciblage sans jamais y
+    // parvenir vraiment (carte au comportement non prévu), on abandonne
+    // cette action au bout d'un moment plutôt que de figer la partie sur le
+    // tour de l'IA — rappel : performEndTurn() refuse de finir le tour tant
+    // qu'un mode de ciblage reste actif, donc un ciblage jamais résolu
+    // bloquerait la partie indéfiniment sans ce filet.
+    if (typeof isAnyTargetSelectionActive === 'function' && isAnyTargetSelectionActive()) {
+      aiStuckPromptAttempts++;
+      if (aiStuckPromptAttempts > 20) {
+        aiForceCancelAllTargetModes();
+        aiStuckPromptAttempts = 0;
+        setTimeout(runAITurnStep, 1600);
+        return;
+      }
+    } else {
+      aiStuckPromptAttempts = 0;
+    }
     if (aiResolveAnyOpenPrompt()) {
       setTimeout(runAITurnStep, 1600);
       return;
@@ -15671,19 +15718,21 @@ function aiResolveAnyOpenPrompt(){
     if (thumbs.length > 0) { thumbs[Math.floor(Math.random()*thumbs.length)].click(); return true; }
   }
 
-  // Un mode de ciblage actif PRIME toujours sur le bouton générique d'une
-  // fenêtre (voir plus bas) : beaucoup de fenêtres de ciblage (Vakxzin,
-  // Arakcube, Chargebox, Eclesprit...) n'affichent qu'un simple bouton
-  // "Annuler" en attendant un clic direct sur une carte du plateau — sans
-  // cette vérification EN PREMIER, le repli générique sur "le premier
-  // bouton trouvé" cliquerait ce bouton Annuler et annulerait l'action à
-  // chaque fois, au lieu de la mener à son terme avec une cible choisie
-  // intelligemment (voir aiChooseSmartTarget).
-  if (typeof isAnyTargetSelectionActive === 'function' && isAnyTargetSelectionActive()) {
+  // Modes de ciblage pour lesquels l'IA sait VRAIMENT choisir une cible
+  // sensée (voir aiChooseSmartTarget) : PRIMENT sur le bouton générique
+  // d'une fenêtre, car celle-ci n'affiche souvent qu'un bouton "Annuler" en
+  // attendant un clic sur une carte du plateau — sans ce court-circuit, le
+  // repli générique cliquerait ce bouton Annuler et annulerait l'action à
+  // chaque fois au lieu de la mener à son terme.
+  const hasKnownSmartMode = !!(
+    (typeof vakxzinTargetMode !== 'undefined' && vakxzinTargetMode) ||
+    (typeof arakcubeTargetMode !== 'undefined' && arakcubeTargetMode) ||
+    (typeof chargeboxTargetMode !== 'undefined' && chargeboxTargetMode) ||
+    (typeof c112TargetMode !== 'undefined' && c112TargetMode)
+  );
+  if (hasKnownSmartMode) {
     const smart = aiChooseSmartTarget();
     if (smart) { smart.click(); return true; }
-    const allCards = Array.from(document.querySelectorAll('.lane .card.placed'));
-    if (allCards.length > 0) { allCards[Math.floor(Math.random()*allCards.length)].click(); return true; }
   }
 
   const prompts = document.querySelectorAll('.actionPrompt');
@@ -15704,6 +15753,19 @@ function aiResolveAnyOpenPrompt(){
     }
     const anyBtn = p.querySelector('.apBtn.confirm') || p.querySelector('button');
     if (anyBtn) { anyBtn.click(); return true; }
+  }
+
+  // Repli d'ORIGINE (comportement inchangé) pour tous les AUTRES modes de
+  // ciblage moins bien connus de l'IA (Tokzik, Kryo, Zyzy, Vilunion,
+  // Kamykaz, C42, C69, Kabba, Krouzpier, C59, Venusylva, Ozokshi...) : un
+  // clic sur une carte du plateau au hasard, le dispatcher existant fait le
+  // reste. Volontairement SANS le "ciblage intelligent" générique ici : une
+  // cible mal choisie pour un mode qu'on ne connaît pas assez bien (ex. un
+  // mode qui attend en réalité un clic en MAIN, pas sur le plateau) ne
+  // ferait alors plus jamais progresser la partie.
+  if (typeof isAnyTargetSelectionActive === 'function' && isAnyTargetSelectionActive()) {
+    const allCards = Array.from(document.querySelectorAll('.lane .card.placed'));
+    if (allCards.length > 0) { allCards[Math.floor(Math.random()*allCards.length)].click(); return true; }
   }
 
   return false;
