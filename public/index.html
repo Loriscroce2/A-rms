@@ -3180,6 +3180,7 @@ const CARD_IMAGES = {
   'C78':'../cartes/0078.png', 'T17':'../cartes/T17.png', 'T18':'../cartes/T18.png',
   'C79':'../cartes/0079.png', 'C80':'../cartes/0080.png', 'C81':'../cartes/0081.png',
   'C82':'../cartes/0082.png', 'C83':'../cartes/0083.png', 'C84':'../cartes/0084.png',
+  'C85':'../cartes/0085.png', 'C86':'../cartes/0086.png', 'C87':'../cartes/0087.png',
   'C101':'../cartes/0101.png',
   'C102': '../cartes/0102.png',
   'C103': '../cartes/0103.png',
@@ -3316,6 +3317,7 @@ const CARD_TYPES  = {
   'C78':'personnage', 'T17':'personnage', 'T18':'personnage',
   'C79':'personnage', 'C80':'personnage', 'C81':'familier',
   'C82':'personnage', 'C83':'personnage', 'C84':'action',
+  'C85':'action', 'C86':'personnage', 'C87':'artefact',
   'C101':'personnage',
   'C102': 'action',
   'C103': 'artefact',
@@ -3472,6 +3474,7 @@ const CARD_NAMES = {
   'C78':'Fou-Ego', 'T17':'Ego', 'T18':'Fou',
   'C79':'Vilunion', 'C80':'Imuna', 'C81':'Desaxe',
   'C82':'Feufo', 'C83':'Syphon', 'C84':'Shmilblix',
+  'C85':'Rencontre inattendue', 'C86':'Jackorn', 'C87':'Bugbug',
   'C101':'Jupithors',
   'C102': 'Why Me',
   'C103': 'Totemoon',
@@ -3617,7 +3620,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 const CARD_HP_BASE = {
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
-  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7, 'C82': 1, 'C83': 2,
+  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7, 'C82': 1, 'C83': 2, 'C86': 5,
   'C101': 4,
   'C105': 5,
   'C108': 3,
@@ -3772,6 +3775,7 @@ const CARD_TAGS = {
   'C78':['guerrier', 'Impy'], 'T17':['guerrier', 'Impy'], 'T18':['guerrier', 'Impy'],
   'C79':['diplomate', 'Impy'], 'C80':['citoyen', 'Impy', 'provocateur'], 'C81':['familier', 'Impy'],
   'C82':['citoyen', 'Impy', 'Esprit'], 'C83':['citoyen', 'Impy'], 'C84':['action', 'Impy'],
+  'C85':['action', 'Impy'], 'C86':['citoyen', 'Impy'], 'C87':['artefact', 'Impy'],
   'C101':['guerrier', 'Savage'],
   'C102': ['action', 'Savage'],
   'C103': ['artefact', 'Savage'],
@@ -8918,6 +8922,65 @@ function playActionC84(owner, actionCard){
   fullRender();
 }
 
+// IMPY (nouveau lot) : Rencontre inattendue (C85) — l'adversaire défausse
+// la première carte du dessus de son deck. Si c'est un combattant à 3 PV
+// ou moins (PV DE BASE, avant tout bonus), il rejoint votre propre zone de
+// combat au lieu de sa défausse.
+function openC85Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppDeck = (opp === 'top') ? topDeck : botDeck;
+  if (oppDeck.length === 0) {
+    openButtonsPrompt('Rencontre inattendue', `Le deck adverse est vide.`, anchorEl, [
+      { label: 'OK', className: 'cancel', onClick: ()=>{} },
+    ]);
+    return;
+  }
+  openButtonsPrompt('Rencontre inattendue', `Jouer <strong>Rencontre inattendue</strong> ?<br><small>Effet : votre adversaire défausse
+    la première carte de son deck. Si c'est un combattant à 3 PV ou moins, vous le récupérez dans votre zone de combat.</small>`, anchorEl, [
+    { label: 'Jouer', className: 'confirm', onClick: () => playActionC85(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
+  ]);
+}
+
+function playActionC85(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  fullRender();
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppDeck = (opp === 'top') ? topDeck : botDeck;
+  if (oppDeck.length === 0) {
+    pushHistory('info', `${cardAnchor('C85')} : le deck adverse est vide.`);
+    return;
+  }
+
+  const revealedCard = oppDeck.shift();
+  const isEligible = getType(revealedCard.label) === 'personnage' && getBaseHP(revealedCard.label) <= 3;
+
+  if (isEligible) {
+    pushHistory('action', `${cardAnchor('C85')} révèle ${cardAnchor(revealedCard.label)} (${getBaseHP(revealedCard.label)} PV) :
+      trop faible, il rejoint VOTRE zone de combat !`);
+    fullRender();
+    askLeftRightPlacement('Rencontre inattendue', `Où placer ${cardAnchor(revealedCard.label)} dans votre zone de combat ?`, (side) => {
+      resetStatsToBaseWhenEnteringBattle(revealedCard, owner);
+      const line = getLineByOwner(owner);
+      if (side === 'left') line.unshift(revealedCard); else line.push(revealedCard);
+      onCharacterEnterBattlefield(revealedCard, owner);
+      fullRender();
+    });
+  } else {
+    discardCard(revealedCard, opp, 'other');
+    pushHistory('action', `${cardAnchor('C85')} révèle ${cardAnchor(revealedCard.label)} : trop robuste (ou pas un combattant), elle
+      rejoint simplement la défausse adverse.`);
+    fullRender();
+  }
+}
+
 // KRYLLS (nouveau lot) : Kamykaz (T16) — MORT : inflige -2 PV à un
 // combattant (n'importe quel camp), puis se duplique dans sa propre zone
 // de combat au lieu de rejoindre la défausse. S'il devait un jour repartir
@@ -11122,6 +11185,32 @@ function continueResolveFight(from, to){
     newlyFrozenAttacker: to.card.label === 'C229' && resFrom.hpLost > 0 && getEffectiveHP(from.card) > 0,
   };
 
+  // IMPY (nouveau lot) : Bugbug (C87) — tant qu'il est en jeu (n'importe
+  // quel camp), si un combat se solde par la mort d'UN SEUL des deux
+  // combattants (pas les deux, pas aucun), l'issue est INVERSÉE : celui qui
+  // devait mourir survit à la place, avec les PV restants de celui qui
+  // devait survivre — qui meurt à sa place. Le snapshot cvAfter est
+  // recalculé ensuite pour que l'animation Versus reflète cette inversion.
+  const bugbugInPlay = topArts.concat(botArts).some(a => a.label === 'C87');
+  if (bugbugInPlay && cvAfter.attackerDied !== cvAfter.defenderDied) {
+    const survivorHp = cvAfter.attackerDied ? cvAfter.defenderHp : cvAfter.attackerHp;
+    const originalSurvivorLabel = cvAfter.attackerDied ? to.card.label : from.card.label;
+    const revivedLabel = cvAfter.attackerDied ? from.card.label : to.card.label;
+    if (cvAfter.attackerDied) {
+      from.card.hp = survivorHp;
+      to.card.hp = 0;
+    } else {
+      to.card.hp = survivorHp;
+      from.card.hp = 0;
+    }
+    cvAfter.attackerHp = getEffectiveHP(from.card);
+    cvAfter.defenderHp = getEffectiveHP(to.card);
+    cvAfter.attackerDied = getEffectiveHP(from.card) <= 0;
+    cvAfter.defenderDied = getEffectiveHP(to.card) <= 0;
+    pushHistory('jeu', `${cardAnchor('C87')} inverse l'issue du combat : ${cardAnchor(revivedLabel)} survit à la place de
+      ${cardAnchor(originalSurvivorLabel)}, avec <strong>${survivorHp} PV</strong> !`);
+  }
+
   // IMPY (nouveau lot) : Gazocubateur (C74) — chaque fois qu'un combattant
   // avec Poison tue un combattant adverse (peu importe si la mort vient du
   // Poison lui-même ou simplement des dégâts), +1 charge sur le
@@ -11447,6 +11536,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C69') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC69Prompt(owner, card, el)); }); }
             if (card.label === 'C75') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC75Prompt(owner, card, el)); }); }
             if (card.label === 'C84') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC84Prompt(owner, card, el)); }); }
+            if (card.label === 'C85') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC85Prompt(owner, card, el)); }); }
             if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
             if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
             if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
@@ -12557,6 +12647,40 @@ if (card.label === 'C79') {
 }
 // ===================================================================
 // FIN DE LA LOGIQUE D'ENTRÉE POUR VILUNION
+// ===================================================================
+
+// ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR JACKORN (C86)
+// ===================================================================
+if (card.label === 'C86') {
+  const allFamiliars = getAllFamiliers().slice(); // copie, car on va vider les tableaux d'origine pendant l'itération
+  if (allFamiliars.length === 0) {
+    pushHistory('info', `${cardAnchor('C86')} : aucun familier en jeu à défausser.`);
+  } else {
+    let discardedCount = 0;
+    allFamiliars.forEach(fam => {
+      const hostInfo = findHostOfFamiliar(fam);
+      const hostOwner = hostInfo ? hostInfo.owner : null;
+      const famOwner = fam.playOwner || hostOwner;
+      if (!famOwner) return;
+      const famArray = getFamArrayByOwner(famOwner);
+      const idx = famArray.findIndex(f => f.id === fam.id);
+      if (idx !== -1) {
+        const discardedFam = famArray.splice(idx, 1)[0];
+        discardCard(discardedFam, famOwner, 'effect');
+        discardedCount++;
+      }
+    });
+    if (discardedCount > 0) {
+      for (let i = 0; i < discardedCount; i++) addMithril(owner);
+      pushHistory('action', `${cardAnchor('C86')} défausse ${discardedCount} familier${discardedCount>1?'s':''} en jeu :
+        +${discardedCount} Mithril !`);
+    }
+  }
+  fullRender();
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR JACKORN
 // ===================================================================
 
 // ===================================================================
