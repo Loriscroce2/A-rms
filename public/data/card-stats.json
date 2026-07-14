@@ -481,13 +481,13 @@
   },
   "0092": {
     "type": "personnage",
-    "hp": 3,
+    "hp": 4,
     "shield": 0
   },
   "0093": {
     "type": "personnage",
     "hp": 6,
-    "shield": 1
+    "shield": 2
   },
   "0094": {
     "type": "personnage",
@@ -497,12 +497,12 @@
   "0096": {
     "type": "personnage",
     "hp": 3,
-    "shield": 0
+    "shield": 1
   },
   "0097": {
     "type": "personnage",
     "hp": 5,
-    "shield": 0
+    "shield": 1
   },
   "0099": {
     "type": "personnage",
@@ -511,7 +511,7 @@
   },
   "0100": {
     "type": "personnage",
-    "hp": 4,
-    "shield": 0
+    "hp": 7,
+    "shield": 2
   }
 }

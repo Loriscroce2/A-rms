@@ -8732,7 +8732,7 @@ function broadcastKrouzpierStep(step){
 // En ligne : c'est TOUJOURS le PROPRIÉTAIRE de Krouzpier qui choisit, même
 // si ce n'est pas son tour — l'adversaire voit toute la séquence se dérouler
 // en spectateur, narrée en direct via 'krouzpierStep'.
-function startKrouzpierChain(owner){
+function startKrouzpierChain(owner, failsUsed = 0){
   // CORRECTIF CRITIQUE : on diffuse TOUJOURS, quel que soit le client qui
   // exécute ce code — la mort de Krouzpier peut très bien être calculée sur
   // l'écran de l'ADVERSAIRE (ex. mort par Poison pendant SON tour à lui),
@@ -8748,13 +8748,13 @@ function startKrouzpierChain(owner){
     // 50/50, aucune information ne rend un choix meilleur que l'autre),
     // jamais au joueur humain de choisir à sa place.
     const choice = Math.random() < 0.5 ? 'coeur' : 'pique';
-    setTimeout(() => resolveKrouzpierFlip(owner, choice), 700);
+    setTimeout(() => resolveKrouzpierFlip(owner, choice, failsUsed), 700);
     return;
   }
-  showKrouzpierChoicePrompt(owner);
+  showKrouzpierChoicePrompt(owner, failsUsed);
 }
 
-function showKrouzpierChoicePrompt(owner){
+function showKrouzpierChoicePrompt(owner, failsUsed = 0){
   const overlay = document.createElement('div');
   overlay.className = 'krouzpierOverlay';
   overlay.innerHTML = `
@@ -8774,18 +8774,35 @@ function showKrouzpierChoicePrompt(owner){
       const choice = btn.dataset.choice;
       broadcastKrouzpierStep({ type: 'choice', choice });
       overlay.classList.remove('go');
-      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); resolveKrouzpierFlip(owner, choice); }, 300);
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); resolveKrouzpierFlip(owner, choice, failsUsed); }, 300);
     });
   });
 }
 
-function resolveKrouzpierFlip(owner, choice){
+function resolveKrouzpierFlip(owner, choice, failsUsed = 0){
   const result = Math.random() < 0.5 ? 'coeur' : 'pique';
   const wasCorrect = (choice === result);
   broadcastKrouzpierStep({ type: 'result', result, correct: wasCorrect });
   showKrouzpierRevealAnimation(result, wasCorrect, () => {
     const resultLabel = (result === 'coeur') ? 'Cœur' : 'Pique';
     if (!wasCorrect) {
+      // IMPY (dernier lot) : Damnia (C92) double les effets MORT de son
+      // propriétaire — pour une chaîne comme Krouzpier, cela se traduit par
+      // UN échec "pardonné" par déclenchement : la chaîne continue quand
+      // même la première fois qu'elle échoue, tant que Damnia est toujours
+      // dans la zone de combat. Un second échec, lui, arrête l'opération.
+      if (getDamniaMultiplier(owner) > 1 && failsUsed === 0) {
+        pushHistory('jeu', `${cardAnchor('C25')} : mauvaise pioche (${resultLabel}) — mais l'effet de ${cardAnchor('C92')} double l'effet MORT : l'opération continue malgré tout !`);
+        const opp = (owner === 'top') ? 'bottom' : 'top';
+        const oppLine = getLineByOwner(opp);
+        if (oppLine.length === 0) {
+          pushHistory('info', `${cardAnchor('C25')} ne trouve plus aucun combattant ennemi à détruire — l'opération s'arrête là.`);
+          broadcastKrouzpierStep({ type: 'stopped' });
+          return;
+        }
+        startKrouzpierTargeting(owner, opp, failsUsed + 1);
+        return;
+      }
       pushHistory('jeu', `${cardAnchor('C25')} : mauvaise pioche (${resultLabel}) — l'opération s'arrête là.`);
       broadcastKrouzpierStep({ type: 'stopped' });
       return;
@@ -8798,13 +8815,13 @@ function resolveKrouzpierFlip(owner, choice){
       broadcastKrouzpierStep({ type: 'stopped' });
       return;
     }
-    startKrouzpierTargeting(owner, opp);
+    startKrouzpierTargeting(owner, opp, failsUsed);
   });
 }
 
 // KRYLLS (nouveau lot) : Krouzpier (C25) — ciblage par clic direct sur le
 // plateau (même principe que Kabba/Prismis), plutôt qu'une liste de boutons.
-function startKrouzpierTargeting(casterOwner, targetOwner){
+function startKrouzpierTargeting(casterOwner, targetOwner, failsUsed = 0){
   if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(casterOwner)) {
     // Krouzpier appartient à l'IA : elle choisit seule la cible la plus
     // dangereuse dans la zone adverse, jamais au joueur humain de choisir à
@@ -8812,12 +8829,12 @@ function startKrouzpierTargeting(casterOwner, targetOwner){
     const candidates = getLineByOwner(targetOwner);
     const best = aiPickMostValuable(candidates);
     if (best) {
-      krouzpierTargetMode = { casterOwner, targetOwner };
+      krouzpierTargetMode = { casterOwner, targetOwner, failsUsed };
       setTimeout(() => handleKrouzpierTargetSelection(best, targetOwner), 600);
     }
     return;
   }
-  krouzpierTargetMode = { casterOwner, targetOwner };
+  krouzpierTargetMode = { casterOwner, targetOwner, failsUsed };
   closeActionPrompt();
   const promptEl = document.createElement('div');
   promptEl.id = 'krouzpier-target-prompt';
@@ -8849,7 +8866,7 @@ function startKrouzpierTargeting(casterOwner, targetOwner){
 function handleKrouzpierTargetSelection(targetCard, targetCardOwner){
   if (!krouzpierTargetMode) return;
   if (targetCardOwner !== krouzpierTargetMode.targetOwner) return; // uniquement la ligne adverse visée
-  const { casterOwner, targetOwner } = krouzpierTargetMode;
+  const { casterOwner, targetOwner, failsUsed } = krouzpierTargetMode;
   krouzpierTargetMode = null;
   closeActionPrompt();
 
@@ -8862,17 +8879,17 @@ function handleKrouzpierTargetSelection(targetCard, targetCardOwner){
   broadcastKrouzpierStep({ type: 'destroyed', targetLabel: targetCard.label });
   fullRender();
   // L'opération recommence entièrement (nouveau choix, nouveau tirage).
-  startKrouzpierChain(casterOwner);
+  startKrouzpierChain(casterOwner, failsUsed || 0);
 }
 
 // KRYLLS (nouveau lot) : Tokzik (C35) — MORT : exile un combattant adverse
 // choisi par clic direct sur le plateau.
-function startTokzikTargeting(casterOwner, targetOwner){
+function startTokzikTargeting(casterOwner, targetOwner, damniaExtra = false){
   if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(casterOwner)) {
     const candidates = getLineByOwner(targetOwner);
     const best = aiPickMostValuable(candidates);
     if (best) {
-      tokzikTargetMode = { casterOwner, targetOwner };
+      tokzikTargetMode = { casterOwner, targetOwner, damniaExtra };
       setTimeout(() => handleTokzikTargetSelection(best, targetOwner), 600);
     }
     return;
@@ -8882,11 +8899,11 @@ function startTokzikTargeting(casterOwner, targetOwner){
     showWaitOverlay("Votre adversaire choisit la cible de l'effet de Tokzik…");
     return;
   }
-  openTokzikPromptReal(casterOwner, targetOwner);
+  openTokzikPromptReal(casterOwner, targetOwner, damniaExtra);
 }
-function openTokzikPromptReal(casterOwner, targetOwner){
+function openTokzikPromptReal(casterOwner, targetOwner, damniaExtra = false){
   hideWaitOverlay();
-  tokzikTargetMode = { casterOwner, targetOwner };
+  tokzikTargetMode = { casterOwner, targetOwner, damniaExtra };
   closeActionPrompt();
   const promptEl = document.createElement('div');
   promptEl.id = 'tokzik-target-prompt';
@@ -8898,7 +8915,7 @@ function openTokzikPromptReal(casterOwner, targetOwner){
   promptEl.style.zIndex = '8700';
   promptEl.innerHTML = `
     <div class="apTitle">Tokzik</div>
-    <div class="apMsg">Cliquez sur le combattant ennemi à exiler.</div>
+    <div class="apMsg">Cliquez sur le combattant ennemi à exiler.${damniaExtra ? ` (2<sup>e</sup> cible — doublé par ${cardAnchor('C92')})` : ''}</div>
   `;
   document.body.appendChild(promptEl);
   actionPromptEl = promptEl;
@@ -8908,7 +8925,7 @@ function openTokzikPromptReal(casterOwner, targetOwner){
 function handleTokzikTargetSelection(targetCard, targetCardOwner){
   if (!tokzikTargetMode) return;
   if (targetCardOwner !== tokzikTargetMode.targetOwner) return; // uniquement la ligne adverse visée
-  const { targetOwner } = tokzikTargetMode;
+  const { casterOwner, targetOwner, damniaExtra } = tokzikTargetMode;
   tokzikTargetMode = null;
   closeActionPrompt();
 
@@ -8919,11 +8936,21 @@ function handleTokzikTargetSelection(targetCard, targetCardOwner){
   addToExile(targetCard);
   pushHistory('jeu', `${cardAnchor('C35')} exile ${cardAnchor(targetCard.label)} !`);
   fullRender();
+
+  // IMPY (dernier lot) : Damnia (C92) double cet effet MORT — une seconde
+  // cible est exilée dans la foulée si le camp visé en a encore une.
+  if (!damniaExtra && getDamniaMultiplier(casterOwner) > 1) {
+    const remaining = getLineByOwner(targetOwner);
+    if (remaining.length > 0) {
+      pushHistory('jeu', `${cardAnchor('C92')} double l'effet MORT de ${cardAnchor('C35')} : une deuxième cible doit être exilée !`);
+      startTokzikTargeting(casterOwner, targetOwner, true);
+    }
+  }
 }
 
 // KRYLLS (nouveau lot) : Kryo (C38) — JOUER et MORT : gèle un combattant
 // adverse choisi par clic direct sur le plateau.
-function startKryoTargeting(owner){
+function startKryoTargeting(owner, fromDeath = false, damniaExtra = false){
   if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
     // Kryo peut geler n'importe quel camp — l'IA vise en priorité le meilleur
     // combattant ADVERSE (le geler l'empêche d'agir), sinon n'importe lequel.
@@ -8933,7 +8960,7 @@ function startKryoTargeting(owner){
     const best = aiPickMostValuable(enemyCandidates.length ? enemyCandidates : allCandidates);
     if (best) {
       const bestOwner = topLine.includes(best) ? 'top' : 'bottom';
-      kryoTargetMode = { owner };
+      kryoTargetMode = { owner, fromDeath, damniaExtra };
       setTimeout(() => handleKryoTargetSelection(best, bestOwner), 600);
     }
     return;
@@ -8943,11 +8970,11 @@ function startKryoTargeting(owner){
     showWaitOverlay("Votre adversaire choisit la cible de l'effet de Kryo…");
     return;
   }
-  openKryoPromptReal(owner);
+  openKryoPromptReal(owner, fromDeath, damniaExtra);
 }
-function openKryoPromptReal(owner){
+function openKryoPromptReal(owner, fromDeath = false, damniaExtra = false){
   hideWaitOverlay();
-  kryoTargetMode = { owner };
+  kryoTargetMode = { owner, fromDeath, damniaExtra };
   closeActionPrompt();
   const promptEl = document.createElement('div');
   promptEl.id = 'kryo-target-prompt';
@@ -8959,7 +8986,7 @@ function openKryoPromptReal(owner){
   promptEl.style.zIndex = '8700';
   promptEl.innerHTML = `
     <div class="apTitle">Kryo</div>
-    <div class="apMsg">Cliquez sur le combattant (n'importe quel camp) à geler.</div>
+    <div class="apMsg">Cliquez sur le combattant (n'importe quel camp) à geler.${damniaExtra ? ` (2<sup>e</sup> cible — doublé par ${cardAnchor('C92')})` : ''}</div>
   `;
   document.body.appendChild(promptEl);
   actionPromptEl = promptEl;
@@ -8968,10 +8995,22 @@ function openKryoPromptReal(owner){
 
 function handleKryoTargetSelection(targetCard, targetCardOwner){
   if (!kryoTargetMode) return;
+  const { owner, fromDeath, damniaExtra } = kryoTargetMode;
   kryoTargetMode = null;
   closeActionPrompt();
   applyFreezeToCard(targetCard);
   fullRender();
+
+  // IMPY (dernier lot) : Damnia (C92) double l'effet MORT de Kryo (pas son
+  // effet JOUER) — un second combattant est gelé dans la foulée s'il en
+  // reste un.
+  if (fromDeath && !damniaExtra && getDamniaMultiplier(owner) > 1) {
+    const remaining = topLine.concat(botLine).filter(c => c.id !== targetCard.id);
+    if (remaining.length > 0) {
+      pushHistory('jeu', `${cardAnchor('C92')} double l'effet MORT de ${cardAnchor('C38')} : un deuxième combattant doit être gelé !`);
+      startKryoTargeting(owner, true, true);
+    }
+  }
 }
 
 // KRYLLS (nouveau lot) : Vers l'infini (C42) — marque un combattant
@@ -9462,7 +9501,7 @@ function playActionC98(owner, actionCard){
 // dont le placement (gauche/droite, l'un après l'autre) doit TOUJOURS être
 // choisi par le vrai propriétaire de Fou-Ego, même si sa mort a été
 // calculée sur l'écran adverse (même protection que Kamykaz ci-dessous).
-function startFouEgoPlacement(owner){
+function startFouEgoPlacement(owner, damniaExtra = false){
   if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
     // Fou-Ego appartient à l'IA : le placement gauche/droite n'a pas
     // d'incidence stratégique majeure — elle choisit seule, au hasard,
@@ -9476,6 +9515,12 @@ function startFouEgoPlacement(owner){
       const fouLine = getLineByOwner(owner);
       if (Math.random() < 0.5) fouLine.unshift(fou); else fouLine.push(fou);
       fullRender();
+      // IMPY (dernier lot) : Damnia (C92) double cet effet MORT — un second
+      // Ego et un second Fou apparaissent dans la foulée.
+      if (!damniaExtra && getDamniaMultiplier(owner) > 1) {
+        pushHistory('jeu', `${cardAnchor('C92')} double l'effet MORT de ${cardAnchor('C78')} : un second ${cardAnchor('T17')} et un second ${cardAnchor('T18')} apparaissent !`);
+        setTimeout(() => startFouEgoPlacement(owner, true), 300);
+      }
     }, 600);
     return;
   }
@@ -9484,20 +9529,27 @@ function startFouEgoPlacement(owner){
     showWaitOverlay("Votre adversaire choisit où placer Ego et Fou…");
     return;
   }
-  openFouEgoPlacementReal(owner);
+  openFouEgoPlacementReal(owner, damniaExtra);
 }
-function openFouEgoPlacementReal(owner){
+function openFouEgoPlacementReal(owner, damniaExtra = false){
   hideWaitOverlay();
-  askLeftRightPlacement('Ego', `Où placer ${cardAnchor('T17')} dans votre zone de combat ?`, (egoSide) => {
+  const damniaSuffix = damniaExtra ? ` (doublé par ${cardAnchor('C92')})` : '';
+  askLeftRightPlacement('Ego', `Où placer ${cardAnchor('T17')} dans votre zone de combat ?${damniaSuffix}`, (egoSide) => {
     const ego = createCard('T17', owner === 'top' ? 'T' : 'B');
     const egoLine = getLineByOwner(owner);
     if (egoSide === 'left') egoLine.unshift(ego); else egoLine.push(ego);
     fullRender();
-    askLeftRightPlacement('Fou', `Où placer ${cardAnchor('T18')} dans votre zone de combat ?`, (fouSide) => {
+    askLeftRightPlacement('Fou', `Où placer ${cardAnchor('T18')} dans votre zone de combat ?${damniaSuffix}`, (fouSide) => {
       const fou = createCard('T18', owner === 'top' ? 'T' : 'B');
       const fouLine = getLineByOwner(owner);
       if (fouSide === 'left') fouLine.unshift(fou); else fouLine.push(fou);
       fullRender();
+      // IMPY (dernier lot) : Damnia (C92) double cet effet MORT — un second
+      // Ego et un second Fou doivent être placés à leur tour.
+      if (!damniaExtra && getDamniaMultiplier(owner) > 1) {
+        pushHistory('jeu', `${cardAnchor('C92')} double l'effet MORT de ${cardAnchor('C78')} : placez un second ${cardAnchor('T17')} et un second ${cardAnchor('T18')} !`);
+        startFouEgoPlacement(owner, true);
+      }
     });
   });
 }
@@ -9507,7 +9559,7 @@ function openFouEgoPlacementReal(owner){
 // de combat au lieu de rejoindre la défausse. S'il devait un jour repartir
 // en main ou être exilé (par un tout autre effet), il disparaît purement et
 // simplement à la place (voir discardCard et addToExile).
-function startKamykazTargeting(owner){
+function startKamykazTargeting(owner, damniaExtra = false){
   if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
     // Kamykaz peut viser n'importe quel camp — l'IA vise en priorité le
     // meilleur combattant ADVERSE, jamais le joueur humain à sa place.
@@ -9517,7 +9569,7 @@ function startKamykazTargeting(owner){
     const best = aiPickMostValuable(enemyCandidates.length ? enemyCandidates : allCandidates);
     if (best) {
       const bestOwner = topLine.includes(best) ? 'top' : 'bottom';
-      kamykazTargetMode = { owner };
+      kamykazTargetMode = { owner, damniaExtra };
       setTimeout(() => handleKamykazTargetSelection(best, bestOwner), 600);
     }
     return;
@@ -9527,11 +9579,11 @@ function startKamykazTargeting(owner){
     showWaitOverlay("Votre adversaire choisit la cible de l'effet de Kamykaz…");
     return;
   }
-  openKamykazPromptReal(owner);
+  openKamykazPromptReal(owner, damniaExtra);
 }
-function openKamykazPromptReal(owner){
+function openKamykazPromptReal(owner, damniaExtra = false){
   hideWaitOverlay();
-  kamykazTargetMode = { owner };
+  kamykazTargetMode = { owner, damniaExtra };
   closeActionPrompt();
   const promptEl = document.createElement('div');
   promptEl.id = 'kamykaz-target-prompt';
@@ -9543,7 +9595,7 @@ function openKamykazPromptReal(owner){
   promptEl.style.zIndex = '8700';
   promptEl.innerHTML = `
     <div class="apTitle">Kamykaz</div>
-    <div class="apMsg">Cliquez sur le combattant (n'importe quel camp) qui subit -2 PV.</div>
+    <div class="apMsg">Cliquez sur le combattant (n'importe quel camp) qui subit -2 PV.${damniaExtra ? ` (2<sup>e</sup> déclenchement — doublé par ${cardAnchor('C92')})` : ''}</div>
   `;
   document.body.appendChild(promptEl);
   actionPromptEl = promptEl;
@@ -9552,7 +9604,7 @@ function openKamykazPromptReal(owner){
 
 function handleKamykazTargetSelection(targetCard, targetCardOwner){
   if (!kamykazTargetMode) return;
-  const { owner } = kamykazTargetMode;
+  const { owner, damniaExtra } = kamykazTargetMode;
   kamykazTargetMode = null;
   closeActionPrompt();
 
@@ -9571,6 +9623,14 @@ function handleKamykazTargetSelection(targetCard, targetCardOwner){
 
   spawnKamykazDuplicate(owner);
   fullRender();
+
+  // IMPY (dernier lot) : Damnia (C92) double cet effet MORT — l'effet
+  // complet (-2 PV à une cible + nouvelle duplication) se redéclenche une
+  // seconde fois.
+  if (!damniaExtra && getDamniaMultiplier(owner) > 1) {
+    pushHistory('jeu', `${cardAnchor('C92')} double l'effet MORT de ${cardAnchor('T16')} : l'effet se déclenche une seconde fois !`);
+    startKamykazTargeting(owner, true);
+  }
 }
 
 function spawnKamykazDuplicate(owner){
@@ -12933,6 +12993,13 @@ if (chargeboxTargetMode && CHARGEABLE_CARDS.includes(card.label)) {
     el.style.cursor = 'pointer';
 }
 
+  // IMPY (dernier lot) : Varyce (C96) — met en évidence les artefacts
+  // épuisés (seuls redressables) tant que son ciblage est actif.
+  if (varyceTargetMode && varyceTargetMode.owner === owner && artifactExhausted[owner].has(card.id)) {
+    el.classList.add('positiveTargetHint');
+    el.style.cursor = 'pointer';
+  }
+
   // --- Écouteurs d'événements ---
   el.addEventListener('mouseenter',()=>showZoom(card.label, card));
   el.addEventListener('mouseleave',hideZoom);
@@ -12945,6 +13012,7 @@ if (chargeboxTargetMode && CHARGEABLE_CARDS.includes(card.label)) {
     if (c59DestroyMode) { handleC59DestroySelection(card, owner); return; }
     if (venusylvaDestroyMode.active) { handleVenusylvaDestroySelection(card, owner); return; }
     if (c33ArtifactMode) { handleC33ArtifactSelection(card, owner); return; }
+    if (varyceTargetMode) { handleVaryceTargetSelection(card, owner); return; }
 
     // Logique de clic pour les actions activables des artefacts
     if (card.label === 'C157') { // Miroir Papillon
@@ -13287,13 +13355,15 @@ if (card.label === 'C100') {
 // DÉBUT DE LA LOGIQUE D'ENTRÉE POUR VARYCE (C96)
 // ===================================================================
 // IMPY (dernier lot) : Varyce (C96) — JOUER : redresse (annule l'épuisement
-// de) l'un de vos combattants déjà épuisés ce tour-ci.
+// de) l'un de vos combattants OU artefacts déjà épuisés ce tour-ci.
 if (card.label === 'C96') {
-  const c96Ready = getLineByOwner(owner).filter(c => exhausted[owner].has(c.id));
-  if (c96Ready.length > 0) {
+  const c96ReadyCombatants = getLineByOwner(owner).filter(c => exhausted[owner].has(c.id));
+  const c96OwnArts = (owner === 'top') ? topArts : botArts;
+  const c96ReadyArts = c96OwnArts.filter(a => artifactExhausted[owner].has(a.id));
+  if (c96ReadyCombatants.length > 0 || c96ReadyArts.length > 0) {
     startVaryceTargeting(owner);
   } else {
-    pushHistory('info', `${cardAnchor('C96')} : aucun combattant épuisé à redresser.`);
+    pushHistory('info', `${cardAnchor('C96')} : aucun combattant ni artefact épuisé à redresser.`);
   }
 }
 // ===================================================================
@@ -14168,10 +14238,11 @@ function returnSealedToOpponentDeck(card, owner){
 // IMPY (dernier lot) : Damnia (C92) — tant qu'elle est dans la zone de
 // combat de son propriétaire, les effets "MORT :" de celui-ci s'activent
 // deux fois. Appliqué aux effets de mort simples (gains de Mithril,
-// destructions/exils immédiats) qui peuvent être rejoués sans risque ;
-// volontairement PAS appliqué aux effets de mort qui lancent un ciblage ou
-// une transformation complexe (Krouzpier, Tokzik, Kryo, Kamykaz, Fou-Ego...)
-// pour ne pas fragiliser les systèmes de ciblage existants.
+// destructions/exils immédiats) ET aux effets en chaîne/ciblage plus
+// complexes (Krouzpier, Tokzik, Kryo, Kamykaz, Fou-Ego), chacun adapté au
+// cas par cas : Krouzpier "pardonne" son premier échec de la chaîne au lieu
+// de la stopper, les autres relancent une seconde fois leur ciblage/effet
+// complet (voir chaque fonction startXTargeting pour le détail).
 function getDamniaMultiplier(owner){
   const line = getLineByOwner(owner);
   return line.some(c => c.label === 'C92') ? 2 : 1;
@@ -14376,10 +14447,11 @@ if (reason === 'manual') {
       pushHistory('info', `${cardAnchor('C35')} : aucun combattant adverse en zone de combat, son effet ne se déclenche pas.`);
     }
   }
-  // KRYLLS (nouveau lot) : Kryo (C38) — MORT : gèle un combattant adverse.
+  // KRYLLS (nouveau lot) : Kryo (C38) — MORT : gèle un combattant adverse
+  // (doublé par Damnia si présente — voir startKryoTargeting).
   if (card.label === 'C38' && reason === 'death') {
     if (topLine.concat(botLine).length > 0) {
-      startKryoTargeting(owner);
+      startKryoTargeting(owner, true);
     } else {
       pushHistory('info', `${cardAnchor('C38')} : aucun combattant sur le plateau, son effet ne se déclenche pas.`);
     }
@@ -16259,7 +16331,10 @@ function aiResolveAnyOpenPrompt(){
     (typeof arakcubeTargetMode !== 'undefined' && arakcubeTargetMode) ||
     (typeof chargeboxTargetMode !== 'undefined' && chargeboxTargetMode) ||
     (typeof c112TargetMode !== 'undefined' && c112TargetMode) ||
-    (typeof prismisTargetMode !== 'undefined' && prismisTargetMode)
+    (typeof prismisTargetMode !== 'undefined' && prismisTargetMode) ||
+    // IMPY (dernier lot) : Varyce peut viser un ARTEFACT épuisé, une zone que
+    // le repli générique par clic aléatoire (.lane uniquement) ne couvre pas.
+    (typeof varyceTargetMode !== 'undefined' && varyceTargetMode)
   );
   if (hasKnownSmartMode) {
     const smart = aiChooseSmartTarget();
@@ -16361,6 +16436,15 @@ function aiChooseSmartTarget(){
     }
     const nonEsprit = entries.filter(e => !hasTag(e.card, 'Esprit'));
     return pickBest(nonEsprit.filter(e => e.owner === oppSeat), nonEsprit);
+  }
+  // IMPY (dernier lot) : Varyce — ne peut redresser QUE ses propres
+  // combattants/artefacts déjà épuisés (jamais ceux de l'adversaire).
+  if (typeof varyceTargetMode !== 'undefined' && varyceTargetMode) {
+    const ready = entries.filter(e => e.owner === varyceTargetMode.owner && (
+      (e.zone === 'lane' && exhausted[varyceTargetMode.owner].has(e.card.id)) ||
+      (e.zone === 'aLane' && artifactExhausted[varyceTargetMode.owner].has(e.card.id))
+    ));
+    return pickBest(ready);
   }
   // Prismis : transforme 1 ou 2 cartes (combattants OU artefacts, n'importe
   // quel camp, jamais déjà Chimeria ni Prismis lui-même) en faction Chimeria.
@@ -17387,7 +17471,7 @@ function startVaryceTargeting(owner){
   promptEl.style.zIndex = '8700';
   promptEl.innerHTML = `
     <div class="apTitle">Varyce</div>
-    <div class="apMsg">Cliquez sur l'un de VOS combattants épuisés pour le redresser.</div>
+    <div class="apMsg">Cliquez sur l'un de VOS combattants ou artefacts épuisés pour le redresser.</div>
   `;
   document.body.appendChild(promptEl);
   actionPromptEl = promptEl;
@@ -17395,13 +17479,26 @@ function startVaryceTargeting(owner){
 }
 function handleVaryceTargetSelection(targetCard, targetCardOwner){
   if (!varyceTargetMode) return;
-  if (targetCardOwner !== varyceTargetMode.owner) return; // uniquement ses propres combattants
-  if (!exhausted[targetCardOwner].has(targetCard.id)) return; // doit être épuisé
-  exhausted[targetCardOwner].delete(targetCard.id);
-  pushHistory('action', `${cardAnchor('C96')} redresse ${cardAnchor(targetCard.label)} !`);
-  varyceTargetMode = null;
-  closeActionPrompt();
-  fullRender();
+  if (targetCardOwner !== varyceTargetMode.owner) return; // uniquement ses propres combattants/artefacts
+  // Combattant épuisé (zone de combat) — cas d'origine.
+  if (exhausted[targetCardOwner].has(targetCard.id)) {
+    exhausted[targetCardOwner].delete(targetCard.id);
+    pushHistory('action', `${cardAnchor('C96')} redresse ${cardAnchor(targetCard.label)} !`);
+    varyceTargetMode = null;
+    closeActionPrompt();
+    fullRender();
+    return;
+  }
+  // IMPY (dernier lot) : Varyce (C96) peut aussi redresser un ARTEFACT épuisé.
+  if (artifactExhausted[targetCardOwner].has(targetCard.id)) {
+    artifactExhausted[targetCardOwner].delete(targetCard.id);
+    pushHistory('action', `${cardAnchor('C96')} redresse l'artefact ${cardAnchor(targetCard.label)} !`);
+    varyceTargetMode = null;
+    closeActionPrompt();
+    fullRender();
+    return;
+  }
+  // Ni l'un ni l'autre : pas une cible valide, on ignore le clic.
 }
 
 // ===================================================================
