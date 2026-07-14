@@ -3178,6 +3178,7 @@ const CARD_IMAGES = {
   'C72':'../cartes/0072.png', 'C73':'../cartes/0073.png', 'C74':'../cartes/0074.png',
   'C75':'../cartes/0075.png', 'C76':'../cartes/0076.png', 'C77':'../cartes/0077.png',
   'C78':'../cartes/0078.png', 'T17':'../cartes/T17.png', 'T18':'../cartes/T18.png',
+  'C79':'../cartes/0079.png', 'C80':'../cartes/0080.png', 'C81':'../cartes/0081.png',
   'C101':'../cartes/0101.png',
   'C102': '../cartes/0102.png',
   'C103': '../cartes/0103.png',
@@ -3312,6 +3313,7 @@ const CARD_TYPES  = {
   'C72':'artefact', 'C73':'personnage', 'C74':'artefact',
   'C75':'action', 'C76':'personnage', 'C77':'personnage',
   'C78':'personnage', 'T17':'personnage', 'T18':'personnage',
+  'C79':'personnage', 'C80':'personnage', 'C81':'familier',
   'C101':'personnage',
   'C102': 'action',
   'C103': 'artefact',
@@ -3466,6 +3468,7 @@ const CARD_NAMES = {
   'C72':'Oraclex', 'C73':'Zayuka', 'C74':'Gazocubateur',
   'C75':'Horde toxique', 'C76':'Corbrax', 'C77':'Healard',
   'C78':'Fou-Ego', 'T17':'Ego', 'T18':'Fou',
+  'C79':'Vilunion', 'C80':'Imuna', 'C81':'Desaxe',
   'C101':'Jupithors',
   'C102': 'Why Me',
   'C103': 'Totemoon',
@@ -3611,7 +3614,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 const CARD_HP_BASE = {
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
-  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5,
+  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7,
   'C101': 4,
   'C105': 5,
   'C108': 3,
@@ -3764,6 +3767,7 @@ const CARD_TAGS = {
   'C72':['artefact', 'Impy'], 'C73':['guerrier', 'Impy', 'rapide', 'poison'], 'C74':['artefact', 'Impy'],
   'C75':['action', 'Impy'], 'C76':['citoyen', 'Impy', 'poison'], 'C77':['médic', 'Impy'],
   'C78':['guerrier', 'Impy'], 'T17':['guerrier', 'Impy'], 'T18':['guerrier', 'Impy'],
+  'C79':['diplomate', 'Impy'], 'C80':['citoyen', 'Impy', 'provocateur'], 'C81':['familier', 'Impy'],
   'C101':['guerrier', 'Savage'],
   'C102': ['action', 'Savage'],
   'C103': ['artefact', 'Savage'],
@@ -4421,6 +4425,7 @@ let zyzyHostTargetMode = null;
 let c42TargetMode = null;
 let kamykazTargetMode = null;
 let c69TargetMode = null;
+let vilunionTargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
 let miroirTargetMode = null;
@@ -6267,6 +6272,23 @@ function updateForgeTaxUI() {
     }
     // ===================================================================
     // FIN DE LA LOGIQUE POUR ANOMALY
+    // ===================================================================
+
+    // ===================================================================
+    // IMPY (nouveau lot) : Desaxe (C81) — tant qu'il est rattaché à un
+    // combattant (n'importe lequel de la zone), le coût en Mithril des
+    // A'rms de son propriétaire augmente de +1 par exemplaire rattaché.
+    // ===================================================================
+    const desaxeCount = playerLine.reduce((sum, c) => sum + getFamiliersOnHost(c).filter(f => f.label === 'C81').length, 0);
+    if (desaxeCount > 0) {
+        forgeTax[player].push({
+            source: 'Desaxe (C81)',
+            amount: desaxeCount,
+            turns: 1 // Temporaire, recalculé à chaque update
+        });
+    }
+    // ===================================================================
+    // FIN DE LA LOGIQUE POUR DESAXE
     // ===================================================================
 
     const box = document.getElementById(`mithrilBox${player.charAt(0).toUpperCase() + player.slice(1)}`);
@@ -8669,6 +8691,77 @@ function handleC69TargetSelection(targetCard, targetCardOwner){
   fullRender();
 }
 
+// IMPY (nouveau lot) : Vilunion (C79) — JOUER : deux combattants choisis
+// (n'importe quel camp) additionnent leurs PV et leur PB de façon combinée
+// — les deux repartent avec le total combiné (PV cumulés, PB cumulés).
+function startVilunionFirstTargeting(owner){
+  vilunionTargetMode = { owner, step: 1, first: null };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'vilunion-target-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Vilunion</div>
+    <div class="apMsg">Cliquez sur le PREMIER combattant (n'importe quel camp).</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+
+function handleVilunionTargetSelection(targetCard, targetCardOwner){
+  if (!vilunionTargetMode) return;
+
+  if (vilunionTargetMode.step === 1) {
+    vilunionTargetMode = { owner: vilunionTargetMode.owner, step: 2, first: targetCard, firstOwner: targetCardOwner };
+    closeActionPrompt();
+    const promptEl = document.createElement('div');
+    promptEl.id = 'vilunion-target-prompt';
+    promptEl.className = 'actionPrompt';
+    promptEl.style.position = 'fixed';
+    promptEl.style.bottom = '100px';
+    promptEl.style.left = '50%';
+    promptEl.style.transform = 'translateX(-50%)';
+    promptEl.style.zIndex = '8700';
+    promptEl.innerHTML = `
+      <div class="apTitle">Vilunion</div>
+      <div class="apMsg">${cardAnchor(targetCard.label)} choisi. Cliquez maintenant sur le SECOND combattant.</div>
+    `;
+    document.body.appendChild(promptEl);
+    actionPromptEl = promptEl;
+    fullRender();
+    return;
+  }
+
+  // Étape 2 : le second combattant est choisi (ne peut pas être le même que le premier).
+  if (targetCard.id === vilunionTargetMode.first.id) return;
+
+  const first = vilunionTargetMode.first;
+  const firstOwner = vilunionTargetMode.firstOwner;
+  vilunionTargetMode = null;
+  closeActionPrompt();
+
+  const combinedHp = getEffectiveHP(first) + getEffectiveHP(targetCard);
+  const combinedShield = (typeof first.shield === 'number' ? first.shield : getBaseShield(first.label)) +
+                          (typeof targetCard.shield === 'number' ? targetCard.shield : getBaseShield(targetCard.label));
+
+  first.hp = combinedHp;
+  first.shield = combinedShield;
+  targetCard.hp = combinedHp;
+  targetCard.shield = combinedShield;
+
+  playHPHitEffect(first);
+  playHPHitEffect(targetCard);
+  pushHistory('action', `${cardAnchor('C79')} unit ${cardAnchor(first.label)} et ${cardAnchor(targetCard.label)} :
+    tous deux repartent avec <strong>${combinedHp} PV</strong> et <strong>${combinedShield} PB</strong> combinés !`);
+  fullRender();
+}
+
 // IMPY (nouveau lot) : Horde toxique (C75) — remplit votre zone de combat
 // de Corbrax (C76), jusqu'à la limite maximale (tenant compte d'Etendardz
 // s'il est en jeu).
@@ -9789,7 +9882,7 @@ function isAnyTargetSelectionActive(){
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
     arakcubeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
-    c42TargetMode || kamykazTargetMode || c69TargetMode
+    c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode
   );
 }
 // Petit rappel visuel/textuel quand une action est refusée à cause d'un choix en attente.
@@ -10102,6 +10195,13 @@ function attachFamiliarToHost(owner, familiarCard, hostCard){
   }
   if (familiarCard.label === 'C107') {
     pushHistory('info', `L'effet de ${cardAnchor('C107')} annule les effets des autres familiers sur ${cardAnchor(hostCard.label)} !`);
+  }
+  // IMPY (nouveau lot) : Desaxe (C81) — le combattant hôte gagne ESPRIT dès
+  // l'attache, de façon permanente.
+  if (familiarCard.label === 'C81') {
+    if (!Array.isArray(hostCard.addedTags)) hostCard.addedTags = [];
+    if (!hostCard.addedTags.includes('Esprit')) hostCard.addedTags.push('Esprit');
+    pushHistory('info', `${cardAnchor('C81')} donne <strong>ESPRIT</strong> à ${cardAnchor(hostCard.label)} !`);
   }
 
   // WADOO 4e lot : Blusyte (C226) — applique immédiatement son bonus de
@@ -10865,7 +10965,9 @@ function continueResolveFight(from, to){
 
   if(resTo.hpLost > 0) {
     onHPDamaged(to.owner, to.card, resTo.hpLost, 'combat');
-    if (hasTag(from.card, 'poison')) {
+    // IMPY (nouveau lot) : Imuna (C80) ignore totalement le Poison — jamais
+    // anéantie instantanément par lui, peu importe le côté.
+    if (hasTag(from.card, 'poison') && to.card.label !== 'C80') {
       to.card.hp = 0;
       pushHistory('pv', `${cardAnchor(to.card.label)} est anéanti par le <strong>POISON</strong> !`);
     }
@@ -10887,7 +10989,7 @@ function continueResolveFight(from, to){
   }
   if(resFrom.hpLost > 0) {
     onHPDamaged(from.owner, from.card, resFrom.hpLost, 'riposte');
-    if (hasTag(to.card, 'poison')) {
+    if (hasTag(to.card, 'poison') && from.card.label !== 'C80') {
       from.card.hp = 0;
       pushHistory('pv', `${cardAnchor(from.card.label)} est anéanti par le <strong>POISON</strong> !`);
     }
@@ -11826,6 +11928,7 @@ if (hitAndRunMode) {
     if (zyzyHostTargetMode) { handleZyzyHostSelection(card, owner); return; }
     if (c42TargetMode) { handleC42TargetSelection(card, owner); return; }
     if (c69TargetMode) { handleC69TargetSelection(card, owner); return; }
+    if (vilunionTargetMode) { handleVilunionTargetSelection(card, owner); return; }
     if (kamykazTargetMode) { handleKamykazTargetSelection(card, owner); return; }
     if (c112TargetMode) { handleC112TargetSelection(card, owner); return; }
     if (c114TargetMode) { handleC114TargetSelection(card, owner); return; }
@@ -12336,6 +12439,21 @@ if (card.label === 'C77') {
 }
 // ===================================================================
 // FIN DE LA LOGIQUE D'ENTRÉE POUR HEALARD
+// ===================================================================
+
+// ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR VILUNION (C79)
+// ===================================================================
+if (card.label === 'C79') {
+  const allCombatants = topLine.concat(botLine).filter(c => c.id !== card.id);
+  if (allCombatants.length < 2) {
+    pushHistory('info', `${cardAnchor('C79')} : pas assez de combattants sur le plateau (2 minimum requis).`);
+  } else {
+    startVilunionFirstTargeting(owner);
+  }
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR VILUNION
 // ===================================================================
 
 // ===================================================================
