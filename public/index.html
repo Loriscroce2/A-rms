@@ -6452,10 +6452,25 @@ function playFusionCenterStageAnimation(mergedLabels, ignominieCard, targetOwner
   }catch(e){ fullRender(); }
 }
 
+// Détail (par source) du coût de forge actuel de chaque joueur — alimenté à
+// chaque appel de updateForgeTaxUI(), consulté par openForgeCostDetailPopup()
+// quand le joueur clique sur la boîte de Mithril pour voir le détail.
+let forgeCostDetailLines = { top: [], bottom: [] };
+
 function updateForgeTaxUI() {
   ['top', 'bottom'].forEach(player => {
-    // On nettoie les anciens effets "temporaires" (Éventail, Anomaly) pour recalculer
-    forgeTax[player] = forgeTax[player].filter(effect => effect.source !== 'Éventail (T01)' && effect.source !== 'Anomaly (T03)');
+    // On nettoie les anciens effets "temporaires" (Éventail, Anomaly, Desaxe,
+    // Feufo) pour recalculer à chaque appel — SANS ce nettoyage pour Desaxe et
+    // Feufo, chaque appel de cette fonction (qui a lieu bien plus d'une fois
+    // par partie) rajoutait un nouveau malus permanent en plus de l'ancien,
+    // faisant grimper le surcoût indéfiniment (ex. Feufo affichait +2, +3...
+    // au lieu de rester à +1 comme prévu).
+    forgeTax[player] = forgeTax[player].filter(effect =>
+      effect.source !== 'Éventail (T01)' &&
+      effect.source !== 'Anomaly (T03)' &&
+      effect.source !== 'Desaxe (C81)' &&
+      effect.source !== 'Feufo (C82)'
+    );
 
     // Logique pour l'Éventail
     const playerHand = getHandByOwner(player);
@@ -6527,49 +6542,94 @@ function updateForgeTaxUI() {
     const gousseActive = gousseDiscountActive[player];
     const gousseDiscount = gousseActive ? getLineByOwner(player).filter(c => hasTag(c, 'poupée')).length : 0;
 
-    if (totalTaxAmount !== 0 || gousseActive) {
-      const tooltipLines = forgeTax[player]
-        .map(effect => `${effect.source}: ${effect.amount > 0 ? '+' : ''}${effect.amount} Mithril`);
-      if (gousseActive && gousseDiscount > 0) tooltipLines.push(`Gousset (C213): -${gousseDiscount} Mithril`);
+    // Détail par source, conservé pour la fenêtre ouverte au clic — la boîte
+    // elle-même reste volontairement simple (juste le coût net et l'écart).
+    const tooltipLines = forgeTax[player]
+      .map(effect => `${effect.source}: ${effect.amount > 0 ? '+' : ''}${effect.amount} Mithril`);
+    if (gousseActive && gousseDiscount > 0) tooltipLines.push(`Gousset (C213): -${gousseDiscount} Mithril`);
+    forgeCostDetailLines[player] = tooltipLines;
 
+    // Plus de puces permanentes à l'écran : le détail complet est désormais
+    // accessible via un clic sur la boîte de Mithril (voir openForgeCostDetailPopup).
+    if (chipsBox) chipsBox.innerHTML = '';
+
+    if (totalTaxAmount !== 0 || gousseActive) {
       const finalCost = computeForgeCost(player);
       const delta = finalCost - 3; // écart réel par rapport au coût de base (3), après tous les plafonds
       const sign = delta > 0 ? '+' : '';
       modSpan.textContent = `( Coût Forge: ${finalCost}, ${sign}${delta} )`;
       // Vert = réduction de coût (bon pour le joueur), Rouge = surcoût (pénalité)
       modSpan.style.color = (delta < 0) ? 'var(--green)' : (delta > 0 ? 'var(--red)' : '');
-      box.title = tooltipLines.join('\n');
-
-      // Puces toujours visibles, une par source active — chacune clairement
-      // colorée (vert = réduction, rouge = surcoût), plus besoin de survoler
-      // la boîte de Mithril pour comprendre le détail du coût de forge.
-      if (chipsBox) {
-        chipsBox.innerHTML = '';
-        forgeTax[player].forEach(effect => {
-          if (effect.amount === 0) return;
-          const chip = document.createElement('span');
-          chip.className = 'forgeChip ' + (effect.amount > 0 ? 'malus' : 'bonus');
-          chip.textContent = `${effect.source} ${effect.amount > 0 ? '+' : ''}${effect.amount}`;
-          chipsBox.appendChild(chip);
-        });
-        if (gousseActive && gousseDiscount > 0) {
-          const chip = document.createElement('span');
-          chip.className = 'forgeChip bonus';
-          chip.textContent = `Gousset (C213) -${gousseDiscount}`;
-          chipsBox.appendChild(chip);
-        }
-        const totalChip = document.createElement('span');
-        totalChip.className = 'forgeChip ' + (delta < 0 ? 'bonus' : (delta > 0 ? 'malus' : 'bonus'));
-        totalChip.innerHTML = `Coût final <span class="forgeChipTotal">${finalCost} Mithril</span>`;
-        chipsBox.appendChild(totalChip);
-      }
+      modSpan.style.cursor = 'pointer';
+      box.title = 'Cliquez pour voir le détail du coût de forge';
+      box.style.cursor = 'pointer';
     } else {
       modSpan.textContent = '';
       modSpan.style.color = '';
+      modSpan.style.cursor = '';
       box.title = '';
-      if (chipsBox) chipsBox.innerHTML = '';
+      box.style.cursor = '';
+    }
+
+    // Écouteur de clic posé UNE SEULE FOIS (pas à chaque appel de cette
+    // fonction, qui a lieu très souvent) : ouvre la fenêtre de détail listant
+    // chaque source de bonus/malus, quel que soit l'état actuel (même à 0,
+    // pour rester prévisible).
+    if (box && !box.dataset.forgeDetailBound) {
+      box.dataset.forgeDetailBound = '1';
+      box.addEventListener('click', () => openForgeCostDetailPopup(player));
     }
   });
+}
+
+// Fenêtre de détail du coût de forge : liste chaque source de bonus/malus en
+// cours pour ce joueur, avec une croix de fermeture toujours disponible (et
+// fermeture au clic en dehors) — jamais bloquante.
+function openForgeCostDetailPopup(player){
+  const existing = document.getElementById('forgeCostDetailPopup');
+  if (existing) existing.remove();
+
+  const lines = forgeCostDetailLines[player] || [];
+  const finalCost = computeForgeCost(player);
+
+  const popup = document.createElement('div');
+  popup.id = 'forgeCostDetailPopup';
+  popup.style.position = 'fixed';
+  popup.style.zIndex = '9500';
+  popup.style.top = '50%';
+  popup.style.left = '50%';
+  popup.style.transform = 'translate(-50%, -50%)';
+  popup.style.background = 'rgba(8,14,20,.97)';
+  popup.style.border = '2px solid rgba(125,219,255,.5)';
+  popup.style.borderRadius = '14px';
+  popup.style.padding = '18px 22px';
+  popup.style.color = '#eaf4f7';
+  popup.style.fontFamily = 'system-ui, sans-serif';
+  popup.style.minWidth = '260px';
+  popup.style.maxWidth = '86vw';
+  popup.style.boxShadow = '0 12px 40px rgba(0,0,0,.6)';
+
+  const linesHtml = lines.length
+    ? lines.map(l => `<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.08);">${l}</div>`).join('')
+    : `<div style="opacity:.7;">Aucun bonus ni surcoût actif.</div>`;
+
+  popup.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:10px;">
+      <strong>Détail du coût de forge — ${playerLabel(player)}</strong>
+      <button id="forgeCostDetailClose" type="button" title="Fermer" style="background:none;border:none;color:#eaf4f7;font-size:22px;cursor:pointer;line-height:1;padding:0 2px;">×</button>
+    </div>
+    ${linesHtml}
+    <div style="margin-top:10px;font-weight:700;">Coût final : ${finalCost} Mithril</div>
+  `;
+  document.body.appendChild(popup);
+
+  const close = () => popup.remove();
+  popup.querySelector('#forgeCostDetailClose').addEventListener('click', close);
+  setTimeout(() => {
+    document.addEventListener('click', function onOutsideClick(e){
+      if (!popup.contains(e.target)) { close(); document.removeEventListener('click', onOutsideClick); }
+    });
+  }, 0);
 }
 
 /* ---- NOUVELLE CARTE C51 "Violence" ---- */
@@ -6748,6 +6808,18 @@ function buildC58Prompt(charges) {
 
 function startC58HealingSelection(owner, charges) {
   if (charges <= 0) return;
+
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    // Demon Core appartient à l'IA : elle distribue elle-même les soins à
+    // ses combattants les plus abîmés, jamais au joueur humain de choisir.
+    const mine = getLineByOwner(owner).filter(c => typeof c.hp === 'number' && c.label !== 'C62');
+    for (let i = 0; i < charges && mine.length > 0; i++) {
+      mine.sort((a, b) => getEffectiveHP(a) - getEffectiveHP(b));
+      resolveC58Heal(mine[0].id);
+    }
+    fullRender();
+    return;
+  }
 
   // Partie en ligne : Demon Core n'est pas le mien — ce choix appartient à son
   // propriétaire, je délègue et j'attends sa réponse (liste des cibles soignées).
@@ -7984,6 +8056,17 @@ function startDollyHeal(owner, reasonText, onComplete) {
         return;
     }
 
+    if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+        // Dolly appartient à l'IA : elle soigne elle-même son combattant le
+        // plus abîmé (ses propres cartes en priorité), jamais au joueur
+        // humain de choisir à sa place.
+        const mine = validTargets.filter(c => (topLine.includes(c) ? 'top' : 'bottom') === owner);
+        const chosen = aiPickLowestHP(mine.length ? mine : validTargets);
+        if (chosen) resolveDollyHeal(chosen.id);
+        if (typeof onComplete === 'function') onComplete();
+        return;
+    }
+
     // Partie en ligne : Dolly n'est pas la mienne — ce choix appartient à son
     // propriétaire, je délègue et j'attends sa réponse.
     if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && MY_SEAT !== owner) {
@@ -8604,6 +8687,14 @@ function startKrouzpierChain(owner){
     showKrouzpierSpectatorWait(owner);
     return;
   }
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    // Krouzpier appartient à l'IA : elle devine seule (c'est un pur hasard
+    // 50/50, aucune information ne rend un choix meilleur que l'autre),
+    // jamais au joueur humain de choisir à sa place.
+    const choice = Math.random() < 0.5 ? 'coeur' : 'pique';
+    setTimeout(() => resolveKrouzpierFlip(owner, choice), 700);
+    return;
+  }
   showKrouzpierChoicePrompt(owner);
 }
 
@@ -8658,6 +8749,18 @@ function resolveKrouzpierFlip(owner, choice){
 // KRYLLS (nouveau lot) : Krouzpier (C25) — ciblage par clic direct sur le
 // plateau (même principe que Kabba/Prismis), plutôt qu'une liste de boutons.
 function startKrouzpierTargeting(casterOwner, targetOwner){
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(casterOwner)) {
+    // Krouzpier appartient à l'IA : elle choisit seule la cible la plus
+    // dangereuse dans la zone adverse, jamais au joueur humain de choisir à
+    // sa place.
+    const candidates = getLineByOwner(targetOwner);
+    const best = aiPickMostValuable(candidates);
+    if (best) {
+      krouzpierTargetMode = { casterOwner, targetOwner };
+      setTimeout(() => handleKrouzpierTargetSelection(best, targetOwner), 600);
+    }
+    return;
+  }
   krouzpierTargetMode = { casterOwner, targetOwner };
   closeActionPrompt();
   const promptEl = document.createElement('div');
@@ -8668,6 +8771,15 @@ function startKrouzpierTargeting(casterOwner, targetOwner){
   promptEl.style.left = '50%';
   promptEl.style.transform = 'translateX(-50%)';
   promptEl.style.zIndex = '8700'; // au-dessus de TOUT le reste (coin-flip inclus, 8200), pour ne jamais être recouvert
+  // CORRECTIF : le contenu de la fenêtre n'était jamais rempli (innerHTML
+  // manquant), ce qui faisait planter le clic sur "Annuler" juste en dessous
+  // (querySelector introuvable) — la cible ne pouvait alors jamais être
+  // choisie proprement.
+  promptEl.innerHTML = `
+    <div class="apTitle">Krouzpier</div>
+    <div class="apMsg">Cliquez sur le combattant ennemi à détruire.</div>
+    <div class="apRow"><button id="krouzpier-target-cancel" class="apBtn cancel">Annuler</button></div>
+  `;
   document.body.appendChild(promptEl);
   actionPromptEl = promptEl;
   promptEl.querySelector('#krouzpier-target-cancel').addEventListener('click', () => {
@@ -8700,6 +8812,15 @@ function handleKrouzpierTargetSelection(targetCard, targetCardOwner){
 // KRYLLS (nouveau lot) : Tokzik (C35) — MORT : exile un combattant adverse
 // choisi par clic direct sur le plateau.
 function startTokzikTargeting(casterOwner, targetOwner){
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(casterOwner)) {
+    const candidates = getLineByOwner(targetOwner);
+    const best = aiPickMostValuable(candidates);
+    if (best) {
+      tokzikTargetMode = { casterOwner, targetOwner };
+      setTimeout(() => handleTokzikTargetSelection(best, targetOwner), 600);
+    }
+    return;
+  }
   broadcastOwnerGatedTargeting('tokzik', casterOwner);
   if (!isMyTurnToChoose(casterOwner)) {
     showWaitOverlay("Votre adversaire choisit la cible de l'effet de Tokzik…");
@@ -8747,6 +8868,20 @@ function handleTokzikTargetSelection(targetCard, targetCardOwner){
 // KRYLLS (nouveau lot) : Kryo (C38) — JOUER et MORT : gèle un combattant
 // adverse choisi par clic direct sur le plateau.
 function startKryoTargeting(owner){
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    // Kryo peut geler n'importe quel camp — l'IA vise en priorité le meilleur
+    // combattant ADVERSE (le geler l'empêche d'agir), sinon n'importe lequel.
+    const oppSeat = (owner === 'top') ? 'bottom' : 'top';
+    const enemyCandidates = getLineByOwner(oppSeat);
+    const allCandidates = topLine.concat(botLine);
+    const best = aiPickMostValuable(enemyCandidates.length ? enemyCandidates : allCandidates);
+    if (best) {
+      const bestOwner = topLine.includes(best) ? 'top' : 'bottom';
+      kryoTargetMode = { owner };
+      setTimeout(() => handleKryoTargetSelection(best, bestOwner), 600);
+    }
+    return;
+  }
   broadcastOwnerGatedTargeting('kryo', owner);
   if (!isMyTurnToChoose(owner)) {
     showWaitOverlay("Votre adversaire choisit la cible de l'effet de Kryo…");
@@ -9173,6 +9308,22 @@ function playActionC85(owner, actionCard){
 // choisi par le vrai propriétaire de Fou-Ego, même si sa mort a été
 // calculée sur l'écran adverse (même protection que Kamykaz ci-dessous).
 function startFouEgoPlacement(owner){
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    // Fou-Ego appartient à l'IA : le placement gauche/droite n'a pas
+    // d'incidence stratégique majeure — elle choisit seule, au hasard,
+    // plutôt que de demander au joueur humain de placer les cartes de l'IA.
+    setTimeout(() => {
+      const ego = createCard('T17', owner === 'top' ? 'T' : 'B');
+      const egoLine = getLineByOwner(owner);
+      if (Math.random() < 0.5) egoLine.unshift(ego); else egoLine.push(ego);
+      fullRender();
+      const fou = createCard('T18', owner === 'top' ? 'T' : 'B');
+      const fouLine = getLineByOwner(owner);
+      if (Math.random() < 0.5) fouLine.unshift(fou); else fouLine.push(fou);
+      fullRender();
+    }, 600);
+    return;
+  }
   broadcastOwnerGatedTargeting('fouEgo', owner);
   if (!isMyTurnToChoose(owner)) {
     showWaitOverlay("Votre adversaire choisit où placer Ego et Fou…");
@@ -9202,6 +9353,20 @@ function openFouEgoPlacementReal(owner){
 // en main ou être exilé (par un tout autre effet), il disparaît purement et
 // simplement à la place (voir discardCard et addToExile).
 function startKamykazTargeting(owner){
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    // Kamykaz peut viser n'importe quel camp — l'IA vise en priorité le
+    // meilleur combattant ADVERSE, jamais le joueur humain à sa place.
+    const oppSeat = (owner === 'top') ? 'bottom' : 'top';
+    const enemyCandidates = getLineByOwner(oppSeat);
+    const allCandidates = topLine.concat(botLine);
+    const best = aiPickMostValuable(enemyCandidates.length ? enemyCandidates : allCandidates);
+    if (best) {
+      const bestOwner = topLine.includes(best) ? 'top' : 'bottom';
+      kamykazTargetMode = { owner };
+      setTimeout(() => handleKamykazTargetSelection(best, bestOwner), 600);
+    }
+    return;
+  }
   broadcastOwnerGatedTargeting('kamykaz', owner);
   if (!isMyTurnToChoose(owner)) {
     showWaitOverlay("Votre adversaire choisit la cible de l'effet de Kamykaz…");
@@ -10327,6 +10492,15 @@ function attemptParactionCounter(actingOwner, actionCard, resolveFn){
   const paraction = oppArts.find(a => a.label === 'C227' && (a.charges || 0) > 0);
   if (!paraction) { resolveFn(); return; }
 
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(opp)) {
+    // Paraction appartient à l'IA : c'est à elle de décider si elle contre
+    // l'Action adverse, jamais au joueur humain qui vient de la jouer.
+    // Choix simple : toujours contrer quand la charge est disponible, une
+    // défense gratuite valant toujours mieux qu'une charge inutilisée.
+    setTimeout(() => resolveParactionDecision(actingOwner, actionCard, true, resolveFn), 600);
+    return;
+  }
+
   if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && MY_SEAT !== opp) {
     // Ce choix appartient à l'adversaire (propriétaire de Paraction) : on
     // délègue et on attend sa réponse, comme pour Pestrass/Dolly/Demon Core.
@@ -10491,6 +10665,21 @@ function handlePestrassDeathrattle(pestrassOwner) {
 
   if (allFamiliers.length === 0) {
     pushHistory('info', `Effet de ${cardAnchor('C61')} : aucun familier rattaché sur le plateau à défausser.`);
+    return;
+  }
+
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(pestrassOwner)) {
+    // Pestrass appartient à l'IA : elle défausse en priorité un familier
+    // ADVERSE (affaiblir l'adversaire plutôt que soi-même), jamais au joueur
+    // humain de choisir à sa place.
+    const oppSeat = (pestrassOwner === 'top') ? 'bottom' : 'top';
+    const enemyFamiliers = allFamiliers.filter(fam => {
+      const { owner: hostOwner } = findHostOfFamiliar(fam);
+      return (fam.playOwner || hostOwner) === oppSeat;
+    });
+    const pool = enemyFamiliers.length ? enemyFamiliers : allFamiliers;
+    const chosen = pool[Math.floor(Math.random() * pool.length)];
+    setTimeout(() => resolvePestrassChoice(pestrassOwner, chosen.id), 600);
     return;
   }
 
@@ -13534,6 +13723,41 @@ function renderExileCarousel(){
     });
     exileCarousel.appendChild(t);
   });
+  // Croix de fermeture toujours disponible : re-cliquer sur la pile d'Exil
+  // pour fermer reste possible, mais n'est pas toujours intuitif — cette
+  // fenêtre ne doit jamais rester ouverte durablement à l'écran sans un
+  // moyen évident de la refermer. Ne touche à AUCUN état de sélection en
+  // cours (juste l'affichage) : rouvrir le panneau ensuite fonctionne encore.
+  appendPanelCloseButton(exileCarousel, () => {
+    exileClickOpen = false;
+    forceOpenExile = false;
+    refreshExilePanel();
+  });
+}
+
+// Petite croix de fermeture réutilisable pour les panneaux de défausse/Exil.
+function appendPanelCloseButton(containerEl, onClose){
+  if (!containerEl) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'panelCloseBtn';
+  btn.textContent = '×';
+  btn.title = 'Fermer';
+  btn.style.position = 'absolute';
+  btn.style.top = '4px';
+  btn.style.right = '6px';
+  btn.style.zIndex = '20';
+  btn.style.background = 'rgba(0,0,0,.6)';
+  btn.style.color = '#fff';
+  btn.style.border = '1px solid rgba(255,255,255,.35)';
+  btn.style.borderRadius = '50%';
+  btn.style.width = '24px';
+  btn.style.height = '24px';
+  btn.style.lineHeight = '20px';
+  btn.style.fontSize = '16px';
+  btn.style.cursor = 'pointer';
+  btn.addEventListener('click', (e) => { e.stopPropagation(); onClose(); });
+  containerEl.appendChild(btn);
 }
 
 
@@ -13633,6 +13857,15 @@ function renderDiscardCarousel(carouselEl, pile){
       fullRender();
     });
     carouselEl.appendChild(t);
+  });
+  // Croix de fermeture toujours disponible (voir même logique pour l'Exil) :
+  // ferme uniquement l'affichage, jamais bloquant, sans toucher à une
+  // éventuelle sélection en cours (Zcyvenger, Mlle Pilate...).
+  appendPanelCloseButton(carouselEl, () => {
+    if (carouselEl.id === 'discardTopCarousel') discardTopClickOpen = false;
+    else discardBottomClickOpen = false;
+    forceOpenDiscards = false;
+    refreshDiscardPanels();
   });
 }
 function updateDiscardUI(){
@@ -15728,7 +15961,8 @@ function aiResolveAnyOpenPrompt(){
     (typeof vakxzinTargetMode !== 'undefined' && vakxzinTargetMode) ||
     (typeof arakcubeTargetMode !== 'undefined' && arakcubeTargetMode) ||
     (typeof chargeboxTargetMode !== 'undefined' && chargeboxTargetMode) ||
-    (typeof c112TargetMode !== 'undefined' && c112TargetMode)
+    (typeof c112TargetMode !== 'undefined' && c112TargetMode) ||
+    (typeof prismisTargetMode !== 'undefined' && prismisTargetMode)
   );
   if (hasKnownSmartMode) {
     const smart = aiChooseSmartTarget();
@@ -15781,12 +16015,18 @@ function aiResolveAnyOpenPrompt(){
 function aiChooseSmartTarget(){
   const oppSeat = (AI_SEAT === 'top') ? 'bottom' : 'top';
   const entries = [];
-  getLineByOwner(AI_SEAT).forEach(card => entries.push({ owner: AI_SEAT, card }));
-  getLineByOwner(oppSeat).forEach(card => entries.push({ owner: oppSeat, card }));
+  getLineByOwner(AI_SEAT).forEach(card => entries.push({ owner: AI_SEAT, card, zone: 'lane' }));
+  getLineByOwner(oppSeat).forEach(card => entries.push({ owner: oppSeat, card, zone: 'lane' }));
+  // Certains ciblages (Prismis, Chargebox...) peuvent aussi viser un artefact
+  // en jeu, pas seulement un combattant — sans ces deux lignes, l'IA ne
+  // verrait jamais ces cibles-là et ne pourrait jamais compléter ce genre de
+  // choix (ex. Prismis avec seulement des artefacts valides sur le plateau).
+  topArts.forEach(card => entries.push({ owner: 'top', card, zone: 'aLane' }));
+  botArts.forEach(card => entries.push({ owner: 'bottom', card, zone: 'aLane' }));
   if (entries.length === 0) return null;
 
   const value = (e) => getEffectiveHP(e.card) + getATK(e.card) * 2 + aiEconomicThreatScore(e.card) * 3;
-  const elFor = (e) => document.querySelector(`.lane .card.placed[data-id="${e.card.id}"]`);
+  const elFor = (e) => document.querySelector(`.${e.zone === 'aLane' ? 'aLane' : 'lane'} .card.placed[data-id="${e.card.id}"]`);
   const pickBest = (pool, fallback) => {
     const list = (pool && pool.length) ? pool : (fallback || []);
     if (!list.length) return null;
@@ -15825,12 +16065,53 @@ function aiChooseSmartTarget(){
     const nonEsprit = entries.filter(e => !hasTag(e.card, 'Esprit'));
     return pickBest(nonEsprit.filter(e => e.owner === oppSeat), nonEsprit);
   }
+  // Prismis : transforme 1 ou 2 cartes (combattants OU artefacts, n'importe
+  // quel camp, jamais déjà Chimeria ni Prismis lui-même) en faction Chimeria.
+  // On exclut systématiquement celles déjà sélectionnées cette fois-ci (sans
+  // quoi cliquer deux fois la même carte la désélectionnerait au lieu de
+  // compléter le choix) et on préfère transformer NOS PROPRES cartes, pour
+  // ouvrir nos éventuelles synergies Chimeria plutôt que d'agir au hasard.
+  if (typeof prismisTargetMode !== 'undefined' && prismisTargetMode) {
+    const alreadyPicked = new Set(prismisTargetMode.targets || []);
+    const valid = entries.filter(e =>
+      e.card.id !== prismisTargetMode.prismisId &&
+      !hasTag(e.card, 'Chimeria') &&
+      !alreadyPicked.has(e.card.id)
+    );
+    return pickBest(valid.filter(e => e.owner === AI_SEAT), valid);
+  }
   // Générique : la plupart des autres ciblages à effet unique (Tokzik, Kryo,
   // Zyzy, Vilunion, Kamykaz, C42, C69, Kabba, Krouzpier, C59, Venusylva...)
   // pénalisent leur cible d'une façon ou d'une autre — à défaut de connaître
   // chacun dans le détail, viser la carte adverse la plus dangereuse reste
   // le choix par défaut le plus sûr.
   return pickBest(entries.filter(e => e.owner === oppSeat), entries);
+}
+
+// ===================================================================
+// CHOIX PROPRES À UNE CARTE DE L'IA (Krouzpier, Tokzik, Kryo, Kamykaz,
+// Fou-Ego, Demon Core, Dolly, Paraction, Pestrass...) — ces effets délèguent
+// normalement leur décision au PROPRIÉTAIRE de la carte qui les déclenche.
+// En mode Contre l'IA, si ce propriétaire est l'IA, la décision ne doit
+// JAMAIS être proposée au joueur humain (qui n'a rien à voir avec ce choix) :
+// elle doit être prise automatiquement. Ces fonctions centralisent la
+// détection et quelques heuristiques de choix simples, réutilisées par
+// chaque carte concernée, chacune patchée pour court-circuiter la fenêtre
+// habituelle quand la carte appartient à l'IA.
+// ===================================================================
+function isAIOwnedChoice(owner){
+  return typeof VS_AI_MODE !== 'undefined' && VS_AI_MODE && typeof AI_SEAT !== 'undefined' && owner === AI_SEAT;
+}
+function aiCardValue(card){
+  return getEffectiveHP(card) + getATK(card) * 2 + aiEconomicThreatScore(card) * 3;
+}
+function aiPickMostValuable(cards){
+  if (!cards || cards.length === 0) return null;
+  return cards.slice().sort((a, b) => aiCardValue(b) - aiCardValue(a))[0];
+}
+function aiPickLowestHP(cards){
+  if (!cards || cards.length === 0) return null;
+  return cards.slice().sort((a, b) => getEffectiveHP(a) - getEffectiveHP(b))[0];
 }
 
 // Simule le dépôt d'une carte de la main de l'IA dans une zone (combat ou
