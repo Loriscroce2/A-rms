@@ -3177,6 +3177,7 @@ const CARD_IMAGES = {
   'C69':'../cartes/0069.png', 'C70':'../cartes/0070.png', 'C71':'../cartes/0071.png',
   'C72':'../cartes/0072.png', 'C73':'../cartes/0073.png', 'C74':'../cartes/0074.png',
   'C75':'../cartes/0075.png', 'C76':'../cartes/0076.png', 'C77':'../cartes/0077.png',
+  'C78':'../cartes/0078.png', 'T17':'../cartes/T17.png', 'T18':'../cartes/T18.png',
   'C101':'../cartes/0101.png',
   'C102': '../cartes/0102.png',
   'C103': '../cartes/0103.png',
@@ -3310,6 +3311,7 @@ const CARD_TYPES  = {
   'C69':'action', 'C70':'familier', 'C71':'personnage',
   'C72':'artefact', 'C73':'personnage', 'C74':'artefact',
   'C75':'action', 'C76':'personnage', 'C77':'personnage',
+  'C78':'personnage', 'T17':'personnage', 'T18':'personnage',
   'C101':'personnage',
   'C102': 'action',
   'C103': 'artefact',
@@ -3463,6 +3465,7 @@ const CARD_NAMES = {
   'C69':'Ouvrir les plaies', 'C70':'Entravax', 'C71':'Soubrsot',
   'C72':'Oraclex', 'C73':'Zayuka', 'C74':'Gazocubateur',
   'C75':'Horde toxique', 'C76':'Corbrax', 'C77':'Healard',
+  'C78':'Fou-Ego', 'T17':'Ego', 'T18':'Fou',
   'C101':'Jupithors',
   'C102': 'Why Me',
   'C103': 'Totemoon',
@@ -3608,7 +3611,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 const CARD_HP_BASE = {
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
-  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4,
+  'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5,
   'C101': 4,
   'C105': 5,
   'C108': 3,
@@ -3698,7 +3701,7 @@ const CARD_HP_BASE = {
 const CARD_SHIELD_BASE = {
   'C1':0, 'C2':0, 'C3':1, 'C6':0, 'C9':0, 'C13':1, 'C14':1, 'C15':2, 'C17':2,
   'C22':1, 'C26':4, 'C34':1, 'C36':4, 'C38':3,
-  'C52': 0, 'C56': 0, 'C66': 5, 'C68': 1,
+  'C52': 0, 'C56': 0, 'C66': 5, 'C68': 1, 'C78': 2, 'T17': 1, 'T18': 1,
   'C105': 1,
   'C108': 0,
   'C109': 0,
@@ -3760,6 +3763,7 @@ const CARD_TAGS = {
   'C69':['action', 'Impy'], 'C70':['familier', 'Impy'], 'C71':['citoyen', 'Impy', 'rapide'],
   'C72':['artefact', 'Impy'], 'C73':['guerrier', 'Impy', 'rapide', 'poison'], 'C74':['artefact', 'Impy'],
   'C75':['action', 'Impy'], 'C76':['citoyen', 'Impy', 'poison'], 'C77':['médic', 'Impy'],
+  'C78':['guerrier', 'Impy'], 'T17':['guerrier', 'Impy'], 'T18':['guerrier', 'Impy'],
   'C101':['guerrier', 'Savage'],
   'C102': ['action', 'Savage'],
   'C103': ['artefact', 'Savage'],
@@ -7974,7 +7978,7 @@ function animateCardToDiscard(card, owner){
 }
 
 /* --- Dégâts & bouclier --- */
-function applyDamageWithShield(card, incoming) {
+function applyDamageWithShield(card, incoming, ignoreShield) {
   if (card.label === 'C62') { return { absorbed: incoming, hpLost: 0, hpBefore: getEffectiveHP(card) }; }
   if (getType(card.label) !== 'personnage') return { absorbed: 0, hpLost: 0, hpBefore: 0 };
 
@@ -7986,6 +7990,14 @@ function applyDamageWithShield(card, incoming) {
   let tempShieldVal = (typeof card.tempShield === 'number') ? card.tempShield : 0;
   let baseShieldVal = (typeof card.shield === 'number') ? card.shield : 0;
   let holoBonusVal = (owner) ? holoAuraBonus(owner, card) : 0;
+
+  // IMPY (nouveau lot) : Fou (T18) ignore totalement le Bouclier de sa
+  // cible — aucune absorption possible, ni temporaire, ni de base, ni holo.
+  if (ignoreShield) {
+    tempShieldVal = 0;
+    baseShieldVal = 0;
+    holoBonusVal = 0;
+  }
 
   if (isBruitzeurActive()) {
       tempShieldVal = 0;
@@ -10755,7 +10767,11 @@ function continueResolveFight(from, to){
   // WADOO 5e lot : Rking (C232) — ne perd jamais de PV en combat (ni en
   // attaquant, ni en ripostant). On neutralise les dégâts REÇUS uniquement —
   // ses propres dégâts infligés restent normaux.
-  const dmgToDefender = (to.card.label === 'C232') ? 0 : atkA;
+  // IMPY (nouveau lot) : Fou (T18) — COMBAT : inflige +3 PV de dégâts
+  // supplémentaires au combattant qu'il attaque, et ignore totalement son
+  // Bouclier (voir applyDamageWithShield, appelé plus bas avec ignoreShield).
+  const isFouAttacking = from.card.label === 'T18';
+  const dmgToDefender = (to.card.label === 'C232') ? 0 : atkA + (isFouAttacking ? 3 : 0);
   const dmgToAttacker = (from.card.label === 'C232') ? 0 : atkB;
 
   // Snapshot "avant" pour l'animation Versus (avant toute mutation de PV/bouclier)
@@ -10767,8 +10783,12 @@ function continueResolveFight(from, to){
     isTargetFrozen,
   };
 
-  const resTo   = applyDamageWithShield(to.card,   dmgToDefender);
+  const resTo   = applyDamageWithShield(to.card,   dmgToDefender, isFouAttacking);
   const resFrom = applyDamageWithShield(from.card, dmgToAttacker);
+
+  if (isFouAttacking && resTo.hpLost > 0) {
+    pushHistory('jeu', `${cardAnchor('T18')} ignore le Bouclier et inflige <strong>+3 PV</strong> de dégâts supplémentaires !`);
+  }
 
   if(resTo.hpLost > 0) {
     onHPDamaged(to.owner, to.card, resTo.hpLost, 'combat');
@@ -10779,6 +10799,17 @@ function continueResolveFight(from, to){
     // WADOO 5e lot : Glaraneith (C229) — gèle toute cible à qui elle inflige des dégâts.
     if (from.card.label === 'C229') {
       applyFreezeToCard(to.card);
+    }
+    // IMPY (nouveau lot) : Ego (T17) — chaque fois qu'il inflige des dégâts
+    // en ATTAQUANT, le combattant attaqué ET ses voisins immédiats (dans SA
+    // zone à lui) sont gelés.
+    if (from.card.label === 'T17') {
+      applyFreezeToCard(to.card);
+      const defenderLine = getLineByOwner(to.owner);
+      const dIdx = defenderLine.findIndex(c => c.id === to.card.id);
+      if (dIdx > 0) applyFreezeToCard(defenderLine[dIdx - 1]);
+      if (dIdx !== -1 && dIdx < defenderLine.length - 1) applyFreezeToCard(defenderLine[dIdx + 1]);
+      pushHistory('jeu', `${cardAnchor('T17')} gèle ${cardAnchor(to.card.label)} et ses voisins !`);
     }
   }
   if(resFrom.hpLost > 0) {
@@ -13052,6 +13083,17 @@ function discardCard(card, owner, reason='other', context = {}){
       spawnKamykazDuplicate(owner);
       fullRender();
     }
+    return;
+  }
+  // IMPY (nouveau lot) : Fou-Ego (C78) — MORT : se transforme en deux
+  // combattants (Fou et Ego), et disparaît purement et simplement (ni
+  // défausse, ni exil) — les deux jetons rejoignent la même zone de combat.
+  if (card.label === 'C78' && reason === 'death') {
+    const ego = createCard('T17', owner === 'top' ? 'T' : 'B');
+    const fou = createCard('T18', owner === 'top' ? 'T' : 'B');
+    getLineByOwner(owner).push(ego, fou);
+    pushHistory('jeu', `${cardAnchor('C78')} se transforme en ${cardAnchor('T17')} et ${cardAnchor('T18')} !`);
+    fullRender();
     return;
   }
 
