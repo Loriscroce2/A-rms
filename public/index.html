@@ -8981,6 +8981,34 @@ function playActionC85(owner, actionCard){
   }
 }
 
+// IMPY (nouveau lot) : Fou-Ego (C78) — MORT : se transforme en Ego et Fou,
+// dont le placement (gauche/droite, l'un après l'autre) doit TOUJOURS être
+// choisi par le vrai propriétaire de Fou-Ego, même si sa mort a été
+// calculée sur l'écran adverse (même protection que Kamykaz ci-dessous).
+function startFouEgoPlacement(owner){
+  broadcastOwnerGatedTargeting('fouEgo', owner);
+  if (!isMyTurnToChoose(owner)) {
+    showWaitOverlay("Votre adversaire choisit où placer Ego et Fou…");
+    return;
+  }
+  openFouEgoPlacementReal(owner);
+}
+function openFouEgoPlacementReal(owner){
+  hideWaitOverlay();
+  askLeftRightPlacement('Ego', `Où placer ${cardAnchor('T17')} dans votre zone de combat ?`, (egoSide) => {
+    const ego = createCard('T17', owner === 'top' ? 'T' : 'B');
+    const egoLine = getLineByOwner(owner);
+    if (egoSide === 'left') egoLine.unshift(ego); else egoLine.push(ego);
+    fullRender();
+    askLeftRightPlacement('Fou', `Où placer ${cardAnchor('T18')} dans votre zone de combat ?`, (fouSide) => {
+      const fou = createCard('T18', owner === 'top' ? 'T' : 'B');
+      const fouLine = getLineByOwner(owner);
+      if (fouSide === 'left') fouLine.unshift(fou); else fouLine.push(fou);
+      fullRender();
+    });
+  });
+}
+
 // KRYLLS (nouveau lot) : Kamykaz (T16) — MORT : inflige -2 PV à un
 // combattant (n'importe quel camp), puis se duplique dans sa propre zone
 // de combat au lieu de rejoindre la défausse. S'il devait un jour repartir
@@ -13508,21 +13536,12 @@ function discardCard(card, owner, reason='other', context = {}){
   // IMPY (nouveau lot) : Fou-Ego (C78) — MORT : se transforme en deux
   // combattants (Fou et Ego), et disparaît purement et simplement (ni
   // défausse, ni exil). Le propriétaire choisit SÉPARÉMENT où placer
-  // chacun des deux (Ego d'abord, puis Fou).
+  // chacun des deux (Ego d'abord, puis Fou) — protégé par le même système
+  // que Tokzik/Kryo/Kamykaz, pour que ce soit TOUJOURS le vrai propriétaire
+  // qui choisisse, même si sa mort a été calculée sur l'écran adverse.
   if (card.label === 'C78' && reason === 'death') {
     pushHistory('jeu', `${cardAnchor('C78')} se transforme en ${cardAnchor('T17')} et ${cardAnchor('T18')} !`);
-    askLeftRightPlacement('Ego', `Où placer ${cardAnchor('T17')} dans votre zone de combat ?`, (egoSide) => {
-      const ego = createCard('T17', owner === 'top' ? 'T' : 'B');
-      const egoLine = getLineByOwner(owner);
-      if (egoSide === 'left') egoLine.unshift(ego); else egoLine.push(ego);
-      fullRender();
-      askLeftRightPlacement('Fou', `Où placer ${cardAnchor('T18')} dans votre zone de combat ?`, (fouSide) => {
-        const fou = createCard('T18', owner === 'top' ? 'T' : 'B');
-        const fouLine = getLineByOwner(owner);
-        if (fouSide === 'left') fouLine.unshift(fou); else fouLine.push(fou);
-        fullRender();
-      });
-    });
+    startFouEgoPlacement(owner);
     return;
   }
 
@@ -17932,14 +17951,15 @@ if (ONLINE_MODE) {
       }, 5100);
 
       // Les cartes de tirage suivent EXACTEMENT le même principe que les
-      // avatars plus haut (mySeatForVs/oppSeatForVs) : la carte affichée
-      // dans le même emplacement que MON avatar doit toujours être LA
-      // MIENNE, peu importe si je suis le siège "top" ou "bottom" côté
-      // serveur — sinon carte et avatar pouvaient se retrouver côte à côte
-      // de façon incohérente (ma carte à droite alors que mon avatar est à
-      // gauche, par exemple).
-      const topCode = drawReveal[oppSeatForVs];
-      const botCode = drawReveal[mySeatForVs];
+      // avatars plus haut (mySeatForVs/oppSeatForVs). Vérifié précisément :
+      // .vsTop (avatar adverse) est positionné en HAUT-DROITE de l'écran,
+      // .vsBottom (mon avatar) en BAS-GAUCHE — donc JE suis toujours à
+      // GAUCHE. La carte affichée dans l'emplacement GAUCHE (vsDrawCardTop,
+      // premier dans l'ordre du conteneur flex horizontal) doit donc
+      // toujours être LA MIENNE, et celle de droite (vsDrawCardBottom)
+      // toujours celle de l'adversaire.
+      const topCode = drawReveal[mySeatForVs];
+      const botCode = drawReveal[oppSeatForVs];
       const topNum = parseInt(topCode, 10);
       const botNum = parseInt(botCode, 10);
 
@@ -17984,8 +18004,8 @@ if (ONLINE_MODE) {
         const cardTop = $('#vsDrawCardTop');
         const cardBot = $('#vsDrawCardBottom');
         const winnerName = playerLabel(firstSeat);
-        // cardTop = adversaire, cardBot = moi (voir le remappage topCode/botCode ci-dessus)
-        if (firstSeat === oppSeatForVs) { cardTop.classList.add('vsWinner'); cardBot.classList.add('vsLoser'); }
+        // cardTop = moi (gauche), cardBot = adversaire (droite) — voir le remappage topCode/botCode ci-dessus
+        if (firstSeat === mySeatForVs) { cardTop.classList.add('vsWinner'); cardBot.classList.add('vsLoser'); }
         else { cardBot.classList.add('vsWinner'); cardTop.classList.add('vsLoser'); }
         const titleEl = $('#vsDrawTitle');
         const resultEl = $('#vsDrawResult');
@@ -18215,6 +18235,7 @@ if (ONLINE_MODE) {
           }
           if (payload.kind === 'kryo') { openKryoPromptReal(payload.owner); }
           if (payload.kind === 'kamykaz') { openKamykazPromptReal(payload.owner); }
+          if (payload.kind === 'fouEgo') { openFouEgoPlacementReal(payload.owner); }
         }
       }
       if (payload.type === 'fusionnerLesTous') {
