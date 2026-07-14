@@ -94,6 +94,7 @@
     .modeChoiceCard.casual:hover{border-color:#7df9ff;box-shadow:0 0 20px rgba(125,249,255,.4);}
     .modeChoiceCard.ranked{border-color:rgba(255,90,90,.35);}
     .modeChoiceCard.ranked:hover{border-color:#ff5c5c;box-shadow:0 0 20px rgba(255,60,60,.45);}
+    .modeChoiceCard.ai:hover{border-color:#8c6eff;box-shadow:0 0 20px rgba(140,110,255,.45);}
     .modeIcon{font-size:32px;}
     .modeName{font-weight:900;font-family:'Cinzel',serif;font-size:16px;text-transform:uppercase;letter-spacing:.04em;}
     .modeDesc{font-size:11.5px;color:#9fd6e6;line-height:1.45;text-align:center;}
@@ -355,6 +356,11 @@
           <div class="modeName">Classée</div>
           <div class="modeDesc">Affrontez les autres joueurs pour grimper au classement de Menace.</div>
         </button>
+        <button class="modeChoiceCard ai" id="chooseAiBtn" style="border-color:rgba(140,110,255,.4);">
+          <div class="modeIcon">🤖</div>
+          <div class="modeName">Contre l'IA</div>
+          <div class="modeDesc">Entraînez-vous contre un adversaire automatique. Aucun impact sur votre Menace.</div>
+        </button>
       </div>
       <button class="mmBtn cancel" id="modeChoiceCancel" style="margin-top:14px;width:100%;">Annuler</button>
     </div>
@@ -421,8 +427,8 @@
     let MM = { polling: null, ticket: null, deckId: null, mode: 'casual' };
     let PENDING_DECK = null;
 
-    function openModeChoice(deckId, deckName){
-      PENDING_DECK = { id: deckId, name: deckName };
+    function openModeChoice(deckId, deckName, deckCards){
+      PENDING_DECK = { id: deckId, name: deckName, cards: deckCards || [] };
       document.getElementById('modeChoiceOverlay').style.display = 'flex';
     }
     function closeModeChoice(){
@@ -444,6 +450,25 @@
     document.getElementById('chooseRankedBtn').addEventListener('click', () => {
       closeModeChoice();
       if (PENDING_DECK) goFullscreenThenPlay(PENDING_DECK.id, PENDING_DECK.name, 'ranked');
+      PENDING_DECK = null;
+    });
+    document.getElementById('chooseAiBtn').addEventListener('click', () => {
+      closeModeChoice();
+      if (PENDING_DECK) {
+        // Pas de vrai matchmaking ici : on enregistre le deck choisi pour
+        // qu'index.html le récupère au chargement (mécanisme déjà existant,
+        // voir loadActiveDeck côté jeu), puis on lance directement la
+        // partie en mode local avec le drapeau vsAI=1.
+        try {
+          localStorage.setItem('arms_active_deck', JSON.stringify({ cards: PENDING_DECK.cards || [] }));
+        } catch(e){}
+        try {
+          const el = document.documentElement;
+          const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+          if (req) { const p = req.call(el); if (p && p.catch) p.catch(()=>{}); }
+        } catch(e){}
+        window.location.href = '/index.html?vsAI=1';
+      }
       PENDING_DECK = null;
     });
     document.getElementById('modeChoiceCancel').addEventListener('click', () => {
@@ -633,7 +658,7 @@
           </div>
         `;
         pack.querySelector('.play-btn').addEventListener('click', () => {
-          openModeChoice(d.id, d.name);
+          openModeChoice(d.id, d.name, d.cards);
         });
         pack.querySelector('.delete-btn').addEventListener('click', () => {
           deleteDeckFromServer(d.id);

@@ -4321,6 +4321,12 @@ const __urlParams = new URLSearchParams(window.location.search);
 const ONLINE_MATCH_ID = __urlParams.get('matchId');
 const ONLINE_MODE = !!ONLINE_MATCH_ID;
 const MY_SEAT = __urlParams.get('seat') === 'top' ? 'top' : 'bottom';
+// Mode "Contre l'IA" : partie locale normale (aucun serveur de
+// matchmaking impliqué), mais le siège 'top' est entièrement contrôlé par
+// une IA au lieu d'attendre un second joueur humain. Le joueur humain est
+// toujours 'bottom' (MY_SEAT par défaut).
+const VS_AI_MODE = __urlParams.get('vsAI') === '1';
+const AI_SEAT = 'top';
 // Didacticiel interactif : partie locale normale, mais avec une main de
 // départ FIXE (déterministe) et un coach qui guide le joueur en direct sur
 // le VRAI plateau. Totalement isolé du reste du moteur (aucune fonction
@@ -4372,8 +4378,50 @@ if (ONLINE_MODE) {
   botDeck = shuffle(defaultLabels.map(label => createCard(label, 'B')));
 }
 
+// Génère un deck IA ALÉATOIRE mais VALIDE (3 factions tirées au sort, 12
+// cartes chacune, en respectant les mêmes limites d'exemplaires que la
+// construction de deck normale). Construit uniquement à partir de
+// CARD_TYPES/CARD_TAGS (déjà à jour à chaque nouvelle carte), donc
+// automatiquement compatible avec le futur du jeu sans maintenance ici.
+function generateRandomAIDeck(){
+  const allFactions = ['Krylls','Impy','Savage','Chimeria','Wadoo'];
+  const chosenFactions = shuffle(allFactions.slice()).slice(0, 3);
+  const codes = [];
+  chosenFactions.forEach(fac => {
+    const pool = Object.keys(CARD_TYPES).filter(label =>
+      Array.isArray(CARD_TAGS[label]) && CARD_TAGS[label].includes(fac)
+    );
+    if (pool.length === 0) return;
+    const counts = {};
+    let total = 0;
+    let guard = 0;
+    while (total < 12 && guard < 3000) {
+      guard++;
+      const label = pool[Math.floor(Math.random() * pool.length)];
+      const maxCopies = (label === 'C214') ? 12 : (label === 'C32') ? 1 : 2;
+      const cur = counts[label] || 0;
+      if (cur < maxCopies) {
+        counts[label] = cur + 1;
+        total++;
+      }
+    }
+    Object.keys(counts).forEach(label => {
+      for (let k = 0; k < counts[label]; k++) codes.push(label);
+    });
+  });
+  return shuffle(codes);
+}
+
 if (!ONLINE_MODE) {
-  topDeck = Array.from({length:36}, (_,i)=> createCard('C'+(i+1), 'T'));
+  if (VS_AI_MODE) {
+    // IA : deck aléatoire mais VALIDE (3 factions, 12 cartes chacune),
+    // construit à partir des mêmes tables déjà à jour (CARD_TYPES/CARD_TAGS)
+    // que Shmilblix — donc automatiquement compatible avec toute nouvelle
+    // carte ajoutée au jeu par la suite, sans maintenance supplémentaire ici.
+    topDeck = generateRandomAIDeck().map(label => createCard(label, 'T'));
+  } else {
+    topDeck = Array.from({length:36}, (_,i)=> createCard('C'+(i+1), 'T'));
+  }
 }
 
 // ===================================================================
@@ -4555,6 +4603,21 @@ function openFactionPrompt(player, onChosen){
     const winner = (player === 'top') ? 'bottom' : 'top';
     pushHistory('info', `${playerLabel(player)} ne peut choisir aucune faction : toutes ses factions disponibles sont bloquées — défaite immédiate.`);
     endGame(winner, 'faction-locked');
+    return;
+  }
+
+  // Mode IA : choix de faction automatique, sans attendre de clic — la
+  // faction retenue est celle qui compte le plus de cartes jouables dans sa
+  // main actuellement (heuristique simple mais raisonnable).
+  if (VS_AI_MODE && player === AI_SEAT) {
+    const choosableFactions = availableFactions.filter(f => !blockedFactions.has(f));
+    let bestFaction = choosableFactions[0] || availableFactions[0];
+    let bestCount = -1;
+    choosableFactions.forEach(fac => {
+      const count = playerHand.filter(c => hasTag(c, fac)).length;
+      if (count > bestCount) { bestCount = count; bestFaction = fac; }
+    });
+    setTimeout(() => { chooseFactionAndProceed(player, bestFaction, onChosen); }, 500);
     return;
   }
 
@@ -15333,6 +15396,243 @@ function processScapooDuplication(player){
   }
 }
 
+// ===================================================================
+// MODE "CONTRE L'IA" — moteur de décision automatique pour le siège
+// AI_SEAT (toujours 'top'). Conçu pour réutiliser au maximum les mêmes
+// mécanismes internes que les vrais joueurs (currentDragInfo + événement
+// 'drop' réel pour poser une carte, appel direct à maybeResolveAttack pour
+// attaquer, openMiningPrompt pour miner), plutôt que de dupliquer la
+// logique propre à chaque carte — garantit une compatibilité automatique
+// avec toute nouvelle carte ajoutée au jeu par la suite, sans maintenance
+// supplémentaire ici. La forge est déjà entièrement automatique
+// (checkForge), donc l'IA n'a rien à décider à ce sujet.
+//
+// Honnêteté sur ses limites : ses décisions reposent sur des heuristiques
+// simples (impact immédiat, échanges de combat favorables), pas sur une
+// analyse en profondeur de chaque carte. Pour les effets à choix complexes
+// et propres à une carte précise (ex. Vilunion, Kyraza...), elle prend une
+// décision valide mais pas nécessairement optimale.
+// ===================================================================
+
+let aiTurnActionsThisTurn = 0;
+
+function maybeStartAITurn(player){
+  if (!VS_AI_MODE || player !== AI_SEAT) return;
+  if (GAME.over) return;
+  aiTurnActionsThisTurn = 0;
+  setTimeout(() => runAITurnStep(), 900);
+}
+
+function runAITurnStep(){
+  if (GAME.over) return;
+  if (currentTurn !== AI_SEAT) return; // le tour a changé entre-temps
+
+  try {
+    // 1. Résout en priorité tout prompt/ciblage laissé en attente par
+    // l'action précédente (targeting, confirmation, placement...).
+    if (aiResolveAnyOpenPrompt()) {
+      setTimeout(runAITurnStep, 750);
+      return;
+    }
+
+    aiTurnActionsThisTurn++;
+    if (aiTurnActionsThisTurn > 60) { // garde-fou anti-boucle infinie
+      aiEndTurn();
+      return;
+    }
+
+    if (aiTryPlayFromHand()) { setTimeout(runAITurnStep, 950); return; }
+    if (aiTryAttack())       { setTimeout(runAITurnStep, 950); return; }
+    if (aiTryMine())         { setTimeout(runAITurnStep, 950); return; }
+
+    aiEndTurn();
+  } catch(err) {
+    console.error('[IA] erreur pendant la décision, on termine le tour par sécurité :', err);
+    aiEndTurn();
+  }
+}
+
+function aiEndTurn(){
+  if (GAME.over || currentTurn !== AI_SEAT) return;
+  setTimeout(() => {
+    if (!GAME.over && currentTurn === AI_SEAT && typeof performEndTurn === 'function') {
+      performEndTurn();
+    }
+  }, 600);
+}
+
+// Résout n'importe quelle fenêtre/ciblage actuellement ouvert, de façon
+// générique (sans avoir besoin de connaître la carte précise à l'origine) :
+// 1) une fenêtre de sélection en grille (Mezamorph/Kyraza/Healard...)
+// 2) n'importe quel prompt à boutons (openButtonsPrompt, askLeftRightPlacement,
+//    mes ciblages personnalisés type Tokzik/Kryo/Kamykaz/Vilunion...)
+// 3) un mode de ciblage actif sans fenêtre visible : clic direct sur une
+//    carte du plateau au hasard, le dispatcher existant fait le reste.
+function aiResolveAnyOpenPrompt(){
+  const carousel = document.getElementById('familiarCarouselOverlay');
+  if (carousel && carousel.style.display && carousel.style.display !== 'none') {
+    const thumbs = carousel.querySelectorAll('.dthumb');
+    if (thumbs.length > 0) { thumbs[Math.floor(Math.random()*thumbs.length)].click(); return true; }
+  }
+
+  const prompts = document.querySelectorAll('.actionPrompt');
+  if (prompts.length > 0) {
+    const p = prompts[0];
+    const btn = p.querySelector('button.confirm') || p.querySelector('.apBtn.confirm') || p.querySelector('button');
+    if (btn) { btn.click(); return true; }
+  }
+
+  if (typeof isAnyTargetSelectionActive === 'function' && isAnyTargetSelectionActive()) {
+    const allCards = Array.from(document.querySelectorAll('.lane .card.placed'));
+    if (allCards.length > 0) { allCards[Math.floor(Math.random()*allCards.length)].click(); return true; }
+  }
+
+  return false;
+}
+
+// Simule le dépôt d'une carte de la main de l'IA dans une zone (combat ou
+// artefact), en réutilisant EXACTEMENT le même mécanisme interne que le
+// vrai glisser-déposer (currentDragInfo + un événement 'drop' réel sur la
+// zone visée) — toute la logique propre à chaque carte continue de
+// s'appliquer normalement, sans avoir à la dupliquer ici.
+function aiSimulateDrop(owner, card, zoneType, side){
+  const handContainerId = (owner === 'top') ? 'handTop' : 'handBottom';
+  currentDragInfo = { id: card.id, fromId: handContainerId, owner, label: card.label, card: card };
+  let targetId;
+  if (zoneType === 'combat') {
+    targetId = (owner === 'top')
+      ? (side === 'left' ? 'dropTopLeft' : 'dropTopRight')
+      : (side === 'left' ? 'dropBottomLeft' : 'dropBottomRight');
+  } else {
+    targetId = (owner === 'top')
+      ? (side === 'left' ? 'aDropTopLeft' : 'aDropTopRight')
+      : (side === 'left' ? 'aDropBottomLeft' : 'aDropBottomRight');
+  }
+  const targetEl = document.getElementById(targetId);
+  if (targetEl) {
+    targetEl.dispatchEvent(new Event('drop', { bubbles: false, cancelable: true }));
+  }
+  currentDragInfo = null;
+}
+
+// Simule un clic sur une carte de la main de l'IA (utilisé pour les
+// cartes Action, qui se jouent normalement par un simple clic).
+function aiClickHandCard(owner, card){
+  const handContainerId = (owner === 'top') ? 'handTop' : 'handBottom';
+  const container = document.getElementById(handContainerId);
+  if (!container) return false;
+  const el = container.querySelector(`[data-id="${card.id}"]`);
+  if (el) { el.click(); return true; }
+  return false;
+}
+
+function aiTryPlayFromHand(){
+  const hand = getHandByOwner(AI_SEAT);
+
+  // Personnages d'abord : construire sa présence sur le plateau est
+  // généralement la priorité la plus sûre en début de partie.
+  if (getLineByOwner(AI_SEAT).length < getMaxCombatantsForOwner(AI_SEAT)) {
+    const personnages = hand.filter(c => getType(c.label) === 'personnage' && canPlayThisCardNow(AI_SEAT, c));
+    if (personnages.length > 0) {
+      personnages.sort((a,b) => getBaseHP(b.label) - getBaseHP(a.label));
+      const chosen = personnages[0];
+      aiSimulateDrop(AI_SEAT, chosen, 'combat', Math.random() < 0.5 ? 'left' : 'right');
+      return true;
+    }
+  }
+
+  // Puis les artefacts.
+  const aiArts = (AI_SEAT === 'top') ? topArts : botArts;
+  if (aiArts.length < MAX_ARTIFACTS_PER_ZONE) {
+    const artifacts = hand.filter(c => getType(c.label) === 'artefact' && canPlayThisCardNow(AI_SEAT, c));
+    if (artifacts.length > 0) {
+      const chosen = artifacts[0];
+      aiSimulateDrop(AI_SEAT, chosen, 'artefact', Math.random() < 0.5 ? 'left' : 'right');
+      return true;
+    }
+  }
+
+  // Puis les cartes Action, jouées au hasard parmi celles utilisables
+  // maintenant (un clic ouvre normalement leur propre fenêtre de
+  // confirmation/ciblage, résolue ensuite par aiResolveAnyOpenPrompt).
+  const actions = hand.filter(c => getType(c.label) === 'action' && canPlayThisCardNow(AI_SEAT, c));
+  if (actions.length > 0) {
+    const chosen = actions[Math.floor(Math.random() * actions.length)];
+    if (aiClickHandCard(AI_SEAT, chosen)) return true;
+  }
+
+  return false;
+}
+
+function aiCanAttackWith(card, owner){
+  if (hasAttacked(owner, card)) return false;
+  if (isAnyTargetSelectionActive()) return false;
+  if (['T02','T10','C215'].includes(card.label)) return false;
+  if (getFamiliersOnHost(card).some(f => f.label === 'C70')) return false;
+  if (isFrozen(card)) return false;
+  if (!canUnitActThisTurn(owner, card)) return false;
+  return true;
+}
+
+function aiTryAttack(){
+  const oppSeat = (AI_SEAT === 'top') ? 'bottom' : 'top';
+  const myLine = getLineByOwner(AI_SEAT);
+  const oppLine = getLineByOwner(oppSeat);
+  if (oppLine.length === 0) return false; // pas d'attaque directe automatisée dans cette première version
+
+  const attackers = myLine.filter(c => aiCanAttackWith(c, AI_SEAT));
+  if (attackers.length === 0) return false;
+
+  let best = null;
+  attackers.forEach(attacker => {
+    const atk = getATK(attacker);
+    const aEsprit = hasTag(attacker, 'Esprit');
+    oppLine.forEach(target => {
+      const tEsprit = hasTag(target, 'Esprit');
+      if (aEsprit !== tEsprit) return; // règle Esprit
+      if (isTargetBlockedByTaunt(target, oppSeat)) return; // Provocation adverse
+      const targetHp = getEffectiveHP(target);
+      const wouldKill = atk >= targetHp;
+      const score = (wouldKill ? 1000 : 0) - targetHp;
+      if (!best || score > best.score) best = { attacker, target, score };
+    });
+  });
+
+  if (!best) return false;
+  maybeResolveAttack({ card: best.attacker, owner: AI_SEAT }, { card: best.target, owner: oppSeat });
+  return true;
+}
+
+function aiTryMine(){
+  // Ne mine que si le Mithril est encore relativement bas — au-delà,
+  // mieux vaut garder ses combattants disponibles pour d'autres tours.
+  if ((mithril[AI_SEAT] || 0) >= 6) return false;
+
+  const myLine = getLineByOwner(AI_SEAT);
+  const miners = myLine.filter(c => {
+    if (hasAttacked(AI_SEAT, c)) return false;
+    if (isAnyTargetSelectionActive()) return false;
+    if (isFrozen(c)) return false;
+    if (!canUnitActThisTurn(AI_SEAT, c)) return false;
+    if (getFamiliersOnHost(c).some(f => f.label === 'C70')) return false;
+    if (['T02','T10'].includes(c.label)) return false;
+    const curHP = getEffectiveHP(c);
+    const coqsixCount = getFamiliersOnHost(c).filter(f => f.label === 'C159').length;
+    return c.canMineFreely || curHP > 1 || coqsixCount > 0;
+  });
+  if (miners.length === 0) return false;
+
+  miners.sort((a,b) => {
+    if (!!a.canMineFreely !== !!b.canMineFreely) return a.canMineFreely ? -1 : 1;
+    return getEffectiveHP(b) - getEffectiveHP(a);
+  });
+  const chosen = miners[0];
+  const el = document.querySelector(`.lane .card.placed[data-id="${chosen.id}"]`);
+  if (!el) return false;
+  openMiningPrompt(AI_SEAT, chosen, el);
+  return true;
+}
+
 function startTurn(player){
   // KRYLLS (nouveau lot) : compteur de tour PAR JOUEUR, utilisé notamment
   // par Pezske (C47) pour alterner un tour sur deux.
@@ -15484,6 +15784,7 @@ function startTurn(player){
           fullRender();
           recharged.forEach(playHPHitEffect);
           updateTurnUI();
+          maybeStartAITurn(player);
         });
       });
 
@@ -15494,6 +15795,7 @@ function startTurn(player){
       console.error('[startTurn] la préparation du tour a rencontré une erreur :', err);
       fullRender();
       updateTurnUI();
+      maybeStartAITurn(player);
     }
   });
 
