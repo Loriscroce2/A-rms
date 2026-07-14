@@ -3181,6 +3181,11 @@ const CARD_IMAGES = {
   'C79':'../cartes/0079.png', 'C80':'../cartes/0080.png', 'C81':'../cartes/0081.png',
   'C82':'../cartes/0082.png', 'C83':'../cartes/0083.png', 'C84':'../cartes/0084.png',
   'C85':'../cartes/0085.png', 'C86':'../cartes/0086.png', 'C87':'../cartes/0087.png',
+  'C88':'../cartes/0088.png', 'C89':'../cartes/0089.png', 'C90':'../cartes/0090.png',
+  'C91':'../cartes/0091.png', 'C92':'../cartes/0092.png', 'C93':'../cartes/0093.png',
+  'C94':'../cartes/0094.png', 'C95':'../cartes/0095.png', 'C96':'../cartes/0096.png',
+  'C97':'../cartes/0097.png', 'C98':'../cartes/0098.png', 'C99':'../cartes/0099.png',
+  'C100':'../cartes/0100.png',
   'C101':'../cartes/0101.png',
   'C102': '../cartes/0102.png',
   'C103': '../cartes/0103.png',
@@ -3318,6 +3323,11 @@ const CARD_TYPES  = {
   'C79':'personnage', 'C80':'personnage', 'C81':'familier',
   'C82':'personnage', 'C83':'personnage', 'C84':'action',
   'C85':'action', 'C86':'personnage', 'C87':'artefact',
+  'C88':'personnage', 'C89':'familier', 'C90':'action',
+  'C91':'personnage', 'C92':'personnage', 'C93':'personnage',
+  'C94':'personnage', 'C95':'artefact', 'C96':'personnage',
+  'C97':'personnage', 'C98':'action', 'C99':'personnage',
+  'C100':'personnage',
   'C101':'personnage',
   'C102': 'action',
   'C103': 'artefact',
@@ -3475,6 +3485,11 @@ const CARD_NAMES = {
   'C79':'Vilunion', 'C80':'Imuna', 'C81':'Desaxe',
   'C82':'Feufo', 'C83':'Syphon', 'C84':'Shmilblix',
   'C85':'Rencontre inattendue', 'C86':'Jackorn', 'C87':'Bugbug',
+  'C88':'Sucepince', 'C89':'Negatron', 'C90':'Copie des Enfers',
+  'C91':'Fossoyeur', 'C92':'Damnia', 'C93':'Eggrreur',
+  'C94':'Couveuse', 'C95':'Obstructeur', 'C96':'Varyce',
+  'C97':'Ronflon', 'C98':'Pas Deux Fois', 'C99':'Exdote',
+  'C100':'Roi-D-Roi',
   'C101':'Jupithors',
   'C102': 'Why Me',
   'C103': 'Totemoon',
@@ -3776,6 +3791,11 @@ const CARD_TAGS = {
   'C79':['diplomate', 'Impy'], 'C80':['citoyen', 'Impy', 'provocateur'], 'C81':['familier', 'Impy'],
   'C82':['citoyen', 'Impy', 'Esprit'], 'C83':['citoyen', 'Impy'], 'C84':['action', 'Impy'],
   'C85':['action', 'Impy'], 'C86':['citoyen', 'Impy'], 'C87':['artefact', 'Impy'],
+  'C88':['citoyen', 'Impy'], 'C89':['familier', 'Impy'], 'C90':['action', 'Impy'],
+  'C91':['citoyen', 'Impy'], 'C92':['Diplomate', 'Impy'], 'C93':['guerrier', 'Impy', 'provocateur'],
+  'C94':['citoyen', 'Impy'], 'C95':['artefact', 'Impy'], 'C96':['Diplomate', 'Impy'],
+  'C97':['citoyen', 'Impy'], 'C98':['action', 'Impy'], 'C99':['guerrier', 'Impy', 'Esprit'],
+  'C100':['Diplomate', 'Impy'],
   'C101':['guerrier', 'Savage'],
   'C102': ['action', 'Savage'],
   'C103': ['artefact', 'Savage'],
@@ -4629,6 +4649,12 @@ let peinturlurerMode = null;
 let zampanoAllowance = { owner: null, factions: [] };
 let explorationMode = null;
 let chargeboxTargetMode = null; // Pour C174 Chargebox
+// IMPY (dernier lot) : nouveaux modes de ciblage par clic pour les cartes 0088-0100
+let varyceTargetMode = null; // Varyce (C96) : redresser un combattant épuisé
+let copieDesEnfersTargetMode = null; // Copie des Enfers (C90) : cible surveillée pour la mort
+let exdoteTargetMode = null; // Exdote (C99) : donner poison à un combattant
+let couveuseStealTargetMode = null; // Couveuse (C94) : prendre le contrôle d'un Eggrreur adverse
+let roiDRoiTargetMode = null; // Roi-D-Roi (C100) : détruire un diplomate adverse
 const actionBlocked = { top: false, bottom: false };
 
 // NOUVELLE STRUCTURE CUMULATIVE POUR LES MODIFICATEURS DE COÛT DE FORGE
@@ -7064,6 +7090,13 @@ function startAiming(card, owner, fromEl){
     return;
   }
 
+// IMPY (dernier lot) : Eggrreur (C93) est PROVOCATEUR mais purement défensif,
+// elle ne peut jamais attaquer (seulement miner).
+  if (card.label === 'C93') {
+    pushHistory('info', `${cardAnchor('C93')} est PROVOCATEUR mais défensif : elle ne peut pas attaquer.`);
+    return;
+  }
+
   if (isFrozen(card)) {
     pushHistory('info', `${cardAnchor(card.label)} est GELÉ et ne peut pas attaquer.`);
     fromEl.classList.add('deny');
@@ -7838,6 +7871,29 @@ function openMiningPrompt(owner, card, fromEl){
         const canUse = chargeCount > 0 && ownDiscard.length > 0;
         msg = `Choisissez : <strong>Miner</strong> ou dépenser une <strong>charge</strong> (${chargeCount} restante${chargeCount===1?'':'s'}) pour remettre une carte de votre défausse sur le dessus de votre deck.`;
         buttons.push(mineButton, { label: `Dépenser une charge (${chargeCount})`, className: 'confirm' + (canUse ? '' : ' disabled'), disabled: !canUse, onClick: () => { if (canUse) startPilateRecursion(owner, card); } });
+    } else if (card.label === 'C91') {
+        title = 'Fossoyeur';
+        const canUseFossoyeur = exilePile.length > 0;
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>COMBAT</strong> (renvoyer une carte de l\'Exil dans votre main).';
+        buttons.push(mineButton, { label: 'COMBAT (Renvoyer depuis l\'Exil)', className: 'confirm' + (canUseFossoyeur ? '' : ' disabled'), disabled: !canUseFossoyeur, onClick: () => { if (canUseFossoyeur) openFossoyeurExilePicker(owner); } });
+    } else if (card.label === 'C94') {
+        title = 'Couveuse';
+        const c94Opp = (owner === 'top') ? 'bottom' : 'top';
+        const c94EnemyEggrreurs = getLineByOwner(c94Opp).filter(c => c.label === 'C93');
+        const canUseCouveuse = c94EnemyEggrreurs.length > 0;
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (prendre le contrôle d\'un Eggrreur adverse).';
+        buttons.push(mineButton, { label: 'Action (Prendre le contrôle d\'un Eggrreur)', className: 'confirm' + (canUseCouveuse ? '' : ' disabled'), disabled: !canUseCouveuse, onClick: () => { if (canUseCouveuse) startCouveuseStealTargeting(owner); } });
+    } else if (card.label === 'C99') {
+        title = 'Exdote';
+        const canUseExdote = topLine.concat(botLine).length > 0;
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (donner POISON à un combattant).';
+        buttons.push(mineButton, { label: 'Action (Donner Poison)', className: 'confirm' + (canUseExdote ? '' : ' disabled'), disabled: !canUseExdote, onClick: () => { if (canUseExdote) startExdoteTargeting(owner); } });
+    } else if (card.label === 'C100') {
+        title = 'Roi-D-Roi';
+        const c100Opp = (owner === 'top') ? 'bottom' : 'top';
+        const canUseRoiDRoi = getLineByOwner(c100Opp).some(c => hasTag(c, 'Diplomate'));
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (détruire un diplomate adverse).';
+        buttons.push(mineButton, { label: 'Action (Détruire un diplomate)', className: 'confirm' + (canUseRoiDRoi ? '' : ' disabled'), disabled: !canUseRoiDRoi, onClick: () => { if (canUseRoiDRoi) startRoiDRoiTargeting(owner); } });
     } else {
       buttons.push(mineButton);
     }
@@ -9303,6 +9359,105 @@ function playActionC85(owner, actionCard){
   }
 }
 
+// ===================================================================
+// IMPY (dernier lot) : Copie des Enfers (C90)
+// ===================================================================
+function openC90Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  const allTargets = topLine.concat(botLine);
+  if (allTargets.length === 0) {
+    openButtonsPrompt('Copie des Enfers', `Aucun combattant sur le plateau à cibler.`, anchorEl, [
+      { label: 'OK', className: 'cancel', onClick: ()=>{} },
+    ]);
+    return;
+  }
+  openButtonsPrompt('Copie des Enfers', `Jouer <strong>Copie des Enfers</strong> ?<br><small>Effet : ciblez un combattant ;
+    s'il meurt avant la fin de ce tour, 2 exemplaires apparaissent directement dans l'Exil.</small>`, anchorEl, [
+    { label: 'Jouer', className: 'confirm', onClick: () => playActionC90(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
+  ]);
+}
+function playActionC90(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  fullRender();
+  startCopieDesEnfersTargeting(owner);
+}
+
+// ===================================================================
+// IMPY (dernier lot) : Pas Deux Fois (C98) — détruit toutes les cartes en
+// double (même nom EXACT) présentes dans les zones de combat ET
+// d'artefact, tous joueurs confondus.
+// ===================================================================
+function openC98Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  openButtonsPrompt('Pas Deux Fois', `Jouer <strong>Pas Deux Fois</strong> ?<br><small>Effet : détruit toutes les cartes en double
+    portant exactement le même nom, dans les zones de combat ET d'artefact (les deux joueurs confondus).</small>`, anchorEl, [
+    { label: 'Jouer', className: 'confirm', onClick: () => playActionC98(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
+  ]);
+}
+function playActionC98(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  fullRender();
+
+  const groups = {};
+  const addToGroup = (arr, zone) => {
+    arr.slice().forEach(c => {
+      if (!groups[c.label]) groups[c.label] = [];
+      groups[c.label].push({ card: c, zone });
+    });
+  };
+  addToGroup(topLine, 'topLine');
+  addToGroup(botLine, 'botLine');
+  addToGroup(topArts, 'topArts');
+  addToGroup(botArts, 'botArts');
+
+  let destroyedCount = 0;
+  Object.keys(groups).forEach(label => {
+    const entries = groups[label];
+    if (entries.length < 2) return;
+    entries.forEach(({ card: c, zone }) => {
+      if (zone === 'topLine' || zone === 'botLine') {
+        const zOwner = (zone === 'topLine') ? 'top' : 'bottom';
+        const line = getLineByOwner(zOwner);
+        const idx2 = line.findIndex(x => x.id === c.id);
+        if (idx2 !== -1) {
+          line.splice(idx2, 1);
+          detachFamiliarsOnHost(c, zOwner);
+          discardCard(c, zOwner, 'death');
+          destroyedCount++;
+        }
+      } else {
+        const zOwner = (zone === 'topArts') ? 'top' : 'bottom';
+        const arts = (zOwner === 'top') ? topArts : botArts;
+        const idx2 = arts.findIndex(x => x.id === c.id);
+        if (idx2 !== -1) {
+          arts.splice(idx2, 1);
+          discardCard(c, zOwner, 'death');
+          destroyedCount++;
+        }
+      }
+    });
+  });
+
+  if (destroyedCount > 0) {
+    pushHistory('action', `${cardAnchor('C98')} détruit ${destroyedCount} carte${destroyedCount>1?'s':''} en double !`);
+  } else {
+    pushHistory('info', `${cardAnchor('C98')} : aucune carte en double sur le plateau.`);
+  }
+  fullRender();
+}
+
 // IMPY (nouveau lot) : Fou-Ego (C78) — MORT : se transforme en Ego et Fou,
 // dont le placement (gauche/droite, l'un après l'autre) doit TOUJOURS être
 // choisi par le vrai propriétaire de Fou-Ego, même si sa mort a été
@@ -10427,7 +10582,9 @@ function isAnyTargetSelectionActive(){
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
     arakcubeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
-    c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode
+    c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
+    varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
+    couveuseStealTargetMode || roiDRoiTargetMode
   );
 }
 // Petit rappel visuel/textuel quand une action est refusée à cause d'un choix en attente.
@@ -10488,6 +10645,22 @@ function hideChoiceNotice() {
 function attemptParactionCounter(actingOwner, actionCard, resolveFn){
   const actionLabel = actionCard.label;
   const opp = (actingOwner === 'top') ? 'bottom' : 'top';
+
+  // IMPY (dernier lot) : Ronflon (C97) — tant qu'il est dans la zone de
+  // combat de l'ADVERSAIRE de celui qui joue une carte "Action", ce dernier
+  // doit payer 1 Mithril pour la jouer (sinon l'effet ne se déclenche pas).
+  // Passe par ce point unique, commun à TOUTES les cartes Action du jeu.
+  const ronflonLine = getLineByOwner(opp);
+  if (ronflonLine.some(c => c.label === 'C97')) {
+    if ((mithril[actingOwner] || 0) < 1) {
+      pushHistory('info', `${cardAnchor('C97')} : ${playerLabel(actingOwner)} n'a pas assez de Mithril (1 requis) pour jouer ${cardAnchor(actionLabel)}.`);
+      return;
+    }
+    mithril[actingOwner]--;
+    updateMithril();
+    pushHistory('mithril', `${cardAnchor('C97')} : ${playerLabel(actingOwner)} paie 1 Mithril pour jouer ${cardAnchor(actionLabel)}.`);
+  }
+
   const oppArts = (opp === 'top') ? topArts : botArts;
   const paraction = oppArts.find(a => a.label === 'C227' && (a.charges || 0) > 0);
   if (!paraction) { resolveFn(); return; }
@@ -10765,6 +10938,14 @@ function attachFamiliarToHost(owner, familiarCard, hostCard){
   if (familiarCard.label === 'C107') {
     pushHistory('info', `L'effet de ${cardAnchor('C107')} annule les effets des autres familiers sur ${cardAnchor(hostCard.label)} !`);
   }
+  // IMPY (dernier lot) : Negatron (C89) — JOUER : gagnez +1 Mithril dès
+  // l'attache. (Sa mort en tant que familier — exil au lieu de défausse
+  // quand son hôte meurt — est gérée dans detachFamiliarsOnHost.)
+  if (familiarCard.label === 'C89') {
+    addMithril(owner);
+    pushHistory('mithril', `${cardAnchor('C89')} s'attache : +1 Mithril.`);
+  }
+
   // IMPY (nouveau lot) : Desaxe (C81) — le combattant hôte gagne ESPRIT dès
   // l'attache, de façon permanente.
   if (familiarCard.label === 'C81') {
@@ -10818,9 +10999,9 @@ function detachFamiliarsOnHost(hostCard, hostOwner){
           updateMithril();
         }
 
-        if(familiar.label === 'C10'){
+        if(familiar.label === 'C10' || familiar.label === 'C89'){
           addToExile(familiar);
-          pushHistory('exil', `${cardAnchor('C10')} part en EXIL (son hôte ${cardAnchor(hostCard.label)} a été retiré).`);
+          pushHistory('exil', `${cardAnchor(familiar.label)} part en EXIL (son hôte ${cardAnchor(hostCard.label)} a été retiré).`);
         } else {
           discardCard(familiar, originalOwner);
           pushHistory('défausse', `${cardAnchor(familiar.label)} va dans la défausse de son propriétaire (son hôte ${cardAnchor(hostCard.label)} a été retiré).`);
@@ -11941,6 +12122,8 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C75') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC75Prompt(owner, card, el)); }); }
             if (card.label === 'C84') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC84Prompt(owner, card, el)); }); }
             if (card.label === 'C85') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC85Prompt(owner, card, el)); }); }
+            if (card.label === 'C90') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC90Prompt(owner, card, el)); }); }
+            if (card.label === 'C98') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC98Prompt(owner, card, el)); }); }
             if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
             if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
             if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
@@ -12538,6 +12721,11 @@ if (hitAndRunMode) {
     if (hitAndRunMode) { handleHitAndRunSelection(card, owner); return; }
     if (chargeboxTargetMode) { handleChargeboxTargetSelection(card, owner); return; }
     if (peinturlurerMode) { handlePeinturlurerSelection(card); return; }
+    if (varyceTargetMode) { handleVaryceTargetSelection(card, owner); return; }
+    if (copieDesEnfersTargetMode) { handleCopieDesEnfersTargetSelection(card, owner); return; }
+    if (exdoteTargetMode) { handleExdoteTargetSelection(card, owner); return; }
+    if (couveuseStealTargetMode) { handleCouveuseStealTargetSelection(card, owner); return; }
+    if (roiDRoiTargetMode) { handleRoiDRoiTargetSelection(card, owner); return; }
 
     // Cliquer À TOUT MOMENT sur un combattant ADVERSE portant un ou plusieurs
     // familiers ouvre un aperçu rapide — le même prompt que celui déjà
@@ -13054,6 +13242,65 @@ if (card.label === 'C79') {
 // ===================================================================
 
 // ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR COUVEUSE (C94)
+// ===================================================================
+// IMPY (dernier lot) : Couveuse (C94) — JOUER : place 2 Eggrreur (C93)
+// directement dans la zone de combat ADVERSE (dans la limite des
+// emplacements libres, en tenant compte d'Etendardz/Obstructeur).
+if (card.label === 'C94') {
+  const c94Opp = (owner === 'top') ? 'bottom' : 'top';
+  const c94OppLine = getLineByOwner(c94Opp);
+  const c94Max = getMaxCombatantsForOwner(c94Opp);
+  const c94FreeSlots = Math.max(0, c94Max - c94OppLine.length);
+  const c94ToCreate = Math.min(2, c94FreeSlots);
+  if (c94ToCreate > 0) {
+    const c94OppPrefix = (c94Opp === 'top') ? 'T' : 'B';
+    for (let i = 0; i < c94ToCreate; i++) {
+      c94OppLine.push(createCard('C93', c94OppPrefix));
+    }
+    pushHistory('jeu', `${cardAnchor('C94')} place ${c94ToCreate} ${cardAnchor('C93')} dans la zone de combat adverse !`);
+  } else {
+    pushHistory('info', `${cardAnchor('C94')} : la zone de combat adverse est pleine, aucun ${cardAnchor('C93')} n'a pu être créé.`);
+  }
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR COUVEUSE
+// ===================================================================
+
+// ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR ROI-D-ROI (C100)
+// ===================================================================
+// IMPY (dernier lot) : Roi-D-Roi (C100) — JOUER : tous vos diplomates
+// (lui inclus, déjà en jeu à ce stade) gagnent +5 PV.
+if (card.label === 'C100') {
+  const c100Diplomats = getLineByOwner(owner).filter(c => hasTag(c, 'Diplomate'));
+  if (c100Diplomats.length > 0) {
+    c100Diplomats.forEach(d => { d.hp = (d.hp || 0) + 5; playHPHitEffect(d); });
+    pushHistory('pv', `${cardAnchor('C100')} : vos ${c100Diplomats.length} diplomate${c100Diplomats.length>1?'s':''} gagnent +5 PV !`);
+  }
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR ROI-D-ROI
+// ===================================================================
+
+// ===================================================================
+// DÉBUT DE LA LOGIQUE D'ENTRÉE POUR VARYCE (C96)
+// ===================================================================
+// IMPY (dernier lot) : Varyce (C96) — JOUER : redresse (annule l'épuisement
+// de) l'un de vos combattants déjà épuisés ce tour-ci.
+if (card.label === 'C96') {
+  const c96Ready = getLineByOwner(owner).filter(c => exhausted[owner].has(c.id));
+  if (c96Ready.length > 0) {
+    startVaryceTargeting(owner);
+  } else {
+    pushHistory('info', `${cardAnchor('C96')} : aucun combattant épuisé à redresser.`);
+  }
+}
+// ===================================================================
+// FIN DE LA LOGIQUE D'ENTRÉE POUR VARYCE
+// ===================================================================
+
+// ===================================================================
 // DÉBUT DE LA LOGIQUE D'ENTRÉE POUR JACKORN (C86)
 // ===================================================================
 if (card.label === 'C86') {
@@ -13336,7 +13583,12 @@ function getMaxCombatantsForOwner(owner){
   // Chaque exemplaire présent (dupliqué ou volé y compris) accorde +2
   // emplacements, de façon cumulable.
   const etendardzCount = arts.filter(a => a.label === 'C43').length;
-  return MAX_COMBATANTS_PER_ZONE_BASE + etendardzCount * 2;
+  // IMPY (dernier lot) : Obstructeur (C95) — tant qu'il est dans la zone
+  // d'artefact ADVERSE, la capacité d'accueil de la zone de combat de owner
+  // est réduite de 1 par exemplaire (inverse d'Etendardz).
+  const oppArts = (owner === 'top') ? botArts : topArts;
+  const obstructeurCount = oppArts.filter(a => a.label === 'C95').length;
+  return Math.max(1, MAX_COMBATANTS_PER_ZONE_BASE + etendardzCount * 2 - obstructeurCount);
 }
 
 function setupDrops(dropLeft, dropRight, lineArray, who){
@@ -13913,7 +14165,32 @@ function returnSealedToOpponentDeck(card, owner){
   }
 }
 
+// IMPY (dernier lot) : Damnia (C92) — tant qu'elle est dans la zone de
+// combat de son propriétaire, les effets "MORT :" de celui-ci s'activent
+// deux fois. Appliqué aux effets de mort simples (gains de Mithril,
+// destructions/exils immédiats) qui peuvent être rejoués sans risque ;
+// volontairement PAS appliqué aux effets de mort qui lancent un ciblage ou
+// une transformation complexe (Krouzpier, Tokzik, Kryo, Kamykaz, Fou-Ego...)
+// pour ne pas fragiliser les systèmes de ciblage existants.
+function getDamniaMultiplier(owner){
+  const line = getLineByOwner(owner);
+  return line.some(c => c.label === 'C92') ? 2 : 1;
+}
+
 function discardCard(card, owner, reason='other', context = {}){
+  // IMPY (dernier lot) : Copie des Enfers (C90) — si la carte surveillée
+  // meurt (ce tour-ci, la surveillance expirant au tour suivant, voir
+  // startTurn), 2 exemplaires apparaissent directement dans l'Exil.
+  if (reason === 'death' && Array.isArray(copieDesEnfersWatches) && copieDesEnfersWatches.length > 0) {
+    const wIdx = copieDesEnfersWatches.findIndex(w => w.cardId === card.id);
+    if (wIdx !== -1) {
+      copieDesEnfersWatches.splice(wIdx, 1);
+      const ownerPrefix90 = (owner === 'top') ? 'T' : 'B';
+      addToExile(createCard(card.label, ownerPrefix90));
+      addToExile(createCard(card.label, ownerPrefix90));
+      pushHistory('exil', `${cardAnchor('C90')} : ${cardAnchor(card.label)} meurt — 2 exemplaires apparaissent directement dans l'Exil !`);
+    }
+  }
   // KRYLLS (nouveau lot) : Arakcrabe (T15) — elle s'était transformée à
   // partir d'Arakcube (C37) pour aller s'attacher à un combattant ; dès
   // qu'elle quitte le jeu pour rejoindre une défausse, quelle qu'en soit la
@@ -13984,20 +14261,33 @@ function discardCard(card, owner, reason='other', context = {}){
   }
 
   // WADOO : Dégourat (C214) — MORT : l'adversaire défausse la carte du dessous de son deck
+  // (doublé par Damnia si son propriétaire la contrôle).
   if (card.label === 'C214' && reason === 'death') {
     const opp = (owner === 'top') ? 'bottom' : 'top';
-    forceDiscardFromDeckBottom(opp, 1, 'C214');
+    forceDiscardFromDeckBottom(opp, 1 * getDamniaMultiplier(owner), 'C214');
   }
 
   // WADOO 3e lot : Bukaku (C223) — MORT : crée deux exemplaires de l'artefact
-  // Qasar (C224) directement en jeu, dans la zone d'Artefacts de son propriétaire.
+  // Qasar (C224) directement en jeu, dans la zone d'Artefacts de son propriétaire
+  // (doublé par Damnia si son propriétaire la contrôle : 4 exemplaires).
   if (card.label === 'C223' && reason === 'death') {
     const ownerArts = (owner === 'top') ? topArts : botArts;
     const ownerPrefix = (owner === 'top') ? 'T' : 'B';
-    for (let i = 0; i < 2; i++) {
+    const qty223 = 2 * getDamniaMultiplier(owner);
+    for (let i = 0; i < qty223; i++) {
       ownerArts.push(createCard('C224', ownerPrefix));
     }
-    pushHistory('artefact', `${cardAnchor('C223')} meurt et fait apparaître 2 exemplaires de ${cardAnchor('C224')} !`);
+    pushHistory('artefact', `${cardAnchor('C223')} meurt et fait apparaître ${qty223} exemplaires de ${cardAnchor('C224')} !`);
+  }
+
+  // IMPY (dernier lot) : Eggrreur (C93) — MORT : gagnez +2 Mithril (doublé
+  // par Damnia si présente).
+  if (card.label === 'C93' && reason === 'death') {
+    const dmg93 = getDamniaMultiplier(owner);
+    const gain93 = 2 * dmg93;
+    for (let i = 0; i < gain93; i++) addMithril(owner);
+    updateMithril();
+    pushHistory('mithril', `${cardAnchor('C93')} meurt : +${gain93} Mithril${dmg93>1?` (doublé par ${cardAnchor('C92')})`:''}.`);
   }
 
   // ===================================================================
@@ -14095,15 +14385,20 @@ if (reason === 'manual') {
     }
   }
   // IMPY (nouveau lot) : Soubrsot (C71) — MORT : détruit une A'rms
-  // adverse SI l'Exil contient au moins 10 cartes au moment de sa mort.
+  // adverse SI l'Exil contient au moins 10 cartes au moment de sa mort
+  // (doublé par Damnia si son propriétaire la contrôle : jusqu'à 2 A'rms).
   if (card.label === 'C71' && reason === 'death') {
     if (exilePile.length >= 10) {
       const opp = (owner === 'top') ? 'bottom' : 'top';
-      if (arms[opp] > 0) {
-        arms[opp] = arms[opp] - 1;
+      const destroy71 = getDamniaMultiplier(owner);
+      let destroyed71 = 0;
+      for (let i = 0; i < destroy71; i++) {
+        if (arms[opp] > 0) { arms[opp] = arms[opp] - 1; destroyed71++; }
+      }
+      if (destroyed71 > 0) {
         renderArms();
-        pushHistory('jeu', `${cardAnchor('C71')} : l'Exil contient ${exilePile.length} cartes — une A'rms de
-          ${playerLabel(opp)} est détruite !`);
+        pushHistory('jeu', `${cardAnchor('C71')} : l'Exil contient ${exilePile.length} cartes — ${destroyed71} A'rms de
+          ${playerLabel(opp)} ${destroyed71>1?'sont détruites':'est détruite'} !`);
       } else {
         pushHistory('info', `${cardAnchor('C71')} : ${playerLabel(opp)} n'a aucune A'rms forgée à détruire.`);
       }
@@ -15821,6 +16116,8 @@ function aiForceCancelAllTargetModes(){
     longVoyageFamiliarMode = null; arakcubeTargetMode = null; ozokshiArtifactMode = null;
     kryoTargetMode = null; zyzyHostTargetMode = null; c42TargetMode = null;
     kamykazTargetMode = null; c69TargetMode = null; vilunionTargetMode = null;
+    varyceTargetMode = null; copieDesEnfersTargetMode = null; exdoteTargetMode = null;
+    couveuseStealTargetMode = null; roiDRoiTargetMode = null;
     if (typeof closeActionPrompt === 'function') closeActionPrompt();
     if (typeof clearPoisonedTargetHighlight === 'function') clearPoisonedTargetHighlight();
     pushHistory('info', `L'IA abandonne une action bloquée pour ne pas figer la partie.`);
@@ -16483,6 +16780,54 @@ function startTurn(player){
   // par Pezske (C47) pour alterner un tour sur deux.
   ownerTurnCount[player] = (ownerTurnCount[player] || 0) + 1;
 
+  // IMPY (dernier lot) : Copie des Enfers (C90) — la surveillance "meurt ce
+  // tour-ci" expire dès qu'un nouveau tour commence (le sien ou celui de
+  // l'adversaire), qu'elle se soit déclenchée ou non.
+  copieDesEnfersWatches = [];
+
+  // IMPY (dernier lot) : Sucepince (C88) — au début de CHACUN des tours de
+  // son propriétaire, tant qu'elle est dans sa zone de combat, un effet
+  // aléatoire parmi 3 se déclenche (vol de Mithril / destruction aléatoire /
+  // moulinage adverse). Enveloppé en sécurité comme les autres effets de
+  // début de tour, pour ne jamais bloquer la mise en place du tour.
+  try {
+    const sucepinceCount = getLineByOwner(player).filter(c => c.label === 'C88').length;
+    for (let s = 0; s < sucepinceCount; s++) {
+      const sOpp = (player === 'top') ? 'bottom' : 'top';
+      const roll = Math.floor(Math.random() * 3);
+      if (roll === 0) {
+        const toSteal = Math.min(2, mithril[sOpp] || 0);
+        if (toSteal > 0) {
+          mithril[sOpp] -= toSteal;
+          for (let i = 0; i < toSteal; i++) addMithril(player);
+          updateMithril();
+          pushHistory('mithril', `${cardAnchor('C88')} vole ${toSteal} Mithril à ${playerLabel(sOpp)} !`);
+        } else {
+          pushHistory('info', `${cardAnchor('C88')} : ${playerLabel(sOpp)} n'a aucun Mithril à voler.`);
+        }
+      } else if (roll === 1) {
+        const allCombatants = topLine.concat(botLine);
+        if (allCombatants.length > 0) {
+          const victim = allCombatants[Math.floor(Math.random() * allCombatants.length)];
+          const victimOwner = topLine.includes(victim) ? 'top' : 'bottom';
+          const vLine = getLineByOwner(victimOwner);
+          const vIdx = vLine.findIndex(c => c.id === victim.id);
+          if (vIdx !== -1) {
+            vLine.splice(vIdx, 1);
+            detachFamiliarsOnHost(victim, victimOwner);
+            discardCard(victim, victimOwner, 'death');
+            pushHistory('action', `${cardAnchor('C88')} détruit aléatoirement ${cardAnchor(victim.label)} !`);
+          }
+        } else {
+          pushHistory('info', `${cardAnchor('C88')} : aucun combattant sur le plateau à détruire.`);
+        }
+      } else {
+        // forceDiscardFromDeckBottom annonce déjà elle-même le message d'historique.
+        forceDiscardFromDeckBottom(sOpp, 3, 'C88');
+      }
+    }
+  } catch(err) { console.error('[Sucepince] effet impossible :', err); }
+
   // Minuteur de tour : redémarré à 90s à chaque nouveau tour. Enveloppé pour
   // garantir qu'il ne puisse JAMAIS interrompre le reste de la mise en place
   // du tour, même en cas d'erreur imprévue.
@@ -17024,6 +17369,238 @@ function handleKabbaTargetSelection(targetCard, targetCardOwner){
   transformIntoPudding(kabbaTargetMode.targetOwner, targetCard, kabbaTargetMode.casterOwner);
   kabbaTargetMode = null;
   closeActionPrompt();
+}
+
+// ===================================================================
+// IMPY (dernier lot) : Varyce (C96) — redresser un combattant épuisé
+// ===================================================================
+function startVaryceTargeting(owner){
+  varyceTargetMode = { owner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'varyce-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Varyce</div>
+    <div class="apMsg">Cliquez sur l'un de VOS combattants épuisés pour le redresser.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleVaryceTargetSelection(targetCard, targetCardOwner){
+  if (!varyceTargetMode) return;
+  if (targetCardOwner !== varyceTargetMode.owner) return; // uniquement ses propres combattants
+  if (!exhausted[targetCardOwner].has(targetCard.id)) return; // doit être épuisé
+  exhausted[targetCardOwner].delete(targetCard.id);
+  pushHistory('action', `${cardAnchor('C96')} redresse ${cardAnchor(targetCard.label)} !`);
+  varyceTargetMode = null;
+  closeActionPrompt();
+  fullRender();
+}
+
+// ===================================================================
+// IMPY (dernier lot) : Copie des Enfers (C90) — surveille un combattant ;
+// s'il meurt avant la fin du tour en cours, 2 exemplaires apparaissent
+// directement dans l'Exil (voir aussi le déclenchement dans discardCard,
+// et l'expiration de la surveillance au début de chaque tour).
+// ===================================================================
+let copieDesEnfersWatches = []; // [{cardId}]
+function startCopieDesEnfersTargeting(owner){
+  copieDesEnfersTargetMode = { owner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'copiedesenfers-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Copie des Enfers</div>
+    <div class="apMsg">Cliquez sur le combattant à cibler (n'importe quel camp).</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleCopieDesEnfersTargetSelection(targetCard, targetCardOwner){
+  if (!copieDesEnfersTargetMode) return;
+  copieDesEnfersWatches.push({ cardId: targetCard.id });
+  pushHistory('action', `${cardAnchor('C90')} surveille ${cardAnchor(targetCard.label)} : si elle meurt ce tour-ci, 2 exemplaires apparaîtront directement dans l'Exil.`);
+  copieDesEnfersTargetMode = null;
+  closeActionPrompt();
+  fullRender();
+}
+
+// ===================================================================
+// IMPY (dernier lot) : Exdote (C99) — capacité : donne POISON à un combattant
+// ===================================================================
+function startExdoteTargeting(owner){
+  exdoteTargetMode = { owner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'exdote-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Exdote</div>
+    <div class="apMsg">Cliquez sur le combattant qui recevra <strong>POISON</strong> (n'importe quel camp).</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleExdoteTargetSelection(targetCard, targetCardOwner){
+  if (!exdoteTargetMode) return;
+  if (!Array.isArray(targetCard.addedTags)) targetCard.addedTags = [];
+  if (!targetCard.addedTags.includes('poison')) targetCard.addedTags.push('poison');
+  pushHistory('action', `${cardAnchor('C99')} donne <strong>POISON</strong> à ${cardAnchor(targetCard.label)} !`);
+  exdoteTargetMode = null;
+  closeActionPrompt();
+  fullRender();
+}
+
+// ===================================================================
+// IMPY (dernier lot) : Couveuse (C94) — capacité : prend le contrôle d'un
+// Eggrreur (C93) adverse (uniquement ce combattant précis).
+// ===================================================================
+function startCouveuseStealTargeting(casterOwner){
+  couveuseStealTargetMode = { casterOwner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'couveuse-steal-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Couveuse</div>
+    <div class="apMsg">Cliquez sur un ${cardAnchor('C93')} ADVERSE pour en prendre le contrôle.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleCouveuseStealTargetSelection(targetCard, targetCardOwner){
+  if (!couveuseStealTargetMode) return;
+  const { casterOwner } = couveuseStealTargetMode;
+  if (targetCardOwner === casterOwner) return; // adverse uniquement
+  if (targetCard.label !== 'C93') return; // uniquement un Eggrreur
+  couveuseStealTargetMode = null;
+  closeActionPrompt();
+  const fromLine = getLineByOwner(targetCardOwner);
+  const idx = fromLine.findIndex(c => c.id === targetCard.id);
+  if (idx === -1) { fullRender(); return; }
+  const maxCombatants = getMaxCombatantsForOwner(casterOwner);
+  const toLine = getLineByOwner(casterOwner);
+  if (toLine.length >= maxCombatants) {
+    pushHistory('info', `${cardAnchor('C94')} : votre zone de combat est pleine, impossible de prendre le contrôle de ${cardAnchor('C93')}.`);
+    fullRender();
+    return;
+  }
+  fromLine.splice(idx, 1);
+  toLine.push(targetCard);
+  pushHistory('action', `${cardAnchor('C94')} prend le contrôle d'un ${cardAnchor('C93')} adverse !`);
+  fullRender();
+}
+
+// ===================================================================
+// IMPY (dernier lot) : Roi-D-Roi (C100) — capacité : détruit un diplomate adverse
+// ===================================================================
+function startRoiDRoiTargeting(casterOwner){
+  roiDRoiTargetMode = { casterOwner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'roidroi-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Roi-D-Roi</div>
+    <div class="apMsg">Cliquez sur un diplomate ADVERSE à détruire.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleRoiDRoiTargetSelection(targetCard, targetCardOwner){
+  if (!roiDRoiTargetMode) return;
+  const { casterOwner } = roiDRoiTargetMode;
+  if (targetCardOwner === casterOwner) return; // adverse uniquement
+  if (!hasTag(targetCard, 'Diplomate')) return; // uniquement un diplomate
+  roiDRoiTargetMode = null;
+  closeActionPrompt();
+  const line = getLineByOwner(targetCardOwner);
+  const idx = line.findIndex(c => c.id === targetCard.id);
+  if (idx !== -1) {
+    line.splice(idx, 1);
+    detachFamiliarsOnHost(targetCard, targetCardOwner);
+    discardCard(targetCard, targetCardOwner, 'death');
+    pushHistory('action', `${cardAnchor('C100')} détruit ${cardAnchor(targetCard.label)} !`);
+  }
+  fullRender();
+}
+
+// ===================================================================
+// IMPY (dernier lot) : Fossoyeur (C91) — COMBAT : renvoyer une carte de
+// l'Exil dans sa main (réutilise le même carrousel que Healard/Mezamorph).
+// ===================================================================
+function openFossoyeurExilePicker(owner){
+  if (exilePile.length === 0) {
+    pushHistory('info', `${cardAnchor('C91')} : l'Exil est vide.`);
+    return;
+  }
+  const carousel = document.getElementById('familiarCarousel');
+  const title = document.getElementById('fcoTitle');
+  if (!familiarCarouselOverlay || !carousel || !title) return;
+
+  title.textContent = "Fossoyeur — choisissez une carte à ramener de l'Exil dans votre main";
+  carousel.innerHTML = '';
+  carousel.classList.add('selecting');
+
+  exilePile.forEach(exiledCard => {
+    const thumb = document.createElement('div');
+    thumb.className = 'dthumb';
+    const url = getCardImage(exiledCard.label);
+    if (url) { thumb.style.backgroundImage = `url(${url})`; } else { thumb.textContent = cardName(exiledCard.label); }
+    thumb.title = cardName(exiledCard.label);
+    thumb.addEventListener('mouseenter', () => showZoom(exiledCard.label, exiledCard));
+    thumb.addEventListener('mouseleave', hideZoom);
+    thumb.addEventListener('click', () => {
+      carousel.classList.remove('selecting');
+      hideFamiliarCarousel();
+      resolveFossoyeurChoice(owner, exiledCard);
+    });
+    carousel.appendChild(thumb);
+  });
+
+  familiarCarouselOverlay.style.display = 'flex';
+}
+function resolveFossoyeurChoice(owner, chosenCard){
+  const idx = exilePile.findIndex(c => c.id === chosenCard.id);
+  if (idx === -1) return;
+  exilePile.splice(idx, 1);
+  if (typeof updateExileUI === 'function') updateExileUI();
+  const hand = getHandByOwner(owner);
+  hand.push(chosenCard);
+  pushHistory('action', `${cardAnchor('C91')} ramène ${cardAnchor(chosenCard.label)} de l'Exil dans la main de ${playerLabel(owner)} !`);
+  fullRender();
 }
 
 // REMPLACEZ L'ANCIENNE FONCTION PAR CELLE-CI
