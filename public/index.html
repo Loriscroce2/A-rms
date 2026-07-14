@@ -2749,7 +2749,7 @@ function showZoom(label, card=null){
   const render = () => {
     const safeCard = card || { label };
     attachHP(zoomCard, safeCard);
-    if (safeCard.label === 'C7' || safeCard.label === 'C58' || safeCard.label === 'C112' || safeCard.label === 'C216' || safeCard.label === 'C227' || safeCard.label === 'C212'){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
+    if (safeCard.label === 'C7' || safeCard.label === 'C58' || safeCard.label === 'C112' || safeCard.label === 'C216' || safeCard.label === 'C227' || safeCard.label === 'C212' || safeCard.label === 'C74'){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
     if (safeCard.label === 'C8'){ attachSealedBadge(zoomCard, safeCard); }
     if (safeCard.label === 'C68'){ attachCapturedMithril(zoomCard, safeCard); }
     if (getType(safeCard.label) === 'personnage'){ attachFamiliersZoom(zoomCard, safeCard); }
@@ -4084,14 +4084,20 @@ function attachHP(el, card){
 // NOUVEAU : Affiche le compteur de BUTS pour Flavio VII (C154)
 function attachGoals(el, card) {
   const old = el.querySelector('.goalsWrap'); if (old) old.remove();
-  if (typeof card.goals !== 'number' || card.goals < 0) return;
+  if (card.label !== 'C154') return;
+  // Le compteur est désormais PARTAGÉ entre tous les exemplaires d'un même
+  // propriétaire (voir flavioGoals) — fonctionne aussi bien sur le plateau
+  // qu'en défausse/exil, tant que playOwner est connu.
+  const owner = card.playOwner || ownerOfCardOnBoard(card);
+  if (!owner) return;
+  const goals = flavioGoals[owner] || 0;
 
   const wrap = document.createElement('div');
   wrap.className = 'goalsWrap';
 
   const pip = document.createElement('div');
   pip.className = 'goalPip';
-  pip.textContent = card.goals;
+  pip.textContent = goals;
   wrap.appendChild(pip);
 
   el.appendChild(wrap);
@@ -4252,6 +4258,14 @@ function resetStatsToBaseWhenEnteringBattle(card, owner){
   
   if (card.label === 'C152') {
     card.prismisLinks = [];
+  }
+
+  // IMPY (nouveau lot) : Flavio VII (C154) — marque le propriétaire de façon
+  // fiable et permanente sur la carte elle-même (utile même en défausse/exil,
+  // pour le compteur de buts PARTAGÉ entre tous les exemplaires — voir
+  // flavioGoals, attachGoals et resolveFlavioGoal).
+  if (card.label === 'C154' && owner) {
+    card.playOwner = owner;
   }
 
   // KRYLLS (nouveau lot) : Zock-lee (C46) — le PROCHAIN combattant mis en
@@ -4747,6 +4761,11 @@ let currentDragInfo = null;
 let factionAfkTimer = null;
 let nextCombattantGainsRapide = { top: false, bottom: false };
 let ownerTurnCount = { top: 0, bottom: 0 };
+// IMPY (nouveau lot) : Flavio VII (C154) — TOUS les exemplaires d'un même
+// propriétaire partagent le même nombre de buts, qui reste valide même
+// après la mort d'un exemplaire (consultable en défausse/exil), et reprend
+// exactement où il en était si un Flavio VII revient en jeu.
+let flavioGoals = { top: 0, bottom: 0 };
 
 // ===================================================================
 // STREAMING DE POSITION EN DIRECT — l'adversaire, en ligne, voit en temps
@@ -5620,14 +5639,20 @@ function playActionSororite(owner, actionCard){
   const idx = hand.findIndex(c => c.id === actionCard.id);
   if (idx !== -1) hand.splice(idx, 1);
   discardCard(actionCard, owner, 'action');
-
-  const line = getLineByOwner(owner);
-  const ownerPrefix = (owner === 'top') ? 'T' : 'B';
-  ['T05', 'T06', 'T07'].forEach(tokenLabel => {
-    line.push(createCard(tokenLabel, ownerPrefix));
-  });
-  pushHistory('action', `${cardAnchor('C228')} invoque 3 Cousus dans la zone de combat !`);
   fullRender();
+
+  askLeftRightPlacement('Sororité', `Où placer les 3 Cousus dans votre zone de combat ?`, (side) => {
+    const line = getLineByOwner(owner);
+    const ownerPrefix = (owner === 'top') ? 'T' : 'B';
+    const tokens = ['T05', 'T06', 'T07'].map(tokenLabel => createCard(tokenLabel, ownerPrefix));
+    if (side === 'left') {
+      line.unshift(...tokens);
+    } else {
+      line.push(...tokens);
+    }
+    pushHistory('action', `${cardAnchor('C228')} invoque 3 Cousus dans la zone de combat !`);
+    fullRender();
+  });
 }
 
 // WADOO 5e lot : Tribut Poupesque (C233) — vole 1 Mithril à l'adversaire,
@@ -8672,17 +8697,30 @@ function playActionC75(owner, actionCard){
   const idx = hand.findIndex(c => c.id === actionCard.id);
   if (idx !== -1) hand.splice(idx, 1);
   discardCard(actionCard, owner, 'action');
+  fullRender();
 
   const line = getLineByOwner(owner);
   const maxCombatants = getMaxCombatantsForOwner(owner);
-  let created = 0;
-  while (line.length < maxCombatants) {
-    const corbrax = createCard('C76', owner === 'top' ? 'T' : 'B');
-    line.push(corbrax);
-    created++;
+  const toCreate = Math.max(0, maxCombatants - line.length);
+  if (toCreate === 0) {
+    pushHistory('info', `${cardAnchor('C75')} : zone de combat déjà pleine.`);
+    return;
   }
-  pushHistory('action', `${cardAnchor('C75')} remplit votre zone de combat de ${created} ${cardAnchor('C76')} !`);
-  fullRender();
+
+  askLeftRightPlacement('Horde toxique', `Où placer les ${toCreate} ${cardAnchor('C76')} dans votre zone de combat ?`, (side) => {
+    const freshLine = getLineByOwner(owner);
+    const newTokens = [];
+    for (let i = 0; i < toCreate; i++) {
+      newTokens.push(createCard('C76', owner === 'top' ? 'T' : 'B'));
+    }
+    if (side === 'left') {
+      freshLine.unshift(...newTokens);
+    } else {
+      freshLine.push(...newTokens);
+    }
+    pushHistory('action', `${cardAnchor('C75')} remplit votre zone de combat de ${toCreate} ${cardAnchor('C76')} !`);
+    fullRender();
+  });
 }
 
 // KRYLLS (nouveau lot) : Kamykaz (T16) — MORT : inflige -2 PV à un
@@ -10603,6 +10641,44 @@ function showCombatVersus(payload, onDone){
 
 
 function resolveFight(from, to){
+  // IMPY (nouveau lot) : Fou (T18) — AVANT toute résolution de combat,
+  // inflige -3 PV (en ignorant le Bouclier) au combattant qu'il attaque,
+  // mais SEULEMENT après confirmation explicite de son propriétaire. Une
+  // fois confirmé (ou refusé), le combat classique se résout normalement.
+  if (from.card.label === 'T18' && !from._fouConfirmed) {
+    openButtonsPrompt('Fou', `${cardAnchor('T18')} peut infliger <strong>-3 PV</strong> (en ignorant le Bouclier) à
+      ${cardAnchor(to.card.label)} avant de résoudre le combat. Confirmer ?`, null, [
+      { label: 'Infliger -3 PV', className: 'confirm', onClick: () => {
+        const res = applyDamageWithShield(to.card, 3, true);
+        if (res.hpLost > 0) {
+          onHPDamaged(to.owner, to.card, res.hpLost, 'action');
+          pushHistory('jeu', `${cardAnchor('T18')} ignore le Bouclier et inflige <strong>-3 PV</strong> à
+            ${cardAnchor(to.card.label)} avant le combat !`);
+          broadcastFloatingHitEffect(to.card, res.hpLost);
+        }
+        fullRender();
+        if (getEffectiveHP(to.card) <= 0) {
+          const line = getLineByOwner(to.owner);
+          const lidx = line.findIndex(c => c.id === to.card.id);
+          if (lidx !== -1) {
+            line.splice(lidx, 1);
+            detachFamiliarsOnHost(to.card, to.owner);
+            discardCard(to.card, to.owner, 'death');
+            fullRender();
+          }
+          return; // la cible est morte avant le combat : rien de plus à résoudre
+        }
+        from._fouConfirmed = true;
+        resolveFight(from, to);
+      } },
+      { label: 'Passer, résoudre le combat normalement', className: 'cancel', onClick: () => {
+        from._fouConfirmed = true;
+        resolveFight(from, to);
+      } },
+    ], { nonCancellable: true });
+    return;
+  }
+
   if (warzazathEffect[from.owner]) {
     addMithril(from.owner);
     pushHistory('mithril', `Effet ${cardAnchor('C118')} : +1 Mithril pour l'attaque.`);
@@ -10767,11 +10843,12 @@ function continueResolveFight(from, to){
   // WADOO 5e lot : Rking (C232) — ne perd jamais de PV en combat (ni en
   // attaquant, ni en ripostant). On neutralise les dégâts REÇUS uniquement —
   // ses propres dégâts infligés restent normaux.
-  // IMPY (nouveau lot) : Fou (T18) — COMBAT : inflige +3 PV de dégâts
-  // supplémentaires au combattant qu'il attaque, et ignore totalement son
-  // Bouclier (voir applyDamageWithShield, appelé plus bas avec ignoreShield).
+  // IMPY (nouveau lot) : Fou (T18) ignore totalement le Bouclier de sa
+  // cible pour son attaque normale (voir applyDamageWithShield ci-dessous).
+  // Les -3 PV supplémentaires sont désormais gérés SÉPARÉMENT, AVANT cette
+  // fonction, avec confirmation du joueur (voir resolveFight).
   const isFouAttacking = from.card.label === 'T18';
-  const dmgToDefender = (to.card.label === 'C232') ? 0 : atkA + (isFouAttacking ? 3 : 0);
+  const dmgToDefender = (to.card.label === 'C232') ? 0 : atkA;
   const dmgToAttacker = (from.card.label === 'C232') ? 0 : atkB;
 
   // Snapshot "avant" pour l'animation Versus (avant toute mutation de PV/bouclier)
@@ -10785,10 +10862,6 @@ function continueResolveFight(from, to){
 
   const resTo   = applyDamageWithShield(to.card,   dmgToDefender, isFouAttacking);
   const resFrom = applyDamageWithShield(from.card, dmgToAttacker);
-
-  if (isFouAttacking && resTo.hpLost > 0) {
-    pushHistory('jeu', `${cardAnchor('T18')} ignore le Bouclier et inflige <strong>+3 PV</strong> de dégâts supplémentaires !`);
-  }
 
   if(resTo.hpLost > 0) {
     onHPDamaged(to.owner, to.card, resTo.hpLost, 'combat');
@@ -11943,7 +12016,7 @@ function makeArtifactCard(card, owner){
   }
 
   applyCardFace(el, card);
-  if(card.label==='C7' || card.label === 'C58' || card.label === 'C112' || card.label === 'C216' || card.label === 'C227' || card.label === 'C212') attachCharges(el, card);
+  if(card.label==='C7' || card.label === 'C58' || card.label === 'C112' || card.label === 'C216' || card.label === 'C227' || card.label === 'C212' || card.label === 'C74') attachCharges(el, card);
   if(card.label==='C8') renderRescelleurUnderStack(el, card);
 
   if(artifactExhausted[owner].has(card.id)) el.classList.add('exhausted'); else el.classList.remove('exhausted');
@@ -12874,11 +12947,12 @@ function renderExileCarousel(){
     const url = getCardImage(card.label);
     if (url) {
       loadImage(url)
-        .then(() => { t.style.backgroundImage = `url(${url})`; attachHP(t, card); })
-        .catch(() => { t.textContent = cardName(card.label); attachHP(t, card); });
+        .then(() => { t.style.backgroundImage = `url(${url})`; attachHP(t, card); attachGoals(t, card); })
+        .catch(() => { t.textContent = cardName(card.label); attachHP(t, card); attachGoals(t, card); });
     } else {
       t.textContent = cardName(card.label);
       attachHP(t, card);
+      attachGoals(t, card);
     }
     t.addEventListener('mouseenter', () => showZoom(card.label, card));
     t.addEventListener('mouseleave', hideZoom);
@@ -12947,11 +13021,12 @@ function renderDiscardCarousel(carouselEl, pile){
     const url = getCardImage(card.label);
     if (url) {
       loadImage(url)
-        .then(() => { t.style.backgroundImage = `url(${url})`; attachHP(t, card); })
-        .catch(() => { t.textContent = cardName(card.label); attachHP(t, card); });
+        .then(() => { t.style.backgroundImage = `url(${url})`; attachHP(t, card); attachGoals(t, card); })
+        .catch(() => { t.textContent = cardName(card.label); attachHP(t, card); attachGoals(t, card); });
     } else {
       t.textContent = cardName(card.label);
       attachHP(t, card);
+      attachGoals(t, card);
     }
     t.addEventListener('mouseenter', () => showZoom(card.label, card));
     t.addEventListener('mouseleave', hideZoom);
@@ -13087,13 +13162,22 @@ function discardCard(card, owner, reason='other', context = {}){
   }
   // IMPY (nouveau lot) : Fou-Ego (C78) — MORT : se transforme en deux
   // combattants (Fou et Ego), et disparaît purement et simplement (ni
-  // défausse, ni exil) — les deux jetons rejoignent la même zone de combat.
+  // défausse, ni exil). Le propriétaire choisit SÉPARÉMENT où placer
+  // chacun des deux (Ego d'abord, puis Fou).
   if (card.label === 'C78' && reason === 'death') {
-    const ego = createCard('T17', owner === 'top' ? 'T' : 'B');
-    const fou = createCard('T18', owner === 'top' ? 'T' : 'B');
-    getLineByOwner(owner).push(ego, fou);
     pushHistory('jeu', `${cardAnchor('C78')} se transforme en ${cardAnchor('T17')} et ${cardAnchor('T18')} !`);
-    fullRender();
+    askLeftRightPlacement('Ego', `Où placer ${cardAnchor('T17')} dans votre zone de combat ?`, (egoSide) => {
+      const ego = createCard('T17', owner === 'top' ? 'T' : 'B');
+      const egoLine = getLineByOwner(owner);
+      if (egoSide === 'left') egoLine.unshift(ego); else egoLine.push(ego);
+      fullRender();
+      askLeftRightPlacement('Fou', `Où placer ${cardAnchor('T18')} dans votre zone de combat ?`, (fouSide) => {
+        const fou = createCard('T18', owner === 'top' ? 'T' : 'B');
+        const fouLine = getLineByOwner(owner);
+        if (fouSide === 'left') fouLine.unshift(fou); else fouLine.push(fou);
+        fullRender();
+      });
+    });
     return;
   }
 
@@ -17044,15 +17128,16 @@ function resolveDirectAttack(flavioCard, owner) {
     return;
   }
 
-  // On marque le but
-  flavioCard.goals = (flavioCard.goals || 0) + 1;
-  pushHistory('action', `BUT ! ${cardAnchor(flavioCard.label)} marque ! (Total : ${flavioCard.goals})`);
+  // On marque le but — PARTAGÉ entre tous les exemplaires de Flavio VII de
+  // ce propriétaire, pas seulement celui qui vient d'attaquer.
+  flavioGoals[owner] = (flavioGoals[owner] || 0) + 1;
+  pushHistory('action', `BUT ! ${cardAnchor(flavioCard.label)} marque ! (Total : ${flavioGoals[owner]})`);
 
   // On épuise Flavio
   markAttacked(owner, flavioCard);
 
   // On vérifie si la partie est gagnée
-  if (flavioCard.goals >= 7) {
+  if (flavioGoals[owner] >= 7) {
     endGame(owner, 'flavio'); // Nouvelle raison de victoire
   }
 
@@ -17501,8 +17586,15 @@ if (ONLINE_MODE) {
         $('#vsDrawCardBottom').classList.add('vsSlideIn');
       }, 5100);
 
-      const topCode = drawReveal.top;
-      const botCode = drawReveal.bottom;
+      // Les cartes de tirage suivent EXACTEMENT le même principe que les
+      // avatars plus haut (mySeatForVs/oppSeatForVs) : la carte affichée
+      // dans le même emplacement que MON avatar doit toujours être LA
+      // MIENNE, peu importe si je suis le siège "top" ou "bottom" côté
+      // serveur — sinon carte et avatar pouvaient se retrouver côte à côte
+      // de façon incohérente (ma carte à droite alors que mon avatar est à
+      // gauche, par exemple).
+      const topCode = drawReveal[oppSeatForVs];
+      const botCode = drawReveal[mySeatForVs];
       const topNum = parseInt(topCode, 10);
       const botNum = parseInt(botCode, 10);
 
@@ -17546,8 +17638,9 @@ if (ONLINE_MODE) {
       setTimeout(() => {
         const cardTop = $('#vsDrawCardTop');
         const cardBot = $('#vsDrawCardBottom');
-        const winnerName = (firstSeat === 'top') ? profiles.top.name : profiles.bottom.name;
-        if (firstSeat === 'top') { cardTop.classList.add('vsWinner'); cardBot.classList.add('vsLoser'); }
+        const winnerName = playerLabel(firstSeat);
+        // cardTop = adversaire, cardBot = moi (voir le remappage topCode/botCode ci-dessus)
+        if (firstSeat === oppSeatForVs) { cardTop.classList.add('vsWinner'); cardBot.classList.add('vsLoser'); }
         else { cardBot.classList.add('vsWinner'); cardTop.classList.add('vsLoser'); }
         const titleEl = $('#vsDrawTitle');
         const resultEl = $('#vsDrawResult');
@@ -17557,7 +17650,7 @@ if (ONLINE_MODE) {
 
       setTimeout(() => {
         const subEl = $('#vsDrawSub');
-        const loserName = (compensationSeat === 'top') ? profiles.top.name : profiles.bottom.name;
+        const loserName = playerLabel(compensationSeat);
         if (subEl) { subEl.textContent = `En compensation, ${loserName} reçoit 1 carte supplémentaire dans sa main de départ.`; subEl.classList.add('show'); }
       }, 12800);
     }
