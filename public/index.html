@@ -4378,65 +4378,159 @@ if (ONLINE_MODE) {
   botDeck = shuffle(defaultLabels.map(label => createCard(label, 'B')));
 }
 
-// Génère un deck IA ALÉATOIRE mais VALIDE (3 factions tirées au sort, 12
-// cartes chacune, en respectant les mêmes limites d'exemplaires que la
-// construction de deck normale). Construit uniquement à partir de
-// CARD_TYPES/CARD_TAGS (déjà à jour à chaque nouvelle carte), donc
-// automatiquement compatible avec le futur du jeu sans maintenance ici.
+// ===================================================================
+// DECKBUILDING IA — synergies réelles plutôt qu'un tirage purement aléatoire
+// ===================================================================
+// Cartes connues pour leur impact DIRECT sur le Mithril (gain, vol, capture,
+// réduction du coût de forge, destruction contre Mithril...), toutes
+// factions confondues. Indépendamment du thème retenu pour une faction
+// donnée, l'IA leur accorde un léger bonus de sélection en construction de
+// deck : elle ne doit jamais se retrouver totalement démunie face à la
+// ressource qui décide de la partie (5 A'rms forgées = victoire).
+const AI_MITHRIL_CONTROL_CARDS = ['C27','C31','C68','C74','C108','C109','C118','C160','C166','C202','C203','C208','C213','T03'];
+
+// Paquets de synergie connus : associe un mot-clé secondaire (porté par
+// plusieurs cartes d'une même faction) aux cartes "support" qui combotent
+// vraiment avec ce thème sans forcément porter elles-mêmes le tag — sans
+// cette liste, une IA purement basée sur les tags manquerait ces pièces clés
+// (ex. Vakxzin n'est pas tagué "poison" alors qu'il ne vit que pour détruire
+// des cibles empoisonnées).
+const AI_SYNERGY_SUPPORT_CARDS = {
+  poison: ['C31'],           // Vakxzin détruit un combattant Poison (n'importe quel camp) contre 2 Mithril
+  Esprit: ['C112'],          // Eclesprit ajoute/retire le trait Esprit à volonté
+  provocateur: ['C43'],      // Etendardz agrandit la zone de combat : plus de place pour un mur de Provocateurs
+  poupée: ['C213','C208'],   // Gousset + Autel aux Ossements : renforcent le contrôle du Mithril propre à Wadoo
+  rapide: ['C154'],          // Flavio VII peut frapper directement si la zone adverse est vide — bon complément agressif
+};
+
+// Génère un deck IA ALÉATOIRE mais VALIDE (3 factions, 12 cartes chacune, en
+// respectant les mêmes limites d'exemplaires que la construction de deck
+// normale). Construit uniquement à partir de CARD_TYPES/CARD_TAGS (déjà à
+// jour à chaque nouvelle carte), donc automatiquement compatible avec le
+// futur du jeu. Contrairement à un simple tirage au sort, les 3 factions et
+// le thème de chacune sont choisis pour maximiser une VRAIE cohérence
+// interne (mots-clés partagés, pièces de synergie, présence d'outils de
+// contrôle du Mithril) — le résultat change à chaque partie (le tirage
+// pondéré garde une bonne part d'aléatoire), mais n'est plus livré au
+// hasard complet.
 function generateRandomAIDeck(){
   const allFactions = ['Krylls','Impy','Savage','Chimeria','Wadoo'];
-  const chosenFactions = shuffle(allFactions.slice()).slice(0, 3);
-  const codes = [];
-  chosenFactions.forEach(fac => {
+
+  function poolFor(fac){
     // IMPORTANT : uniquement les cartes 'CXX' (disponibles en booster),
     // jamais les jetons 'TXX' (Larve, Anomaly, Kamykaz...) qui ne
     // s'obtiennent qu'en jeu via l'effet d'une autre carte, jamais par
     // tirage direct.
-    const pool = Object.keys(CARD_TYPES).filter(label =>
+    return Object.keys(CARD_TYPES).filter(label =>
       /^C\d+$/.test(label) && Array.isArray(CARD_TAGS[label]) && CARD_TAGS[label].includes(fac)
     );
-    if (pool.length === 0) return;
+  }
 
-    // Recherche d'une synergie simple : le trait secondaire (poison,
-    // rapide, Esprit, provocateur...) le plus représenté dans cette
-    // faction, pour orienter le tirage vers un thème cohérent plutôt que
-    // purement aléatoire — sans jamais l'imposer strictement (le reste du
-    // deck se remplit normalement, aucun risque de deck dégénéré).
-    const secondaryTagCounts = {};
+  // Pour chaque faction : compte les mots-clés secondaires partagés par ses
+  // cartes — sert à la fois à choisir SES 12 cartes (thème dominant) et à
+  // évaluer si elle synergise bien avec les autres factions candidates.
+  function secondaryTagCounts(fac, pool){
+    const counts = {};
     pool.forEach(label => {
       (CARD_TAGS[label] || []).forEach(tag => {
         if (['personnage','action','artefact','familier',fac].includes(tag)) return;
-        secondaryTagCounts[tag] = (secondaryTagCounts[tag] || 0) + 1;
+        if (!FACTIONS.includes(tag)) counts[tag] = (counts[tag] || 0) + 1;
       });
     });
-    let synergyTag = null, synergyCount = 0;
-    Object.keys(secondaryTagCounts).forEach(tag => {
-      if (secondaryTagCounts[tag] > synergyCount) { synergyTag = tag; synergyCount = secondaryTagCounts[tag]; }
-    });
-    const themedPool = synergyTag ? pool.filter(l => (CARD_TAGS[l]||[]).includes(synergyTag)) : [];
+    return counts;
+  }
 
-    const counts = {};
+  const facPools = {};
+  const facTagCounts = {};
+  allFactions.forEach(fac => { facPools[fac] = poolFor(fac); facTagCounts[fac] = secondaryTagCounts(fac, facPools[fac]); });
+
+  // Score de synergie d'une combinaison de 3 factions : plus deux factions
+  // partagent un même mot-clé fortement représenté chez chacune (poison,
+  // Esprit, rapide, provocateur, poupée...), plus la combinaison marque de
+  // points — un vrai deck "archétype" plutôt que 3 factions sans rapport.
+  function comboScore(combo){
+    let score = 0;
+    for (let i = 0; i < combo.length; i++) {
+      for (let j = i + 1; j < combo.length; j++) {
+        const tagsA = facTagCounts[combo[i]], tagsB = facTagCounts[combo[j]];
+        Object.keys(tagsA).forEach(tag => {
+          if (tagsB[tag]) score += Math.min(tagsA[tag], tagsB[tag]);
+        });
+      }
+    }
+    return score;
+  }
+
+  // Toutes les combinaisons possibles de 3 factions parmi 5 (10 au total).
+  const combos = [];
+  for (let i = 0; i < allFactions.length; i++) {
+    for (let j = i + 1; j < allFactions.length; j++) {
+      for (let k = j + 1; k < allFactions.length; k++) {
+        combos.push([allFactions[i], allFactions[j], allFactions[k]]);
+      }
+    }
+  }
+  combos.forEach(c => { c.score = comboScore(c); });
+
+  // Tirage pondéré parmi les combinaisons (score+1 comme poids, jamais 0) :
+  // les combinaisons les plus synergiques sortent plus souvent, sans jamais
+  // rendre les autres impossibles — le deck IA reste différent à chaque
+  // partie, comme demandé.
+  const totalWeight = combos.reduce((s, c) => s + c.score + 1, 0);
+  let roll = Math.random() * totalWeight;
+  let chosenFactions = combos[combos.length - 1];
+  for (const c of combos) {
+    roll -= (c.score + 1);
+    if (roll <= 0) { chosenFactions = c; break; }
+  }
+
+  const codes = [];
+  chosenFactions.forEach(fac => {
+    const pool = facPools[fac];
+    if (pool.length === 0) return;
+
+    // Retient les DEUX mots-clés secondaires les plus représentés (pas
+    // seulement le premier) : un deck cohérent peut très bien combiner deux
+    // thèmes complémentaires (ex. poison + rapide) plutôt qu'un seul.
+    const counts = facTagCounts[fac];
+    const rankedTags = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 2);
+    const themedPool = pool.filter(l => rankedTags.some(tag => (CARD_TAGS[l] || []).includes(tag)));
+
+    // Pièces de synergie connues pour ces thèmes (même si pas taguées),
+    // + cartes de contrôle du Mithril disponibles dans cette faction : ces
+    // deux groupes reçoivent un bonus de poids pour ne jamais être ignorés.
+    const supportPool = new Set();
+    rankedTags.forEach(tag => (AI_SYNERGY_SUPPORT_CARDS[tag] || []).forEach(l => { if (pool.includes(l)) supportPool.add(l); }));
+    pool.filter(l => AI_MITHRIL_CONTROL_CARDS.includes(l)).forEach(l => supportPool.add(l));
+    const supportList = Array.from(supportPool);
+
+    const cardCounts = {};
     let total = 0;
     let guard = 0;
     while (total < 12 && guard < 3000) {
       guard++;
-      // Tirage pondéré : une carte partageant le thème retenu a nettement
-      // plus de chances d'être choisie qu'une carte hors thème.
+      // Tirage pondéré à 3 niveaux : pièces de synergie/contrôle du Mithril
+      // en priorité, puis le thème dominant, puis le reste de la faction —
+      // sans jamais exclure totalement les cartes hors thème (deck toujours
+      // jouable, jamais dégénéré).
       let label;
-      if (themedPool.length > 0 && Math.random() < 0.6) {
+      const roll2 = Math.random();
+      if (supportList.length > 0 && roll2 < 0.35) {
+        label = supportList[Math.floor(Math.random() * supportList.length)];
+      } else if (themedPool.length > 0 && roll2 < 0.85) {
         label = themedPool[Math.floor(Math.random() * themedPool.length)];
       } else {
         label = pool[Math.floor(Math.random() * pool.length)];
       }
       const maxCopies = (label === 'C214') ? 12 : (label === 'C32') ? 1 : 2;
-      const cur = counts[label] || 0;
+      const cur = cardCounts[label] || 0;
       if (cur < maxCopies) {
-        counts[label] = cur + 1;
+        cardCounts[label] = cur + 1;
         total++;
       }
     }
-    Object.keys(counts).forEach(label => {
-      for (let k = 0; k < counts[label]; k++) codes.push(label);
+    Object.keys(cardCounts).forEach(label => {
+      for (let k = 0; k < cardCounts[label]; k++) codes.push(label);
     });
   });
   return shuffle(codes);
@@ -15482,6 +15576,25 @@ function aiShouldPrioritizeMining(){
   return missing > 0 && missing <= 2 && !forgedThisTurn[AI_SEAT] && (arms[AI_SEAT] || 0) < 5;
 }
 
+// ===================================================================
+// COURSE AU MITHRIL — évalue qui, de l'IA ou de son adversaire, est le
+// plus proche de forger sa prochaine A'rms, pour adapter l'agressivité :
+// en retard, l'IA doit ralentir l'adversaire (tuer ses mineurs, viser ses
+// cartes à fort impact économique) plutôt que jouer des échanges neutres.
+// ===================================================================
+function aiForgeRaceUrgency(){
+  const oppSeat = (AI_SEAT === 'top') ? 'bottom' : 'top';
+  const myMissing = Math.max(0, computeForgeCost(AI_SEAT) - (mithril[AI_SEAT] || 0));
+  const oppMissing = Math.max(0, computeForgeCost(oppSeat) - (mithril[oppSeat] || 0));
+  const oppArms = arms[oppSeat] || 0;
+  // L'adversaire est en position de forcer la victoire (5e A'rms) très
+  // bientôt : c'est le signal le plus urgent de tous, l'IA doit tout faire
+  // pour freiner sa production de Mithril ou son plateau.
+  const oppNearFinalArm = oppArms >= 4 && oppMissing <= 2;
+  const behindInRace = oppMissing < myMissing;
+  return { myMissing, oppMissing, oppNearFinalArm, behindInRace };
+}
+
 function runAITurnStep(){
   if (GAME.over) return;
   if (currentTurn !== AI_SEAT) return; // le tour a changé entre-temps
@@ -15502,11 +15615,25 @@ function runAITurnStep(){
 
     if (aiTryPlayFromHand()) { setTimeout(runAITurnStep, 2200); return; }
 
+    // Artefacts déjà posés : les activer à bon escient (Mithril gratuit,
+    // vol de combattant, destruction de cible empoisonnée...) AVANT de
+    // décider entre miner et attaquer, puisque certains d'entre eux
+    // (Gousset, Autel aux Ossements) influencent directement la décision
+    // qui suit (coût de forge réduit, Mithril supplémentaire déjà en poche).
+    if (aiTryUseArtifacts()) { setTimeout(runAITurnStep, 2200); return; }
+
     // Priorité au Mithril plutôt qu'au combat quand la forge est TRÈS
     // proche (1 ou 2 Mithril manquants) et pas encore réalisée ce tour :
     // terminer une A'rms est alors plus urgent qu'un simple échange de
     // combat — l'IA "estime que cela peut lui faire prendre l'avantage".
-    if (aiShouldPrioritizeMining()) {
+    // Idem, en urgence absolue, si l'ADVERSAIRE est sur le point de forger
+    // sa 5e A'rms (victoire immédiate) : mieux vaut alors frapper son
+    // plateau que continuer de miner tranquillement.
+    const urgency = aiForgeRaceUrgency();
+    if (urgency.oppNearFinalArm) {
+      if (aiTryAttack()) { setTimeout(runAITurnStep, 2200); return; }
+      if (aiTryMine())   { setTimeout(runAITurnStep, 2200); return; }
+    } else if (aiShouldPrioritizeMining()) {
       if (aiTryMine())   { setTimeout(runAITurnStep, 2200); return; }
       if (aiTryAttack()) { setTimeout(runAITurnStep, 2200); return; }
     } else {
@@ -15544,6 +15671,21 @@ function aiResolveAnyOpenPrompt(){
     if (thumbs.length > 0) { thumbs[Math.floor(Math.random()*thumbs.length)].click(); return true; }
   }
 
+  // Un mode de ciblage actif PRIME toujours sur le bouton générique d'une
+  // fenêtre (voir plus bas) : beaucoup de fenêtres de ciblage (Vakxzin,
+  // Arakcube, Chargebox, Eclesprit...) n'affichent qu'un simple bouton
+  // "Annuler" en attendant un clic direct sur une carte du plateau — sans
+  // cette vérification EN PREMIER, le repli générique sur "le premier
+  // bouton trouvé" cliquerait ce bouton Annuler et annulerait l'action à
+  // chaque fois, au lieu de la mener à son terme avec une cible choisie
+  // intelligemment (voir aiChooseSmartTarget).
+  if (typeof isAnyTargetSelectionActive === 'function' && isAnyTargetSelectionActive()) {
+    const smart = aiChooseSmartTarget();
+    if (smart) { smart.click(); return true; }
+    const allCards = Array.from(document.querySelectorAll('.lane .card.placed'));
+    if (allCards.length > 0) { allCards[Math.floor(Math.random()*allCards.length)].click(); return true; }
+  }
+
   const prompts = document.querySelectorAll('.actionPrompt');
   if (prompts.length > 0) {
     const p = prompts[0];
@@ -15564,12 +15706,69 @@ function aiResolveAnyOpenPrompt(){
     if (anyBtn) { anyBtn.click(); return true; }
   }
 
-  if (typeof isAnyTargetSelectionActive === 'function' && isAnyTargetSelectionActive()) {
-    const allCards = Array.from(document.querySelectorAll('.lane .card.placed'));
-    if (allCards.length > 0) { allCards[Math.floor(Math.random()*allCards.length)].click(); return true; }
-  }
-
   return false;
+}
+
+// Choisit une cible RAISONNÉE plutôt qu'au hasard pour n'importe quel mode
+// de ciblage actif (Vakxzin, Arakcube, Chargebox, Eclesprit, et tous les
+// autres effets d'Action de carte à cible unique). S'appuie sur les
+// tableaux de données (topLine/botLine) plutôt que sur le DOM pour décider,
+// puis retrouve l'élément correspondant — ne connaît pas chaque carte dans
+// le détail, mais applique par défaut la règle la plus sûre : viser la
+// cible adverse la plus dangereuse (PV + ATK + potentiel économique).
+function aiChooseSmartTarget(){
+  const oppSeat = (AI_SEAT === 'top') ? 'bottom' : 'top';
+  const entries = [];
+  getLineByOwner(AI_SEAT).forEach(card => entries.push({ owner: AI_SEAT, card }));
+  getLineByOwner(oppSeat).forEach(card => entries.push({ owner: oppSeat, card }));
+  if (entries.length === 0) return null;
+
+  const value = (e) => getEffectiveHP(e.card) + getATK(e.card) * 2 + aiEconomicThreatScore(e.card) * 3;
+  const elFor = (e) => document.querySelector(`.lane .card.placed[data-id="${e.card.id}"]`);
+  const pickBest = (pool, fallback) => {
+    const list = (pool && pool.length) ? pool : (fallback || []);
+    if (!list.length) return null;
+    list.sort((a, b) => value(b) - value(a));
+    return elFor(list[0]);
+  };
+
+  // Vakxzin : ne peut viser qu'un combattant Poison (n'importe quel camp) —
+  // toujours préférer une cible ADVERSE (destruction + Mithril gagné).
+  if (typeof vakxzinTargetMode !== 'undefined' && vakxzinTargetMode) {
+    const poisoned = entries.filter(e => hasTag(e.card, 'poison'));
+    return pickBest(poisoned.filter(e => e.owner === oppSeat), poisoned);
+  }
+  // Arakcube : prend le contrôle d'un combattant ADVERSE — viser le plus
+  // dangereux possible, c'est un vol pur et simple de la zone de combat.
+  if (typeof arakcubeTargetMode !== 'undefined' && arakcubeTargetMode) {
+    return pickBest(entries.filter(e => e.owner === oppSeat));
+  }
+  // Chargebox : recharge +2 charges, alliée ou adverse — autant en profiter
+  // sur SA PROPRE carte la moins chargée plutôt que d'aider l'adversaire.
+  if (typeof chargeboxTargetMode !== 'undefined' && chargeboxTargetMode) {
+    const chargeable = entries.filter(e => typeof CHARGEABLE_CARDS !== 'undefined' && CHARGEABLE_CARDS.includes(e.card.label));
+    const ownChargeable = chargeable.filter(e => e.owner === AI_SEAT).sort((a, b) => (a.card.charges || 0) - (b.card.charges || 0));
+    if (ownChargeable.length) return elFor(ownChargeable[0]);
+    return pickBest(chargeable);
+  }
+  // Eclesprit : "Retirer Esprit" profite à SA PROPRE unité Esprit (elle
+  // pourra alors combattre n'importe qui) ; "Donner Esprit" profite en
+  // l'imposant à la meilleure unité NON-Esprit ADVERSE (l'isole, elle ne
+  // pourra plus être attaquée que par des unités Esprit).
+  if (typeof c112TargetMode !== 'undefined' && c112TargetMode) {
+    if (c112TargetMode.mode === 'remove') {
+      const esprit = entries.filter(e => hasTag(e.card, 'Esprit'));
+      return pickBest(esprit.filter(e => e.owner === AI_SEAT), esprit);
+    }
+    const nonEsprit = entries.filter(e => !hasTag(e.card, 'Esprit'));
+    return pickBest(nonEsprit.filter(e => e.owner === oppSeat), nonEsprit);
+  }
+  // Générique : la plupart des autres ciblages à effet unique (Tokzik, Kryo,
+  // Zyzy, Vilunion, Kamykaz, C42, C69, Kabba, Krouzpier, C59, Venusylva...)
+  // pénalisent leur cible d'une façon ou d'une autre — à défaut de connaître
+  // chacun dans le détail, viser la carte adverse la plus dangereuse reste
+  // le choix par défaut le plus sûr.
+  return pickBest(entries.filter(e => e.owner === oppSeat), entries);
 }
 
 // Simule le dépôt d'une carte de la main de l'IA dans une zone (combat ou
@@ -15713,10 +15912,14 @@ function aiEconomicThreatScore(card){
   // Mine gratuitement (sans jamais perdre de PV) = menace répétable, tour
   // après tour, sans jamais s'affaiblir elle-même.
   if (card.canMineFreely) score += 5;
-  // Cartes à fort impact Mithril connu (liste extensible à mesure que de
-  // nouvelles cartes à forte synergie Mithril sont ajoutées au jeu).
-  const highMithrilImpact = ['C2','C68','C108','C109','C118','C160','C213','T03','C74'];
-  if (highMithrilImpact.includes(card.label)) score += 6;
+  // Cartes à fort impact Mithril connu (même liste que celle utilisée en
+  // construction de deck — voir AI_MITHRIL_CONTROL_CARDS), + C2 qui reste
+  // une menace économique reconnue de longue date sur cette carte précise.
+  if (AI_MITHRIL_CONTROL_CARDS.includes(card.label) || card.label === 'C2') score += 6;
+  // Provocateur : bloque nos attaques sur le reste de la zone de combat
+  // adverse tant qu'il est vivant — un vrai verrou sur le contrôle du
+  // plateau, prioritaire à faire tomber pour libérer nos options.
+  if (hasTag(card, 'provocateur')) score += 4;
   return score;
 }
 
@@ -15748,6 +15951,20 @@ function aiTryAttack(){
   // AVANT une carte robuste mais économiquement inoffensive. Sans kill
   // possible, on tape quand même — de préférence la cible la plus
   // dangereuse — l'IA n'a jamais intérêt à rester passive.
+  //
+  // Course au Mithril : quand l'IA est en retard (l'adversaire forgera
+  // avant elle) ou que l'adversaire approche de sa 5e A'rms, la menace
+  // économique de la cible pèse encore plus lourd — freiner sa production
+  // de Mithril devient prioritaire sur un simple échange de PV.
+  const urgency = aiForgeRaceUrgency();
+  const econWeight = urgency.oppNearFinalArm ? 30 : (urgency.behindInRace ? 22 : 15);
+  // Contrôle de la zone de combat : si notre plateau est déjà plus fourni
+  // que celui de l'adversaire et qu'aucune urgence de Mithril ne presse, on
+  // évite les trades qui nous coûteraient notre attaquant pour rien —
+  // mieux vaut garder la pression numérique plutôt que s'affaiblir en
+  // échanges neutres.
+  const boardControlComfortable = myLine.length > oppLine.length && !urgency.oppNearFinalArm && !urgency.behindInRace;
+
   let best = null;
   attackers.forEach(attacker => {
     const atk = getATK(attacker);
@@ -15765,22 +15982,28 @@ function aiTryAttack(){
       let score;
       if (wouldKill) {
         // Kill assuré : la menace économique pèse plus lourd que l'ATK pur.
-        score = 5000 + econThreat * 15 + targetAtk * 10 - targetHp;
+        score = 5000 + econThreat * (econWeight * 2) + targetAtk * 10 - targetHp;
       } else {
         // Pas de kill : on tape quand même la cible la plus dangereuse
         // (ATK + potentiel économique), en acceptant une légère pénalité
         // si ça nous coûte cher en riposte — sans jamais s'interdire
-        // l'attaque.
+        // l'attaque, sauf si l'on a le luxe de préserver notre contrôle du
+        // plateau (voir boardControlComfortable ci-dessus).
         const riposteDamage = Math.max(0, targetAtk);
         const attackerHp = getEffectiveHP(attacker);
         const wouldDieToRiposte = riposteDamage >= attackerHp;
-        score = econThreat * 15 + targetAtk * 5 - targetHp - (wouldDieToRiposte ? 30 : 0);
+        score = econThreat * econWeight + targetAtk * 5 - targetHp - (wouldDieToRiposte ? 30 : 0);
+        if (boardControlComfortable && wouldDieToRiposte) score -= 40;
       }
       if (!best || score > best.score) best = { attacker, target, score };
     });
   });
 
   if (!best) return false;
+  // Zone de combat confortable et rien d'urgent : mieux vaut ne PAS sacrifier
+  // un attaquant pour un échange clairement défavorable (score négatif) —
+  // on préserve alors le plateau plutôt que d'attaquer à tout prix.
+  if (boardControlComfortable && best.score < 0) return false;
   maybeResolveAttack({ card: best.attacker, owner: AI_SEAT }, { card: best.target, owner: oppSeat });
   return true;
 }
@@ -15812,6 +16035,103 @@ function aiTryMine(){
   const el = document.querySelector(`.lane .card.placed[data-id="${chosen.id}"]`);
   if (!el) return false;
   openMiningPrompt(AI_SEAT, chosen, el);
+  return true;
+}
+
+// ===================================================================
+// UTILISATION DES ARTEFACTS DÉJÀ POSÉS — jusqu'ici totalement ignorée par
+// l'IA (elle ne faisait que les poser depuis sa main, jamais les activer
+// une fois en jeu). Chaque artefact activable connu reçoit une petite règle
+// de bon sens propre à son effet réel ; le reste (effets ambigus, ou dont
+// la valeur dépend trop du contexte pour un jugement fiable) n'est
+// délibérément pas auto-activé plutôt que de risquer un mauvais choix.
+// ===================================================================
+function aiArtifactUsefulnessScore(card){
+  const oppSeat = (AI_SEAT === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(oppSeat);
+  const myLine = getLineByOwner(AI_SEAT);
+  const urgency = aiForgeRaceUrgency();
+
+  switch (card.label) {
+    // WADOO — Autel aux Ossements : +1 Mithril gratuit + mille 1 carte du
+    // deck adverse. Aucun inconvénient, toujours bon pour le contrôle du
+    // Mithril : priorité élevée et constante.
+    case 'C208': return 90;
+
+    // KRYLLS — Mine E.M.I : usage unique (elle est défaussée), rapporte 1
+    // Mithril par combattant adverse actuellement protégé par du Bouclier.
+    // Ne vaut le coup que s'il y a au moins une cible.
+    case 'C27': {
+      const shielded = oppLine.filter(c => ((c.shield||0) + (c.tempShield||0)) > 0).length;
+      return shielded > 0 ? 60 + shielded * 10 : -1;
+    }
+
+    // KRYLLS — Vakxzin : détruit un combattant Poison (n'importe quel camp)
+    // contre 2 Mithril pour l'activateur. Ne s'active que s'il existe au
+    // moins une cible empoisonnée sur le plateau (le ciblage intelligent,
+    // voir aiChooseSmartTarget, préfère alors une cible adverse).
+    case 'C31': {
+      const poisoned = myLine.concat(oppLine).filter(c => hasTag(c, 'poison')).length;
+      return poisoned > 0 ? 75 : -1;
+    }
+
+    // KRYLLS — Arakcube : prend le CONTRÔLE d'un combattant adverse — l'un
+    // des meilleurs outils du jeu pour renverser la zone de combat. Priorité
+    // maximale dès qu'une cible existe.
+    case 'C37': return oppLine.length > 0 ? 95 : -1;
+
+    // KRYLLS — Bibliotempz : pioche une carte. Toujours positif mais jamais
+    // urgent — priorité basse, sert surtout de "remplissage" une fois les
+    // décisions plus importantes épuisées ce tour-ci.
+    case 'C39': return 20;
+
+    // SAVAGE — Totemoon : permet à un combattant non-Savage d'agir une
+    // seconde fois ce tour. N'a de valeur que si un tel combattant a déjà
+    // épuisé son action normale et pourrait encore miner ou attaquer utilement.
+    case 'C103': {
+      const eligible = myLine.some(c => !hasTag(c, 'Savage') && hasAttacked(AI_SEAT, c) && !isFrozen(c) && getEffectiveHP(c) > 0);
+      return eligible ? 55 : -1;
+    }
+
+    // WADOO — Gousset : réduit le coût de forge de CE tour uniquement (1
+    // Mithril par Poupée en jeu, minimum 1). Gaspillé si la forge n'a aucune
+    // chance d'avoir lieu ce tour-ci : ne s'active donc que si l'IA est
+    // déjà proche du seuil de forge.
+    case 'C213': {
+      const dollCount = myLine.filter(c => hasTag(c, 'poupée')).length;
+      if (dollCount <= 0) return -1;
+      return urgency.myMissing <= dollCount + 1 ? 85 : -1;
+    }
+
+    // KRYLLS — Rescelleur : scelle la carte du dessus du deck adverse (léger
+    // ralentissement de sa pioche). Toujours légèrement positif, mais bas de
+    // liste — effet mineur et différé.
+    case 'C8': return 15;
+
+    default:
+      // Artefacts au comportement plus ambigu (ex. Miroir Papillon qui
+      // donne une copie à l'ADVERSAIRE, Eclesprit et Chargebox dont la
+      // valeur dépend trop finement du plateau) : on préfère s'abstenir
+      // plutôt que de risquer une activation contre-productive.
+      return -1;
+  }
+}
+
+function aiTryUseArtifacts(){
+  if (isAnyTargetSelectionActive()) return false;
+  const arts = (AI_SEAT === 'top') ? topArts : botArts;
+  const usable = arts.filter(a =>
+    !artifactExhausted[AI_SEAT].has(a.id) &&
+    isCardAllowedThisTurn(AI_SEAT, a) &&
+    aiArtifactUsefulnessScore(a) > 0
+  );
+  if (usable.length === 0) return false;
+
+  usable.sort((a, b) => aiArtifactUsefulnessScore(b) - aiArtifactUsefulnessScore(a));
+  const chosen = usable[0];
+  const el = getArtifactElById(chosen.id);
+  if (!el) return false;
+  el.click();
   return true;
 }
 
