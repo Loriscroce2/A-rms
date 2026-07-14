@@ -15471,6 +15471,17 @@ function maybeStartAITurn(player){
   setTimeout(() => runAITurnStep(), 1800);
 }
 
+// Détermine si le Mithril doit passer AVANT le combat ce tour-ci : c'est
+// le cas quand la forge est à portée immédiate (1 ou 2 Mithril manquants)
+// et n'a pas encore eu lieu ce tour — terminer une A'rms devient alors
+// plus urgent qu'un simple échange de combat.
+function aiShouldPrioritizeMining(){
+  const cost = computeForgeCost(AI_SEAT);
+  const current = mithril[AI_SEAT] || 0;
+  const missing = cost - current;
+  return missing > 0 && missing <= 2 && !forgedThisTurn[AI_SEAT] && (arms[AI_SEAT] || 0) < 5;
+}
+
 function runAITurnStep(){
   if (GAME.over) return;
   if (currentTurn !== AI_SEAT) return; // le tour a changé entre-temps
@@ -15490,8 +15501,18 @@ function runAITurnStep(){
     }
 
     if (aiTryPlayFromHand()) { setTimeout(runAITurnStep, 2200); return; }
-    if (aiTryAttack())       { setTimeout(runAITurnStep, 2200); return; }
-    if (aiTryMine())         { setTimeout(runAITurnStep, 2200); return; }
+
+    // Priorité au Mithril plutôt qu'au combat quand la forge est TRÈS
+    // proche (1 ou 2 Mithril manquants) et pas encore réalisée ce tour :
+    // terminer une A'rms est alors plus urgent qu'un simple échange de
+    // combat — l'IA "estime que cela peut lui faire prendre l'avantage".
+    if (aiShouldPrioritizeMining()) {
+      if (aiTryMine())   { setTimeout(runAITurnStep, 2200); return; }
+      if (aiTryAttack()) { setTimeout(runAITurnStep, 2200); return; }
+    } else {
+      if (aiTryAttack()) { setTimeout(runAITurnStep, 2200); return; }
+      if (aiTryMine())   { setTimeout(runAITurnStep, 2200); return; }
+    }
 
     aiEndTurn();
   } catch(err) {
@@ -15526,8 +15547,21 @@ function aiResolveAnyOpenPrompt(){
   const prompts = document.querySelectorAll('.actionPrompt');
   if (prompts.length > 0) {
     const p = prompts[0];
-    const btn = p.querySelector('button.confirm') || p.querySelector('.apBtn.confirm') || p.querySelector('button');
-    if (btn) { btn.click(); return true; }
+    const confirmBtns = Array.from(p.querySelectorAll('button.confirm:not(.disabled)'))
+      .filter(b => !b.disabled);
+    if (confirmBtns.length > 0) {
+      // Menu combiné Miner/Capacité (Zcyvenger, Khromafayl, Loozoxe...) : le
+      // bouton "Miner" est TOUJOURS listé en premier, la capacité spéciale
+      // ensuite — sans cette préférence, l'IA aurait toujours miné sans
+      // jamais utiliser la moindre capacité. On privilégie donc un bouton
+      // NON "Miner" (une vraie capacité) quand il est disponible.
+      const abilityBtn = confirmBtns.find(b => !/^Miner/i.test((b.textContent || '').trim()));
+      const chosen = abilityBtn || confirmBtns[0];
+      chosen.click();
+      return true;
+    }
+    const anyBtn = p.querySelector('.apBtn.confirm') || p.querySelector('button');
+    if (anyBtn) { anyBtn.click(); return true; }
   }
 
   if (typeof isAnyTargetSelectionActive === 'function' && isAnyTargetSelectionActive()) {
@@ -15543,6 +15577,21 @@ function aiResolveAnyOpenPrompt(){
 // vrai glisser-déposer (currentDragInfo + un événement 'drop' réel sur la
 // zone visée) — toute la logique propre à chaque carte continue de
 // s'appliquer normalement, sans avoir à la dupliquer ici.
+// Simule le dépôt d'une carte de la main de l'IA sur SA PROPRE défausse —
+// réutilise exactement le vrai mécanisme de défausse manuelle (glisser une
+// carte de la faction active vers la zone de défausse), avec les mêmes
+// règles (uniquement les cartes de la faction en cours, jamais les cartes
+// non-défaussables comme Harpess).
+function aiSimulateDiscard(owner, card){
+  const handContainerId = (owner === 'top') ? 'handTop' : 'handBottom';
+  currentDragInfo = { id: card.id, fromId: handContainerId, owner, label: card.label, card: card };
+  const targetEl = document.getElementById(owner === 'top' ? 'dumpTop' : 'dumpBottom');
+  if (targetEl) {
+    targetEl.dispatchEvent(new Event('drop', { bubbles: false, cancelable: true }));
+  }
+  currentDragInfo = null;
+}
+
 function aiSimulateDrop(owner, card, zoneType, side){
   const handContainerId = (owner === 'top') ? 'handTop' : 'handBottom';
   currentDragInfo = { id: card.id, fromId: handContainerId, owner, label: card.label, card: card };
@@ -15631,13 +15680,8 @@ function aiTryPlayFromHand(){
       if (!progressed) {
         aiCardFailStreak[chosen.label] = (aiCardFailStreak[chosen.label] || 0) + 1;
         if (aiCardFailStreak[chosen.label] >= 2) {
-          const idx = hand.findIndex(c => c.id === chosen.id);
-          if (idx !== -1) {
-            hand.splice(idx, 1);
-            discardCard(chosen, AI_SEAT, 'other');
-            pushHistory('info', `${cardAnchor(chosen.label)} : jugée inutilisable pour le moment, l'IA s'en défausse volontairement.`);
-            fullRender();
-          }
+          aiSimulateDiscard(AI_SEAT, chosen);
+          pushHistory('info', `${cardAnchor(chosen.label)} : jugée inutilisable pour le moment, l'IA s'en défausse volontairement.`);
         }
       } else {
         aiCardFailStreak[chosen.label] = 0;
@@ -15657,6 +15701,23 @@ function aiCanAttackWith(card, owner){
   if (isFrozen(card)) return false;
   if (!canUnitActThisTurn(owner, card)) return false;
   return true;
+}
+
+// Évalue le potentiel ÉCONOMIQUE d'un combattant adverse — pas seulement
+// ses PV/ATK bruts, mais sa capacité à faire progresser l'adversaire vers
+// la victoire (Mithril, forge). Une carte faible en PV mais qui génère
+// beaucoup de Mithril représente une menace bien plus urgente qu'une carte
+// robuste mais économiquement inoffensive.
+function aiEconomicThreatScore(card){
+  let score = 0;
+  // Mine gratuitement (sans jamais perdre de PV) = menace répétable, tour
+  // après tour, sans jamais s'affaiblir elle-même.
+  if (card.canMineFreely) score += 5;
+  // Cartes à fort impact Mithril connu (liste extensible à mesure que de
+  // nouvelles cartes à forte synergie Mithril sont ajoutées au jeu).
+  const highMithrilImpact = ['C2','C68','C108','C109','C118','C160','C213','T03','C74'];
+  if (highMithrilImpact.includes(card.label)) score += 6;
+  return score;
 }
 
 function aiTryAttack(){
@@ -15680,10 +15741,13 @@ function aiTryAttack(){
   }
 
   // Priorité forte au combat : un kill vaut toujours mieux que rien, et
-  // parmi les kills, on élimine en priorité la MENACE la plus dangereuse
-  // (le plus d'ATK) plutôt que la cible la plus faible. Sans kill possible,
-  // on tape quand même — de préférence la cible la plus dangereuse pour
-  // réduire les dégâts futurs — l'IA n'a jamais intérêt à rester passive.
+  // parmi les kills, on élimine en priorité la MENACE la plus dangereuse —
+  // en pesant fortement le potentiel ÉCONOMIQUE de la cible (Mithril,
+  // capacité à faire gagner l'adversaire), pas seulement son ATK brut. Une
+  // carte faible en PV mais avec un fort potentiel de Mithril passe donc
+  // AVANT une carte robuste mais économiquement inoffensive. Sans kill
+  // possible, on tape quand même — de préférence la cible la plus
+  // dangereuse — l'IA n'a jamais intérêt à rester passive.
   let best = null;
   attackers.forEach(attacker => {
     const atk = getATK(attacker);
@@ -15696,19 +15760,21 @@ function aiTryAttack(){
       const targetHp = getEffectiveHP(target);
       const targetAtk = getATK(target);
       const wouldKill = atk >= targetHp;
+      const econThreat = aiEconomicThreatScore(target);
 
       let score;
       if (wouldKill) {
-        // Kill assuré : priorise la cible la plus menaçante à éliminer.
-        score = 5000 + targetAtk * 10 - targetHp;
+        // Kill assuré : la menace économique pèse plus lourd que l'ATK pur.
+        score = 5000 + econThreat * 15 + targetAtk * 10 - targetHp;
       } else {
         // Pas de kill : on tape quand même la cible la plus dangereuse
-        // (le plus d'ATK), en acceptant une légère pénalité si ça nous
-        // coûte cher en riposte — mais sans jamais s'interdire l'attaque.
+        // (ATK + potentiel économique), en acceptant une légère pénalité
+        // si ça nous coûte cher en riposte — sans jamais s'interdire
+        // l'attaque.
         const riposteDamage = Math.max(0, targetAtk);
         const attackerHp = getEffectiveHP(attacker);
         const wouldDieToRiposte = riposteDamage >= attackerHp;
-        score = targetAtk * 5 - targetHp - (wouldDieToRiposte ? 30 : 0);
+        score = econThreat * 15 + targetAtk * 5 - targetHp - (wouldDieToRiposte ? 30 : 0);
       }
       if (!best || score > best.score) best = { attacker, target, score };
     });
