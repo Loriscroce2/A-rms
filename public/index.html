@@ -4388,8 +4388,12 @@ function generateRandomAIDeck(){
   const chosenFactions = shuffle(allFactions.slice()).slice(0, 3);
   const codes = [];
   chosenFactions.forEach(fac => {
+    // IMPORTANT : uniquement les cartes 'CXX' (disponibles en booster),
+    // jamais les jetons 'TXX' (Larve, Anomaly, Kamykaz...) qui ne
+    // s'obtiennent qu'en jeu via l'effet d'une autre carte, jamais par
+    // tirage direct.
     const pool = Object.keys(CARD_TYPES).filter(label =>
-      Array.isArray(CARD_TAGS[label]) && CARD_TAGS[label].includes(fac)
+      /^C\d+$/.test(label) && Array.isArray(CARD_TAGS[label]) && CARD_TAGS[label].includes(fac)
     );
     if (pool.length === 0) return;
     const counts = {};
@@ -13908,7 +13912,11 @@ function updateHandsUI(){
   // visibles sur l'écran partagé).
   const hasOraclexTop = topArts.some(a => a.label === 'C72');
   const hasOraclexBottom = botArts.some(a => a.label === 'C72');
-  const topFaceDown = ONLINE_MODE && MY_SEAT !== 'top' && !hasOraclexBottom;
+  // En mode "Contre l'IA", la main du siège IA (toujours 'top') doit
+  // TOUJOURS rester cachée du joueur humain — contrairement au mode local
+  // classique (hotseat, écran partagé), qui montre les deux mains par
+  // convention puisqu'il n'y a qu'un seul joueur humain devant l'écran.
+  const topFaceDown = (VS_AI_MODE || (ONLINE_MODE && MY_SEAT !== 'top')) && !hasOraclexBottom;
   const bottomFaceDown = ONLINE_MODE && MY_SEAT !== 'bottom' && !hasOraclexTop;
   renderHand(document.getElementById('handTop'),   topHand, {faceDown:topFaceDown,  draggable:canDragTop});
   renderHand(document.getElementById('handBottom'),botHand,{faceDown:bottomFaceDown, draggable:canDragBottom});
@@ -15415,12 +15423,19 @@ function processScapooDuplication(player){
 // ===================================================================
 
 let aiTurnActionsThisTurn = 0;
+// Cartes Action déjà tentées ce tour-ci (par id) — évite de retenter en
+// boucle une carte dont l'effet ne peut concrètement rien faire (ex.
+// "Rompre le lien" sans aucun lien de Poupée en jeu) : ce genre de carte
+// reste silencieusement en main sans jamais être vraiment jouée, donc sans
+// cette protection l'IA la retenterait indéfiniment.
+let aiCardsTriedThisTurn = new Set();
 
 function maybeStartAITurn(player){
   if (!VS_AI_MODE || player !== AI_SEAT) return;
   if (GAME.over) return;
   aiTurnActionsThisTurn = 0;
-  setTimeout(() => runAITurnStep(), 900);
+  aiCardsTriedThisTurn = new Set();
+  setTimeout(() => runAITurnStep(), 1800);
 }
 
 function runAITurnStep(){
@@ -15431,7 +15446,7 @@ function runAITurnStep(){
     // 1. Résout en priorité tout prompt/ciblage laissé en attente par
     // l'action précédente (targeting, confirmation, placement...).
     if (aiResolveAnyOpenPrompt()) {
-      setTimeout(runAITurnStep, 750);
+      setTimeout(runAITurnStep, 1600);
       return;
     }
 
@@ -15441,9 +15456,9 @@ function runAITurnStep(){
       return;
     }
 
-    if (aiTryPlayFromHand()) { setTimeout(runAITurnStep, 950); return; }
-    if (aiTryAttack())       { setTimeout(runAITurnStep, 950); return; }
-    if (aiTryMine())         { setTimeout(runAITurnStep, 950); return; }
+    if (aiTryPlayFromHand()) { setTimeout(runAITurnStep, 2200); return; }
+    if (aiTryAttack())       { setTimeout(runAITurnStep, 2200); return; }
+    if (aiTryMine())         { setTimeout(runAITurnStep, 2200); return; }
 
     aiEndTurn();
   } catch(err) {
@@ -15458,7 +15473,7 @@ function aiEndTurn(){
     if (!GAME.over && currentTurn === AI_SEAT && typeof performEndTurn === 'function') {
       performEndTurn();
     }
-  }, 600);
+  }, 1400);
 }
 
 // Résout n'importe quelle fenêtre/ciblage actuellement ouvert, de façon
@@ -15555,9 +15570,13 @@ function aiTryPlayFromHand(){
   // Puis les cartes Action, jouées au hasard parmi celles utilisables
   // maintenant (un clic ouvre normalement leur propre fenêtre de
   // confirmation/ciblage, résolue ensuite par aiResolveAnyOpenPrompt).
-  const actions = hand.filter(c => getType(c.label) === 'action' && canPlayThisCardNow(AI_SEAT, c));
+  // Exclut celles déjà tentées ce tour-ci, pour ne jamais boucler sur une
+  // carte dont l'effet ne peut concrètement rien faire dans la situation
+  // actuelle (elle reste alors simplement en main jusqu'au prochain tour).
+  const actions = hand.filter(c => getType(c.label) === 'action' && canPlayThisCardNow(AI_SEAT, c) && !aiCardsTriedThisTurn.has(c.id));
   if (actions.length > 0) {
     const chosen = actions[Math.floor(Math.random() * actions.length)];
+    aiCardsTriedThisTurn.add(chosen.id);
     if (aiClickHandCard(AI_SEAT, chosen)) return true;
   }
 
@@ -17772,221 +17791,10 @@ logSysInfo("Bienvenue dans A'rms ! Que le meilleur stratège l'emporte. 🍀");
 logSysInfo("<strong>Règle :</strong> un combattant atteignant 0 PV est immédiatement retiré du combat et placé dans la défausse (sauf effet contraire).");
 logSysInfo("<strong>Astuce :</strong> vous avez 90 secondes par tour — le bouton \"Fin de tour\" change de couleur à mesure que le temps s'écoule.");
 
-if (!ONLINE_MODE) { startTurn('bottom'); renderPlayerPanels(); }
-if (TUTORIAL_MODE) { setTimeout(()=> startTutorialCoach(), 900); }
-setTimeout(()=>{ chatPanel.classList.remove('collapsed'); }, 0);
-
-document.getElementById('fcoCloseBtn').addEventListener('click', hideFamiliarCarousel);
-familiarCarouselOverlay.addEventListener('click', (e) => {
-  if (e.target === familiarCarouselOverlay) {
-    hideFamiliarCarousel();
-  }
-});
-
-// NOUVEAU : Gère la résolution de l'attaque directe de Flavio VII
-function resolveDirectAttack(flavioCard, owner) {
-  const opp = (owner === 'top') ? 'bottom' : 'top';
-  const oppLine = getLineByOwner(opp);
-
-  // Double vérification des conditions
-  if (flavioCard.label !== 'C154' || oppLine.length > 0) {
-    console.error("Conditions d'attaque directe non remplies.");
-    return;
-  }
-
-  // On marque le but — PARTAGÉ entre tous les exemplaires de Flavio VII de
-  // ce propriétaire, pas seulement celui qui vient d'attaquer.
-  flavioGoals[owner] = (flavioGoals[owner] || 0) + 1;
-  pushHistory('action', `BUT ! ${cardAnchor(flavioCard.label)} marque ! (Total : ${flavioGoals[owner]})`);
-
-  // On épuise Flavio
-  markAttacked(owner, flavioCard);
-
-  // On vérifie si la partie est gagnée
-  if (flavioGoals[owner] >= 7) {
-    endGame(owner, 'flavio'); // Nouvelle raison de victoire
-  }
-
-  // On rafraîchit l'affichage
-  fullRender();
-}
-
-// NOUVEAU : Affiche la cible d'attaque directe si les conditions sont remplies
-function renderDirectAttackTargets() {
-  // On nettoie les anciennes cibles
-  document.querySelectorAll('.highlight-direct-attack').forEach(el => el.remove());
-
-  // On regarde pour chaque joueur
-  ['top', 'bottom'].forEach(owner => {
-    if (currentTurn !== owner) return; // Ce n'est pas le tour de ce joueur
-
-    const opp = (owner === 'top') ? 'bottom' : 'top';
-    const oppLine = getLineByOwner(opp);
-
-    if (oppLine.length > 0) return; // La ligne adverse n'est pas vide
-
-    const playerLine = getLineByOwner(owner);
-    const flaviosReady = playerLine.filter(c => c.label === 'C154' && !hasAttacked(owner, c) && !isFrozen(c));
-
-    if (flaviosReady.length > 0) {
-      // Si au moins un Flavio peut attaquer et que la ligne adverse est vide, on affiche la cible
-      const oppBattleZone = document.querySelector(opp === 'top' ? '#battleTop .battleInner' : '#battleBottom .battleInner');
-      
-      const targetEl = document.createElement('div');
-      targetEl.className = 'highlight-direct-attack';
-      targetEl.textContent = 'Attaque Directe';
-      targetEl.dataset.owner = opp; // L' "owner" de la cible est l'adversaire
-
-      targetEl.addEventListener('mouseenter', () => {
-        if (aiming && aimFrom && aimFrom.card.label === 'C154') {
-          targetEl.classList.add('enemyTargetHint');
-          hoveredTarget = { type: 'direct', owner: opp, el: targetEl };
-        }
-      });
-      targetEl.addEventListener('mouseleave', () => {
-        targetEl.classList.remove('enemyTargetHint');
-        if (hoveredTarget && hoveredTarget.type === 'direct') {
-          hoveredTarget = null;
-        }
-      });
-
-      oppBattleZone.appendChild(targetEl);
-    }
-  });
-}
-
-/* ===================================================================
-   MODE EN LIGNE — connexion réseau entre les deux joueurs
-   =================================================================== */
-if (ONLINE_MODE) {
-
-  // --- Petit écran "en attente d'adversaire" ---
-  const waitOverlay = document.createElement('div');
-  waitOverlay.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,10,15,.92);color:#e8fdff;font-family:system-ui,sans-serif;flex-direction:column;gap:14px;text-align:center;';
-  waitOverlay.innerHTML = `
-    <div style="font-size:22px;font-weight:800;">En attente de l'adversaire…</div>
-    <div id="waitOverlaySub" style="opacity:.8;">Connexion à la partie</div>
-    <div style="width:42px;height:42px;border:3px solid rgba(125,249,255,.25);border-top-color:#7df9ff;border-radius:50%;animation:waitspin 1s linear infinite;"></div>
-    <button id="fullscreenBtn" style="margin-top:10px;padding:11px 22px;border-radius:999px;background:linear-gradient(180deg,#1de2ff,#07a7bf);
-      color:#012016;font-weight:800;border:1px solid rgba(255,255,255,.35);cursor:pointer;font-size:13.5px;letter-spacing:.02em;">
-      🖥 Passer en plein écran
-    </button>
-    <style>@keyframes waitspin{to{transform:rotate(360deg)}}</style>
-  `;
-  document.body.appendChild(waitOverlay);
-
-  // Plein écran : impossible à déclencher automatiquement (règle de sécurité des
-  // navigateurs, il faut un vrai clic). On propose donc un bouton dédié, ET on
-  // profite du tout premier clic du joueur n'importe où sur la page pour le
-  // proposer aussi, afin que ça arrive le plus naturellement possible.
-  function requestFullscreenSafely(){
-    const el = document.documentElement;
-    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-    if (req && !document.fullscreenElement) {
-      try { const p = req.call(el); if (p && p.catch) p.catch(()=>{}); } catch(e){}
-    }
-  }
-  const fsBtn = document.getElementById('fullscreenBtn');
-  if (fsBtn) fsBtn.addEventListener('click', requestFullscreenSafely);
-  document.addEventListener('click', requestFullscreenSafely, { once: true, capture: true });
-
-  function serializeGameState() {
-    return {
-      currentTurn,
-      topDeck, botDeck, topHand, botHand,
-      topLine, botLine, topArts, botArts,
-      topDiscard, botDiscard, exilePile,
-      famTop, famBottom,
-      mithril: { ...mithril }, arms: { ...arms }, cycles: { ...cycles },
-      activeFaction: { ...activeFaction },
-      nonKryllsAllowance: { ...nonKryllsAllowance },
-      actionBlocked: { ...actionBlocked },
-      exhausted: { top: [...exhausted.top], bottom: [...exhausted.bottom] },
-      artifactExhausted: { top: [...artifactExhausted.top], bottom: [...artifactExhausted.bottom] },
-      forgeTax: { top: forgeTax.top, bottom: forgeTax.bottom },
-      gameOverInfo: window.__gameOverInfo || null,
-    };
-  }
-
-  function replaceContents(arr, newArr) {
-    arr.length = 0;
-    if (Array.isArray(newArr)) arr.push(...newArr);
-  }
-
-  function applyGameState(state) {
-    APPLYING_REMOTE_STATE = true;
-    try {
-      currentTurn = state.currentTurn;
-      topDeck = state.topDeck || []; botDeck = state.botDeck || [];
-      topHand = state.topHand || []; botHand = state.botHand || [];
-      replaceContents(topLine, state.topLine);
-      replaceContents(botLine, state.botLine);
-      replaceContents(topArts, state.topArts);
-      replaceContents(botArts, state.botArts);
-      replaceContents(topDiscard, state.topDiscard);
-      replaceContents(botDiscard, state.botDiscard);
-      replaceContents(exilePile, state.exilePile);
-      replaceContents(famTop, state.famTop);
-      replaceContents(famBottom, state.famBottom);
-      if (state.mithril) Object.assign(mithril, state.mithril);
-      if (state.arms) Object.assign(arms, state.arms);
-      if (state.cycles) Object.assign(cycles, state.cycles);
-      if (state.activeFaction) {
-        // On n'écrase jamais SA PROPRE faction avec une valeur reçue à distance :
-        // c'est un choix personnel, seul le joueur lui-même en est l'autorité.
-        // Sans cette précaution, une synchronisation en retard depuis l'autre
-        // joueur pouvait remettre notre choix à zéro juste après l'avoir fait.
-        const oppSeat = (MY_SEAT === 'top') ? 'bottom' : 'top';
-        activeFaction[oppSeat] = state.activeFaction[oppSeat];
-      }
-      if (state.nonKryllsAllowance) Object.assign(nonKryllsAllowance, state.nonKryllsAllowance);
-      if (state.actionBlocked) Object.assign(actionBlocked, state.actionBlocked);
-      if (state.exhausted) {
-        // Comme pour la faction : on ne laisse jamais une synchro distante
-        // écraser NOTRE PROPRE épuisement (aucun effet de carte n'agit sur
-        // l'épuisement de l'adversaire — seul le joueur lui-même se l'inflige).
-        // Sans ça, une mise à jour en retard pouvait annuler un minage/attaque
-        // qu'on venait tout juste de faire.
-        const oppSeat = (MY_SEAT === 'top') ? 'bottom' : 'top';
-        exhausted[oppSeat] = new Set(state.exhausted[oppSeat] || []);
-      }
-      if (state.artifactExhausted) {
-        artifactExhausted.top = new Set(state.artifactExhausted.top || []);
-        artifactExhausted.bottom = new Set(state.artifactExhausted.bottom || []);
-      }
-      if (state.forgeTax) { forgeTax.top = state.forgeTax.top || []; forgeTax.bottom = state.forgeTax.bottom || []; }
-
-      updateTurnUI();
-      fullRender();
-
-      // Fin de partie reçue de l'adversaire (abandon, etc.) : on la déclenche
-      // aussi de notre côté, via le canal réseau déjà fiable pour tout le reste.
-      if (state.gameOverInfo && !GAME.over) {
-        setTimeout(() => endGame(state.gameOverInfo.winner, state.gameOverInfo.reason), 0);
-      }
-    } finally {
-      APPLYING_REMOTE_STATE = false;
-    }
-  }
-
-  let broadcastTimer = null;
-  function scheduleStateBroadcast() {
-    if (broadcastTimer) clearTimeout(broadcastTimer);
-    // Délai fortement réduit (150ms → 30ms) : diminue la fenêtre pendant laquelle
-    // une mise à jour légèrement en retard venant de l'adversaire pourrait écraser
-    // une action qu'on vient tout juste de faire (ex: minage : Mithril + épuisement).
-    broadcastTimer = setTimeout(() => {
-      broadcastTimer = null;
-      if (window.__socket && window.__socket.connected) {
-        window.__socket.emit('stateSync', { matchId: ONLINE_MATCH_ID, seat: MY_SEAT, state: serializeGameState() });
-      }
-    }, 30);
-  }
-
-  // ===================================================================
-  // Écran "VERSUS" cinématique avant le tout premier affichage du plateau
-  // ===================================================================
-  function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDone) {
+// Déplacée ici (hors du bloc if (ONLINE_MODE)) pour être accessible aussi
+// en mode "Contre l'IA", qui a besoin exactement de la même présentation
+// Versus qu'une vraie partie en ligne.
+function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDone) {
     const style = document.createElement('style');
     style.textContent = `
       #versusIntro{position:fixed;inset:0;z-index:9600;overflow:hidden;font-family:'Manrope',system-ui,sans-serif;background:#020608;}
@@ -18334,6 +18142,273 @@ if (ONLINE_MODE) {
       }, 700);
     }, hasDraw ? 17200 : 5600);
   }
+
+if (VS_AI_MODE) {
+  // Vraie présentation Versus, comme en ligne : pseudo + avatar du joueur
+  // humain contre "IA", tirage de deux cartes au hasard pour déterminer qui
+  // commence, et compensation d'une carte pour celui qui ne commence pas —
+  // exactement les mêmes règles qu'une vraie partie.
+  (async function startAIMatchWithVersusIntro(){
+    let myName = 'Joueur';
+    let myAvatar = '';
+    try {
+      const res = await fetch('/api/me');
+      const data = await res.json();
+      if (res.ok && data.user) {
+        if (data.user.name) myName = data.user.name;
+        if (data.user.avatar) myAvatar = data.user.avatar;
+      }
+    } catch(e){}
+
+    const profiles = {
+      bottom: { name: myName, avatar: myAvatar },
+      top: { name: 'IA', avatar: '' },
+    };
+
+    const pad4 = (n) => String(n).padStart(4, '0');
+    let codeA, codeB;
+    do {
+      codeA = Math.floor(Math.random() * 250) + 1;
+      codeB = Math.floor(Math.random() * 250) + 1;
+    } while (codeA === codeB);
+    const drawReveal = { bottom: pad4(codeA), top: pad4(codeB) };
+    const firstSeat = (codeA > codeB) ? 'bottom' : 'top';
+    const compensationSeat = (firstSeat === 'bottom') ? 'top' : 'bottom';
+
+    window.PLAYER_PROFILES = profiles;
+    if (typeof refreshChatAsSelector === 'function') refreshChatAsSelector();
+
+    const beginGame = () => {
+      // Compensation : 1 carte de plus pour celui qui ne commence pas.
+      if (compensationSeat === 'top' && topDeck.length > 0) topHand.push(topDeck.shift());
+      if (compensationSeat === 'bottom' && botDeck.length > 0) botHand.push(botDeck.shift());
+      updateHandsUI();
+      updateDeckCounters();
+      startTurn(firstSeat);
+      renderPlayerPanels();
+    };
+
+    if (typeof showVersusIntro === 'function') {
+      showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, beginGame);
+    } else {
+      beginGame();
+    }
+  })();
+} else if (!ONLINE_MODE) { startTurn('bottom'); renderPlayerPanels(); }
+if (TUTORIAL_MODE) { setTimeout(()=> startTutorialCoach(), 900); }
+setTimeout(()=>{ chatPanel.classList.remove('collapsed'); }, 0);
+
+document.getElementById('fcoCloseBtn').addEventListener('click', hideFamiliarCarousel);
+familiarCarouselOverlay.addEventListener('click', (e) => {
+  if (e.target === familiarCarouselOverlay) {
+    hideFamiliarCarousel();
+  }
+});
+
+// NOUVEAU : Gère la résolution de l'attaque directe de Flavio VII
+function resolveDirectAttack(flavioCard, owner) {
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+
+  // Double vérification des conditions
+  if (flavioCard.label !== 'C154' || oppLine.length > 0) {
+    console.error("Conditions d'attaque directe non remplies.");
+    return;
+  }
+
+  // On marque le but — PARTAGÉ entre tous les exemplaires de Flavio VII de
+  // ce propriétaire, pas seulement celui qui vient d'attaquer.
+  flavioGoals[owner] = (flavioGoals[owner] || 0) + 1;
+  pushHistory('action', `BUT ! ${cardAnchor(flavioCard.label)} marque ! (Total : ${flavioGoals[owner]})`);
+
+  // On épuise Flavio
+  markAttacked(owner, flavioCard);
+
+  // On vérifie si la partie est gagnée
+  if (flavioGoals[owner] >= 7) {
+    endGame(owner, 'flavio'); // Nouvelle raison de victoire
+  }
+
+  // On rafraîchit l'affichage
+  fullRender();
+}
+
+// NOUVEAU : Affiche la cible d'attaque directe si les conditions sont remplies
+function renderDirectAttackTargets() {
+  // On nettoie les anciennes cibles
+  document.querySelectorAll('.highlight-direct-attack').forEach(el => el.remove());
+
+  // On regarde pour chaque joueur
+  ['top', 'bottom'].forEach(owner => {
+    if (currentTurn !== owner) return; // Ce n'est pas le tour de ce joueur
+
+    const opp = (owner === 'top') ? 'bottom' : 'top';
+    const oppLine = getLineByOwner(opp);
+
+    if (oppLine.length > 0) return; // La ligne adverse n'est pas vide
+
+    const playerLine = getLineByOwner(owner);
+    const flaviosReady = playerLine.filter(c => c.label === 'C154' && !hasAttacked(owner, c) && !isFrozen(c));
+
+    if (flaviosReady.length > 0) {
+      // Si au moins un Flavio peut attaquer et que la ligne adverse est vide, on affiche la cible
+      const oppBattleZone = document.querySelector(opp === 'top' ? '#battleTop .battleInner' : '#battleBottom .battleInner');
+      
+      const targetEl = document.createElement('div');
+      targetEl.className = 'highlight-direct-attack';
+      targetEl.textContent = 'Attaque Directe';
+      targetEl.dataset.owner = opp; // L' "owner" de la cible est l'adversaire
+
+      targetEl.addEventListener('mouseenter', () => {
+        if (aiming && aimFrom && aimFrom.card.label === 'C154') {
+          targetEl.classList.add('enemyTargetHint');
+          hoveredTarget = { type: 'direct', owner: opp, el: targetEl };
+        }
+      });
+      targetEl.addEventListener('mouseleave', () => {
+        targetEl.classList.remove('enemyTargetHint');
+        if (hoveredTarget && hoveredTarget.type === 'direct') {
+          hoveredTarget = null;
+        }
+      });
+
+      oppBattleZone.appendChild(targetEl);
+    }
+  });
+}
+
+/* ===================================================================
+   MODE EN LIGNE — connexion réseau entre les deux joueurs
+   =================================================================== */
+if (ONLINE_MODE) {
+
+  // --- Petit écran "en attente d'adversaire" ---
+  const waitOverlay = document.createElement('div');
+  waitOverlay.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,10,15,.92);color:#e8fdff;font-family:system-ui,sans-serif;flex-direction:column;gap:14px;text-align:center;';
+  waitOverlay.innerHTML = `
+    <div style="font-size:22px;font-weight:800;">En attente de l'adversaire…</div>
+    <div id="waitOverlaySub" style="opacity:.8;">Connexion à la partie</div>
+    <div style="width:42px;height:42px;border:3px solid rgba(125,249,255,.25);border-top-color:#7df9ff;border-radius:50%;animation:waitspin 1s linear infinite;"></div>
+    <button id="fullscreenBtn" style="margin-top:10px;padding:11px 22px;border-radius:999px;background:linear-gradient(180deg,#1de2ff,#07a7bf);
+      color:#012016;font-weight:800;border:1px solid rgba(255,255,255,.35);cursor:pointer;font-size:13.5px;letter-spacing:.02em;">
+      🖥 Passer en plein écran
+    </button>
+    <style>@keyframes waitspin{to{transform:rotate(360deg)}}</style>
+  `;
+  document.body.appendChild(waitOverlay);
+
+  // Plein écran : impossible à déclencher automatiquement (règle de sécurité des
+  // navigateurs, il faut un vrai clic). On propose donc un bouton dédié, ET on
+  // profite du tout premier clic du joueur n'importe où sur la page pour le
+  // proposer aussi, afin que ça arrive le plus naturellement possible.
+  function requestFullscreenSafely(){
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (req && !document.fullscreenElement) {
+      try { const p = req.call(el); if (p && p.catch) p.catch(()=>{}); } catch(e){}
+    }
+  }
+  const fsBtn = document.getElementById('fullscreenBtn');
+  if (fsBtn) fsBtn.addEventListener('click', requestFullscreenSafely);
+  document.addEventListener('click', requestFullscreenSafely, { once: true, capture: true });
+
+  function serializeGameState() {
+    return {
+      currentTurn,
+      topDeck, botDeck, topHand, botHand,
+      topLine, botLine, topArts, botArts,
+      topDiscard, botDiscard, exilePile,
+      famTop, famBottom,
+      mithril: { ...mithril }, arms: { ...arms }, cycles: { ...cycles },
+      activeFaction: { ...activeFaction },
+      nonKryllsAllowance: { ...nonKryllsAllowance },
+      actionBlocked: { ...actionBlocked },
+      exhausted: { top: [...exhausted.top], bottom: [...exhausted.bottom] },
+      artifactExhausted: { top: [...artifactExhausted.top], bottom: [...artifactExhausted.bottom] },
+      forgeTax: { top: forgeTax.top, bottom: forgeTax.bottom },
+      gameOverInfo: window.__gameOverInfo || null,
+    };
+  }
+
+  function replaceContents(arr, newArr) {
+    arr.length = 0;
+    if (Array.isArray(newArr)) arr.push(...newArr);
+  }
+
+  function applyGameState(state) {
+    APPLYING_REMOTE_STATE = true;
+    try {
+      currentTurn = state.currentTurn;
+      topDeck = state.topDeck || []; botDeck = state.botDeck || [];
+      topHand = state.topHand || []; botHand = state.botHand || [];
+      replaceContents(topLine, state.topLine);
+      replaceContents(botLine, state.botLine);
+      replaceContents(topArts, state.topArts);
+      replaceContents(botArts, state.botArts);
+      replaceContents(topDiscard, state.topDiscard);
+      replaceContents(botDiscard, state.botDiscard);
+      replaceContents(exilePile, state.exilePile);
+      replaceContents(famTop, state.famTop);
+      replaceContents(famBottom, state.famBottom);
+      if (state.mithril) Object.assign(mithril, state.mithril);
+      if (state.arms) Object.assign(arms, state.arms);
+      if (state.cycles) Object.assign(cycles, state.cycles);
+      if (state.activeFaction) {
+        // On n'écrase jamais SA PROPRE faction avec une valeur reçue à distance :
+        // c'est un choix personnel, seul le joueur lui-même en est l'autorité.
+        // Sans cette précaution, une synchronisation en retard depuis l'autre
+        // joueur pouvait remettre notre choix à zéro juste après l'avoir fait.
+        const oppSeat = (MY_SEAT === 'top') ? 'bottom' : 'top';
+        activeFaction[oppSeat] = state.activeFaction[oppSeat];
+      }
+      if (state.nonKryllsAllowance) Object.assign(nonKryllsAllowance, state.nonKryllsAllowance);
+      if (state.actionBlocked) Object.assign(actionBlocked, state.actionBlocked);
+      if (state.exhausted) {
+        // Comme pour la faction : on ne laisse jamais une synchro distante
+        // écraser NOTRE PROPRE épuisement (aucun effet de carte n'agit sur
+        // l'épuisement de l'adversaire — seul le joueur lui-même se l'inflige).
+        // Sans ça, une mise à jour en retard pouvait annuler un minage/attaque
+        // qu'on venait tout juste de faire.
+        const oppSeat = (MY_SEAT === 'top') ? 'bottom' : 'top';
+        exhausted[oppSeat] = new Set(state.exhausted[oppSeat] || []);
+      }
+      if (state.artifactExhausted) {
+        artifactExhausted.top = new Set(state.artifactExhausted.top || []);
+        artifactExhausted.bottom = new Set(state.artifactExhausted.bottom || []);
+      }
+      if (state.forgeTax) { forgeTax.top = state.forgeTax.top || []; forgeTax.bottom = state.forgeTax.bottom || []; }
+
+      updateTurnUI();
+      fullRender();
+
+      // Fin de partie reçue de l'adversaire (abandon, etc.) : on la déclenche
+      // aussi de notre côté, via le canal réseau déjà fiable pour tout le reste.
+      if (state.gameOverInfo && !GAME.over) {
+        setTimeout(() => endGame(state.gameOverInfo.winner, state.gameOverInfo.reason), 0);
+      }
+    } finally {
+      APPLYING_REMOTE_STATE = false;
+    }
+  }
+
+  let broadcastTimer = null;
+  function scheduleStateBroadcast() {
+    if (broadcastTimer) clearTimeout(broadcastTimer);
+    // Délai fortement réduit (150ms → 30ms) : diminue la fenêtre pendant laquelle
+    // une mise à jour légèrement en retard venant de l'adversaire pourrait écraser
+    // une action qu'on vient tout juste de faire (ex: minage : Mithril + épuisement).
+    broadcastTimer = setTimeout(() => {
+      broadcastTimer = null;
+      if (window.__socket && window.__socket.connected) {
+        window.__socket.emit('stateSync', { matchId: ONLINE_MATCH_ID, seat: MY_SEAT, state: serializeGameState() });
+      }
+    }, 30);
+  }
+
+  // ===================================================================
+  // Écran "VERSUS" cinématique avant le tout premier affichage du plateau
+  // ===================================================================
+  
 
   function buildInitialStateFromDeckCodes(deckCodes, compensationSeat) {
     // Reconstruit les vrais objets carte à partir des codes reçus du
