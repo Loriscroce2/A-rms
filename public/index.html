@@ -1573,6 +1573,58 @@
     }
     #zoom .provocateurBadge.versLInfiniBadge{ top:96px; }
 
+    /* ===================================================================
+       POISON — encadré verdâtre vivant + coulures qui dégoulinent du haut
+       de la carte, façon toxine qui suinte. Purement visuel (voir
+       attachPoisonEffect) : posé/retiré à chaque rendu selon hasTag(card,
+       'poison'), sans toucher à la logique de jeu du Poison elle-même.
+       =================================================================== */
+    .poisonFx{ position:absolute; inset:0; border-radius:12px; overflow:visible; z-index:9; pointer-events:none; }
+    .poisonFx .poisonGlow{
+      position:absolute; inset:0; border-radius:12px;
+      border:2px solid rgba(90,255,140,.8);
+      box-shadow:0 0 10px rgba(60,255,120,.55), inset 0 0 16px rgba(40,255,110,.4);
+      animation:poisonPulse 1.7s ease-in-out infinite;
+    }
+    @keyframes poisonPulse{
+      0%,100%{ box-shadow:0 0 8px rgba(60,255,120,.45), inset 0 0 10px rgba(40,255,110,.28); border-color:rgba(90,255,140,.6); }
+      50%{ box-shadow:0 0 20px rgba(60,255,120,.95), inset 0 0 22px rgba(40,255,110,.62); border-color:rgba(150,255,190,1); }
+    }
+    .poisonFx .poisonDrip{
+      position:absolute; top:-3px; width:9px; height:0; border-radius:0 0 50% 50%/0 0 70% 70%;
+      background:linear-gradient(180deg, rgba(120,255,150,.98), rgba(20,140,60,.5));
+      box-shadow:0 0 7px rgba(60,255,120,.85), 0 0 2px rgba(220,255,230,.9) inset;
+      animation:poisonDripFall 2.4s ease-in infinite;
+    }
+    .poisonFx .poisonDrip::after{
+      content:''; position:absolute; left:50%; bottom:-3px; width:9px; height:9px; border-radius:50%;
+      background:radial-gradient(circle at 35% 30%, rgba(200,255,215,.95), rgba(40,180,90,.7) 70%);
+      transform:translateX(-50%); box-shadow:0 0 6px rgba(60,255,120,.8);
+    }
+    .poisonFx .poisonDrip.d1{ left:16%; animation-delay:0s; }
+    .poisonFx .poisonDrip.d2{ left:47%; width:7px; animation-delay:.85s; }
+    .poisonFx .poisonDrip.d3{ left:78%; width:11px; animation-delay:1.6s; }
+    @keyframes poisonDripFall{
+      0%{ height:0; top:-2px; opacity:0; }
+      12%{ opacity:1; }
+      55%{ height:34px; opacity:.95; }
+      82%{ height:44px; opacity:.55; top:8px; }
+      100%{ height:44px; opacity:0; top:16px; }
+    }
+    .poisonFx .poisonBadge{
+      position:absolute; left:50%; bottom:-10px; transform:translateX(-50%);
+      background:linear-gradient(180deg, #123f24, #071f10); color:#9dffbb;
+      border:1px solid rgba(130,255,165,.75); border-radius:999px;
+      font-size:10.5px; font-weight:900; letter-spacing:.06em; padding:1px 9px;
+      white-space:nowrap; box-shadow:0 0 9px rgba(60,255,120,.65);
+      text-shadow:0 0 5px rgba(60,255,120,.85);
+    }
+    #zoom .poisonFx .poisonBadge{ font-size:14px; padding:3px 14px; bottom:-16px; border-width:2px; }
+    #zoom .poisonFx .poisonDrip{ width:16px; }
+    #zoom .poisonFx .poisonDrip::after{ width:16px; height:16px; }
+    #zoom .poisonFx .poisonDrip.d2{ width:13px; }
+    #zoom .poisonFx .poisonDrip.d3{ width:19px; }
+
     .chargePip.compact {
       width: 22px; height: 22px; font-size: 11px; font-weight: 900;
       display: flex; align-items: center; justify-content: center;
@@ -2796,6 +2848,7 @@ function showZoom(label, card=null){
     if (getType(safeCard.label) === 'personnage'){ attachFamiliersZoom(zoomCard, safeCard); }
  if (safeCard.label === 'C154'){ attachGoals(zoomCard, safeCard); }
     attachProvocateurBadge(zoomCard, safeCard);
+    attachPoisonEffect(zoomCard, safeCard);
     zoom.style.display = 'flex';
   };
 
@@ -4348,6 +4401,27 @@ function attachVersLInfiniBadge(el, card){
   badge.title = "VERS L'INFINI : à sa mort, ce combattant se transforme en Kamykaz au lieu de mourir normalement.";
   badge.textContent = '♾ INFINI';
   el.appendChild(badge);
+}
+
+// POISON — encadré verdâtre pulsé + coulures qui dégoulinent du haut de la
+// carte, sur tout combattant portant actuellement ce trait (empoisonné par
+// Exdote, Vakxzin, un familier...). Jusqu'ici aucun signal visuel n'existait
+// du tout pour ce mot-clé — purement décoratif, ne change rien à la logique
+// du Poison elle-même (toujours gérée ailleurs via hasTag(card, 'poison')).
+function attachPoisonEffect(el, card){
+  const old = el.querySelector('.poisonFx'); if (old) old.remove();
+  if (!card || getType(card.label) !== 'personnage') return;
+  if (!hasTag(card, 'poison')) return;
+  const fx = document.createElement('div');
+  fx.className = 'poisonFx';
+  fx.innerHTML = `
+    <div class="poisonGlow"></div>
+    <div class="poisonDrip d1"></div>
+    <div class="poisonDrip d2"></div>
+    <div class="poisonDrip d3"></div>
+    <div class="poisonBadge" title="POISON : anéanti instantanément par tout combattant qui le touche en combat.">☠ POISON</div>
+  `;
+  el.appendChild(fx);
 }
 
 function attachCapturedMithril(el, card) {
@@ -12923,6 +12997,9 @@ attachCapturedMithril(el, card);
     attachEspritBadge(el, card);
     // KRYLLS (nouveau lot) : badge Vers l'infini, permanent tant que le combattant est marqué.
     attachVersLInfiniBadge(el, card);
+    // Effet visuel POISON : encadré verdâtre pulsé + coulures, sur tout
+    // combattant portant actuellement ce trait.
+    attachPoisonEffect(el, card);
   };
 
   clearFallbackName(el);
