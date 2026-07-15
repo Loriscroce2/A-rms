@@ -7439,8 +7439,8 @@ function endC231TargetingCleanup() {
 
 // CHIMERIA (dernier lot) : Acrylik (C181) — Capacité (remplace Miner) : au
 // lieu de gagner du Mithril, défausse une carte AU HASARD de la main
-// adverse, puis force son propriétaire à donner une carte (également au
-// hasard) à l'adversaire.
+// adverse (invisible, donc pas de choix possible), puis force son
+// propriétaire à donner une carte DE SON CHOIX à l'adversaire.
 function useAcrylikMining(owner, card) {
   markAttacked(owner, card); // L'utilisation de la capacité compte comme son action
   const opp = (owner === 'top') ? 'bottom' : 'top';
@@ -7453,7 +7453,7 @@ function useAcrylikMining(owner, card) {
   } else {
     pushHistory('info', `${cardAnchor('C181')} : ${playerLabel(opp)} n'a aucune carte en main à défausser.`);
   }
-  forceGiveRandomCardToOpponent(owner, 'C181');
+  requestGiveCardToOpponent(owner, 'C181');
   fullRender();
 }
 
@@ -8734,7 +8734,7 @@ function onHPDamaged(owner, hostCard, hpLost, cause){
   // à son adversaire.
   const hasHypopillon = getFamiliersOnHost(hostCard).some(f => f.label === 'C176' && !isFamiliarEffectSuppressed(hostCard, 'C176'));
   if (hasHypopillon) {
-    forceGiveRandomCardToOpponent(owner, 'C176');
+    requestGiveCardToOpponent(owner, 'C176');
   }
 }
 
@@ -17319,7 +17319,7 @@ function startTurn(player){
 
   // CHIMERIA (dernier lot) : Caisse Folle (C177) — tant qu'elle se trouve
   // dans la main d'un joueur qui n'est PAS son propriétaire d'origine (donc
-  // elle lui a été "donnée", voir forceGiveRandomCardToOpponent), celui-ci
+  // elle lui a été "donnée", voir requestGiveCardToOpponent), celui-ci
   // pioche 2 cartes par A'rms forgées à chacun de ses propres tours.
   try {
     const caisseFolleHere = getHandByOwner(player).filter(c => c.label === 'C177' && trueOwnerOf(c) !== player);
@@ -18939,24 +18939,56 @@ function trueOwnerOf(card) {
 }
 
 // CHIMERIA (dernier lot) : force 'owner' à donner une carte de SA main à son
-// adversaire (choisie aléatoirement, l'action étant subie plutôt que
-// volontaire). Utilisé par Hypopillon (C176, réactif aux dégâts) et Acrylik
-// (C181, capacité MINER). Renvoie la carte donnée, ou null si la main était
-// vide.
-function forceGiveRandomCardToOpponent(owner, sourceLabel) {
+// adversaire — CHOISIE PAR LE JOUEUR (pas au hasard), via une fenêtre listant
+// sa main. Utilisé par Hypopillon (C176, réactif aux dégâts) et Acrylik
+// (C181, capacité MINER). Comme plusieurs déclenchements peuvent survenir
+// dans le même instant (ex. les deux combattants d'un même combat portent
+// chacun Hypopillon), les demandes passent par une file d'attente : une
+// nouvelle fenêtre écraserait sinon silencieusement la précédente
+// (openButtonsPrompt ferme toujours l'éventuelle fenêtre déjà ouverte).
+let giveCardToOpponentQueue = [];
+let giveCardToOpponentBusy = false;
+
+function requestGiveCardToOpponent(owner, sourceLabel) {
+  giveCardToOpponentQueue.push({ owner, sourceLabel });
+  processGiveCardToOpponentQueue();
+}
+
+function processGiveCardToOpponentQueue() {
+  if (giveCardToOpponentBusy) return;
+  if (giveCardToOpponentQueue.length === 0) return;
+  const { owner, sourceLabel } = giveCardToOpponentQueue.shift();
   const hand = getHandByOwner(owner);
   if (hand.length === 0) {
     pushHistory('info', `${cardAnchor(sourceLabel)} : ${playerLabel(owner)} n'a aucune carte à donner à l'adversaire.`);
-    return null;
+    processGiveCardToOpponentQueue();
+    return;
   }
+  giveCardToOpponentBusy = true;
   const opp = (owner === 'top') ? 'bottom' : 'top';
-  const oppHand = getHandByOwner(opp);
-  const idx = Math.floor(Math.random() * hand.length);
-  const card = hand.splice(idx, 1)[0];
-  oppHand.push(card);
-  pushHistory('action', `${cardAnchor(sourceLabel)} force ${playerLabel(owner)} à donner ${cardAnchor(card.label)} à ${playerLabel(opp)} !`);
-  updateHandsUI();
-  return card;
+  const buttons = hand.map((c, idx) => ({
+    label: cardName(c.label),
+    className: '',
+    onClick: () => {
+      const liveHand = getHandByOwner(owner);
+      const realIdx = liveHand.findIndex(x => x.id === c.id);
+      if (realIdx === -1) { giveCardToOpponentBusy = false; processGiveCardToOpponentQueue(); return; }
+      const chosen = liveHand.splice(realIdx, 1)[0];
+      getHandByOwner(opp).push(chosen);
+      pushHistory('action', `${cardAnchor(sourceLabel)} force ${playerLabel(owner)} à donner ${cardAnchor(chosen.label)} à ${playerLabel(opp)} !`);
+      updateHandsUI();
+      fullRender();
+      giveCardToOpponentBusy = false;
+      processGiveCardToOpponentQueue();
+    }
+  }));
+  openButtonsPrompt(
+    'Donner une carte',
+    `${cardAnchor(sourceLabel)} : ${playerLabel(owner)} doit choisir une carte de sa main à donner à l'adversaire.`,
+    document.body,
+    buttons,
+    { nonCancellable: true }
+  );
 }
 
 // CHIMERIA (dernier lot) : pioche 'count' cartes pour 'player', en gérant le
