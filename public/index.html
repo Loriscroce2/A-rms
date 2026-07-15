@@ -3230,6 +3230,21 @@ const CARD_IMAGES = {
  'C173': '../cartes/0173.png',
  'C174': '../cartes/0174.png',
 
+ /* === FACTION CHIMERIA — dernier lot (0175-0187) === */
+ 'C175': '../cartes/0175.png',
+ 'C176': '../cartes/0176.png',
+ 'C177': '../cartes/0177.png',
+ 'C178': '../cartes/0178.png',
+ 'C179': '../cartes/0179.png',
+ 'C180': '../cartes/0180.png',
+ 'C181': '../cartes/0181.png',
+ 'C182': '../cartes/0182.png',
+ 'C183': '../cartes/0183.png',
+ 'C184': '../cartes/0184.png',
+ 'C185': '../cartes/0185.png',
+ 'C186': '../cartes/0186.png',
+ 'C187': '../cartes/0187.png',
+
  /* === FACTION WADOO — 2e lot === */
  'C215': '../cartes/0215.png',
  'C216': '../cartes/0216.png',
@@ -3375,6 +3390,21 @@ const CARD_TYPES  = {
  'C172': 'action',
  'C173': 'personnage',
  'C174': 'artefact',
+
+ /* === FACTION CHIMERIA — dernier lot (0175-0187) === */
+ 'C175': 'personnage',
+ 'C176': 'familier',
+ 'C177': 'artefact',
+ 'C178': 'artefact',
+ 'C179': 'personnage',
+ 'C180': 'personnage',
+ 'C181': 'personnage',
+ 'C182': 'familier',
+ 'C183': 'action',
+ 'C184': 'action',
+ 'C185': 'personnage',
+ 'C186': 'artefact',
+ 'C187': 'familier',
 
  /* === FACTION WADOO — premier lot (10 cartes) === */
  'C201': 'personnage',
@@ -3537,6 +3567,21 @@ const CARD_NAMES = {
  'C172': 'Entraver',
  'C173': 'Freyd',
  'C174': 'Chargbox',
+
+ /* === FACTION CHIMERIA — dernier lot (0175-0187) === */
+ 'C175': 'Eevee',
+ 'C176': 'Hypopillon',
+ 'C177': 'Caisse Folle',
+ 'C178': 'Grenade Sonore',
+ 'C179': 'Sirvantes',
+ 'C180': 'Lutaroth',
+ 'C181': 'Acrylik',
+ 'C182': 'Fungasyte',
+ 'C183': 'Lancer le Refrain',
+ 'C184': 'Insuffler le Rythme',
+ 'C185': 'Ouraboréas',
+ 'C186': 'Funarium',
+ 'C187': 'Blokméria',
 
  /* === FACTION WADOO === */
  'C201': 'Assiba',
@@ -3734,6 +3779,13 @@ const CARD_HP_BASE = {
   'C97': 5,
   'C99': 5,
   'C100': 7,
+
+  /* CHIMERIA — dernier lot (0175-0187) : personnages uniquement. */
+  'C175': 3,
+  'C179': 3,
+  'C180': 6,
+  'C181': 4,
+  'C185': 4,
 };
 
 const CARD_SHIELD_BASE = {
@@ -3785,6 +3837,10 @@ const CARD_SHIELD_BASE = {
   'C96': 1,
   'C97': 1,
   'C100': 2,
+
+  /* CHIMERIA — dernier lot (0175-0187) : uniquement celles avec un Bouclier > 0. */
+  'C175': 1,
+  'C180': 1,
 };
 
 /* Tags */
@@ -3863,6 +3919,21 @@ const CARD_TAGS = {
  'C172': ['action', 'Chimeria'],
  'C173': ['citoyen', 'Chimeria'],
  'C174': ['artefact', 'Chimeria'],
+
+ /* === FACTION CHIMERIA — dernier lot (0175-0187) === */
+ 'C175': ['guerrier', 'Chimeria'],
+ 'C176': ['familier', 'Chimeria'],
+ 'C177': ['artefact', 'Chimeria'],
+ 'C178': ['artefact', 'Chimeria'],
+ 'C179': ['guerrier', 'Chimeria', 'rapide'],
+ 'C180': ['guerrier', 'Chimeria', 'provocateur'],
+ 'C181': ['guerrier', 'Chimeria'],
+ 'C182': ['familier', 'Chimeria'],
+ 'C183': ['action', 'Chimeria'],
+ 'C184': ['action', 'Chimeria'],
+ 'C185': ['guerrier', 'Chimeria'],
+ 'C186': ['artefact', 'Chimeria'],
+ 'C187': ['familier', 'Chimeria'],
 
  /* WADOO */
  'C201': ['citoyen', 'Wadoo'],
@@ -3985,7 +4056,10 @@ function isFrozen(card) {
 
 // AJOUT : Fonction utilitaire pour vérifier si une carte ne peut pas être défaussée
 function isCardUndiscardable(cardLabel) {
-  return cardLabel === 'C156' || cardLabel === 'T01';
+  // CHIMERIA (dernier lot) : Caisse Folle (C177) et Fungasyte (C182) sont
+  // toutes deux explicitement "impossible à défausser manuellement" — elles
+  // ne peuvent quitter la main que via un effet de jeu (les jouer normalement).
+  return cardLabel === 'C156' || cardLabel === 'T01' || cardLabel === 'C177' || cardLabel === 'C182';
 }
 
 function applyFreezeToCard(targetCard) {
@@ -4328,6 +4402,17 @@ function resetStatsToBaseWhenEnteringBattle(card, owner){
     nextCombattantGainsRapide[owner] = false;
     if (!card.addedTags.includes('rapide')) card.addedTags.push('rapide');
     pushHistory('info', `${cardAnchor(card.label)} gagne <strong>RAPIDE</strong> grâce à ${cardAnchor('C46')} !`);
+  }
+
+  // CHIMERIA (dernier lot) : Insuffler le Rythme (C184) — NON consommé
+  // (contrairement à Zock-lee ci-dessus), s'applique à TOUS les combattants
+  // mis en jeu par ce propriétaire jusqu'à la fin du tour (voir startTurn
+  // pour la remise à zéro).
+  if (owner && allCombattantsGainRapideUntilEOT[owner]) {
+    if (!card.addedTags.includes('rapide')) card.addedTags.push('rapide');
+    const bonus = allCombattantsHpBonusUntilEOT[owner] || 0;
+    if (bonus > 0) card.hp = (card.hp || 0) + bonus;
+    pushHistory('info', `${cardAnchor(card.label)} entre en jeu avec <strong>RAPIDE</strong>${bonus > 0 ? ` et +${bonus}PV` : ''} grâce à ${cardAnchor('C184')} !`);
   }
 }
 function cloneCard(card, ownerPrefix){
@@ -4896,6 +4981,21 @@ function isCardAllowedThisTurn(player, cardOrLabel){
 function canPlayThisCardNow(player, card){
   const label = card.label;
 
+  // CHIMERIA (dernier lot) : Blokméria (C187) — tant qu'elle est rattachée à
+  // un combattant, AUCUNE carte du même nom que cet hôte ne peut être jouée
+  // (ni par son propriétaire, ni par l'adversaire).
+  if (getType(label) === 'personnage') {
+    const boardPersonnages = topLine.concat(botLine);
+    const blockedByBlokmeria = boardPersonnages.some(host =>
+      host.label === label &&
+      getFamiliersOnHost(host).some(f => f.label === 'C187' && !isFamiliarEffectSuppressed(host, 'C187'))
+    );
+    if (blockedByBlokmeria) {
+      pushHistory('info', `Impossible de jouer ${cardAnchor(label)} : ${cardAnchor('C187')} bloque toute nouvelle copie tant qu'elle reste rattachée.`);
+      return false;
+    }
+  }
+
   // NOUVELLE CONDITION POUR ENTRAVER (C172)
   if (actionBlocked[player] && getType(label) === 'action') {
     pushHistory('info', `Impossible de jouer ${cardAnchor(label)}, les actions sont bloquées ce tour-ci.`);
@@ -5021,6 +5121,14 @@ function isMyTurnToChoose(owner){
 let currentDragInfo = null;
 let factionAfkTimer = null;
 let nextCombattantGainsRapide = { top: false, bottom: false };
+// CHIMERIA (dernier lot) : Insuffler le Rythme (C184) — "jusqu'à la fin du
+// tour", TOUS les combattants mis en jeu par son propriétaire arrivent avec
+// RAPIDE et un bonus de PV (contrairement à Zock-lee/C46 ci-dessus, qui ne
+// s'applique qu'au PROCHAIN combattant et se consomme aussitôt). Remis à
+// false/0 au tout début de CHAQUE nouveau tour (voir startTurn), quel que
+// soit le joueur concerné.
+let allCombattantsGainRapideUntilEOT = { top: false, bottom: false };
+let allCombattantsHpBonusUntilEOT = { top: 0, bottom: 0 };
 let ownerTurnCount = { top: 0, bottom: 0 };
 // IMPY (nouveau lot) : Flavio VII (C154) — TOUS les exemplaires d'un même
 // propriétaire partagent le même nombre de buts, qui reste valide même
@@ -7103,6 +7211,14 @@ function startAiming(card, owner, fromEl){
     return;
   }
 
+  // CHIMERIA (dernier lot) : tout combattant portant Blokméria (C187) ne
+  // peut ni attaquer, ni miner (voir openMiningPrompt), ni utiliser son
+  // action.
+  if (getFamiliersOnHost(card).some(f => f.label === 'C187' && !isFamiliarEffectSuppressed(card, 'C187'))) {
+    pushHistory('info', `${cardAnchor(card.label)} est bloqué par ${cardAnchor('C187')} : il ne peut ni attaquer, ni miner, ni utiliser son action.`);
+    return;
+  }
+
 // WADOO : Golgoth (C215) est une carte purement défensive, elle ne peut jamais attaquer
 // (seulement miner, ou utiliser son rituel de liaison à l'entrée en jeu).
   if (card.label === 'C215') {
@@ -7318,6 +7434,26 @@ function handleC231TargetSelection(targetCard, targetOwner) {
 function endC231TargetingCleanup() {
   c231TargetMode = null;
   closeActionPrompt();
+  fullRender();
+}
+
+// CHIMERIA (dernier lot) : Acrylik (C181) — Capacité (remplace Miner) : au
+// lieu de gagner du Mithril, défausse une carte AU HASARD de la main
+// adverse, puis force son propriétaire à donner une carte (également au
+// hasard) à l'adversaire.
+function useAcrylikMining(owner, card) {
+  markAttacked(owner, card); // L'utilisation de la capacité compte comme son action
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppHand = getHandByOwner(opp);
+  if (oppHand.length > 0) {
+    const idx = Math.floor(Math.random() * oppHand.length);
+    const discarded = oppHand.splice(idx, 1)[0];
+    discardCard(discarded, opp, 'action');
+    pushHistory('action', `${cardAnchor('C181')} défausse ${cardAnchor(discarded.label)} de la main de ${playerLabel(opp)}.`);
+  } else {
+    pushHistory('info', `${cardAnchor('C181')} : ${playerLabel(opp)} n'a aucune carte en main à défausser.`);
+  }
+  forceGiveRandomCardToOpponent(owner, 'C181');
   fullRender();
 }
 
@@ -7732,6 +7868,13 @@ function openMiningPrompt(owner, card, fromEl){
     return;
   }
 
+  // CHIMERIA (dernier lot) : tout combattant portant Blokméria (C187) ne
+  // peut ni miner, ni utiliser son action (les deux passent par ce menu).
+  if (getFamiliersOnHost(card).some(f => f.label === 'C187' && !isFamiliarEffectSuppressed(card, 'C187'))) {
+    pushHistory('info', `${cardAnchor(card.label)} est bloqué par ${cardAnchor('C187')} : il ne peut ni miner, ni utiliser son action.`);
+    return;
+  }
+
   // KRYLLS (nouveau lot) : Bobyz (C32) — un clic ouvre son Action (créer une
   // Pièce détachée) à la place du minage classique.
   if (card.label === 'C32') {
@@ -7847,6 +7990,17 @@ function openMiningPrompt(owner, card, fromEl){
         className: 'confirm' + (canUseAbility ? '' : ' disabled'),
         disabled: !canUseAbility,
         onClick: () => { if (canUseAbility) startC231Targeting(owner, card); }
+      });
+    } else if (card.label === 'C181') {
+      title = 'Acrylik';
+      // CHIMERIA (dernier lot) : chez Acrylik, l'effet (défausser une carte
+      // de la main adverse + donner une carte à l'adversaire) se déclenche
+      // EN MINANT — même principe que Doolia ci-dessus, un seul bouton
+      // "Miner" à la place du duo Miner/Capacité habituel.
+      buttons.push({
+        label: 'Miner (Défausse adverse + donner une carte)',
+        className: 'confirm',
+        onClick: () => { useAcrylikMining(owner, card); }
       });
     } else if (card.label === 'C120') {
         title = 'Salomon II';
@@ -8573,6 +8727,15 @@ function onHPDamaged(owner, hostCard, hpLost, cause){
     }
     pushHistory('familier', `${cardAnchor('C11')} : pioche 1 carte (dégâts sur ${cardAnchor(hostCard.label)} via ${cause}).`);
   });
+
+  // CHIMERIA (dernier lot) : Hypopillon (C176) — tant qu'il est rattaché à
+  // un combattant, chaque fois que celui-ci subit des dégâts (quelle qu'en
+  // soit la cause), le PROPRIÉTAIRE du combattant hôte doit donner une carte
+  // à son adversaire.
+  const hasHypopillon = getFamiliersOnHost(hostCard).some(f => f.label === 'C176' && !isFamiliarEffectSuppressed(hostCard, 'C176'));
+  if (hasHypopillon) {
+    forceGiveRandomCardToOpponent(owner, 'C176');
+  }
 }
 
 /* --- Reset boucliers --- */
@@ -9514,6 +9677,77 @@ function playActionC98(owner, actionCard){
   } else {
     pushHistory('info', `${cardAnchor('C98')} : aucune carte en double sur le plateau.`);
   }
+  fullRender();
+}
+
+// CHIMERIA (dernier lot) : Lancer le Refrain (C183) — renvoie dans votre
+// défausse toutes les cartes de la défausse ADVERSE qui vous appartenaient
+// initialement en début de partie (typiquement des cartes qui vous ont été
+// "données" via Hypopillon/Acrylik puis ensuite défaussées par l'adversaire
+// via un autre effet).
+function openC183Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  openButtonsPrompt('Lancer le Refrain', `Jouer <strong>Lancer le Refrain</strong> ?<br><small>Effet : récupère dans votre défausse
+    toutes les cartes de la défausse adverse qui vous appartenaient initialement en début de partie.</small>`, anchorEl, [
+    { label: 'Jouer', className: 'confirm', onClick: () => playActionC183(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
+  ]);
+}
+function playActionC183(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  fullRender();
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppDiscard = (opp === 'top') ? topDiscard : botDiscard;
+  const ownDiscard = (owner === 'top') ? topDiscard : botDiscard;
+
+  let reclaimedCount = 0;
+  for (let i = oppDiscard.length - 1; i >= 0; i--) {
+    if (trueOwnerOf(oppDiscard[i]) === owner) {
+      const reclaimed = oppDiscard.splice(i, 1)[0];
+      ownDiscard.push(reclaimed);
+      reclaimedCount++;
+    }
+  }
+
+  if (reclaimedCount > 0) {
+    pushHistory('action', `${cardAnchor('C183')} récupère ${reclaimedCount} carte${reclaimedCount > 1 ? 's' : ''} dans votre défausse.`);
+  } else {
+    pushHistory('info', `${cardAnchor('C183')} : aucune carte à récupérer dans la défausse adverse.`);
+  }
+  updateDiscardUI();
+  fullRender();
+}
+
+// CHIMERIA (dernier lot) : Insuffler le Rythme (C184) — jusqu'à la fin du
+// tour, tous les combattants mis en jeu par son propriétaire entrent avec
+// RAPIDE et +3PV (voir resetStatsToBaseWhenEnteringBattle pour l'application
+// réelle, et startTurn pour la remise à zéro en fin de tour).
+function openC184Prompt(owner, card, anchorEl){
+  if (!canPlayThisCardNow(owner, card)) return;
+  openButtonsPrompt('Insuffler le Rythme', `Jouer <strong>Insuffler le Rythme</strong> ?<br><small>Effet : jusqu'à la fin du tour,
+    tous vos combattants entrent en jeu avec RAPIDE et +3PV.</small>`, anchorEl, [
+    { label: 'Jouer', className: 'confirm', onClick: () => playActionC184(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
+  ]);
+}
+function playActionC184(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  allCombattantsGainRapideUntilEOT[owner] = true;
+  allCombattantsHpBonusUntilEOT[owner] = 3;
+
+  pushHistory('action', `${cardAnchor('C184')} : jusqu'à la fin du tour, tous les combattants de ${playerLabel(owner)} entreront en jeu avec RAPIDE et +3PV !`);
   fullRender();
 }
 
@@ -11717,6 +11951,42 @@ function resolveFight(from, to){
     // FIN DE LA LOGIQUE POUR ZAYUKA
     // ===================================================================
 
+    // ===================================================================
+    // CHIMERIA (dernier lot) : Sirvantes (C179) — COMBAT : gagne +2PB à
+    // chaque fois qu'elle attaque (même principe que Zayuka ci-dessus, mais
+    // sur le Bouclier plutôt que les PV).
+    // ===================================================================
+    if (from.card.label === 'C179') {
+      from.card.shield = (from.card.shield || 0) + 2;
+      pushHistory('jeu', `${cardAnchor('C179')} gagne <strong>+2PB</strong> au combat !`);
+      broadcastStatGainHit(from.card, 2, 'blue');
+      fullRender();
+      setTimeout(() => continueResolveFight(from, to), 650);
+      return;
+    }
+    // ===================================================================
+    // FIN DE LA LOGIQUE POUR SIRVANTES
+    // ===================================================================
+
+    // ===================================================================
+    // CHIMERIA (dernier lot) : Eevee (C175) — COMBAT : à chaque fois
+    // qu'elle attaque, recharge TOUTES les cartes de son propriétaire (sur
+    // le plateau, zones de combat ET d'artefact) qui utilisent le système
+    // de charges, de +1 charge chacune.
+    // ===================================================================
+    if (from.card.label === 'C175') {
+      const eeveeOwner = from.owner;
+      const eeveeBoard = getLineByOwner(eeveeOwner).concat((eeveeOwner === 'top') ? topArts : botArts);
+      const rechargedCards = eeveeBoard.filter(c => typeof c.charges === 'number');
+      rechargedCards.forEach(c => { c.charges += 1; });
+      if (rechargedCards.length > 0) {
+        pushHistory('jeu', `${cardAnchor('C175')} recharge ${rechargedCards.length} carte${rechargedCards.length > 1 ? 's' : ''} à charges de +1 !`);
+      }
+    }
+    // ===================================================================
+    // FIN DE LA LOGIQUE POUR EEVEE
+    // ===================================================================
+
   continueResolveFight(from, to);
 }
 
@@ -11970,6 +12240,19 @@ function continueResolveFight(from, to){
     }
   }
 
+  // CHIMERIA (dernier lot) : Lutaroth (C180) — si elle survit à des dégâts
+  // (peu importe qu'elle attaque ou riposte), son propriétaire gagne +1
+  // Mithril. Vérifié AVANT removeIfDead (qui pourrait sinon la retirer du
+  // plateau avant qu'on ait pu constater sa survie).
+  if (to.card.label === 'C180' && resTo.hpLost > 0 && getEffectiveHP(to.card) > 0) {
+    addMithril(to.owner);
+    pushHistory('mithril', `${cardAnchor('C180')} survit aux dégâts : +1 Mithril !`);
+  }
+  if (from.card.label === 'C180' && resFrom.hpLost > 0 && getEffectiveHP(from.card) > 0) {
+    addMithril(from.owner);
+    pushHistory('mithril', `${cardAnchor('C180')} survit aux dégâts (riposte) : +1 Mithril !`);
+  }
+
   removeIfDead(to.card,   to.owner,   from.card, resTo.hpBefore);
   removeIfDead(from.card, from.owner, to.card,   resFrom.hpBefore);
 
@@ -12204,6 +12487,8 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C85') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC85Prompt(owner, card, el)); }); }
             if (card.label === 'C90') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC90Prompt(owner, card, el)); }); }
             if (card.label === 'C98') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC98Prompt(owner, card, el)); }); }
+            if (card.label === 'C183') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC183Prompt(owner, card, el)); }); }
+            if (card.label === 'C184') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC184Prompt(owner, card, el)); }); }
             if (card.label === 'C153') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLiens(owner, card, el)); }); }
             if (card.label === 'C161') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHitAndRun(owner, card, el)); }); }
             if (card.label === 'C162') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPeinturlurer(owner, card, el)); }); }
@@ -12896,6 +13181,14 @@ if (hitAndRunMode) {
     }
 
     if (getType(draggedCard.label) === 'familier') {
+      // CHIMERIA (dernier lot) : Fungasyte (C182) — ne peut se rattacher
+      // qu'à un combattant ALLIÉ de son propriétaire (contrairement aux
+      // autres familiers, jouables sur n'importe quel camp).
+      if (draggedCard.label === 'C182' && owner !== playingOwner) {
+        el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+        pushHistory('info', `${cardAnchor('C182')} ne peut se rattacher qu'à un combattant allié.`);
+        return;
+      }
       consumeAllowanceIfNeeded(playingOwner, draggedCard);
       const famCard = takeCardFromSource(fromId, draggedCard.id);
       if (famCard) {
@@ -13177,6 +13470,17 @@ if (card.label === 'C39') { // KRYLLS : Bibliotempz
   useBibliotempz(owner, card);
 }
 
+if (card.label === 'C178') { // CHIMERIA (dernier lot) : Grenade Sonore
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C178')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
+  if(artifactExhausted[owner].has(card.id)){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  useGrenadeSonore(owner, card);
+}
+
   });
 
   return el;
@@ -13214,6 +13518,34 @@ function onCharacterEnterBattlefield(card, owner) {
   }
 }
 function onCharacterEnterBattlefield_impl(card, owner) {
+  // CHIMERIA (dernier lot) : Ouraboréas (C185) — JOUER : renvoie en main de
+  // leur propriétaire le combattant le plus à GAUCHE et celui le plus à
+  // DROITE de la zone de combat adverse (s'il n'y en a qu'un seul, il n'est
+  // renvoyé qu'une fois).
+  if (card.label === 'C185') {
+    const ouraboreasOpp = (owner === 'top') ? 'bottom' : 'top';
+    const ouraboreasOppLine = getLineByOwner(ouraboreasOpp);
+    if (ouraboreasOppLine.length === 0) {
+      pushHistory('info', `${cardAnchor('C185')} entre en jeu, mais la zone de combat adverse est vide.`);
+    } else {
+      const leftmost = ouraboreasOppLine[0];
+      const rightmost = ouraboreasOppLine[ouraboreasOppLine.length - 1];
+      const targets = (leftmost.id === rightmost.id) ? [leftmost] : [leftmost, rightmost];
+      targets.forEach(t => {
+        const idx = ouraboreasOppLine.findIndex(c => c.id === t.id);
+        if (idx === -1) return;
+        ouraboreasOppLine.splice(idx, 1);
+        detachFamiliarsOnHost(t, ouraboreasOpp);
+        if (typeof cleanupPrismisLinksOnCardRemoval === 'function') cleanupPrismisLinksOnCardRemoval(t);
+        if (typeof cleanupWadooLinksOnCardRemoval === 'function') cleanupWadooLinksOnCardRemoval(t);
+        if (typeof t.hp === 'number') t.hp = getBaseHP(t.label);
+        t.shield = getBaseShield(t.label);
+        getHandByOwner(ouraboreasOpp).push(t);
+      });
+      pushHistory('jeu', `${cardAnchor('C185')} renvoie ${targets.map(t => cardAnchor(t.label)).join(' et ')} dans la main de ${playerLabel(ouraboreasOpp)} !`);
+    }
+  }
+
   if (card.label === 'C151') {
     const opp = (owner === 'top') ? 'bottom' : 'top';
     const oppHand = getHandByOwner(opp);
@@ -13919,6 +14251,13 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
       if (drop === dropLeft) arr.unshift(card); else arr.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en zone Artefacts (${playerLabel(who)}).`);
       broadcastAndPlaySfx('posecarte');
+
+      // CHIMERIA (dernier lot) : Caisse Folle (C177) — JOUER : piochez 5 cartes.
+      if (card.label === 'C177') {
+        const drawn = drawNFor(who, 5);
+        pushHistory('artefact', `${cardAnchor('C177')} fait piocher ${drawn} carte${drawn > 1 ? 's' : ''} à ${playerLabel(who)}.`);
+      }
+
       fullRender();
     });
   });
@@ -14637,6 +14976,18 @@ function reshuffleDiscardIntoDeck(player){
   incrementCycle(player);
   updateDeckCounters();
   updateDiscardUI();
+
+  // CHIMERIA (dernier lot) : Funarium (C186) — chaque fois que L'ADVERSAIRE
+  // de son propriétaire cycle (recycle sa défausse dans son deck), il
+  // défausse en plus 5 cartes du dessus de son deck fraîchement reconstitué.
+  try {
+    const funariumOwner = (player === 'top') ? 'bottom' : 'top';
+    const funariumOwnerArts = (funariumOwner === 'top') ? topArts : botArts;
+    if (funariumOwnerArts.some(a => a.label === 'C186')) {
+      forceDiscardFromDeckTop(player, 5, 'C186');
+    }
+  } catch(err) { console.error('[Funarium] effet impossible :', err); }
+
   return true;
 }
 
@@ -16879,6 +17230,11 @@ function aiArtifactUsefulnessScore(card){
     // décisions plus importantes épuisées ce tour-ci.
     case 'C39': return 20;
 
+    // CHIMERIA (dernier lot) — Grenade Sonore : mélange la position de la
+    // ligne adverse. Utile surtout pour perturber du Provocateur/ciblage
+    // positionnel ; ne vaut le coup qu'à partir de 2 combattants adverses.
+    case 'C178': return oppLine.length >= 2 ? 25 : -1;
+
     // SAVAGE — Totemoon : permet à un combattant non-Savage d'agir une
     // seconde fois ce tour. N'a de valeur que si un tel combattant a déjà
     // épuisé son action normale et pourrait encore miner ou attaquer utilement.
@@ -16938,6 +17294,47 @@ function startTurn(player){
   // tour-ci" expire dès qu'un nouveau tour commence (le sien ou celui de
   // l'adversaire), qu'elle se soit déclenchée ou non.
   copieDesEnfersWatches = [];
+
+  // CHIMERIA (dernier lot) : Insuffler le Rythme (C184) — le buff "jusqu'à
+  // la fin du tour" expire dès qu'un nouveau tour commence, peu importe le
+  // joueur concerné (le sien ou celui de l'adversaire).
+  allCombattantsGainRapideUntilEOT.top = false;
+  allCombattantsGainRapideUntilEOT.bottom = false;
+  allCombattantsHpBonusUntilEOT.top = 0;
+  allCombattantsHpBonusUntilEOT.bottom = 0;
+
+  // CHIMERIA (dernier lot) : Fungasyte (C182) — tant qu'il est rattaché à un
+  // combattant allié, son propriétaire perd 1 Mithril au début de CHACUN de
+  // ses propres tours (pas ceux de l'adversaire).
+  try {
+    const fungasyteCount = getAllFamiliers().filter(f => f.label === 'C182' && (f.playOwner || player) === player && !isFamiliarEffectSuppressed({ id: f.attachedTo }, 'C182')).length;
+    for (let i = 0; i < fungasyteCount; i++) {
+      if ((mithril[player] || 0) > 0) {
+        mithril[player]--;
+        pushHistory('mithril', `${cardAnchor('C182')} fait perdre 1 Mithril à ${playerLabel(player)}.`);
+        updateMithril();
+      }
+    }
+  } catch(err) { console.error('[Fungasyte] effet impossible :', err); }
+
+  // CHIMERIA (dernier lot) : Caisse Folle (C177) — tant qu'elle se trouve
+  // dans la main d'un joueur qui n'est PAS son propriétaire d'origine (donc
+  // elle lui a été "donnée", voir forceGiveRandomCardToOpponent), celui-ci
+  // pioche 2 cartes par A'rms forgées à chacun de ses propres tours.
+  try {
+    const caisseFolleHere = getHandByOwner(player).filter(c => c.label === 'C177' && trueOwnerOf(c) !== player);
+    if (caisseFolleHere.length > 0) {
+      const perCopy = 2 * (arms[player] || 0);
+      caisseFolleHere.forEach(() => {
+        if (perCopy > 0) {
+          const drawn = drawNFor(player, perCopy);
+          if (drawn > 0) {
+            pushHistory('artefact', `${cardAnchor('C177')} (dans la main de ${playerLabel(player)}) lui fait piocher ${drawn} carte${drawn > 1 ? 's' : ''} (${arms[player]} A'rms forgées).`);
+          }
+        }
+      });
+    }
+  } catch(err) { console.error('[Caisse Folle] effet impossible :', err); }
 
   // IMPY (dernier lot) : Sucepince (C88) — au début de CHACUN des tours de
   // son propriétaire, tant qu'elle est dans sa zone de combat, un effet
@@ -18053,6 +18450,29 @@ function useBibliotempz(owner, card){
   }
 }
 
+// CHIMERIA (dernier lot) : Grenade Sonore (C178) — ACTION : mélange
+// aléatoirement la position de TOUS les combattants adverses dans leur zone
+// de combat (aucune cible à choisir, s'applique à toute la ligne adverse
+// d'un coup).
+function useGrenadeSonore(owner, card) {
+  if (artifactExhausted[owner].has(card.id)) return;
+  exhaustArtifact(owner, card);
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+  if (oppLine.length < 2) {
+    pushHistory('info', `${cardAnchor('C178')} : la zone de combat adverse ne compte pas assez de combattants à mélanger.`);
+    fullRender();
+    return;
+  }
+  for (let i = oppLine.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [oppLine[i], oppLine[j]] = [oppLine[j], oppLine[i]];
+  }
+  pushHistory('artefact', `${cardAnchor('C178')} mélange aléatoirement la zone de combat de ${playerLabel(opp)} !`);
+  fullRender();
+}
+
 function useMineEMI(owner, card) {
   if (currentTurn !== owner) return;
   const opp = (owner === 'top') ? 'bottom' : 'top';
@@ -18483,6 +18903,76 @@ function forceDiscardFromDeckBottom(victimOwner, count, sourceLabel) {
   updateDeckCounters();
   updateDiscardUI();
   return actuallyDiscarded;
+}
+
+// CHIMERIA (dernier lot) : mille 'count' cartes du DESSUS du deck de
+// victimOwner (contrairement à forceDiscardFromDeckBottom, qui vise le
+// dessous) — utilisé par Funarium (C186).
+function forceDiscardFromDeckTop(victimOwner, count, sourceLabel) {
+  const deck = getDeckByOwner(victimOwner);
+  const discard = (victimOwner === 'bottom') ? botDiscard : topDiscard;
+  let actuallyDiscarded = 0;
+  for (let i = 0; i < count; i++) {
+    if (deck.length === 0) break;
+    const card = deck.shift(); // le dessus du deck = le début du tableau
+    discard.unshift(card);
+    actuallyDiscarded++;
+  }
+  if (actuallyDiscarded > 0) {
+    pushHistory('info', `${cardAnchor(sourceLabel)} force ${playerLabel(victimOwner)} à défausser ${actuallyDiscarded} carte${actuallyDiscarded > 1 ? 's' : ''} du dessus de son deck.`);
+    const beneficiary = (victimOwner === 'top') ? 'bottom' : 'top';
+    applyChatNoirBonus(beneficiary, actuallyDiscarded);
+  }
+  updateDeckCounters();
+  updateDiscardUI();
+  return actuallyDiscarded;
+}
+
+// CHIMERIA (dernier lot) : identifie le CAMP D'ORIGINE d'une carte, de façon
+// permanente et fiable même si elle change de main/défausse en cours de
+// partie (donnée à l'adversaire, volée, etc.) — basé sur le préfixe de son
+// id ('T' ou 'B', voir uid()/createCard()), qui n'est JAMAIS modifié après
+// la création de la carte. Utilisé par Lancer le Refrain (C183) et Caisse
+// Folle (C177).
+function trueOwnerOf(card) {
+  return (card && typeof card.id === 'string' && card.id[0] === 'T') ? 'top' : 'bottom';
+}
+
+// CHIMERIA (dernier lot) : force 'owner' à donner une carte de SA main à son
+// adversaire (choisie aléatoirement, l'action étant subie plutôt que
+// volontaire). Utilisé par Hypopillon (C176, réactif aux dégâts) et Acrylik
+// (C181, capacité MINER). Renvoie la carte donnée, ou null si la main était
+// vide.
+function forceGiveRandomCardToOpponent(owner, sourceLabel) {
+  const hand = getHandByOwner(owner);
+  if (hand.length === 0) {
+    pushHistory('info', `${cardAnchor(sourceLabel)} : ${playerLabel(owner)} n'a aucune carte à donner à l'adversaire.`);
+    return null;
+  }
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppHand = getHandByOwner(opp);
+  const idx = Math.floor(Math.random() * hand.length);
+  const card = hand.splice(idx, 1)[0];
+  oppHand.push(card);
+  pushHistory('action', `${cardAnchor(sourceLabel)} force ${playerLabel(owner)} à donner ${cardAnchor(card.label)} à ${playerLabel(opp)} !`);
+  updateHandsUI();
+  return card;
+}
+
+// CHIMERIA (dernier lot) : pioche 'count' cartes pour 'player', en gérant le
+// recyclage automatique de la défausse si le deck s'épuise en cours de
+// route (comme refillHand). Utilisé par Caisse Folle (C177, JOUER : piochez
+// 5 cartes) et son effet passif une fois donnée à l'adversaire.
+function drawNFor(player, count) {
+  let drawn = 0;
+  for (let i = 0; i < count; i++) {
+    if (!drawOneFor(player)) {
+      const reshuffled = reshuffleDiscardIntoDeck(player);
+      if (!reshuffled || !drawOneFor(player)) break;
+    }
+    drawn++;
+  }
+  return drawn;
 }
 
 // === WADOO : Chat Noir (C209) — bonus de PV permanent à son hôte à chaque carte que

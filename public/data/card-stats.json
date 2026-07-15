@@ -513,5 +513,30 @@
     "type": "personnage",
     "hp": 7,
     "shield": 2
+  },
+  "0175": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 1
+  },
+  "0179": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 0
+  },
+  "0180": {
+    "type": "personnage",
+    "hp": 6,
+    "shield": 1
+  },
+  "0181": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 0
+  },
+  "0185": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 0
   }
 }
