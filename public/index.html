@@ -1444,6 +1444,11 @@
     .apBtn.confirm{ background:linear-gradient(180deg,#1de2ff,#07a7bf); color:#002027; border-color:#7df9ff; box-shadow:0 0 12px rgba(125,249,255,.65), inset 0 0 10px rgba(255,255,255,.2); }
     .apBtn.cancel{ background:linear-gradient(180deg,#2a3a42,#18252a); }
     .apBtn.disabled{ opacity:.45; pointer-events:none; }
+    /* FILET GLOBAL (dernier lot) : masque une fenêtre de choix qui appartient
+       à une décision de l'IA — jamais retirée du DOM (l'IA continue de la
+       résoudre normalement via un clic JS programmatique), seulement rendue
+       invisible et non cliquable pour le joueur humain. */
+    .actionPrompt.aiSilentPrompt, #familiarCarouselOverlay.aiSilentPrompt{ opacity:0 !important; pointer-events:none !important; }
 
     /* Fenêtre de faction */
     .factionOverlay{ position:fixed; inset:0; background:transparent; z-index:2000; display:none; align-items:center; justify-content: flex-start; padding:24px; pointer-events:none; }
@@ -11012,6 +11017,12 @@ function attemptParactionCounter(actingOwner, actionCard, resolveFn){
       { label: 'Laisser passer', className: 'cancel', onClick: () => resolveParactionDecision(actingOwner, actionCard, false, resolveFn) },
     ]
   );
+  // Ce choix appartient au joueur HUMAIN même si c'est actuellement le tour
+  // de l'IA (elle vient de jouer l'Action que Paraction peut contrer) — ne
+  // doit JAMAIS être masqué par le filet global (voir applyAIPromptSilencer).
+  if (typeof actionPromptEl !== 'undefined' && actionPromptEl) {
+    actionPromptEl.classList.add('forceVisibleToHuman');
+  }
 }
 
 function resolveParactionDecision(actingOwner, actionCard, useCharge, resolveFn){
@@ -15976,6 +15987,18 @@ function showHardBlocker(){
   b.style.background = 'rgba(0,0,0,.55)';
   b.style.zIndex = '5000';
   b.style.pointerEvents = 'auto';
+
+  // FILET GLOBAL (dernier lot) : si la fenêtre qui vient de s'ouvrir
+  // concerne une décision qui appartient à l'IA elle-même (voir
+  // isAIOwnedChoice), on ne rend jamais le voile d'assombrissement visible
+  // ni bloquant pour le joueur humain — seule l'IA "voit" cette fenêtre,
+  // via aiResolveAnyOpenPrompt qui clique ses boutons normalement (un clic
+  // JS programmatique fonctionne même sur un élément invisible).
+  if (typeof isAIOwnedChoice === 'function' && typeof currentTurn !== 'undefined' && isAIOwnedChoice(currentTurn)) {
+    b.style.background = 'transparent';
+    b.style.pointerEvents = 'none';
+  }
+
   return b;
 }
 function hideHardBlocker(){
@@ -16931,6 +16954,65 @@ function aiChooseSmartTarget(){
 function isAIOwnedChoice(owner){
   return typeof VS_AI_MODE !== 'undefined' && VS_AI_MODE && typeof AI_SEAT !== 'undefined' && owner === AI_SEAT;
 }
+
+// ===================================================================
+// FILET GLOBAL (dernier lot) : de très nombreuses fenêtres de choix/ciblage
+// du jeu (mining, capacités, ciblages de cartes...) n'ont — historiquement —
+// jamais reçu de garde "isAIOwnedChoice" individuelle, contrairement à
+// quelques-unes seulement (Demon Core, Pestrass, Paraction...). Plutôt que
+// de modifier individuellement des dizaines de fonctions différentes (risque
+// élevé d'en oublier, donc de régression), ce filet unique masque
+// AUTOMATIQUEMENT toute nouvelle fenêtre ".actionPrompt" qui apparaît
+// pendant que c'est au tour de l'IA d'agir — sans jamais l'empêcher de
+// fonctionner : l'IA continue de la résoudre elle-même en coulisses via
+// aiResolveAnyOpenPrompt (un clic JS programmatique fonctionne même sur un
+// élément invisible / non cliquable à la souris).
+//
+// SEULE EXCEPTION : Paraction (C227), où c'est le joueur HUMAIN qui doit
+// décider de contrer une Action jouée par l'IA — ce prompt est marqué
+// .forceVisibleToHuman juste après son ouverture (voir attemptParactionCounter)
+// pour ne jamais être masqué par ce filet.
+// ===================================================================
+function applyAIPromptSilencer(){
+  if (typeof isAIOwnedChoice !== 'function' || typeof currentTurn === 'undefined') return;
+  const shouldHide = isAIOwnedChoice(currentTurn);
+  document.querySelectorAll('.actionPrompt').forEach(el => {
+    if (el.classList.contains('forceVisibleToHuman')) {
+      el.classList.remove('aiSilentPrompt');
+      return;
+    }
+    if (shouldHide) el.classList.add('aiSilentPrompt');
+    else el.classList.remove('aiSilentPrompt');
+  });
+  // Carrousel de familiers (Fossoyeur, "Voir Familiers"...) : même logique,
+  // masqué uniquement lorsqu'il est effectivement affiché ET que la
+  // décision en cours appartient à l'IA.
+  const carousel = document.getElementById('familiarCarouselOverlay');
+  if (carousel && carousel.style.display && carousel.style.display !== 'none') {
+    if (shouldHide) carousel.classList.add('aiSilentPrompt');
+    else carousel.classList.remove('aiSilentPrompt');
+  } else if (carousel) {
+    carousel.classList.remove('aiSilentPrompt');
+  }
+}
+if (typeof document !== 'undefined' && document.body) {
+  const aiPromptSilencerObserver = new MutationObserver(() => applyAIPromptSilencer());
+  // Les fenêtres ".actionPrompt" sont TOUJOURS ajoutées en enfant DIRECT de
+  // <body> (jamais imbriquées plus profondément) — observer seulement les
+  // enfants directs de body (subtree:false) reste donc suffisant et bien
+  // moins coûteux qu'observer tout le document (qui se redessine très
+  // souvent via fullRender()).
+  aiPromptSilencerObserver.observe(document.body, { childList: true, subtree: false });
+  // Le carrousel de familiers existe déjà en permanence dans le DOM (voir le
+  // gabarit HTML) : il n'est jamais ajouté/retiré, seul son style.display
+  // bascule — observé séparément, et seulement sur cet unique élément.
+  const carouselEl = document.getElementById('familiarCarouselOverlay');
+  if (carouselEl) {
+    const carouselObserver = new MutationObserver(() => applyAIPromptSilencer());
+    carouselObserver.observe(carouselEl, { attributes: true, attributeFilter: ['style'] });
+  }
+}
+
 function aiCardValue(card){
   return getEffectiveHP(card) + getATK(card) * 2 + aiEconomicThreatScore(card) * 3;
 }
@@ -19040,6 +19122,13 @@ function processGiveCardToOpponentQueue() {
     buttons,
     { nonCancellable: true }
   );
+  // Ce choix appartient au joueur HUMAIN (déjà vérifié ci-dessus via
+  // isAIOwnedChoice), même s'il peut survenir pendant le tour de l'IA (ex.
+  // Hypopillon réactif à des dégâts subis pendant qu'elle attaque) — ne doit
+  // jamais être masqué par le filet global (voir applyAIPromptSilencer).
+  if (typeof actionPromptEl !== 'undefined' && actionPromptEl) {
+    actionPromptEl.classList.add('forceVisibleToHuman');
+  }
 }
 
 // CHIMERIA (dernier lot) : pioche 'count' cartes pour 'player', en gérant le
