@@ -7494,6 +7494,8 @@ function endC114TargetingCleanup() {
 function startC231Targeting(owner, card) {
   c231TargetMode = { owner, cardId: card.id };
   markAttacked(owner, card); // L'utilisation de la capacité compte comme son action
+  addMithril(owner); // MINER : l'effet s'ajoute au gain de Mithril, il ne le remplace pas
+  pushHistory('mithril', `${cardAnchor('C231')} : ${playerLabel(owner)} gagne 1 Mithril en Minant.`);
   closeActionPrompt();
 
   const promptEl = document.createElement('div');
@@ -7552,12 +7554,14 @@ function endC231TargetingCleanup() {
   fullRender();
 }
 
-// CHIMERIA (dernier lot) : Acrylik (C181) — Capacité (remplace Miner) : au
-// lieu de gagner du Mithril, défausse une carte AU HASARD de la main
-// adverse (invisible, donc pas de choix possible), puis force son
-// propriétaire à donner une carte DE SON CHOIX à l'adversaire.
+// CHIMERIA (dernier lot) : Acrylik (C181) — MINER : en plus du gain normal de
+// 1 Mithril, défausse une carte AU HASARD de la main adverse (invisible, donc
+// pas de choix possible), puis force son propriétaire à donner une carte DE
+// SON CHOIX à l'adversaire.
 function useAcrylikMining(owner, card) {
   markAttacked(owner, card); // L'utilisation de la capacité compte comme son action
+  addMithril(owner); // MINER : l'effet s'ajoute au gain de Mithril, il ne le remplace pas
+  pushHistory('mithril', `${cardAnchor('C181')} : ${playerLabel(owner)} gagne 1 Mithril en Minant.`);
   const opp = (owner === 'top') ? 'bottom' : 'top';
   const oppHand = getHandByOwner(opp);
   if (oppHand.length > 0) {
@@ -11978,6 +11982,7 @@ function resolveFight(from, to){
             discardCard(to.card, to.owner, 'death');
             fullRender();
           }
+          markAttacked(from.owner, from.card); // Fou s'épuise même si la cible meurt avant le combat
           return; // la cible est morte avant le combat : rien de plus à résoudre
         }
         from._fouConfirmed = true;
