@@ -3720,6 +3720,20 @@ const CARD_HP_BASE = {
   'C49': 4,
   'C36': 2,
   'T10': 1,
+
+  /* IMPY — dernier lot (0088-0100) : ces valeurs sont la VRAIE source utilisée
+     par server.js (regenerateCardStats) pour reconstruire card-stats.json à
+     chaque démarrage/déploiement — les garder synchronisées avec les valeurs
+     manuellement écrites dans public/data/card-stats.json. */
+  'C88': 3,
+  'C91': 4,
+  'C92': 4,
+  'C93': 6,
+  'C94': 4,
+  'C96': 3,
+  'C97': 5,
+  'C99': 5,
+  'C100': 7,
 };
 
 const CARD_SHIELD_BASE = {
@@ -3765,6 +3779,12 @@ const CARD_SHIELD_BASE = {
   /* WADOO — 5e lot */
   'C229': 1,
   'C234': 3,
+
+  /* IMPY — dernier lot (0088-0100) : uniquement celles avec un Bouclier > 0. */
+  'C93': 2,
+  'C96': 1,
+  'C97': 1,
+  'C100': 2,
 };
 
 /* Tags */
