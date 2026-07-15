@@ -757,21 +757,30 @@
       return MAX_COPIES;
     }
 
+    // Syphon (0083) redéfinit elle-même les règles de construction dès
+    // qu'elle rejoint le deck (12->10 cartes par faction, 36->30 au total,
+    // voir getCardsPerFaction/getDeckSize ci-dessus) : elle ne doit donc
+    // JAMAIS être bloquée par les anciennes limites qu'elle est justement en
+    // train de remplacer, même si sa propre faction (Impy) est déjà à 12, ou
+    // que le deck est déjà à 36 cartes. Le surplus est retiré aléatoirement
+    // juste après son ajout (voir enforceFactionLimitAfterSyphon).
     function tryAddToDeck(code) {
       const fac = CATALOG_BY_CODE.get(code).faction;
       const curCardCount = countsByCode.get(code) || 0;
       const curFacCount = countsByFaction.get(fac) || 0;
       const owned = OWNED.get(code) || 0;
       const maxCopies = Math.min(maxCopiesFor(code), owned);
-      if (deck.length >= getDeckSize()) { showToast(`Deck plein (${getDeckSize()}/${getDeckSize()})`); return; }
+      const isSyphon = (code === '0083');
+      if (!isSyphon && deck.length >= getDeckSize()) { showToast(`Deck plein (${getDeckSize()}/${getDeckSize()})`); return; }
       if (curCardCount >= maxCopies) { showToast(owned === 0 ? `Vous ne possédez pas cette carte.` : `Vous ne possédez que ${owned} exemplaire${owned>1?'s':''} de cette carte.`); return; }
       if (!countsByFaction.has(fac) && countsByFaction.size >= REQUIRED_FACTIONS) { showToast(`Vous ne pouvez avoir que ${REQUIRED_FACTIONS} factions.`); return; }
-      if (curFacCount >= getCardsPerFaction()) { showToast(`Max ${getCardsPerFaction()} cartes pour ${fac}`); return; }
+      if (!isSyphon && curFacCount >= getCardsPerFaction()) { showToast(`Max ${getCardsPerFaction()} cartes pour ${fac}`); return; }
       deck.push(code);
       countsByCode.set(code, curCardCount + 1);
       countsByFaction.set(fac, curFacCount + 1);
       renderDeck();
       updateChipsAndButton();
+      if (isSyphon) enforceFactionLimitAfterSyphon();
     }
 
     function removeFromDeckAt(index) {
@@ -788,7 +797,40 @@
       renderDeck();
       updateChipsAndButton();
     }
-    
+
+    // Syphon (0083) vient d'être ajoutée : la limite par faction vient de
+    // passer de 12 à 10. Si une ou plusieurs factions dépassent maintenant
+    // cette nouvelle limite (typiquement : le joueur avait déjà rempli une
+    // faction à 12 AVANT d'ajouter Syphon), on retire aléatoirement les
+    // cartes en surplus jusqu'à revenir à 10 par faction — jamais Syphon
+    // elle-même. Boucle bornée par sécurité (garde-fou anti-boucle infinie).
+    function enforceFactionLimitAfterSyphon() {
+      const limit = getCardsPerFaction();
+      let removedCount = 0;
+      let guard = 0;
+      while (guard++ < 200) {
+        let fixedSomething = false;
+        for (const [fac, count] of countsByFaction.entries()) {
+          if (count <= limit) continue;
+          const candidateIdxs = [];
+          deck.forEach((c, idx) => {
+            if (c === '0083') return; // ne jamais retirer Syphon elle-même
+            if (CATALOG_BY_CODE.get(c).faction === fac) candidateIdxs.push(idx);
+          });
+          if (candidateIdxs.length === 0) continue;
+          const removeIdx = candidateIdxs[Math.floor(Math.random() * candidateIdxs.length)];
+          removeFromDeckAt(removeIdx);
+          removedCount++;
+          fixedSomething = true;
+          break; // les index changent après un retrait : on recommence la boucle for
+        }
+        if (!fixedSomething) break;
+      }
+      if (removedCount > 0) {
+        showToast(`Syphon réduit la limite à ${limit} cartes par faction : ${removedCount} carte${removedCount>1?'s':''} retirée${removedCount>1?'s':''} aléatoirement.`);
+      }
+    }
+
     function deckIsValid() {
       if (deck.length !== getDeckSize()) return false;
       if (countsByFaction.size !== REQUIRED_FACTIONS) return false;
