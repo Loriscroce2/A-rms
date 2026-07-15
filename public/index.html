@@ -3,6 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <title>TCG 1v1 – Base (Mises à jour Tchat/Historiques/Liens/Familiers)</title>
+  <!-- CORRECTIF : contre l'IA, le plateau de jeu (plus bas dans le HTML) ne
+       doit JAMAIS apparaître avant l'écran Versus (avatars/pseudos/tirage).
+       Ce tout petit script s'exécute de façon synchrone dès le <head>, avant
+       même que le plateau ne soit analysé par le navigateur : il ajoute la
+       classe "vsai-pending" (voir règle CSS juste après) qui le cache dès la
+       toute première image affichée, sans le moindre scintillement. Cette
+       classe n'est retirée que par showVersusIntro() une fois son propre
+       écran plein écran déjà en place (voir plus bas dans le script
+       principal) — avec un filet de sécurité ici même : si pour une raison
+       quelconque cet écran ne se déclenchait jamais, le plateau redevient
+       visible de toute façon au bout de 8 secondes, pour ne jamais bloquer
+       la partie. -->
+  <script>
+    (function(){
+      try {
+        if (new URLSearchParams(location.search).get('vsAI') === '1') {
+          document.documentElement.classList.add('vsai-pending');
+          setTimeout(function(){ document.documentElement.classList.remove('vsai-pending'); }, 8000);
+        }
+      } catch(e) {}
+    })();
+  </script>
+  <style>.vsai-pending .board{ visibility:hidden; }</style>
   <style>
     :root{
       --cy:#00e6ff; --cyA:rgba(0,230,255,.35);
@@ -4860,6 +4883,10 @@ let c33CombatantMode = null;
 let c33ArtifactMode = null;
 let tokzikTargetMode = null;
 let arakcubeTargetMode = null;
+// KRYLLS : Mezamorph (C41) copiant Arakcrabe (T15) doit déclencher le MÊME
+// rituel de contrôle mental que le véritable Arakcube — pas juste changer
+// son nom d'affichage (voir applyMezamorphCopy/startMezamorphArakcrabeTargeting).
+let mezamorphArakcrabeTargetMode = null;
 let ozokshiArtifactMode = null;
 let kryoTargetMode = null;
 let zyzyHostTargetMode = null;
@@ -11021,7 +11048,7 @@ function isAnyTargetSelectionActive(){
     c9SelectMode || pilateSelectMode || c18SelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
-    arakcubeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
+    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
     c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
     varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
     couveuseStealTargetMode || roiDRoiTargetMode
@@ -11589,7 +11616,7 @@ function openMezamorphCopyPrompt(owner, mezamorphCard){
     thumb.addEventListener('click', () => {
       carousel.classList.remove('selecting');
       hideFamiliarCarousel();
-      applyMezamorphCopy(mezamorphCard, fam.label);
+      applyMezamorphCopy(owner, mezamorphCard, fam.label);
     });
     carousel.appendChild(thumb);
   });
@@ -11597,7 +11624,16 @@ function openMezamorphCopyPrompt(owner, mezamorphCard){
   familiarCarouselOverlay.style.display = 'flex';
 }
 
-function applyMezamorphCopy(mezamorphCard, copiedLabel){
+function applyMezamorphCopy(owner, mezamorphCard, copiedLabel){
+  // CORRECTIF : copier Arakcrabe (T15) ne doit pas se limiter à changer le
+  // nom affiché — Arakcrabe EST le contrôle mental d'un combattant ennemi.
+  // Sans cela, Mezamorph devenait "T15" de nom seulement, sans jamais
+  // prendre le contrôle de quoi que ce soit. On déclenche donc le VRAI
+  // rituel de ciblage (identique à Arakcube) au lieu d'un simple relabel.
+  if (copiedLabel === 'T15') {
+    startMezamorphArakcrabeTargeting(owner, mezamorphCard);
+    return;
+  }
   mezamorphCard.label = copiedLabel;
   // Marque cette carte comme étant "secrètement" Mezamorph, quel que soit
   // le familier qu'elle imite actuellement — permet de la faire redevenir
@@ -11605,6 +11641,80 @@ function applyMezamorphCopy(mezamorphCard, copiedLabel){
   // addToExile).
   mezamorphCard.mezamorphOriginal = true;
   pushHistory('familier', `${cardAnchor('C41')} se transforme en une copie de ${cardAnchor(copiedLabel)} !`);
+  fullRender();
+}
+
+// KRYLLS : Mezamorph (C41) copiant Arakcrabe (T15) — reprend le rituel de
+// ciblage exact d'Arakcube (voir startArakcubeTargeting/handleArakcubeTargetSelection) :
+// un combattant ennemi choisi passe sous contrôle et rejoint notre zone de
+// combat, avec Mezamorph (devenu T15) attaché dessus comme marque de contrôle.
+function startMezamorphArakcrabeTargeting(owner, mezamorphCard){
+  const hasEnemyTarget = getLineByOwner(owner === 'top' ? 'bottom' : 'top').some(c => getType(c.label) === 'personnage');
+  if (!hasEnemyTarget) {
+    pushHistory('info', `${cardAnchor('C41')} : aucun combattant ennemi à contrôler — il reste Mezamorph.`);
+    return;
+  }
+  mezamorphArakcrabeTargetMode = { owner, mezamorphId: mezamorphCard.id };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'mezamorph-arakcrabe-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '2000';
+  promptEl.innerHTML = `
+    <div class="apTitle">Mezamorph — copie d'Arakcrabe</div>
+    <div class="apMsg">Cliquez sur le combattant ennemi à contrôler avec ${cardAnchor('T15')}.</div>
+    <div class="apRow">
+      <button id="mezamorph-arakcrabe-cancel" class="apBtn cancel">Annuler (rester Mezamorph)</button>
+    </div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  promptEl.querySelector('#mezamorph-arakcrabe-cancel').addEventListener('click', () => {
+    mezamorphArakcrabeTargetMode = null;
+    endMezamorphArakcrabeCleanup();
+  });
+  fullRender();
+}
+
+function handleMezamorphArakcrabeTargetSelection(targetCard, targetCardOwner){
+  if (!mezamorphArakcrabeTargetMode) return;
+  const { owner, mezamorphId } = mezamorphArakcrabeTargetMode;
+  if (targetCardOwner === owner) return; // uniquement un ennemi
+  const mezamorphCard = getAllFamiliers().find(f => f.id === mezamorphId);
+  if (!mezamorphCard) { mezamorphArakcrabeTargetMode = null; endMezamorphArakcrabeCleanup(); return; }
+  mezamorphArakcrabeTargetMode = null;
+  closeActionPrompt();
+
+  const fromLine = getLineByOwner(targetCardOwner);
+  const tidx = fromLine.findIndex(c => c.id === targetCard.id);
+  if (tidx === -1) { fullRender(); return; }
+  fromLine.splice(tidx, 1);
+  targetCard.mindControlOriginalOwner = targetCardOwner;
+  const toLine = getLineByOwner(owner);
+
+  askLeftRightPlacement('Mezamorph', `Où placer ${cardAnchor(targetCard.label)} dans votre zone de combat ?`, (side) => {
+    if (side === 'left') toLine.unshift(targetCard); else toLine.push(targetCard);
+
+    // Mezamorph SE DÉPLACE simplement vers sa nouvelle cible (il reste le
+    // même objet, déjà présent dans le tableau global des familiers depuis
+    // sa toute première attache) — pas de detach/attach complet, qui
+    // déclencherait à tort d'autres effets d'attache ou risquerait un
+    // doublon dans ce tableau.
+    mezamorphCard.attachedTo = targetCard.id;
+    mezamorphCard.label = 'T15';
+    mezamorphCard.mezamorphOriginal = true;
+
+    pushHistory('action', `${cardAnchor('C41')} se transforme en ${cardAnchor('T15')} et prend le contrôle de
+      ${cardAnchor(targetCard.label)} !`);
+    fullRender();
+  });
+}
+
+function endMezamorphArakcrabeCleanup() {
+  closeActionPrompt();
   fullRender();
 }
 
@@ -13266,6 +13376,7 @@ if (hitAndRunMode) {
     if (c33CombatantMode) { handleC33CombatantSelection(card, owner); return; }
     if (tokzikTargetMode) { handleTokzikTargetSelection(card, owner); return; }
     if (arakcubeTargetMode) { handleArakcubeTargetSelection(card, owner); return; }
+    if (mezamorphArakcrabeTargetMode) { handleMezamorphArakcrabeTargetSelection(card, owner); return; }
     if (kryoTargetMode) { handleKryoTargetSelection(card, owner); return; }
     if (zyzyHostTargetMode) { handleZyzyHostSelection(card, owner); return; }
     if (c42TargetMode) { handleC42TargetSelection(card, owner); return; }
@@ -14511,22 +14622,24 @@ function addToExile(card, context = {}){
     // ligne couvre donc automatiquement absolument tous les cas du jeu.
     animateCardToExile(card);
 
-    // KRYLLS (nouveau lot) : Arakcrabe (T15) — reprend son identité
-    // d'Arakcube (C37) dès qu'elle rejoint l'Exil, quelle qu'en soit la
-    // raison (l'animation ci-dessus a déjà capturé son apparence de
-    // familier avant cette transformation, donc rien ne change visuellement
-    // pendant l'absorption elle-même).
-    if (card.label === 'T15') {
-      const owner = ownerOfCardOnBoard(card) || card.playOwner || 'bottom';
-      card = createCard('C37', owner === 'top' ? 'T' : 'B');
-    }
     // KRYLLS (nouveau lot) : Mezamorph (C41) — redevient lui-même dès qu'il
     // se détache, quel que soit le familier qu'il imitait au moment de son
     // départ (on se base sur le drapeau mezamorphOriginal, pas sur son label
-    // courant qui change dynamiquement).
+    // courant qui change dynamiquement). CORRECTIF ORDRE : ce test doit
+    // passer AVANT celui d'Arakcrabe ci-dessous — un Mezamorph ayant copié
+    // Arakcrabe (label devenu "T15") ne doit PAS redevenir Arakcube (C37) à
+    // tort, mais bien redevenir Mezamorph (C41).
     if (card.mezamorphOriginal) {
       const owner = ownerOfCardOnBoard(card) || card.playOwner || 'bottom';
       card = createCard('C41', owner === 'top' ? 'T' : 'B');
+    } else if (card.label === 'T15') {
+      // KRYLLS (nouveau lot) : Arakcrabe (T15) — reprend son identité
+      // d'Arakcube (C37) dès qu'elle rejoint l'Exil, quelle qu'en soit la
+      // raison (l'animation ci-dessus a déjà capturé son apparence de
+      // familier avant cette transformation, donc rien ne change visuellement
+      // pendant l'absorption elle-même).
+      const owner = ownerOfCardOnBoard(card) || card.playOwner || 'bottom';
+      card = createCard('C37', owner === 'top' ? 'T' : 'B');
     }
 
     // ===================================================================
@@ -14903,20 +15016,22 @@ function discardCard(card, owner, reason='other', context = {}){
       pushHistory('exil', `${cardAnchor('C90')} : ${cardAnchor(card.label)} meurt — 2 exemplaires apparaissent directement dans l'Exil !`);
     }
   }
-  // KRYLLS (nouveau lot) : Arakcrabe (T15) — elle s'était transformée à
-  // partir d'Arakcube (C37) pour aller s'attacher à un combattant ; dès
-  // qu'elle quitte le jeu pour rejoindre une défausse, quelle qu'en soit la
-  // raison (hôte retiré, effet qui la cible directement...), elle reprend
-  // son identité d'origine d'Arakcube plutôt que d'exister en défausse sous
-  // sa forme de familier.
-  if (card.label === 'T15') {
-    card = createCard('C37', owner === 'top' ? 'T' : 'B');
-  }
-  // KRYLLS (nouveau lot) : Mezamorph (C41) — redevient lui-même dès qu'il
-  // se détache, quel que soit le familier qu'il imitait (drapeau
-  // mezamorphOriginal, indépendant du label courant).
+  // KRYLLS (nouveau lot) : Mezamorph (C41) — redevient lui-même dès qu'il se
+  // détache, quel que soit le familier qu'il imitait (drapeau
+  // mezamorphOriginal, indépendant du label courant). CORRECTIF ORDRE : ce
+  // test doit passer AVANT celui d'Arakcrabe ci-dessous, sans quoi un
+  // Mezamorph ayant copié Arakcrabe (label "T15") redeviendrait à tort
+  // Arakcube (C37) au lieu de Mezamorph (C41).
   if (card.mezamorphOriginal) {
     card = createCard('C41', owner === 'top' ? 'T' : 'B');
+  } else if (card.label === 'T15') {
+    // KRYLLS (nouveau lot) : Arakcrabe (T15) — elle s'était transformée à
+    // partir d'Arakcube (C37) pour aller s'attacher à un combattant ; dès
+    // qu'elle quitte le jeu pour rejoindre une défausse, quelle qu'en soit la
+    // raison (hôte retiré, effet qui la cible directement...), elle reprend
+    // son identité d'origine d'Arakcube plutôt que d'exister en défausse sous
+    // sa forme de familier.
+    card = createCard('C37', owner === 'top' ? 'T' : 'B');
   }
   // KRYLLS (nouveau lot) : Vers l'infini (C42) — un combattant marqué se
   // transforme en Kamykaz (T16) au lieu de mourir normalement, dans la
@@ -16020,7 +16135,11 @@ function updateTurnUI(){
     endBtn.classList.add('hidden');
     banner.classList.remove('show');
   }else{
-    if (ONLINE_MODE) {
+    if (ONLINE_MODE || VS_AI_MODE) {
+      // CORRECTIF : contre l'IA (comme en ligne), le bouton doit être
+      // visuellement désactivé pendant le tour adverse — auparavant seul
+      // ONLINE_MODE bénéficiait de ce blocage visuel/fonctionnel, si bien que
+      // contre l'IA le bouton restait cliquable en permanence.
       const myTurn = (currentTurn === MY_SEAT);
       endBtn.textContent = myTurn ? 'FIN DE TOUR (à moi de jouer)' : "En attente de l'adversaire…";
       endBtn.disabled = !myTurn;
@@ -16042,6 +16161,12 @@ function updateTurnUI(){
 }
 function performEndTurn(){
   if (ONLINE_MODE && currentTurn !== MY_SEAT) return; // en ligne : pas ton tour
+  // CORRECTIF : contre l'IA aussi, impossible de terminer un tour qui n'est
+  // pas le sien — jusqu'ici seul ONLINE_MODE était protégé, ce qui permettait
+  // au joueur de cliquer "Fin de tour" PENDANT le tour de l'IA et de le lui
+  // couper court (comme dans une vraie partie, on ne doit jamais pouvoir
+  // terminer le tour de l'adversaire).
+  if (VS_AI_MODE && currentTurn !== MY_SEAT) return;
   if (!activeFaction[currentTurn]) {
     // Le choix de faction est obligatoire avant toute autre action, fin de
     // tour comprise — sans cela, on pourrait techniquement finir son tour
@@ -16916,7 +17041,7 @@ function aiForceCancelAllTargetModes(){
     pilateSelectMode = null; c18SelectMode = null; remoteChoiceMode = null;
     kabbaTargetMode = null; krouzpierTargetMode = null; vakxzinTargetMode = null;
     c33CombatantMode = null; c33ArtifactMode = null; tokzikTargetMode = null;
-    longVoyageFamiliarMode = null; arakcubeTargetMode = null; ozokshiArtifactMode = null;
+    longVoyageFamiliarMode = null; arakcubeTargetMode = null; mezamorphArakcrabeTargetMode = null; ozokshiArtifactMode = null;
     kryoTargetMode = null; zyzyHostTargetMode = null; c42TargetMode = null;
     kamykazTargetMode = null; c69TargetMode = null; vilunionTargetMode = null;
     varyceTargetMode = null; copieDesEnfersTargetMode = null; exdoteTargetMode = null;
@@ -17091,7 +17216,10 @@ function aiResolveAnyOpenPrompt(){
     // jamais atteinte et l'IA restait bloquée indéfiniment sur cette carte,
     // même quand un artefact à détruire existait bel et bien.
     (typeof c59DestroyMode !== 'undefined' && c59DestroyMode) ||
-    (typeof venusylvaDestroyMode !== 'undefined' && venusylvaDestroyMode.active)
+    (typeof venusylvaDestroyMode !== 'undefined' && venusylvaDestroyMode.active) ||
+    // KRYLLS : Mezamorph (C41) copiant Arakcrabe (T15) — même fenêtre sans
+    // bouton que le rituel de liaison Wadoo, même correctif nécessaire.
+    (typeof mezamorphArakcrabeTargetMode !== 'undefined' && mezamorphArakcrabeTargetMode)
   );
   if (hasKnownSmartMode) {
     const smart = aiChooseSmartTarget();
@@ -17233,6 +17361,13 @@ function aiChooseSmartTarget(){
   if ((typeof c59DestroyMode !== 'undefined' && c59DestroyMode) || (typeof venusylvaDestroyMode !== 'undefined' && venusylvaDestroyMode.active)) {
     const artifacts = entries.filter(e => e.zone === 'aLane');
     return pickBest(artifacts.filter(e => e.owner === oppSeat), artifacts);
+  }
+  // KRYLLS : Mezamorph (C41) copiant Arakcrabe (T15) — même ciblage
+  // qu'Arakcube : ne peut viser qu'un combattant ENNEMI, toujours le plus
+  // dangereux.
+  if (typeof mezamorphArakcrabeTargetMode !== 'undefined' && mezamorphArakcrabeTargetMode) {
+    const enemyCombatants = entries.filter(e => e.zone === 'lane' && e.owner === oppSeat);
+    return pickBest(enemyCombatants);
   }
 
   // Générique : la plupart des autres ciblages à effet unique (Tokzik, Kryo,
@@ -20594,6 +20729,16 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
       <div class="vsFlash"></div>
     `;
     document.body.appendChild(overlay);
+
+    // CORRECTIF : le plateau de jeu (déjà présent dans le HTML dès le
+    // chargement de la page) ne doit JAMAIS être visible avant cet écran
+    // Versus. On lève seulement MAINTENANT le cache posé en <head> (voir
+    // ".vsai-pending .board"), puisque cet overlay plein écran (opaque) le
+    // recouvre déjà entièrement — la révélation est donc invisible pour le
+    // joueur, sans plus jamais laisser voir le plateau avant le Versus.
+    if (document.documentElement.classList.contains('vsai-pending')) {
+      document.documentElement.classList.remove('vsai-pending');
+    }
 
     requestAnimationFrame(() => overlay.classList.add('show'));
     playChargementMusic();
