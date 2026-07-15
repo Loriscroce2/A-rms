@@ -9890,7 +9890,10 @@ function handleKamykazTargetSelection(targetCard, targetCardOwner){
 function spawnKamykazDuplicate(owner){
   const newKamykaz = createCard('T16', owner === 'top' ? 'T' : 'B');
   getLineByOwner(owner).push(newKamykaz);
-  pushHistory('jeu', `${cardAnchor('T16')} se duplique dans la zone de combat !`);
+  // Kamykaz arrive toujours ÉPUISÉ (ne peut ni attaquer ni miner le tour où
+  // il apparaît), qu'il vienne d'une duplication ou d'une transformation.
+  markAttacked(owner, newKamykaz);
+  pushHistory('jeu', `${cardAnchor('T16')} se duplique dans la zone de combat (épuisé ce tour-ci) !`);
 }
 
 // KRYLLS (nouveau lot) : Zyzy (C40) — JOUER : choisit un familier rattaché
@@ -14642,7 +14645,9 @@ function discardCard(card, owner, reason='other', context = {}){
   if (card.versLInfini && reason === 'death') {
     const kamykaz = createCard('T16', owner === 'top' ? 'T' : 'B');
     getLineByOwner(owner).push(kamykaz);
-    pushHistory('jeu', `${cardAnchor(card.label)} se transforme en ${cardAnchor('T16')} sous l'effet de
+    // Kamykaz arrive toujours ÉPUISÉ, ici aussi.
+    markAttacked(owner, kamykaz);
+    pushHistory('jeu', `${cardAnchor(card.label)} se transforme en ${cardAnchor('T16')} (épuisé ce tour-ci) sous l'effet de
       ${cardAnchor('C42')} !`);
     fullRender();
     return;
@@ -15041,6 +15046,28 @@ function renderLine(battleInnerEl, lineArray, owner){
     lane.style.justifyContent = 'center';
     lane.style.pointerEvents = 'auto';
     battleInnerEl.insertBefore(lane, battleInnerEl.children[1] || null);
+  }
+
+  // Zone de combat surchargée (13 combattants ou plus, ex. via Etendardz) :
+  // les cartes rétrécissent et se resserrent pour que tout reste visible,
+  // sans jamais déborder de la zone. Purement visuel — les variables
+  // --cardW/--cardH sont redéfinies UNIQUEMENT sur cette lane précise (elles
+  // ne débordent donc pas sur la main, l'autre zone de combat, ou les
+  // artefacts), aucun impact sur les règles du jeu.
+  const count = lineArray.length;
+  if (count >= 13) {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const baseW = parseFloat(rootStyle.getPropertyValue('--cardW')) || 86;
+    const baseH = parseFloat(rootStyle.getPropertyValue('--cardH')) || 124;
+    const overflow = count - 12;
+    const scale = Math.max(0.55, 1 - overflow * 0.035);
+    lane.style.setProperty('--cardW', `${(baseW * scale).toFixed(1)}px`);
+    lane.style.setProperty('--cardH', `${(baseH * scale).toFixed(1)}px`);
+    lane.style.gap = `${Math.max(2, 10 * scale).toFixed(1)}px`;
+  } else {
+    lane.style.removeProperty('--cardW');
+    lane.style.removeProperty('--cardH');
+    lane.style.gap = '10px';
   }
 
   lane.innerHTML = '';
@@ -18964,8 +18991,32 @@ function processGiveCardToOpponentQueue() {
     processGiveCardToOpponentQueue();
     return;
   }
-  giveCardToOpponentBusy = true;
   const opp = (owner === 'top') ? 'bottom' : 'top';
+
+  // Ce choix appartient à l'IA (sa propre main) : elle décide seule, sans
+  // JAMAIS afficher de fenêtre au joueur humain (qui verrait sinon le
+  // contenu normalement caché de la main adverse). Se sépare de préférence
+  // d'une carte Action/Artefact/Familier plutôt que d'un Personnage, et
+  // parmi des cartes de même catégorie, de la moins utile en premier.
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    const sorted = hand.slice().sort((a, b) => {
+      const rankA = getType(a.label) === 'personnage' ? 1 : 0;
+      const rankB = getType(b.label) === 'personnage' ? 1 : 0;
+      if (rankA !== rankB) return rankA - rankB;
+      return (typeof aiCardValue === 'function' ? aiCardValue(a) - aiCardValue(b) : 0);
+    });
+    const toGive = sorted[0];
+    const realIdx = hand.findIndex(x => x.id === toGive.id);
+    const given = hand.splice(realIdx, 1)[0];
+    getHandByOwner(opp).push(given);
+    pushHistory('action', `${cardAnchor(sourceLabel)} force ${playerLabel(owner)} à donner ${cardAnchor(given.label)} à ${playerLabel(opp)} !`);
+    updateHandsUI();
+    fullRender();
+    processGiveCardToOpponentQueue();
+    return;
+  }
+
+  giveCardToOpponentBusy = true;
   const buttons = hand.map((c, idx) => ({
     label: cardName(c.label),
     className: '',
