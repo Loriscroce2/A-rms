@@ -64,7 +64,7 @@
       content:'à venir'; position:absolute; bottom:6px; left:0; right:0; text-align:center;
       font-size:.62rem; font-weight:800; letter-spacing:.03em; color:#ffb84d; text-transform:uppercase;
     }
-    .deckHead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between;margin-bottom:8px} .deckTitle{display:flex;gap:8px;align-items:center;flex-wrap:wrap} .deckTitle input{background:linear-gradient(180deg,#0e2e39,#0a222a);border:1px solid rgba(125,249,255,.25);color:#dffbff;border-radius:10px;padding:8px 10px;font-weight:800;outline:none;min-width:200px}
+    .deckHead{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between;margin-bottom:8px} .deckTitle{display:flex;gap:8px;align-items:center;flex-wrap:wrap} .deckTitle input{background-color:#0a222a;background:linear-gradient(180deg,#0e2e39,#0a222a);border:1px solid rgba(125,249,255,.25);color:#dffbff;-webkit-text-fill-color:#dffbff;caret-color:#dffbff;-webkit-appearance:none;appearance:none;opacity:1;border-radius:10px;padding:8px 10px;font-weight:800;outline:none;min-width:200px}
     .deckBtns{display:flex;gap:8px;align-items:center;flex-wrap:wrap} .btn{background:linear-gradient(180deg,var(--ok),#11985b);color:#052319;border:1px solid #4df7a8;border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer;box-shadow:0 0 12px rgba(25,226,122,.35),inset 0 0 10px rgba(255,255,255,.08)}
     .btn[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(.2)} .btn-secondary{background:linear-gradient(180deg,#0e2e39,#0a222a);color:#dffbff;border:1px solid rgba(125,249,255,.3);border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer;text-decoration:none}
     .btn-secondary:hover{outline:2px solid rgba(125,249,255,.4)} .deckMeta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-weight:800;color:#bfefff;margin:6px 0 8px}
@@ -870,6 +870,12 @@
     // --- GESTIONNAIRES D'ÉVÉNEMENTS ---
     clearDeckBtn.addEventListener('click', clearDeckBuilder);
     deckNameInput.addEventListener('input', updateChipsAndButton);
+    // Filet de sécurité pour certains WebView/apps mobiles où le champ peut
+    // se retrouver caché par le clavier virtuel une fois le focus posé
+    // dessus : on le fait défiler dans la vue visible.
+    deckNameInput.addEventListener('focus', () => {
+      setTimeout(() => deckNameInput.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
+    });
     deckDrop.addEventListener('dragover', e => { e.preventDefault(); deckDrop.classList.add('highlight'); });
     deckDrop.addEventListener('dragleave', () => deckDrop.classList.remove('highlight'));
     deckDrop.addEventListener('drop', e => {
