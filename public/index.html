@@ -324,16 +324,16 @@
     .thumb .shield{ position:absolute; right:-6px; top:calc(50% + 34px); width:28px; height:28px; font-size:12px; }
     .thumb:hover{ transform:scale(1.18); z-index:2; }
 
-    /* Carrousels de DÉFAUSSE */
+    /* Carrousels de DÉFAUSSE : les deux (haut ET bas) s'ouvrent désormais au
+       MÊME endroit — entre les deux piles de défausse, au milieu à droite de
+       l'écran — plutôt que chacun près de sa propre pile. */
     .discardCarousel{
-      position:fixed; left:50%; transform:translateX(-50%); width:min(380px, 86vw); height:200px; z-index:1100; display:none;
+      position:fixed; top:50%; right:20px; left:auto; transform:translateY(-50%); width:min(380px, 86vw); height:200px; z-index:1100; display:none;
       background:rgba(0,0,0,.82); border:2px solid #00e6ff55; border-radius:12px; padding:12px; overflow:visible; white-space:nowrap;
       box-shadow:0 0 20px #00e6ff66;
       perspective:900px;
     }
     .discardCarousel.selecting{ border-color:#7df9ff; box-shadow:0 0 22px #7df9ff66; }
-    #discardTopCarousel{ top:320px; }
-    #discardBottomCarousel{ bottom:20px; }
     .dthumb{
       display:inline-block; width:110px; height:160px; margin-right:12px; position:relative;
       border:2px solid var(--cy); border-radius:12px; background:linear-gradient(145deg,#fff,#e6e6e6);
@@ -564,6 +564,10 @@
     /* ===================================================================
        VOTRE MAIN — box à part, déplaçable et repliable
        =================================================================== */
+    /* Box rendue semi-transparente (dernier lot) : seules les CARTES à
+       l'intérieur (.handRow .card, déjà opaques via leur propre image de
+       fond) restent pleinement visibles — le fond de la box lui-même laisse
+       deviner le plateau derrière. */
     .myHandPanel{
       position:fixed; z-index:1700;
       /* Aligné avec le bord gauche RÉEL de la zone de combat : padding du
@@ -572,20 +576,21 @@
       left:calc(28px + var(--sidebarW) + 22px); bottom:8px; top:auto; transform:none;
       width:min(90vw, 420px);
       display:flex; flex-direction:column;
-      background:linear-gradient(180deg, rgba(9,22,28,.97), rgba(4,10,14,.98));
+      background:linear-gradient(180deg, rgba(9,22,28,.45), rgba(4,10,14,.5));
+      backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
       border:1.5px solid rgba(125,249,255,.45);
       border-radius:14px;
-      box-shadow:0 14px 36px rgba(0,0,0,.55), 0 0 24px rgba(0,230,255,.14);
+      box-shadow:0 14px 36px rgba(0,0,0,.4), 0 0 24px rgba(0,230,255,.12);
     }
     .myHandPanel.attention{ animation: myHandPulse 1s ease-in-out 2; }
-    @keyframes myHandPulse{ 0%,100%{ box-shadow:0 14px 36px rgba(0,0,0,.55), 0 0 24px rgba(0,230,255,.14);} 50%{ box-shadow:0 14px 36px rgba(0,0,0,.55), 0 0 46px rgba(0,230,255,.65);} }
+    @keyframes myHandPulse{ 0%,100%{ box-shadow:0 14px 36px rgba(0,0,0,.4), 0 0 24px rgba(0,230,255,.12);} 50%{ box-shadow:0 14px 36px rgba(0,0,0,.4), 0 0 46px rgba(0,230,255,.6);} }
     .myHandPanel-header{
       display:flex; align-items:center; gap:10px; padding:7px 8px 7px 14px;
       cursor:grab; user-select:none; touch-action:none;
       border-bottom:1px solid rgba(125,249,255,.25);
       font-family:'Cinzel','Manrope',sans-serif; font-weight:800; font-size:12px; color:#aefaff;
       letter-spacing:.03em; border-radius:12.5px 12.5px 0 0;
-      background:linear-gradient(180deg, rgba(13,42,54,.92), rgba(9,22,28,.92));
+      background:linear-gradient(180deg, rgba(13,42,54,.5), rgba(9,22,28,.5));
     }
     .myHandPanel-header:active{ cursor:grabbing; }
     .myHandPanel-grip{ opacity:.6; font-size:13px; letter-spacing:2px; }
@@ -17226,6 +17231,22 @@ function aiSimulateDrop(owner, card, zoneType, side){
   currentDragInfo = null;
 }
 
+// Simule le dépôt d'une carte de la main de l'IA DIRECTEMENT sur une autre
+// carte déjà en jeu (pas une zone vide) — utilisé pour le Pudding (T10),
+// dont la fusion (voir plus haut le drop handler par carte, KRYLLS) se
+// déclenche uniquement en déposant sur son propre élément DOM, pas sur les
+// zones génériques dropTopLeft/dropTopRight/etc.
+function aiSimulateDropOnCard(owner, card, targetCard){
+  const handContainerId = (owner === 'top') ? 'handTop' : 'handBottom';
+  currentDragInfo = { id: card.id, fromId: handContainerId, owner, label: card.label, card: card };
+  const targetEl = document.querySelector(`.lane .card.placed[data-id="${targetCard.id}"]`);
+  if (targetEl) {
+    targetEl.dispatchEvent(new Event('drop', { bubbles: false, cancelable: true }));
+  }
+  currentDragInfo = null;
+  return !!targetEl;
+}
+
 // Simule un clic sur une carte de la main de l'IA (utilisé pour les
 // cartes Action, qui se jouent normalement par un simple clic).
 function aiClickHandCard(owner, card){
@@ -17239,6 +17260,20 @@ function aiClickHandCard(owner, card){
 
 function aiTryPlayFromHand(){
   const hand = getHandByOwner(AI_SEAT);
+
+  // KRYLLS : Pudding (T10) — si l'IA en a un dans sa zone de combat, jouer
+  // un Personnage directement dessus est TOUJOURS strictement meilleur
+  // qu'un dépôt en zone vide classique (upgrade gratuit : +2 PV, RAPIDE, et
+  // hérite du Mithril capturé par le Pudding) — priorité absolue avant même
+  // la logique habituelle de pose en zone vide ci-dessous.
+  const aiPudding = getLineByOwner(AI_SEAT).find(c => c.label === 'T10');
+  if (aiPudding) {
+    const personnagesForPudding = hand.filter(c => getType(c.label) === 'personnage' && canPlayThisCardNow(AI_SEAT, c));
+    if (personnagesForPudding.length > 0) {
+      personnagesForPudding.sort((a,b) => getBaseHP(b.label) - getBaseHP(a.label));
+      if (aiSimulateDropOnCard(AI_SEAT, personnagesForPudding[0], aiPudding)) return true;
+    }
+  }
 
   // Personnages d'abord : construire sa présence sur le plateau est
   // généralement la priorité la plus sûre en début de partie.
@@ -20569,6 +20604,12 @@ if (VS_AI_MODE) {
       codeA = Math.floor(Math.random() * 250) + 1;
       codeB = Math.floor(Math.random() * 250) + 1;
     } while (codeA === codeB);
+    // Le joueur humain (bottom) commence TOUJOURS actuellement (voir
+    // firstSeat ci-dessous) : pour que l'animation de tirage reste cohérente
+    // avec ce résultat (au lieu de parfois afficher un nombre plus PETIT
+    // côté joueur tout en le déclarant vainqueur, ce qui semble incohérent),
+    // on s'assure que son nombre affiché est toujours le plus grand des deux.
+    if (codeA < codeB) { const tmp = codeA; codeA = codeB; codeB = tmp; }
     const drawReveal = { bottom: pad4(codeA), top: pad4(codeB) };
     // CORRECTIF TEMPORAIRE : le tirage au sort qui désignait parfois l'IA
     // pour commencer la partie provoque un blocage (l'IA ne joue pas). En
