@@ -19742,7 +19742,13 @@ if (VS_AI_MODE) {
       codeB = Math.floor(Math.random() * 250) + 1;
     } while (codeA === codeB);
     const drawReveal = { bottom: pad4(codeA), top: pad4(codeB) };
-    const firstSeat = (codeA > codeB) ? 'bottom' : 'top';
+    // CORRECTIF TEMPORAIRE : le tirage au sort qui désignait parfois l'IA
+    // pour commencer la partie provoque un blocage (l'IA ne joue pas). En
+    // attendant la vraie correction, on biaise volontairement le tirage pour
+    // que ce soit TOUJOURS le joueur humain (bottom) qui commence — l'animation
+    // de tirage reste affichée pour le spectacle, mais son résultat n'est plus
+    // utilisé pour déterminer qui commence.
+    const firstSeat = 'bottom';
     const compensationSeat = (firstSeat === 'bottom') ? 'top' : 'bottom';
 
     window.PLAYER_PROFILES = profiles;
