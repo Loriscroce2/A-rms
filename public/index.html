@@ -16186,6 +16186,48 @@ function maybeStartAITurn(player){
   setTimeout(() => runAITurnStep(), 1800);
 }
 
+// ===================================================================
+// FILET DE SECOURS : le tour de l'IA ne démarre JAMAIS (ex. l'IA tirée au
+// sort pour commencer LA PARTIE elle-même — la longue chaîne d'animation
+// "Versus" qui doit finir par appeler startTurn()/maybeStartAITurn() peut
+// échouer silencieusement quelque part en cours de route, sans jamais lever
+// d'erreur visible). Indépendant de toute la logique de ciblage/prompt —
+// vérifie simplement, à intervalles réguliers, que runAITurnStep() a bien
+// été appelé au moins une fois depuis que c'est devenu le tour de l'IA ; si
+// non après quelques secondes, on relance nous-mêmes maybeStartAITurn().
+// ===================================================================
+let aiWatchdogLastSeenTurn = null;
+let aiWatchdogTurnSeenAt = 0;
+let aiWatchdogCountAtTurnStart = 0;
+let aiWatchdogKickCount = 0;
+setInterval(() => {
+  try {
+    if (typeof VS_AI_MODE === 'undefined' || !VS_AI_MODE) return;
+    if (typeof GAME !== 'undefined' && GAME.over) { aiWatchdogLastSeenTurn = null; aiWatchdogKickCount = 0; return; }
+    if (typeof currentTurn === 'undefined' || currentTurn !== AI_SEAT) {
+      aiWatchdogLastSeenTurn = null;
+      aiWatchdogKickCount = 0;
+      return;
+    }
+    if (aiWatchdogLastSeenTurn !== currentTurn) {
+      // Premier tick où l'on détecte que le tour de l'IA vient de commencer :
+      // on laisse le temps normal (1.8s) au démarrage habituel de se faire.
+      aiWatchdogLastSeenTurn = currentTurn;
+      aiWatchdogTurnSeenAt = Date.now();
+      aiWatchdogCountAtTurnStart = aiRunStepCallCount;
+      aiWatchdogKickCount = 0;
+      return;
+    }
+    const elapsed = Date.now() - aiWatchdogTurnSeenAt;
+    if (elapsed > 6000 && aiRunStepCallCount === aiWatchdogCountAtTurnStart && aiWatchdogKickCount < 3) {
+      aiWatchdogKickCount++;
+      console.warn(`[IA] Filet de secours : le tour de l'IA ne semble jamais avoir démarré — relance forcée (tentative ${aiWatchdogKickCount}/3).`);
+      aiWatchdogTurnSeenAt = Date.now();
+      if (typeof maybeStartAITurn === 'function') maybeStartAITurn(AI_SEAT);
+    }
+  } catch(e) { console.error('[IA watchdog] erreur :', e); }
+}, 2000);
+
 // Filet de sécurité ULTIME : si l'IA reste bloquée à essayer de résoudre un
 // mode de ciblage (carte au comportement non prévu, cas limite) pendant trop
 // de tentatives consécutives, on réinitialise TOUS les modes de ciblage
@@ -16247,9 +16289,17 @@ function aiForgeRaceUrgency(){
   return { myMissing, oppMissing, oppNearFinalArm, behindInRace };
 }
 
+// Compteur d'invocations RÉELLES de runAITurnStep — utilisé par le filet de
+// secours ci-dessous (aiWatchdog) pour détecter le cas où le tour de l'IA
+// n'a jamais démarré du tout (ex. l'IA tirée au sort pour commencer la
+// partie, mais la chaîne d'animation Versus qui doit appeler startTurn()
+// échoue silencieusement quelque part avant d'y arriver).
+let aiRunStepCallCount = 0;
+
 function runAITurnStep(){
   if (GAME.over) return;
   if (currentTurn !== AI_SEAT) return; // le tour a changé entre-temps
+  aiRunStepCallCount++;
 
   try {
     // 1. Résout en priorité tout prompt/ciblage laissé en attente par
@@ -19698,7 +19748,14 @@ if (VS_AI_MODE) {
     window.PLAYER_PROFILES = profiles;
     if (typeof refreshChatAsSelector === 'function') refreshChatAsSelector();
 
+    // Garde-fou : quelle que soit la façon dont on y arrive (fin normale de
+    // l'intro Versus, repli synchrone, ou filet de secours par timeout),
+    // beginGame() ne doit jamais s'exécuter deux fois (double distribution
+    // de la carte de compensation, double appel à startTurn()...).
+    let gameHasBegun = false;
     const beginGame = () => {
+      if (gameHasBegun) return;
+      gameHasBegun = true;
       // Compensation : 1 carte de plus pour celui qui ne commence pas.
       if (compensationSeat === 'top' && topDeck.length > 0) topHand.push(topDeck.shift());
       if (compensationSeat === 'bottom' && botDeck.length > 0) botHand.push(botDeck.shift());
@@ -19708,9 +19765,22 @@ if (VS_AI_MODE) {
       renderPlayerPanels();
     };
 
-    if (typeof showVersusIntro === 'function') {
-      showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, beginGame);
-    } else {
+    // FILET DE SECOURS : si pour une raison quelconque l'animation Versus
+    // plante silencieusement en cours de route et n'appelle jamais son
+    // callback (beginGame), la partie ne démarrerait alors JAMAIS — ni pour
+    // l'IA, ni pour le joueur humain. On force donc son démarrage après un
+    // délai large (au-delà de la durée normale de l'intro, 17.2s max), quoi
+    // qu'il arrive.
+    setTimeout(() => { beginGame(); }, 19000);
+
+    try {
+      if (typeof showVersusIntro === 'function') {
+        showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, beginGame);
+      } else {
+        beginGame();
+      }
+    } catch(err) {
+      console.error('[Versus intro] erreur pendant l\'animation, démarrage direct de la partie :', err);
       beginGame();
     }
   })();
