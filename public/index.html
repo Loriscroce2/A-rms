@@ -307,8 +307,10 @@
       font-family:'Cinzel','Manrope',sans-serif; font-weight:800; letter-spacing:.14em;
       text-transform:uppercase; font-size:10px; color:#c9b3ff; text-shadow:0 0 7px rgba(155,107,255,.55);
     }
+    /* La boîte de l'Exil s'ouvre désormais en haut à gauche, juste à côté de
+       sa pioche (#exileZone, elle-même en top:10px/left:10px/width:80px). */
     #exileCarousel{
-      position:fixed; top:150px; left:50%; transform:translateX(-50%); width:min(380px, 86vw); height:200px; z-index:1100; display:none;
+      position:fixed; top:10px; left:100px; transform:none; width:min(380px, 86vw); height:200px; z-index:1100; display:none;
       background:rgba(0,0,0,.82); border:2px solid #9b6bff88; border-radius:12px;
       padding:12px; overflow:visible; white-space:nowrap; box-shadow:0 0 20px #9b6bff66;
       perspective:900px;
@@ -685,6 +687,9 @@
 
     /* Zoom */
     #zoom{ position:fixed; inset:0; display:none; align-items:center; justify-content:flex-end; background:transparent; z-index:2600; pointer-events:none; padding-right:22px;}
+    /* Défausses : la carte zoomée au survol s'affiche désormais au centre GAUCHE
+       de l'écran plutôt qu'à droite (l'Exil, lui, reste toujours au centre droit). */
+    #zoom.zoomLeft{ justify-content:flex-start; padding-right:0; padding-left:22px; }
     #zoom .zoomCard{ 
   position:relative; 
   width:420px;  /* Agrandissement de 20% (était 350px) */
@@ -2832,12 +2837,13 @@ function loadActiveDeck(){
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
 
-function showZoom(label, card=null){
+function showZoom(label, card=null, side='right'){
   const url = getCardImage(label);
   zoomCard.innerHTML = '';
   zoomCard.style.backgroundImage = '';
   zoomCard.textContent = '';
   zoomCard.dataset.ctype = getType(label);
+  zoom.classList.toggle('zoomLeft', side === 'left');
 
   const render = () => {
     const safeCard = card || { label };
@@ -12171,13 +12177,19 @@ function resolveFight(from, to){
 // encore ouvert.
 // IMPY (nouveau lot) : Gazocubateur (C74) — accumule les charges gagnées par
 // les kills empoisonnés de son propriétaire ; victoire immédiate à 20.
+// CORRECTIF : si le propriétaire a PLUSIEURS Gazocubateurs en jeu en même
+// temps, chacun doit gagner sa propre charge sur le même kill empoisonné —
+// auparavant seul le premier trouvé (arts.find) était crédité.
 function addGazocubateuCharge(owner){
   const arts = (owner === 'top') ? topArts : botArts;
-  const gazo = arts.find(a => a.label === 'C74');
-  if (!gazo) return;
-  gazo.charges = (gazo.charges || 0) + 1;
-  pushHistory('artefact', `${cardAnchor('C74')} gagne une charge grâce à un kill empoisonné (${gazo.charges}/20).`);
-  if (gazo.charges >= 20) {
+  const gazos = arts.filter(a => a.label === 'C74');
+  if (gazos.length === 0) return;
+  gazos.forEach(gazo => {
+    gazo.charges = (gazo.charges || 0) + 1;
+    pushHistory('artefact', `${cardAnchor('C74')} gagne une charge grâce à un kill empoisonné (${gazo.charges}/20).`);
+  });
+  const winner = gazos.find(g => g.charges >= 20);
+  if (winner) {
     pushHistory('info', `${cardAnchor('C74')} atteint 20 charges — victoire immédiate !`);
     endGame(owner, 'gazocubateu');
   }
@@ -12239,12 +12251,6 @@ function continueResolveFight(from, to){
 
   if(resTo.hpLost > 0) {
     onHPDamaged(to.owner, to.card, resTo.hpLost, 'combat');
-    // IMPY (nouveau lot) : Imuna (C80) ignore totalement le Poison — jamais
-    // anéantie instantanément par lui, peu importe le côté.
-    if (hasTag(from.card, 'poison') && to.card.label !== 'C80') {
-      to.card.hp = 0;
-      pushHistory('pv', `${cardAnchor(to.card.label)} est anéanti par le <strong>POISON</strong> !`);
-    }
     // WADOO 5e lot : Glaraneith (C229) — gèle toute cible à qui elle inflige des dégâts.
     if (from.card.label === 'C229') {
       applyFreezeToCard(to.card);
@@ -12263,14 +12269,28 @@ function continueResolveFight(from, to){
   }
   if(resFrom.hpLost > 0) {
     onHPDamaged(from.owner, from.card, resFrom.hpLost, 'riposte');
-    if (hasTag(to.card, 'poison') && from.card.label !== 'C80') {
-      from.card.hp = 0;
-      pushHistory('pv', `${cardAnchor(from.card.label)} est anéanti par le <strong>POISON</strong> !`);
-    }
     // WADOO 5e lot : Glaraneith (C229) — gèle aussi en ripostant.
     if (to.card.label === 'C229') {
       applyFreezeToCard(from.card);
     }
+  }
+
+  // IMPY (nouveau lot) : POISON — anéanti INSTANTANÉMENT par tout combattant
+  // qui le touche en combat. CORRECTIF : auparavant conditionné à
+  // resTo.hpLost>0 / resFrom.hpLost>0 (les dégâts RÉELLEMENT infligés), donc
+  // si le porteur du Poison avait 0 ATK, ou ripostait sur une cible GELÉE
+  // (riposte annulée), le Poison ne se déclenchait jamais alors même qu'un
+  // contact de combat avait bien eu lieu. Désormais indépendant des dégâts :
+  // seul le simple fait de s'être battu compte, comme pour tout combat.
+  // Imuna (C80) reste totalement immunisée, et Rking (C232) — qui "ne perd
+  // jamais de PV en combat" — reste également épargné, des deux côtés.
+  if (getEffectiveHP(to.card) > 0 && hasTag(from.card, 'poison') && to.card.label !== 'C80' && to.card.label !== 'C232') {
+    to.card.hp = 0;
+    pushHistory('pv', `${cardAnchor(to.card.label)} est anéanti par le <strong>POISON</strong> !`);
+  }
+  if (getEffectiveHP(from.card) > 0 && hasTag(to.card, 'poison') && from.card.label !== 'C80' && from.card.label !== 'C232') {
+    from.card.hp = 0;
+    pushHistory('pv', `${cardAnchor(from.card.label)} est anéanti par le <strong>POISON</strong> !`);
   }
 
   // Snapshot "après" pour l'animation Versus, capturé AVANT removeIfDead/discardCard
@@ -14744,7 +14764,7 @@ function renderDiscardCarousel(carouselEl, pile){
       attachHP(t, card);
       attachGoals(t, card);
     }
-    t.addEventListener('mouseenter', () => showZoom(card.label, card));
+    t.addEventListener('mouseenter', () => showZoom(card.label, card, 'left'));
     t.addEventListener('mouseleave', hideZoom);
     t.addEventListener('click', () => {
       if (pilateSelectMode) {
@@ -17053,7 +17073,15 @@ function aiResolveAnyOpenPrompt(){
     (typeof prismisTargetMode !== 'undefined' && prismisTargetMode) ||
     // IMPY (dernier lot) : Varyce peut viser un ARTEFACT épuisé, une zone que
     // le repli générique par clic aléatoire (.lane uniquement) ne couvre pas.
-    (typeof varyceTargetMode !== 'undefined' && varyceTargetMode)
+    (typeof varyceTargetMode !== 'undefined' && varyceTargetMode) ||
+    // WADOO : rituel de liaison (Petit Fétiche C202, Doudou Épineux C203...) —
+    // CORRECTIF boucle infinie : cette fenêtre n'affiche qu'un bouton
+    // "Annuler" en attendant un clic sur une carte du plateau. Sans ce
+    // court-circuit, le repli générique ci-dessous cliquait ce bouton
+    // Annuler à chaque fois (annulant le rituel et rendant son action à la
+    // Poupée), qui relançait alors indéfiniment le même choix au tour
+    // suivant — l'IA restait bloquée en boucle sur cette carte.
+    (typeof wadooLinkMode !== 'undefined' && wadooLinkMode)
   );
   if (hasKnownSmartMode) {
     const smart = aiChooseSmartTarget();
@@ -17180,6 +17208,15 @@ function aiChooseSmartTarget(){
     );
     return pickBest(valid.filter(e => e.owner === AI_SEAT), valid);
   }
+  // WADOO : rituel de liaison (Petit Fétiche C202, Doudou Épineux C203,
+  // Golgoth C215, Mboria C220...) — ne peut lier qu'un combattant ENNEMI
+  // (jamais un artefact) : viser toujours le plus dangereux, comme les
+  // autres ciblages punitifs.
+  if (typeof wadooLinkMode !== 'undefined' && wadooLinkMode) {
+    const enemyCombatants = entries.filter(e => e.zone === 'lane' && e.owner === oppSeat);
+    return pickBest(enemyCombatants);
+  }
+
   // Générique : la plupart des autres ciblages à effet unique (Tokzik, Kryo,
   // Zyzy, Vilunion, Kamykaz, C42, C69, Kabba, Krouzpier, C59, Venusylva...)
   // pénalisent leur cible d'une façon ou d'une autre — à défaut de connaître
