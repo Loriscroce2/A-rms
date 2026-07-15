@@ -17081,7 +17081,17 @@ function aiResolveAnyOpenPrompt(){
     // Annuler à chaque fois (annulant le rituel et rendant son action à la
     // Poupée), qui relançait alors indéfiniment le même choix au tour
     // suivant — l'IA restait bloquée en boucle sur cette carte.
-    (typeof wadooLinkMode !== 'undefined' && wadooLinkMode)
+    (typeof wadooLinkMode !== 'undefined' && wadooLinkMode) ||
+    // IMPY : Chitinox (C59) — détruit un artefact (n'importe quel camp),
+    // WADOO : Venusylva (C105) — idem. CORRECTIF blocage : ces deux fenêtres
+    // n'affichent AUCUN bouton (juste un message "Choisissez un artefact à
+    // détruire"), en attendant un clic sur un ARTEFACT du plateau. Le repli
+    // générique ci-dessous ne cliquait QUE sur des cartes ".lane" (les
+    // combattants), jamais ".aLane" (les artefacts) : la cible n'était donc
+    // jamais atteinte et l'IA restait bloquée indéfiniment sur cette carte,
+    // même quand un artefact à détruire existait bel et bien.
+    (typeof c59DestroyMode !== 'undefined' && c59DestroyMode) ||
+    (typeof venusylvaDestroyMode !== 'undefined' && venusylvaDestroyMode.active)
   );
   if (hasKnownSmartMode) {
     const smart = aiChooseSmartTarget();
@@ -17216,12 +17226,20 @@ function aiChooseSmartTarget(){
     const enemyCombatants = entries.filter(e => e.zone === 'lane' && e.owner === oppSeat);
     return pickBest(enemyCombatants);
   }
+  // IMPY : Chitinox (C59) — WADOO : Venusylva (C105) — détruisent un
+  // artefact, N'IMPORTE LEQUEL (le sien ou celui de l'adversaire) : l'effet
+  // est obligatoire, donc toujours préférer un artefact ENNEMI, et ne se
+  // rabattre sur le sien que s'il n'en existe aucun côté adverse.
+  if ((typeof c59DestroyMode !== 'undefined' && c59DestroyMode) || (typeof venusylvaDestroyMode !== 'undefined' && venusylvaDestroyMode.active)) {
+    const artifacts = entries.filter(e => e.zone === 'aLane');
+    return pickBest(artifacts.filter(e => e.owner === oppSeat), artifacts);
+  }
 
   // Générique : la plupart des autres ciblages à effet unique (Tokzik, Kryo,
-  // Zyzy, Vilunion, Kamykaz, C42, C69, Kabba, Krouzpier, C59, Venusylva...)
-  // pénalisent leur cible d'une façon ou d'une autre — à défaut de connaître
-  // chacun dans le détail, viser la carte adverse la plus dangereuse reste
-  // le choix par défaut le plus sûr.
+  // Zyzy, Vilunion, Kamykaz, C42, C69, Kabba, Krouzpier...) pénalisent leur
+  // cible d'une façon ou d'une autre — à défaut de connaître chacun dans le
+  // détail, viser la carte adverse la plus dangereuse reste le choix par
+  // défaut le plus sûr.
   return pickBest(entries.filter(e => e.owner === oppSeat), entries);
 }
 
