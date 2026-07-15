@@ -5641,7 +5641,7 @@ function handleC33ArtifactSelection(artifactCard, artifactOwner){
   const cidx = line.findIndex(c => c.id === combatantCard.id);
   if (cidx === -1) return;
   line.splice(cidx, 1);
-  detachFamiliarsOnHost(combatantCard, owner);
+  detachFamiliarsOnHost(combatantCard, owner, false); // transformation, pas une mort
   const copy = createCard(artifactCard.label, owner === 'top' ? 'T' : 'B');
   artArray.push(copy);
   pushHistory('action', `${cardAnchor('C33')} transforme ${cardAnchor(combatantCard.label)} en une copie de
@@ -6453,7 +6453,7 @@ function playActionFusionnerLesTous(owner, actionCard){
   // addToExile — elles ne meurent pas, elles cessent simplement d'exister
   // (aucun effet de MORT ne se déclenche).
   oppLine.forEach(c => {
-    detachFamiliarsOnHost(c, opp);
+    detachFamiliarsOnHost(c, opp, false); // fusion : ne meurent pas
     cleanupPrismisLinksOnCardRemoval(c);
     cleanupWadooLinksOnCardRemoval(c);
   });
@@ -7421,7 +7421,7 @@ function handleC231TargetSelection(targetCard, targetOwner) {
   if (idx === -1) { endC231TargetingCleanup(); return; }
 
   line.splice(idx, 1);
-  detachFamiliarsOnHost(targetCard, targetOwner);
+  detachFamiliarsOnHost(targetCard, targetOwner, false); // retour en main, pas une mort
   cleanupPrismisLinksOnCardRemoval(targetCard);
   cleanupWadooLinksOnCardRemoval(targetCard);
 
@@ -8050,11 +8050,6 @@ function openMiningPrompt(owner, card, fromEl){
         const canUse = chargeCount > 0 && ownDiscard.length > 0;
         msg = `Choisissez : <strong>Miner</strong> ou dépenser une <strong>charge</strong> (${chargeCount} restante${chargeCount===1?'':'s'}) pour remettre une carte de votre défausse sur le dessus de votre deck.`;
         buttons.push(mineButton, { label: `Dépenser une charge (${chargeCount})`, className: 'confirm' + (canUse ? '' : ' disabled'), disabled: !canUse, onClick: () => { if (canUse) startPilateRecursion(owner, card); } });
-    } else if (card.label === 'C91') {
-        title = 'Fossoyeur';
-        const canUseFossoyeur = exilePile.length > 0;
-        msg = 'Choisissez : <strong>Miner</strong> ou <strong>COMBAT</strong> (renvoyer une carte de l\'Exil dans votre main).';
-        buttons.push(mineButton, { label: 'COMBAT (Renvoyer depuis l\'Exil)', className: 'confirm' + (canUseFossoyeur ? '' : ' disabled'), disabled: !canUseFossoyeur, onClick: () => { if (canUseFossoyeur) openFossoyeurExilePicker(owner); } });
     } else if (card.label === 'C94') {
         title = 'Couveuse';
         const c94Opp = (owner === 'top') ? 'bottom' : 'top';
@@ -9117,7 +9112,7 @@ function handleTokzikTargetSelection(targetCard, targetCardOwner){
   tokzikTargetMode = null;
   closeActionPrompt();
 
-  detachFamiliarsOnHost(targetCard, targetOwner);
+  detachFamiliarsOnHost(targetCard, targetOwner, false); // déjà exilé directement ci-dessous, pas via discardCard
   const line = getLineByOwner(targetOwner);
   const idx = line.findIndex(c => c.id === targetCard.id);
   if (idx !== -1) line.splice(idx, 1);
@@ -11302,7 +11297,7 @@ function attachFamiliarToHost(owner, familiarCard, hostCard){
   fullRender();
 }
 
-function detachFamiliarsOnHost(hostCard, hostOwner){
+function detachFamiliarsOnHost(hostCard, hostOwner, isDeath = true){
   const hid = hostCard.id;
 
   [famTop, famBottom].forEach(arr => {
@@ -11327,9 +11322,26 @@ function detachFamiliarsOnHost(hostCard, hostOwner){
           updateMithril();
         }
 
-        if(familiar.label === 'C10' || familiar.label === 'C89'){
+        if(familiar.label === 'C10'){
           addToExile(familiar);
           pushHistory('exil', `${cardAnchor(familiar.label)} part en EXIL (son hôte ${cardAnchor(hostCard.label)} a été retiré).`);
+        } else if (familiar.label === 'C89'){
+          // IMPY (dernier lot) : Negatron (C89) — son texte exact est :
+          // "Lorsque le combattant qui a Negatron rattaché meurt, il est
+          // exilé." C'est donc l'HÔTE (pas Negatron lui-même) qui doit
+          // partir en Exil. On pose un simple drapeau sur l'hôte, consommé
+          // juste après par discardCard() (voir plus haut dans cette
+          // fonction), pour ne PAS avoir à modifier chacun des nombreux
+          // appelants de detachFamiliarsOnHost : leur séquence habituelle
+          // (splice + detachFamiliarsOnHost + discardCard(hostCard, owner,
+          // 'death')) fonctionne alors sans aucun changement de leur part.
+          // isDeath=false (retour en main, fusion, transformation...) :
+          // l'hôte ne meurt pas vraiment, le drapeau n'est jamais posé.
+          if (isDeath) {
+            hostCard._negatronExile = true;
+          }
+          discardCard(familiar, originalOwner);
+          pushHistory('défausse', `${cardAnchor(familiar.label)} va dans la défausse de son propriétaire (son hôte ${cardAnchor(hostCard.label)} a été retiré).`);
         } else {
           discardCard(familiar, originalOwner);
           pushHistory('défausse', `${cardAnchor(familiar.label)} va dans la défausse de son propriétaire (son hôte ${cardAnchor(hostCard.label)} a été retiré).`);
@@ -11948,6 +11960,27 @@ function resolveFight(from, to){
     // ===================================================================
 
     // ===================================================================
+    // IMPY (dernier lot) : Fossoyeur (C91) — COMBAT : à chaque fois qu'il
+    // attaque, renvoie une carte de l'Exil dans la main de son
+    // propriétaire (celui-ci choisit laquelle). MÊME PRINCIPE qu'Ozokshi/
+    // Cénewz ci-dessus : le combat attend la résolution de ce choix avant
+    // de continuer. Si l'Exil est vide, rien ne se passe et le combat se
+    // résout normalement.
+    // ===================================================================
+    if (from.card.label === 'C91') {
+      const fossoyeurOwner = from.owner;
+      if (exilePile.length > 0) {
+        openFossoyeurExilePicker(fossoyeurOwner, () => continueResolveFight(from, to));
+        return;
+      } else {
+        pushHistory('info', `${cardAnchor('C91')} attaque, mais l'Exil est vide : son effet ne se déclenche pas.`);
+      }
+    }
+    // ===================================================================
+    // FIN DE LA LOGIQUE POUR FOSSOYEUR
+    // ===================================================================
+
+    // ===================================================================
     // IMPY (nouveau lot) : Zayuka (C73) — COMBAT : gagne +3 PV, affiché
     // clairement AVANT que le combat ne se résolve (petite pause), pour que
     // le gain soit bien visible et pas noyé dans l'animation Versus qui
@@ -12205,8 +12238,8 @@ function continueResolveFight(from, to){
 
     if (hasGluangel) {
       // 1. On détache tous les familiars (ils iront à la défausse)
-      detachFamiliarsOnHost(card, owner);
-      
+      detachFamiliarsOnHost(card, owner, false); // sauvée par Gluangel : ne meurt pas
+
       // 2. On réinitialise la carte sauvée à ses statistiques de base
       card.hp = getBaseHP(card.label);
       card.shield = getBaseShield(card.label);
@@ -13549,7 +13582,7 @@ function onCharacterEnterBattlefield_impl(card, owner) {
         const idx = ouraboreasOppLine.findIndex(c => c.id === t.id);
         if (idx === -1) return;
         ouraboreasOppLine.splice(idx, 1);
-        detachFamiliarsOnHost(t, ouraboreasOpp);
+        detachFamiliarsOnHost(t, ouraboreasOpp, false); // retour en main, pas une mort
         if (typeof cleanupPrismisLinksOnCardRemoval === 'function') cleanupPrismisLinksOnCardRemoval(t);
         if (typeof cleanupWadooLinksOnCardRemoval === 'function') cleanupWadooLinksOnCardRemoval(t);
         if (typeof t.hp === 'number') t.hp = getBaseHP(t.label);
@@ -14622,6 +14655,15 @@ function getDamniaMultiplier(owner){
 }
 
 function discardCard(card, owner, reason='other', context = {}){
+  // IMPY (dernier lot) : Negatron (C89) — le combattant hôte part en EXIL
+  // au lieu de la défausse normale (drapeau posé par detachFamiliarsOnHost,
+  // juste avant que son appelant n'appelle discardCard sur ce même hôte).
+  if (card._negatronExile) {
+    delete card._negatronExile;
+    addToExile(card);
+    pushHistory('exil', `${cardAnchor(card.label)} part en EXIL au lieu de la défausse : effet de ${cardAnchor('C89')} !`);
+    return;
+  }
   // IMPY (dernier lot) : Copie des Enfers (C90) — si la carte surveillée
   // meurt (ce tour-ci, la surveillance expirant au tour suivant, voir
   // startTurn), 2 exemplaires apparaissent directement dans l'Exil.
@@ -18233,15 +18275,19 @@ function handleRoiDRoiTargetSelection(targetCard, targetCardOwner){
 // ===================================================================
 // IMPY (dernier lot) : Fossoyeur (C91) — COMBAT : renvoyer une carte de
 // l'Exil dans sa main (réutilise le même carrousel que Healard/Mezamorph).
+// Déclenché automatiquement à chaque attaque de Fossoyeur (voir
+// resolveFight) — onResolved permet au combat d'attendre la résolution de
+// ce choix avant de continuer (même principe qu'Ozokshi/Cénewz).
 // ===================================================================
-function openFossoyeurExilePicker(owner){
+function openFossoyeurExilePicker(owner, onResolved){
   if (exilePile.length === 0) {
     pushHistory('info', `${cardAnchor('C91')} : l'Exil est vide.`);
+    if (onResolved) onResolved();
     return;
   }
   const carousel = document.getElementById('familiarCarousel');
   const title = document.getElementById('fcoTitle');
-  if (!familiarCarouselOverlay || !carousel || !title) return;
+  if (!familiarCarouselOverlay || !carousel || !title) { if (onResolved) onResolved(); return; }
 
   title.textContent = "Fossoyeur — choisissez une carte à ramener de l'Exil dans votre main";
   carousel.innerHTML = '';
@@ -18259,6 +18305,7 @@ function openFossoyeurExilePicker(owner){
       carousel.classList.remove('selecting');
       hideFamiliarCarousel();
       resolveFossoyeurChoice(owner, exiledCard);
+      if (onResolved) onResolved();
     });
     carousel.appendChild(thumb);
   });
@@ -18793,7 +18840,7 @@ function transformIntoPudding(targetOwner, targetCard, casterOwner){
   const idx = targetLine.findIndex(c => c.id === targetCard.id);
   if (idx === -1) return;
   targetLine.splice(idx, 1);
-  detachFamiliarsOnHost(targetCard, targetOwner);
+  detachFamiliarsOnHost(targetCard, targetOwner, false); // transformation, pas une mort
   const casterLine = getLineByOwner(casterOwner);
   const pudding = createCard('T10', casterOwner === 'top' ? 'T' : 'B');
   pudding.hp = 1;
@@ -19345,9 +19392,9 @@ function applyHitAndRunEffect() {
     const idx = line.findIndex(c => c.id === bounceTarget.id);
     if (idx !== -1) {
       const cardToHand = line.splice(idx, 1)[0];
-      
+
       // Très important : détacher les familiers et réinitialiser la carte
-      detachFamiliarsOnHost(cardToHand, owner);
+      detachFamiliarsOnHost(cardToHand, owner, false); // retour en main, pas une mort
       cardToHand.hp = getBaseHP(cardToHand.label);
       cardToHand.shield = getBaseShield(cardToHand.label);
       delete cardToHand.tempHP;
