@@ -4084,7 +4084,7 @@ const CARD_TAGS = {
   'C62':['Diplomate', 'Impy'], 'C63':['action', 'Impy'], 'C64':['familier', 'Impy'],
   'C65':['citoyen', 'Impy', 'provocateur', 'poison'], 'C66':['citoyen', 'Impy'], 'C67':['guerrier', 'Impy'],
   'C68':['citoyen', 'Impy'],
-  'C69':['action', 'Impy'], 'C70':['familier', 'Impy'], 'C71':['citoyen', 'Impy', 'rapide'],
+  'C69':['action', 'Impy'], 'C70':['familier', 'Impy'], 'C71':['citoyen', 'Impy'],
   'C72':['artefact', 'Impy'], 'C73':['guerrier', 'Impy', 'rapide', 'poison'], 'C74':['artefact', 'Impy'],
   'C75':['action', 'Impy'], 'C76':['citoyen', 'Impy', 'poison'], 'C77':['médic', 'Impy'],
   'C78':['guerrier', 'Impy'], 'T17':['guerrier', 'Impy'], 'T18':['guerrier', 'Impy'],
@@ -16454,7 +16454,14 @@ function renderArms(){
     }
   });
 }
-function addMithril(player){
+function addMithril(player, count){
+  // CORRECTIF (Saphia/C158 et tout autre effet qui octroie plusieurs
+  // Mithril d'un coup) : `count` permet de créditer plusieurs unités en un
+  // seul appel, avec un seul rafraîchissement/hit visuel affichant le total
+  // réel (ex. "+2") — auparavant, deux appels successifs à addMithril(player)
+  // déclenchaient chacun leur propre popup "+1" (superposés, donnant
+  // l'impression trompeuse qu'un seul Mithril avait été gagné).
+  count = count || 1;
   const opp = (player === 'top') ? 'bottom' : 'top';
   const enemyMalocux = getLineByOwner(opp).find(c => c.label === 'C68');
 
@@ -16462,13 +16469,13 @@ function addMithril(player){
     if (typeof enemyMalocux.capturedMithril !== 'number') {
       enemyMalocux.capturedMithril = 0;
     }
-    enemyMalocux.capturedMithril++;
+    enemyMalocux.capturedMithril += count;
     pushHistory('info', `Le Mithril de ${playerLabel(player)} est capturé par ${cardAnchor('C68')} !`);
     fullRender();
     return;
   }
 
-  mithril[player]++;
+  mithril[player] += count;
   updateMithril();
 }
 
@@ -17635,9 +17642,11 @@ function upkeepCharactersFor(player) {
       if (oppHand.length >= 7) {
         // On passe par addMithril() (et non une mutation directe) pour que
         // Malocux (C68), s'il est en jeu chez l'adversaire, capture bien ce
-        // Mithril au lieu de nous le laisser gagner.
-        addMithril(player);
-        addMithril(player);
+        // Mithril au lieu de nous le laisser gagner. Un seul appel avec
+        // count=2 : le hit visuel affiche bien "+2" au lieu de deux popups
+        // "+1" superposés qui donnaient l'impression trompeuse qu'un seul
+        // Mithril avait été gagné.
+        addMithril(player, 2);
         pushHistory('mithril', `${cardAnchor('C158')} vous fait gagner 2 Mithril (main adverse >= 7 cartes).`);
       }
     }
@@ -17926,6 +17935,18 @@ function runAITurnStep(){
     // (Gousset, Autel aux Ossements) influencent directement la décision
     // qui suit (coût de forge réduit, Mithril supplémentaire déjà en poche).
     if (aiTryUseArtifacts()) { setTimeout(runAITurnStep, 2200); return; }
+
+    // CORRECTIF : jusqu'ici, l'IA ne découvrait les capacités "ACTIONS:" de
+    // ses combattants (Exdote/poison, Roi-D-Roi/destruction de diplomate,
+    // Couveuse/vol d'Eggrreur, Cloonay/buff, Zcyvenger, Khromafayl, Loozoxe,
+    // Venusylva, Mama Cecil, Barbatruk, Shrman, Mlle Pilate, Freeda, Freyd,
+    // Anamars, MSmith, Salomon II, Bobyz, Poupées Wadoo...) que par hasard,
+    // en ouvrant le menu combiné Miner/Action UNIQUEMENT quand elle décidait
+    // déjà de miner (aiTryMine, qui ne se déclenche même plus une fois 6
+    // Mithril en poche). Ces capacités n'ont pourtant rien à voir avec le
+    // Mithril : on les tente maintenant en priorité, dès qu'au moins un
+    // combattant de sa zone de combat peut en utiliser une utilement.
+    if (aiTryUseCombatantActions()) { setTimeout(runAITurnStep, 2200); return; }
 
     // Priorité au Mithril plutôt qu'au combat quand la forge est TRÈS
     // proche (1 ou 2 Mithril manquants) et pas encore réalisée ce tour :
@@ -18578,6 +18599,83 @@ function aiTryAttack(){
   // on préserve alors le plateau plutôt que d'attaquer à tout prix.
   if (boardControlComfortable && best.score < 0) return false;
   maybeResolveAttack({ card: best.attacker, owner: AI_SEAT }, { card: best.target, owner: oppSeat });
+  return true;
+}
+
+// ===================================================================
+// UTILISATION DES CAPACITÉS "ACTIONS:" DES COMBATTANTS DÉJÀ EN JEU — ces
+// capacités s'ouvrent via le même menu que le Minage (bouton "Action" ou
+// "Capacité" à côté du bouton "Miner", voir openMiningPrompt), mais n'ont
+// aucun rapport avec le Mithril. Chaque combattant connu de la liste
+// ci-dessous reçoit une petite condition "vaut-il le coup de l'utiliser
+// maintenant ?" ; si oui, on ouvre son menu et on laisse
+// aiResolveAnyOpenPrompt() cliquer le bouton d'Action (il préfère déjà tout
+// bouton qui n'est pas "Miner").
+// ===================================================================
+const AI_COMBATANT_ACTION_LABELS = [
+  'C9','C22','C44','C105','C114','C120','C155','C173',
+  'C202','C203','C206','C211','C218','C216','C94','C99','C100','C240','C241','C32'
+];
+
+function aiCombatantActionIsUsable(card){
+  const owner = AI_SEAT;
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  switch (card.label) {
+    case 'C9':   return true; // Zcyvenger : +1 Mithril puis pioche en défausse, toujours bon
+    case 'C22':  return true; // Khromafayl : pioche 1 carte, toujours bon
+    case 'C44': {
+      const line = getLineByOwner(owner);
+      const idx = line.findIndex(c => c.id === card.id);
+      return (idx > 0) || (idx < line.length - 1); // Loozoxe : a-t-il un voisin à renforcer ?
+    }
+    case 'C105': return topArts.length > 0 || botArts.length > 0; // Venusylva : un artefact à détruire
+    case 'C114': return topLine.concat(botLine).some(c => getType(c.label) === 'personnage'); // Anamars
+    case 'C120': return true; // Salomon II : joue une carte Chimeria gratuite
+    case 'C155': return topLine.concat(botLine).length > 0; // Freeda : une cible à geler
+    case 'C173': return true; // Freyd : capacité anti-citoyens, toujours tentable
+    case 'C202':
+    case 'C203':
+      return !card.wadooLink && getLineByOwner(opp).some(c => getType(c.label) === 'personnage'); // Rituel de liaison
+    case 'C206': return getEffectiveHP(card) < getBaseHP('C206'); // Mama Cecil : soin utile seulement si blessée
+    case 'C211': return getLineByOwner(owner).some(c => hasTag(c, 'poupée')); // Barbatruk : a une Poupée à sacrifier
+    case 'C218': {
+      const enemyArts = (opp === 'top') ? topArts : botArts;
+      return enemyArts.some(a => hasTag(a, 'Wadoo')); // Shrman : un artefact Wadoo adverse à détruire
+    }
+    case 'C216': {
+      const ownDiscard = (owner === 'top') ? topDiscard : botDiscard;
+      return (card.charges || 0) > 0 && ownDiscard.length > 0; // Mlle Pilate
+    }
+    case 'C94': return getLineByOwner(opp).some(c => c.label === 'C93'); // Couveuse : un Eggrreur à voler
+    case 'C99': return topLine.concat(botLine).length > 0; // Exdote : une cible à empoisonner
+    case 'C100': return getLineByOwner(opp).some(c => hasTag(c, 'Diplomate')); // Roi-D-Roi
+    case 'C240': return getHandByOwner(owner).some(c => hasTag(c, 'Impy')); // MSmith
+    case 'C241': return getLineByOwner(owner).some(c => c.id !== card.id && getType(c.label) === 'personnage'); // Cloonay
+    case 'C32':  return true; // Bobyz : crée une Pièce détachée, toujours bon
+    default: return false;
+  }
+}
+
+function aiTryUseCombatantActions(){
+  const myLine = getLineByOwner(AI_SEAT);
+  const candidates = myLine.filter(c => {
+    if (!AI_COMBATANT_ACTION_LABELS.includes(c.label)) return false;
+    if (hasAttacked(AI_SEAT, c)) return false;
+    if (isAnyTargetSelectionActive()) return false;
+    if (isFrozen(c)) return false;
+    if (!canUnitActThisTurn(AI_SEAT, c)) return false;
+    // Entravax (C70) et Blokméria (C187) bloquent aussi bien le minage que
+    // l'Action — même filet que openMiningPrompt.
+    if (getFamiliersOnHost(c).some(f => f.label === 'C70')) return false;
+    if (getFamiliersOnHost(c).some(f => f.label === 'C187' && !isFamiliarEffectSuppressed(c, 'C187'))) return false;
+    try { return aiCombatantActionIsUsable(c); } catch(err) { return false; }
+  });
+  if (candidates.length === 0) return false;
+
+  const chosen = candidates[0];
+  const el = document.querySelector(`.lane .card.placed[data-id="${chosen.id}"]`);
+  if (!el) return false;
+  openMiningPrompt(AI_SEAT, chosen, el);
   return true;
 }
 
