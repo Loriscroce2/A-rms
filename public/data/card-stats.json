@@ -469,6 +469,51 @@
     "hp": 3,
     "shield": 3
   },
+  "0238": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 0
+  },
+  "0239": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 1
+  },
+  "0240": {
+    "type": "personnage",
+    "hp": 2,
+    "shield": 0
+  },
+  "0241": {
+    "type": "personnage",
+    "hp": 2,
+    "shield": 1
+  },
+  "0242": {
+    "type": "personnage",
+    "hp": 2,
+    "shield": 2
+  },
+  "0244": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 1
+  },
+  "0245": {
+    "type": "personnage",
+    "hp": 2,
+    "shield": 0
+  },
+  "0248": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 0
+  },
+  "0249": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 0
+  },
   "0088": {
     "type": "personnage",
     "hp": 3,

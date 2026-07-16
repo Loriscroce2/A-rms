@@ -18,6 +18,7 @@ const IMPLEMENTED_CODES = [
   225,226,227,228,                                                 // Wadoo (4e lot)
   229,230,231,232,233,234,                                         // Wadoo (5e lot)
   235,236,                                                          // Wadoo (6e lot)
+  237,238,239,240,241,242,243,244,245,247,248,249,250,             // Wadoo (7e lot, sans 246)
 ];
 
 function pad4(n) { return String(n).padStart(4, '0'); }
@@ -131,3 +132,4 @@ function generateRandomBooster(size = 7) {
 }
 
 module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };
+

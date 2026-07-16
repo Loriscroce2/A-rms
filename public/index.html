@@ -3401,6 +3401,25 @@ const CARD_IMAGES = {
  'C236': '../cartes/0236.png',
  'T08': '../cartes/T08.png',
 
+ /* === FACTION WADOO — 7e lot === */
+ 'C237': '../cartes/0237.png',
+ 'C238': '../cartes/0238.png',
+ 'C239': '../cartes/0239.png',
+ 'C240': '../cartes/0240.png',
+ 'C241': '../cartes/0241.png',
+ 'C242': '../cartes/0242.png',
+ 'C243': '../cartes/0243.png',
+ 'C244': '../cartes/0244.png',
+ 'C245': '../cartes/0245.png',
+ 'C247': '../cartes/0247.png',
+ 'C248': '../cartes/0248.png',
+ 'C249': '../cartes/0249.png',
+ 'C250': '../cartes/0250.png',
+ // T19 "Fléau" : carte-token maudite (voir Startare, C244) sans illustration
+ // dédiée — réutilise le dos de carte générique, cohérent avec son statut de
+ // carte "maudite" qui encombre le deck plutôt qu'une vraie carte jouable.
+ 'T19': '../cartes/Versobasic.png',
+
  /* === FACTION KRYLLS — nouveau lot === */
  'C23': '../cartes/0023.png',
  'C24': '../cartes/0024.png',
@@ -3577,6 +3596,22 @@ const CARD_TYPES  = {
  'C235': 'familier',   // Scapoo
  'C236': 'action',     // Fusionner les tous
  'T08': 'personnage',  // Ignominie
+
+ /* === FACTION WADOO — 7e lot === */
+ 'C237': 'action',     // Chasse à l'aiguille
+ 'C238': 'personnage', // Cyclor
+ 'C239': 'personnage', // Dembelaid
+ 'C240': 'personnage', // MSmith
+ 'C241': 'personnage', // Cloonay
+ 'C242': 'personnage', // Fridoll
+ 'C243': 'action',     // Rollback
+ 'C244': 'personnage', // Startare
+ 'C245': 'personnage', // Artayc
+ 'C247': 'familier',   // Mina Mina
+ 'C248': 'personnage', // Mliche
+ 'C249': 'personnage', // Nomya
+ 'C250': 'action',     // Étroite Sagesse
+ 'T19': 'action',       // Fléau (token maudit, voir Startare C244)
 
  /* === FACTION KRYLLS — nouveau lot === */
  'C23': 'action',      // Réveillez vous
@@ -3755,6 +3790,22 @@ const CARD_NAMES = {
  'C236': 'Fusionner les tous',
  'T08': 'Ignominie',
 
+ /* === FACTION WADOO — 7e lot === */
+ 'C237': 'Chasse à l\'aiguille',
+ 'C238': 'Cyclor',
+ 'C239': 'Dembelaid',
+ 'C240': 'MSmith',
+ 'C241': 'Cloonay',
+ 'C242': 'Fridoll',
+ 'C243': 'Rollback',
+ 'C244': 'Startare',
+ 'C245': 'Artayc',
+ 'C247': 'Mina Mina',
+ 'C248': 'Mliche',
+ 'C249': 'Nomya',
+ 'C250': 'Étroite Sagesse',
+ 'T19': 'Fléau',
+
  /* === FACTION KRYLLS — nouveau lot === */
  'C23': 'Réveillez vous',
  'C24': 'Tentacuz',
@@ -3869,6 +3920,17 @@ const CARD_HP_BASE = {
   /* WADOO — 6e lot */
   'T08': 15,
 
+  /* WADOO — 7e lot */
+  'C238': 3,
+  'C239': 3,
+  'C240': 2,
+  'C241': 2,
+  'C242': 2,
+  'C244': 4,
+  'C245': 2,
+  'C248': 4,
+  'C249': 3,
+
   /* KRYLLS — nouveau lot */
   'C25': 3,
   'C26': 2,
@@ -3954,6 +4016,12 @@ const CARD_SHIELD_BASE = {
   /* WADOO — 5e lot */
   'C229': 1,
   'C234': 3,
+
+  /* WADOO — 7e lot : uniquement celles avec un Bouclier > 0. */
+  'C239': 1,
+  'C241': 1,
+  'C242': 2,
+  'C244': 1,
 
   /* IMPY — dernier lot (0088-0100) : uniquement celles avec un Bouclier > 0. */
   'C93': 2,
@@ -4106,6 +4174,23 @@ const CARD_TAGS = {
  /* === FACTION WADOO — 6e lot === */
  'C235': ['familier', 'Wadoo'],  // Scapoo
  'C236': ['action', 'Wadoo'],    // Fusionner les tous
+
+ /* === FACTION WADOO — 7e lot === */
+ 'C237': ['action', 'Wadoo'],    // Chasse à l'aiguille
+ 'C238': ['citoyen', 'Wadoo'],   // Cyclor
+ 'C239': ['citoyen', 'Wadoo'],   // Dembelaid
+ 'C240': ['Diplomate', 'Wadoo'], // MSmith
+ 'C241': ['medic', 'Wadoo'],     // Cloonay
+ 'C242': ['citoyen', 'Wadoo'],   // Fridoll
+ 'C243': ['action', 'Wadoo'],    // Rollback
+ 'C244': ['citoyen', 'Wadoo'],   // Startare
+ 'C245': ['citoyen', 'Wadoo'],   // Artayc
+ 'C247': ['familier', 'Wadoo'],  // Mina Mina
+ 'C248': ['citoyen', 'Wadoo'],   // Mliche
+ 'C249': ['citoyen', 'Wadoo'],   // Nomya
+ 'C250': ['action', 'Wadoo'],    // Étroite Sagesse
+ 'T19': ['action', 'Wadoo', 'fléau', 'token'], // Fléau (Startare, C244)
+
  // T08 "Ignominie" : Guerrier NEUTRE — appartient aux 5 factions à la fois
  // (toute vérification de faction, quelle qu'elle soit, la considère comme
  // valide), conformément à "de toutes les factions" imprimé sur la carte.
@@ -4844,11 +4929,32 @@ function checkFeufoStartingHand(){
   });
 }
 
+// ===================================================================
+// WADOO 7e lot : Startare (C244) — vérifié UNE SEULE FOIS, à la distribution
+// de la main de départ (même principe que Feufo ci-dessus). Si présent, la
+// carte se révèle à l'adversaire (simple message d'historique, aucune
+// fenêtre à ouvrir) et 2 exemplaires de Fléau (T19, carte-token maudite
+// sans le moindre effet) sont ajoutés puis mélangés dans le deck de son
+// propriétaire, conformément au texte imprimé (aucune compensation prévue).
+// ===================================================================
+function checkStartareStartingHand(){
+  ['top', 'bottom'].forEach(owner => {
+    const hand = (owner === 'top') ? topHand : botHand;
+    if (!hand.some(c => c.label === 'C244')) return;
+    const deck = getDeckByOwner(owner);
+    const prefix = (owner === 'top') ? 'T' : 'B';
+    deck.push(createCard('T19', prefix), createCard('T19', prefix));
+    shuffle(deck);
+    pushHistory('info', `${cardAnchor('C244')} est révélée depuis la main de départ de ${playerLabel(owner)} : 2 ${cardAnchor('T19')} sont mélangés dans son deck !`);
+  });
+}
+
 // On utilise la nouvelle fonction pour distribuer les mains de départ.
 if (!ONLINE_MODE) {
   botHand = drawInitialHand(botDeck);
   topHand = drawInitialHand(topDeck);
   checkFeufoStartingHand();
+  checkStartareStartingHand();
 }
 // ===================================================================
 // FIN DE LA MODIFICATION
@@ -5110,7 +5216,32 @@ function chooseFactionAndProceed(player, f, onChosen){
   const handEl = document.getElementById(player === 'top' ? 'handTop' : 'handBottom');
   if (handEl) handEl.classList.remove('faction-select-zoom');
   pushHistory('info', `Faction choisie par ${player===MY_SEAT?'vous (Joueur 1)':'Joueur 2 (adversaire)'} : <strong>${f}</strong>.`);
+  try { checkMlicheTriggers(player, f); } catch(err) { console.error('[Mliche] erreur pendant la vérification du déclenchement :', err); }
   if(typeof onChosen === 'function') onChosen();
+}
+
+// ===================================================================
+// WADOO 7e lot : Mliche (C248) — déclenchement persistant. Chaque Mliche en
+// jeu surveille une faction choisie à sa pose (voir card.mlicheFaction,
+// assigné dans onCharacterEnterBattlefield_impl). Si l'ADVERSAIRE du
+// propriétaire de Mliche choisit cette faction comme faction active de son
+// tour, tous les combattants du propriétaire de Mliche gagnent +2 PV
+// (cumulable : plusieurs Mliche surveillant la même faction s'additionnent).
+// ===================================================================
+function checkMlicheTriggers(chosenPlayer, faction){
+  const mlicheOwner = (chosenPlayer === 'top') ? 'bottom' : 'top';
+  const watchers = getLineByOwner(mlicheOwner).filter(c => c.label === 'C248' && c.mlicheFaction === faction);
+  if (watchers.length === 0) return;
+
+  const totalBonus = watchers.length * 2;
+  getLineByOwner(mlicheOwner).forEach(c => {
+    if (typeof c.hp === 'number') {
+      c.hp += totalBonus;
+      playHPHitEffect(c);
+    }
+  });
+  pushHistory('info', `${playerLabel(chosenPlayer)} choisit <strong>${faction}</strong>, la faction surveillée par ${cardAnchor('C248')} : tous les combattants de ${playerLabel(mlicheOwner)} gagnent +${totalBonus} PV !`);
+  fullRender();
 }
 
 // VERSION CORRIGÉE À UTILISER
@@ -6629,6 +6760,129 @@ function playActionFusionnerLesTous(owner, actionCard){
   playFusionCenterStageAnimation(mergedLabels, ignominie, opp, totalCapturedMithril);
 }
 
+// ===================================================================
+// WADOO 7e lot : Chasse à l'aiguille (C237) — pour chaque familier attaché à
+// un combattant adverse (tous comptés, quel que soit l'hôte), l'adversaire
+// défausse une carte du DESSOUS de son deck. Réutilise directement
+// forceDiscardFromDeckBottom (déjà utilisée par Négociateur des Brumes,
+// Autel aux Ossements, Ombre Vaudou, Dégourat) pour rester cohérent avec le
+// reste du moulinage Wadoo.
+// ===================================================================
+function playActionChasseALaiguille(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+  const familiarCount = oppLine.reduce((sum, c) => sum + getFamiliersOnHost(c).length, 0);
+
+  if (familiarCount <= 0) {
+    pushHistory('info', `${cardAnchor('C237')} : aucun familier attaché chez ${playerLabel(opp)} — aucun effet.`);
+    fullRender();
+    return;
+  }
+
+  forceDiscardFromDeckBottom(opp, familiarCount, 'C237');
+  fullRender();
+}
+
+// ===================================================================
+// WADOO 7e lot : Rollback (C243) — TOUS les combattants (les deux camps)
+// retournent dans la main de leur propriétaire. Même traitement que
+// Ouraboréas (C185, retour en main d'un seul combattant) : PV/Bouclier
+// réinitialisés à leur valeur de base, familiers détachés SANS mourir
+// (detachFamiliarsOnHost(..., false)), liens Prismis/Wadoo nettoyés.
+// ===================================================================
+function playActionRollback(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  let totalBounced = 0;
+  ['top', 'bottom'].forEach(side => {
+    const line = getLineByOwner(side);
+    const cards = line.slice(); // copie : on va vider le tableau d'origine pendant l'itération
+    cards.forEach(c => {
+      detachFamiliarsOnHost(c, side, false); // retour en main, pas une mort
+      cleanupPrismisLinksOnCardRemoval(c);
+      cleanupWadooLinksOnCardRemoval(c);
+      if (typeof c.hp === 'number') c.hp = getBaseHP(c.label);
+      c.shield = getBaseShield(c.label);
+      getHandByOwner(side).push(c);
+      totalBounced++;
+    });
+    line.length = 0;
+  });
+
+  pushHistory('action', `${cardAnchor('C243')} renvoie ${totalBounced} combattant${totalBounced > 1 ? 's' : ''} dans la main de leur propriétaire !`);
+  fullRender();
+}
+
+// ===================================================================
+// WADOO 7e lot : Étroite Sagesse (C250) — l'adversaire perd 1 A'rms et
+// gagne 3 Mithril, PUIS le compteur de Mithril de l'activateur devient
+// identique à celui de son adversaire (donc synchronisé sur sa NOUVELLE
+// valeur, après son propre gain de 3). Assignation directe (pas addMithril)
+// pour l'égalisation, conforme au texte imprimé ("devient le même que").
+// ===================================================================
+function playActionEtroiteSagesse(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+
+  if (arms[opp] > 0) {
+    arms[opp]--;
+    pushHistory('info', `${playerLabel(opp)} perd 1 A'rms à cause de ${cardAnchor('C250')}.`);
+  } else {
+    pushHistory('info', `${playerLabel(opp)} n'a pas d'A'rms à perdre.`);
+  }
+
+  for (let i = 0; i < 3; i++) addMithril(opp);
+  pushHistory('mithril', `${playerLabel(opp)} gagne 3 Mithril à cause de ${cardAnchor('C250')}.`);
+
+  mithril[owner] = mithril[opp];
+  pushHistory('mithril', `${cardAnchor('C250')} : le Mithril de ${playerLabel(owner)} est synchronisé sur celui de ${playerLabel(opp)} (${mithril[opp]}).`);
+
+  renderArms();
+  updateMithril();
+  fullRender();
+}
+
+// ===================================================================
+// WADOO 7e lot : Fléau (T19) — carte-token maudite créée par Startare
+// (C244) quand celle-ci se trouve dans la main de départ. Aucun effet
+// mécanique : elle existe uniquement pour encombrer le deck de son
+// propriétaire (un tirage "perdu"), conformément au texte imprimé sur
+// Startare qui ne mentionne aucune compensation.
+// ===================================================================
+function playActionFleau(owner, actionCard){
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  pushHistory('info', `${cardAnchor('T19')} est une carte maudite sans le moindre effet — elle rejoint simplement la défausse.`);
+  fullRender();
+}
+
 // Animation propre à "Fusionner les tous" (C236) : l'écran s'éteint
 // COMPLÈTEMENT (noir total), tous les combattants fusionnés apparaissent
 // zoomés au centre en éventail, tourbillonnent et convergent visuellement,
@@ -8078,9 +8332,23 @@ function openMiningPrompt(owner, card, fromEl){
     });
   }
 
-  if (canPerformActions) {
+  // WADOO 7e lot : Mina Mina (C247) — remplace ENTIÈREMENT le Minage normal
+  // sur son hôte : un clic détruit directement la/les combattant(s) (tous
+  // camps confondus) ayant la plus faible "puissance" (ATK + PV effectifs),
+  // sans gain de Mithril ni perte de PV pour l'hôte. Prioritaire sur toute
+  // autre logique de bouton (Coqsix, capacités bespoke...).
+  const minaMinaCount = attachedFamiliars.filter(f => f.label === 'C247').length;
+
+  if (canPerformActions && minaMinaCount > 0) {
+    msg = 'Choisissez : <strong>Miner</strong> (détruit le/les combattant(s) le(s) plus faible(s) du plateau).';
+    buttons.push({
+      label: 'Miner (détruire les plus faibles)',
+      className: 'confirm',
+      onClick: () => { useMinaMinaMining(owner, card); }
+    });
+  } else if (canPerformActions) {
     let mineButton;
-    
+
     // On crée la fonction onClick une seule fois
     const onMineClick = () => {
         performMining(owner, card);
@@ -8215,6 +8483,17 @@ function openMiningPrompt(owner, card, fromEl){
         const canUseRoiDRoi = getLineByOwner(c100Opp).some(c => hasTag(c, 'Diplomate'));
         msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (détruire un diplomate adverse).';
         buttons.push(mineButton, { label: 'Action (Détruire un diplomate)', className: 'confirm' + (canUseRoiDRoi ? '' : ' disabled'), disabled: !canUseRoiDRoi, onClick: () => { if (canUseRoiDRoi) startRoiDRoiTargeting(owner); } });
+    } else if (card.label === 'C240') {
+        title = 'MSmith';
+        const canUseMSmith = getHandByOwner(owner).some(c => hasTag(c, 'Impy'));
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>Capacité</strong> (jouer/utiliser une carte Impy de votre main — une copie de MSmith rejoint alors l\'Exil).';
+        buttons.push(mineButton, { label: 'Capacité (Jouer une carte Impy)', className: 'confirm' + (canUseMSmith ? '' : ' disabled'), disabled: !canUseMSmith, onClick: () => { if (canUseMSmith) useMSmithAbility(owner, card); } });
+    } else if (card.label === 'C241') {
+        title = 'Cloonay';
+        const otherAllies = getLineByOwner(owner).filter(c => c.id !== card.id && getType(c.label) === 'personnage');
+        const canUseCloonay = otherAllies.length > 0;
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (tous vos autres combattants gagnent +3 ATK et +1 PB).';
+        buttons.push(mineButton, { label: 'Action (+3 ATK et +1 PB à vos autres combattants)', className: 'confirm' + (canUseCloonay ? '' : ' disabled'), disabled: !canUseCloonay, onClick: () => { if (canUseCloonay) useCloonayAbility(owner, card); } });
     } else {
       buttons.push(mineButton);
     }
@@ -8228,6 +8507,9 @@ let c9SelectMode = null;
 let pilateSelectMode = null; // WADOO 2e lot : sélection dans SA PROPRE défausse pour Mlle Pilate (C216)
 let forceOpenDiscards = false;
 let c18SelectMode = null;
+// WADOO 7e lot : sélection dans l'EXIL pour Artayc (C245) — duplique et joue
+// immédiatement la carte choisie (voir renderExileCarousel).
+let artaycSelectMode = null;
 let forceOpenExile = false;
 function setForceOpenExile(on){
   forceOpenExile = on;
@@ -8391,6 +8673,125 @@ function startPilateRecursion(owner, card){
 }
 
 // WADOO : Mama Cécile (C206) se soigne elle-même
+// ===================================================================
+// WADOO 7e lot : Mina Mina (C247) — capacité de Minage accordée à son hôte :
+// détruit directement le/les combattant(s) (tous camps confondus) ayant la
+// plus faible "puissance" (= PV effectifs — l'ATK de ce jeu est toujours
+// égale aux PV effectifs, voir getATK), sans gain de Mithril ni perte de PV
+// pour l'hôte lui-même. En cas d'égalité, TOUS les combattants à égalité
+// sont détruits (texte imprimé : "la/les combattants").
+// ===================================================================
+function useMinaMinaMining(owner, card){
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+
+  markAttacked(owner, card);
+
+  const allCombatants = topLine.concat(botLine).filter(c => getType(c.label) === 'personnage');
+  if (allCombatants.length === 0) {
+    pushHistory('info', `${cardAnchor('C247')} : aucun combattant sur le plateau à détruire.`);
+    closeActionPrompt();
+    fullRender();
+    return;
+  }
+
+  const power = (c) => getEffectiveHP(c);
+  const lowest = Math.min(...allCombatants.map(power));
+  const targets = allCombatants.filter(c => power(c) === lowest);
+
+  targets.forEach(t => {
+    const tOwner = topLine.includes(t) ? 'top' : 'bottom';
+    const tLine = getLineByOwner(tOwner);
+    const idx = tLine.findIndex(c2 => c2.id === t.id);
+    if (idx === -1) return;
+    tLine.splice(idx, 1);
+    detachFamiliarsOnHost(t, tOwner);
+    discardCard(t, tOwner, 'destroyed');
+  });
+
+  pushHistory('action', `${cardAnchor('C247')} détruit ${targets.length > 1 ? 'les combattants les plus faibles' : 'le combattant le plus faible'} du plateau (${targets.map(t => cardAnchor(t.label)).join(', ')}) !`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// ===================================================================
+// WADOO 7e lot : MSmith (C240) — capacité : joue ou utilise une carte Impy
+// de la main de son propriétaire ; MSmith se duplique alors dans l'EXIL
+// (une COPIE rejoint l'Exil, l'original reste en jeu). Réutilise le
+// dispatcher générique déjà en place pour Long Voyage (C104,
+// handleLongVoyageChoice) pour jouer la carte Impy choisie, quel que soit
+// son type. Choix automatique (première carte Impy trouvée) si MSmith
+// appartient à l'IA, pour ne jamais ouvrir de fenêtre qu'elle ne pourrait
+// pas résoudre elle-même.
+// ===================================================================
+function useMSmithAbility(owner, card){
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+
+  const hand = getHandByOwner(owner);
+  const impyCards = hand.filter(c => hasTag(c, 'Impy'));
+  if (impyCards.length === 0) {
+    pushHistory('info', `${cardAnchor('C240')} : aucune carte Impy en main.`);
+    closeActionPrompt();
+    return;
+  }
+
+  const resolveWithChoice = (chosenCard) => {
+    markAttacked(owner, card);
+    const hIdx = hand.findIndex(c => c.id === chosenCard.id);
+    if (hIdx !== -1) hand.splice(hIdx, 1);
+
+    const prefix = (owner === 'top') ? 'T' : 'B';
+    const duplicate = createCard(card.label, prefix);
+    addToExile(duplicate);
+
+    pushHistory('action', `${cardAnchor('C240')} joue/utilise ${cardAnchor(chosenCard.label)} depuis la main de ${playerLabel(owner)} ; une copie de MSmith rejoint l'Exil !`);
+    closeActionPrompt();
+    fullRender();
+    handleLongVoyageChoice(owner, chosenCard, []);
+  };
+
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    resolveWithChoice(impyCards[0]);
+  } else {
+    const buttonsForChoice = impyCards.map(c => ({
+      label: cardName(c.label),
+      className: 'confirm',
+      onClick: () => resolveWithChoice(c)
+    }));
+    openButtonsPrompt('MSmith', 'Choisissez la carte Impy à jouer/utiliser :', null, buttonsForChoice, { nonCancellable: true });
+  }
+}
+
+// ===================================================================
+// WADOO 7e lot : Cloonay (C241) — capacité : tous les AUTRES combattants du
+// propriétaire (pas Cloonay elle-même) gagnent +3 PV et +1 PB. Dans ce jeu,
+// l'ATK est toujours égale aux PV effectifs (voir getATK) : +3 PV augmente
+// donc automatiquement l'ATK d'autant, conformément au "+3V" imprimé.
+// ===================================================================
+function useCloonayAbility(owner, card){
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+
+  const allies = getLineByOwner(owner).filter(c => c.id !== card.id && getType(c.label) === 'personnage');
+  if (allies.length === 0) {
+    pushHistory('info', `${cardAnchor('C241')} : aucun autre combattant à renforcer.`);
+    closeActionPrompt();
+    return;
+  }
+
+  markAttacked(owner, card);
+  allies.forEach(c => {
+    if (typeof c.hp === 'number') c.hp += 3;
+    c.shield = (c.shield || 0) + 1;
+    playHPHitEffect(c);
+  });
+
+  pushHistory('action', `${cardAnchor('C241')} utilise sa capacité : tous vos autres combattants gagnent +3 PV et +1 PB !`);
+  closeActionPrompt();
+  fullRender();
+}
+
 function useMamaCecileHeal(owner, card){
   if(!canPlayThisCardNow(owner, card)) return;
   if(hasAttacked(owner, card)) return;
@@ -8767,6 +9168,22 @@ function applyDamageWithShield(card, incoming, ignoreShield) {
 
   const hpAfter = getEffectiveHP(card);
   const totalHpLost = hpBefore - hpAfter;
+
+  // ===================================================================
+  // WADOO 7e lot : Fridoll (C242) — chaque fois qu'elle perd des PB (Bouclier
+  // temporaire ET/OU de base, absorbés ci-dessus), son adversaire défausse 1
+  // carte du DESSOUS de son deck. Une seule défausse par ÉVÉNEMENT de perte
+  // (pas une par point de Bouclier perdu), conformément au texte imprimé
+  // ("chaque fois que... perd des PB").
+  // ===================================================================
+  const fridollShieldLost = absorbedFromTemp + absorbedFromBase;
+  if (fridollShieldLost > 0 && card.label === 'C242') {
+    const fridollOwner = owner || ownerOfCardOnBoard(card);
+    if (fridollOwner) {
+      const fridollOpp = (fridollOwner === 'top') ? 'bottom' : 'top';
+      forceDiscardFromDeckBottom(fridollOpp, 1, 'C242');
+    }
+  }
 
   return { absorbed: totalAbsorbed, hpLost: totalHpLost, hpBefore: hpBefore };
 }
@@ -11045,7 +11462,7 @@ function isAnyTargetSelectionActive(){
     prismisTargetMode || liensSelectionMode || freedaTargetMode || miroirTargetMode ||
     hitAndRunMode || peinturlurerMode || explorationMode || chargeboxTargetMode ||
     c59DestroyMode || c51SelectMode || c58HealingMode ||
-    c9SelectMode || pilateSelectMode || c18SelectMode || remoteChoiceMode ||
+    c9SelectMode || pilateSelectMode || c18SelectMode || artaycSelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
     arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
@@ -12806,6 +13223,10 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C233') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionTributPoupesque(owner, card)); }); }
             if (card.label === 'C234') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionWagneto(owner, card, el)); }); }
             if (card.label === 'C236') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionFusionnerLesTous(owner, card)); }); }
+            if (card.label === 'C237') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionChasseALaiguille(owner, card)); }); }
+            if (card.label === 'C243') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionRollback(owner, card)); }); }
+            if (card.label === 'C250') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionEtroiteSagesse(owner, card)); }); }
+            if (card.label === 'T19') { el.addEventListener('click', () => { if (currentTurn !== owner) return; playActionFleau(owner, card); }); }
             if (card.label === 'C23') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionReveillezVous(owner, card)); }); }
 
             // KRYLLS (nouveau lot) : Ozokshi (C34) — clic direct sur un
@@ -13935,6 +14356,84 @@ if (card.label === 'C46') {
 // ===================================================================
 
 // ===================================================================
+// WADOO 7e lot : Cyclor (C238) — JOUER : +3 Mithril par cycle (tour) déjà
+// joué par l'ADVERSAIRE jusqu'ici. Réutilise ownerTurnCount (compteur de
+// tour PAR JOUEUR déjà utilisé par Pezske, C47).
+// ===================================================================
+if (card.label === 'C238') {
+  const cyclorOpp = (owner === 'top') ? 'bottom' : 'top';
+  const oppCycles = ownerTurnCount[cyclorOpp] || 0;
+  if (oppCycles > 0) {
+    for (let i = 0; i < oppCycles * 3; i++) addMithril(owner);
+    updateMithril();
+    pushHistory('mithril', `${cardAnchor('C238')} : ${playerLabel(cyclorOpp)} a déjà joué ${oppCycles} cycle(s) → +${oppCycles * 3} Mithril pour ${playerLabel(owner)}.`);
+  } else {
+    pushHistory('info', `${cardAnchor('C238')} : ${playerLabel(cyclorOpp)} n'a encore joué aucun cycle — aucun Mithril gagné.`);
+  }
+}
+
+// ===================================================================
+// WADOO 7e lot : Mliche (C248) — JOUER : choisit une faction à surveiller
+// (stockée sur l'INSTANCE de la carte, plusieurs Mliche peuvent surveiller
+// des factions différentes). Le déclenchement persistant (adversaire
+// choisissant cette faction → +2 PV à tous les combattants du propriétaire
+// de Mliche) est géré dans chooseFactionAndProceed (voir checkMlicheTriggers).
+// Choix automatique (aléatoire) si Mliche appartient à l'IA, pour ne jamais
+// ouvrir de fenêtre de choix que le joueur humain n'a pas à voir.
+// ===================================================================
+if (card.label === 'C248') {
+  const applyMlicheChoice = (faction) => {
+    card.mlicheFaction = faction;
+    pushHistory('info', `${cardAnchor('C248')} surveille désormais la faction <strong>${faction}</strong> : si l'adversaire la choisit, tous vos combattants gagneront +2 PV.`);
+    fullRender();
+  };
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    applyMlicheChoice(FACTIONS[Math.floor(Math.random() * FACTIONS.length)]);
+  } else {
+    openButtonsPrompt(
+      'Mliche',
+      `Choisissez la faction à surveiller : si votre adversaire la choisit comme faction active un jour, tous vos combattants gagneront <strong>+2 PV</strong> à ce moment-là.`,
+      null,
+      FACTIONS.map(f => ({ label: f, className: 'confirm', onClick: () => applyMlicheChoice(f) })),
+      { nonCancellable: true }
+    );
+  }
+}
+
+// ===================================================================
+// WADOO 7e lot : Artayc (C245) — JOUER : duplique une carte de l'EXIL et la
+// joue immédiatement, en réutilisant le dispatcher générique déjà en place
+// pour Long Voyage (C104, handleLongVoyageChoice) : personnage → entre en
+// zone de combat, artefact → zone d'artefact, familier → prompt d'hôte,
+// action → clic simulé sur la main. Sélection manuelle pour un joueur humain
+// (carousel d'EXIL, voir artaycSelectMode dans renderExileCarousel) ; choix
+// automatique (aléatoire) si Artayc appartient à l'IA.
+// ===================================================================
+if (card.label === 'C245') {
+  if (exilePile.length === 0) {
+    pushHistory('info', `${cardAnchor('C245')} entre en jeu, mais l'Exil est vide : aucun effet.`);
+  } else if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    const randIdx = Math.floor(Math.random() * exilePile.length);
+    const chosen = exilePile.splice(randIdx, 1)[0];
+    updateExileUI();
+    const prefix = (owner === 'top') ? 'T' : 'B';
+    const duplicate = createCard(chosen.label, prefix);
+    pushHistory('action', `${cardAnchor('C245')} duplique ${cardAnchor(chosen.label)} depuis l'Exil et le joue automatiquement !`);
+    handleLongVoyageChoice(owner, duplicate, []);
+  } else {
+    artaycSelectMode = { owner };
+    setForceOpenExile(true);
+    openButtonsPrompt(
+      'Artayc',
+      `Choisissez une carte dans l'<strong>EXIL</strong> : une copie en sera immédiatement jouée.`,
+      null,
+      [{ label: 'Annuler la sélection', className: 'cancel', onClick: () => { artaycSelectMode = null; setForceOpenExile(false); refreshExilePanel(); } }],
+      { nonCancellable: true }
+    );
+  }
+}
+
+// ===================================================================
 // DÉBUT DE LA LOGIQUE D'ENTRÉE POUR KYRAZA (C49)
 // ===================================================================
 if (card.label === 'C49') {
@@ -14697,6 +15196,25 @@ function renderExileCarousel(){
     t.addEventListener('mouseenter', () => showZoom(card.label, card));
     t.addEventListener('mouseleave', hideZoom);
     t.addEventListener('click', () => {
+      // WADOO 7e lot : Artayc (C245) — duplique et joue immédiatement la
+      // carte choisie dans l'EXIL (PRIME sur c18SelectMode, qui ne peut de
+      // toute façon jamais être actif en même temps).
+      if (artaycSelectMode) {
+        const owner = artaycSelectMode.owner;
+        const chosen = exilePile.splice(idx, 1)[0];
+        if (!chosen) return;
+        artaycSelectMode = null;
+        setForceOpenExile(false);
+        exileClickOpen = false;
+        closeActionPrompt();
+        updateExileUI();
+        const prefix = (owner === 'top') ? 'T' : 'B';
+        const duplicate = createCard(chosen.label, prefix);
+        pushHistory('action', `${cardAnchor('C245')} duplique ${cardAnchor(chosen.label)} depuis l'Exil et le joue automatiquement !`);
+        fullRender();
+        handleLongVoyageChoice(owner, duplicate, []);
+        return;
+      }
       if (!c18SelectMode) return;
       const owner = c18SelectMode.owner;
       const discardArr = (owner === 'top') ? topDiscard : botDiscard;
@@ -16161,12 +16679,6 @@ function updateTurnUI(){
 }
 function performEndTurn(){
   if (ONLINE_MODE && currentTurn !== MY_SEAT) return; // en ligne : pas ton tour
-  // CORRECTIF : contre l'IA aussi, impossible de terminer un tour qui n'est
-  // pas le sien — jusqu'ici seul ONLINE_MODE était protégé, ce qui permettait
-  // au joueur de cliquer "Fin de tour" PENDANT le tour de l'IA et de le lui
-  // couper court (comme dans une vraie partie, on ne doit jamais pouvoir
-  // terminer le tour de l'adversaire).
-  if (VS_AI_MODE && currentTurn !== MY_SEAT) return;
   if (!activeFaction[currentTurn]) {
     // Le choix de faction est obligatoire avant toute autre action, fin de
     // tour comprise — sans cela, on pourrait techniquement finir son tour
@@ -16215,7 +16727,17 @@ function performEndTurn(){
   }
   if (ONLINE_MODE) fullRender(); // diffuse le changement de tour ; le nouveau joueur actif lancera son propre startTurn (voir bloc réseau)
 }
-endBtn.addEventListener('click', performEndTurn);
+// CORRECTIF : contre l'IA, seul le clic HUMAIN sur le bouton doit être bloqué
+// pendant le tour de l'IA (pour ne pas le lui couper court) — la protection
+// ne doit PAS s'appliquer à performEndTurn() elle-même, car c'est aussi la
+// fonction que l'IA (aiEndTurn) et le minuteur auto-passage utilisent pour
+// terminer SON PROPRE tour. Mettre le blocage ici, dans le handler de clic,
+// au lieu de dans performEndTurn(), corrige le blocage total de la partie où
+// l'IA jouait son premier tour sans jamais parvenir à le terminer.
+endBtn.addEventListener('click', () => {
+  if (VS_AI_MODE && currentTurn !== MY_SEAT) return;
+  performEndTurn();
+});
 
 // ===================================================================
 // MINUTEUR DE TOUR — 90 secondes par tour (un temps confortable pour ce
@@ -17038,7 +17560,7 @@ function aiForceCancelAllTargetModes(){
     hitAndRunMode = null; peinturlurerMode = null; explorationMode = null;
     chargeboxTargetMode = null; c59DestroyMode = null;
     c51SelectMode = null; c58HealingMode = null; c9SelectMode = null;
-    pilateSelectMode = null; c18SelectMode = null; remoteChoiceMode = null;
+    pilateSelectMode = null; c18SelectMode = null; artaycSelectMode = null; remoteChoiceMode = null;
     kabbaTargetMode = null; krouzpierTargetMode = null; vakxzinTargetMode = null;
     c33CombatantMode = null; c33ArtifactMode = null; tokzikTargetMode = null;
     longVoyageFamiliarMode = null; arakcubeTargetMode = null; mezamorphArakcrabeTargetMode = null; ozokshiArtifactMode = null;
@@ -18033,6 +18555,58 @@ function startTurn(player){
   if (poilSkapeCount > 0) {
     forceDiscardFromDeckBottom(player, poilSkapeCount, 'T04');
   }
+
+  // ===================================================================
+  // WADOO 7e lot : Dembelaid (C239) — tant qu'il est dans la main du joueur
+  // dont c'est le tour, il se révèle à l'adversaire, s'exile et rapporte +5
+  // Mithril à son propriétaire, à chaque fois que SON tour commence (même
+  // principe que Poil de Skapé T04 ci-dessus, effet différent).
+  // ===================================================================
+  try {
+    const dembelaidCopies = playerHand.filter(c => c.label === 'C239');
+    if (dembelaidCopies.length > 0) {
+      dembelaidCopies.forEach(c => {
+        const hIdx = playerHand.findIndex(h => h.id === c.id);
+        if (hIdx !== -1) playerHand.splice(hIdx, 1);
+        addToExile(c);
+      });
+      for (let i = 0; i < dembelaidCopies.length * 5; i++) addMithril(player);
+      updateMithril();
+      pushHistory('action', `${cardAnchor('C239')} se révèle à l'adversaire depuis la main de ${playerLabel(player)}, s'exile et rapporte +${dembelaidCopies.length * 5} Mithril !`);
+    }
+  } catch(err) { console.error('[Dembelaid] effet impossible :', err); }
+
+  // ===================================================================
+  // WADOO 7e lot : Nomya (C249) — à CHAQUE tour de jeu (les deux joueurs,
+  // indépendamment de qui a la main), chaque Nomya en jeu bascule de zone de
+  // combat (top <-> bottom). Si elle atterrit dans la zone qui N'EST PAS
+  // celle de son propriétaire d'origine (trueOwnerOf), celui-ci vole 1
+  // Mithril à l'adversaire qui héberge alors Nomya.
+  // ===================================================================
+  try {
+    [...topLine, ...botLine].filter(c => c.label === 'C249').forEach(nomya => {
+      const currentSide = topLine.includes(nomya) ? 'top' : 'bottom';
+      const otherSide = (currentSide === 'top') ? 'bottom' : 'top';
+      const fromLine = getLineByOwner(currentSide);
+      const toLine = getLineByOwner(otherSide);
+      const nIdx = fromLine.findIndex(c2 => c2.id === nomya.id);
+      if (nIdx === -1) return;
+      fromLine.splice(nIdx, 1);
+      toLine.push(nomya);
+      pushHistory('info', `${cardAnchor('C249')} change de zone de combat (${playerLabel(currentSide)} → ${playerLabel(otherSide)}).`);
+
+      const nomyaTrueOwner = trueOwnerOf(nomya);
+      if (otherSide !== nomyaTrueOwner) {
+        const victim = (nomyaTrueOwner === 'top') ? 'bottom' : 'top';
+        if ((mithril[victim] || 0) > 0) {
+          mithril[victim]--;
+          addMithril(nomyaTrueOwner);
+          updateMithril();
+          pushHistory('mithril', `${cardAnchor('C249')} atterrit chez l'adversaire : ${playerLabel(nomyaTrueOwner)} vole 1 Mithril à ${playerLabel(victim)} !`);
+        }
+      }
+    });
+  } catch(err) { console.error('[Nomya] effet impossible :', err); }
 
   // ===================================================================
   // WADOO 3e lot : Qasar (C224) — au début de CHAQUE tour (une seule fois par
@@ -21170,6 +21744,7 @@ if (ONLINE_MODE) {
     if (compensationSeat === 'top' && topDeck.length > 0) topHand.push(topDeck.shift());
     if (compensationSeat === 'bottom' && botDeck.length > 0) botHand.push(botDeck.shift());
     checkFeufoStartingHand();
+    checkStartareStartingHand();
   }
 
   // Démarre startTurn() localement UNIQUEMENT dans le navigateur du joueur
