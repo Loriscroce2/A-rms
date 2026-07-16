@@ -14264,6 +14264,64 @@ if (card.label === 'C178') { // CHIMERIA (dernier lot) : Grenade Sonore
   return el;
 }
 
+// ===================================================================
+// SUPERPOSITION DYNAMIQUE DES ZONES SURCHARGÉES (combattants ET artefacts) —
+// au-delà de 10 cartes dans une zone, plutôt que de les rétrécir jusqu'à
+// l'illisible, elles se chevauchent légèrement pour tenir dans l'espace
+// disponible, de plus en plus à mesure que d'autres cartes s'ajoutent
+// au-delà de ce seuil. Purement visuel (aucun impact sur les règles) :
+// - le chevauchement est calculé pour toujours tenir dans la largeur RÉELLE
+//   de la zone (mesurée en direct), donc jamais de débordement quel que soit
+//   le nombre de cartes ni la taille d'écran ;
+// - chaque carte reste entièrement cliquable et survolable sur sa portion
+//   visible (le survol déclenche toujours showZoom, qui affiche la carte en
+//   grand ailleurs à l'écran, indépendamment de son chevauchement) ;
+// - le z-index est inversé (les cartes les plus à GAUCHE restent au-dessus)
+//   pour que les pastilles PV/Bouclier — accrochées sur le bord DROIT de
+//   chaque carte (voir .hp/.shield) — ne soient jamais masquées par la carte
+//   suivante qui vient la recouvrir légèrement par la gauche.
+function applyOverlapLayout(lane, cardEls, threshold, availableWidth, defaultGap){
+  const count = cardEls.length;
+  if (count <= threshold || !availableWidth) {
+    lane.style.gap = defaultGap;
+    cardEls.forEach(el => { el.style.marginLeft = ''; el.style.zIndex = ''; });
+    return;
+  }
+
+  const rootStyle = getComputedStyle(document.documentElement);
+  const cardW = parseFloat(rootStyle.getPropertyValue('--cardW')) || 86;
+  lane.style.gap = '0px';
+
+  const naturalWidth = count * cardW;
+  const safeAvailable = Math.max(cardW, availableWidth * 0.97);
+  const minVisible = Math.max(16, cardW * 0.22); // toujours au moins ~22% de chaque carte visible
+  const maxOverlapPerCard = Math.max(0, cardW - minVisible);
+
+  // Chevauchement MINIMAL "progressif" : on veut un effet visible et
+  // croissant dès qu'on dépasse le seuil, même si la zone a encore un peu de
+  // place — pas seulement quand ça déborde vraiment.
+  const progressiveMin = Math.min(maxOverlapPerCard, 6 + (count - threshold) * 4);
+  // Chevauchement nécessaire pour que TOUT tienne réellement dans la zone.
+  const fitOverlap = Math.max(0, (naturalWidth - safeAvailable) / (count - 1));
+
+  const overlap = Math.min(maxOverlapPerCard, Math.max(progressiveMin, fitOverlap));
+
+  cardEls.forEach((el, i) => {
+    el.style.marginLeft = i === 0 ? '0px' : `-${overlap.toFixed(1)}px`;
+    const baseZ = count - i;
+    el.style.zIndex = String(baseZ);
+    // Un style en ligne (posé juste au-dessus) gagne TOUJOURS sur la règle
+    // CSS ".card:hover{ z-index:50 }" dans la cascade — sans ce filet, la
+    // carte survolée resterait visuellement sous ses voisines à z-index
+    // statique plus élevé au lieu de passer au-dessus. On gère donc
+    // nous-mêmes l'élévation au survol, en plus du zoom déjà déclenché par
+    // ailleurs (showZoom), pour être certain que la carte survolée passe
+    // toujours complètement au premier plan.
+    el.addEventListener('mouseenter', () => { el.style.zIndex = '999'; });
+    el.addEventListener('mouseleave', () => { el.style.zIndex = String(baseZ); });
+  });
+}
+
 function renderArtifacts(zoneEl, arr, owner){
   if(!zoneEl) return;
   const inner = zoneEl.querySelector('.artifactInner');
@@ -14278,7 +14336,9 @@ function renderArtifacts(zoneEl, arr, owner){
     inner.insertBefore(lane, inner.children[1]);
   }
   lane.innerHTML = '';
-  arr.forEach(card => lane.appendChild(makeArtifactCard(card, owner)));
+  const cardEls = arr.map(card => makeArtifactCard(card, owner));
+  applyOverlapLayout(lane, cardEls, MAX_ARTIFACTS_PER_ZONE, inner.clientWidth || zoneEl.clientWidth, '8px');
+  cardEls.forEach(el => lane.appendChild(el));
 }
 /* ---------- Drops zones plateau ---------- */
 function flashDenied(el){ el.classList.add('denied'); setTimeout(()=>el.classList.remove('denied'), 420); }
@@ -16009,30 +16069,18 @@ function renderLine(battleInnerEl, lineArray, owner){
     battleInnerEl.insertBefore(lane, battleInnerEl.children[1] || null);
   }
 
-  // Zone de combat surchargée (13 combattants ou plus, ex. via Etendardz) :
-  // les cartes rétrécissent et se resserrent pour que tout reste visible,
-  // sans jamais déborder de la zone. Purement visuel — les variables
-  // --cardW/--cardH sont redéfinies UNIQUEMENT sur cette lane précise (elles
-  // ne débordent donc pas sur la main, l'autre zone de combat, ou les
-  // artefacts), aucun impact sur les règles du jeu.
-  const count = lineArray.length;
-  if (count >= 13) {
-    const rootStyle = getComputedStyle(document.documentElement);
-    const baseW = parseFloat(rootStyle.getPropertyValue('--cardW')) || 86;
-    const baseH = parseFloat(rootStyle.getPropertyValue('--cardH')) || 124;
-    const overflow = count - 12;
-    const scale = Math.max(0.55, 1 - overflow * 0.035);
-    lane.style.setProperty('--cardW', `${(baseW * scale).toFixed(1)}px`);
-    lane.style.setProperty('--cardH', `${(baseH * scale).toFixed(1)}px`);
-    lane.style.gap = `${Math.max(2, 10 * scale).toFixed(1)}px`;
-  } else {
-    lane.style.removeProperty('--cardW');
-    lane.style.removeProperty('--cardH');
-    lane.style.gap = '10px';
-  }
+  // Zone de combat surchargée (au-delà de 10 combattants, ex. via
+  // Etendardz qui peut porter la capacité au-delà de 10) : les cartes se
+  // chevauchent légèrement pour tenir dans la zone plutôt que de rétrécir
+  // jusqu'à l'illisible — voir applyOverlapLayout ci-dessus (partagée avec
+  // la zone d'Artefacts). Purement visuel, aucun impact sur les règles.
+  lane.style.removeProperty('--cardW');
+  lane.style.removeProperty('--cardH');
 
   lane.innerHTML = '';
-  lineArray.forEach(c => lane.appendChild(makePlacedCard(c, owner)));
+  const cardEls = lineArray.map(c => makePlacedCard(c, owner));
+  applyOverlapLayout(lane, cardEls, MAX_COMBATANTS_PER_ZONE_BASE, battleInnerEl.clientWidth, '10px');
+  cardEls.forEach(el => lane.appendChild(el));
 }
 
 // Affiche l'avatar + le pseudo de chaque joueur directement sur le plateau.
@@ -16122,6 +16170,19 @@ renderDirectAttackTargets();
     scheduleStateBroadcast();
   }
 }
+
+// Le chevauchement dynamique des zones surchargées (voir applyOverlapLayout)
+// dépend de la largeur RÉELLE de la zone à l'écran : on relance donc un
+// rendu complet après un redimensionnement de fenêtre/rotation d'écran, pour
+// que le chevauchement reste toujours correctement ajusté (debounce léger
+// pour ne pas re-render en rafale pendant qu'on tire sur la fenêtre).
+let __overlapResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(__overlapResizeTimer);
+  __overlapResizeTimer = setTimeout(() => {
+    if (typeof fullRender === 'function') fullRender();
+  }, 150);
+});
 
 // Affiche, pour chaque joueur, le logo + le nom de la faction choisie ce tour-ci.
 const FACTION_LOGOS = {
