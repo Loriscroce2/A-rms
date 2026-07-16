@@ -8543,6 +8543,35 @@ function openC9AbilityPrompt(owner, card, anchorEl){
         return;
       }
 
+      // CORRECTIF IA : auto-résolution si Zcyvenger appartient à l'IA — le
+      // carrousel de défausse (c9SelectMode) n'attend qu'un clic MANUEL sur
+      // une miniature, que le résolveur générique de l'IA (aiResolveAnyOpenPrompt)
+      // ne sait pas simuler. Sans ce court-circuit, l'IA restait bloquée
+      // jusqu'au filet de sécurité des 20 tentatives (~30s), qui abandonnait
+      // l'action sans jamais appliquer l'effet. Choisit directement la
+      // meilleure carte disponible (PV effectifs les plus élevés) dans
+      // l'une ou l'autre défausse.
+      if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+        const bestOf = (pile) => pile.length ? pile.reduce((best, c) => (getEffectiveHP(c) > getEffectiveHP(best) ? c : best)) : null;
+        const bestTop = bestOf(topDiscard);
+        const bestBot = bestOf(botDiscard);
+        let chosen = null, sourcePile = null;
+        if (bestTop && (!bestBot || getEffectiveHP(bestTop) >= getEffectiveHP(bestBot))) { chosen = bestTop; sourcePile = topDiscard; }
+        else if (bestBot) { chosen = bestBot; sourcePile = botDiscard; }
+        if (chosen) {
+          const cIdx = sourcePile.findIndex(c => c.id === chosen.id);
+          if (cIdx !== -1) sourcePile.splice(cIdx, 1);
+          const deck = (owner === 'top') ? topDeck : botDeck;
+          deck.unshift(chosen);
+          pushHistory('info', `${cardAnchor('C9')} place ${cardAnchor(chosen.label)} au-dessus de son deck.`);
+        }
+        markAttacked(owner, card);
+        updateDeckCounters();
+        updateDiscardUI();
+        fullRender();
+        return;
+      }
+
       c9SelectMode = { owner, card };
       setForceOpenDiscards(true);
 
@@ -8655,6 +8684,26 @@ function startPilateRecursion(owner, card){
 
   const discard = (owner === 'top') ? topDiscard : botDiscard;
   if (!card.charges || card.charges <= 0 || discard.length === 0) return;
+
+  // CORRECTIF IA : même principe que Zcyvenger (C9) ci-dessus — le carrousel
+  // de défausse n'attend qu'un clic manuel, jamais simulable par le
+  // résolveur générique de l'IA. Auto-résolution directe si Mlle Pilate
+  // appartient à l'IA : choisit la meilleure carte de SA PROPRE défausse.
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    const chosen = discard.reduce((best, c) => (getEffectiveHP(c) > getEffectiveHP(best) ? c : best));
+    const cIdx = discard.findIndex(c => c.id === chosen.id);
+    if (cIdx !== -1) discard.splice(cIdx, 1);
+    const deck = (owner === 'top') ? topDeck : botDeck;
+    deck.unshift(chosen);
+    card.charges = Math.max(0, (card.charges || 0) - 1);
+    pushHistory('info', `${cardAnchor('C216')} dépense une charge : ${cardAnchor(chosen.label)} replacée sur le dessus de son deck.`);
+    markAttacked(owner, card);
+    closeActionPrompt();
+    updateDeckCounters();
+    updateDiscardUI();
+    fullRender();
+    return;
+  }
 
   pilateSelectMode = { owner, card };
   closeActionPrompt();
@@ -17676,6 +17725,12 @@ function runAITurnStep(){
       if (aiTryMine())   { setTimeout(runAITurnStep, 2200); return; }
     }
 
+    // Dernier recours avant de finir le tour : si l'IA tient en main un
+    // Personnage/Artefact qu'elle ne peut littéralement pas poser (zone
+    // pleine), et qu'aucune autre action n'a progressé ce pas-ci, elle s'en
+    // défausse plutôt que de le garder indéfiniment (voir aiTryCycleDeadHandCards).
+    if (aiTryCycleDeadHandCards()) { setTimeout(runAITurnStep, 2200); return; }
+
     aiEndTurn();
   } catch(err) {
     console.error('[IA] erreur pendant la décision, on termine le tour par sécurité :', err);
@@ -18129,6 +18184,59 @@ function aiTryPlayFromHand(){
       } else {
         aiCardFailStreak[chosen.label] = 0;
       }
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// ===================================================================
+// FILET ANTI-STAGNATION : si l'IA tient en main un Personnage alors que sa
+// zone de combat est pleine, ou un Artefact alors que sa zone d'Artefacts
+// est pleine, ces cartes ne seront JAMAIS retentées par aiTryPlayFromHand
+// (qui vérifie la place disponible AVANT même d'essayer) — contrairement aux
+// cartes Action, elles n'ont pas de mécanisme de défausse automatique après
+// échecs répétés. Sans ce filet, l'IA pouvait rester avec une main pleine de
+// cartes mortes tout en continuant de piocher normalement chaque tour
+// (aucune limite de taille de main dans ce jeu), gaspillant ainsi
+// silencieusement une bonne partie de sa main pour le reste de la partie.
+// Ne se déclenche qu'en DERNIER RECOURS (voir runAITurnStep), quand plus
+// rien d'autre n'a progressé ce pas-ci. Priorité 1 : essayer de FAIRE de la
+// place en détruisant un de ses propres Artefacts via une capacité déjà
+// activable ce tour-ci (aiTryUseArtifacts s'en charge normalement avant
+// d'en arriver là) ; à défaut, simple défausse de la carte la plus faible
+// pour ne pas encombrer la main indéfiniment.
+// ===================================================================
+function aiTryCycleDeadHandCards(){
+  const hand = getHandByOwner(AI_SEAT);
+  if (hand.length === 0) return false;
+  const activeFac = activeFaction[AI_SEAT];
+  if (!activeFac) return false; // la défausse manuelle exige une faction active, comme la pose
+
+  // Seules les cartes de la faction ACTIVE ce tour-ci peuvent être
+  // défaussées manuellement (même règle que la pose) — aiSimulateDiscard
+  // réutilise le vrai mécanisme de dépôt en défausse, qui applique cette
+  // vérification côté "drop" et ne ferait sinon simplement rien.
+  const discardable = (c) => !isCardUndiscardable(c.label) && hasTag(c.label, activeFac);
+
+  if (getLineByOwner(AI_SEAT).length >= getMaxCombatantsForOwner(AI_SEAT)) {
+    const stuckPersonnages = hand.filter(c => getType(c.label) === 'personnage' && discardable(c));
+    if (stuckPersonnages.length > 0) {
+      const worst = aiPickLowestHP(stuckPersonnages);
+      aiSimulateDiscard(AI_SEAT, worst);
+      pushHistory('info', `${cardAnchor(worst.label)} : zone de combat pleine, l'IA s'en défausse plutôt que de l'accumuler en main.`);
+      return true;
+    }
+  }
+
+  const aiArts = (AI_SEAT === 'top') ? topArts : botArts;
+  if (aiArts.length >= MAX_ARTIFACTS_PER_ZONE) {
+    const stuckArtifacts = hand.filter(c => getType(c.label) === 'artefact' && discardable(c));
+    if (stuckArtifacts.length > 0) {
+      const worst = stuckArtifacts[0];
+      aiSimulateDiscard(AI_SEAT, worst);
+      pushHistory('info', `${cardAnchor(worst.label)} : zone d'Artefacts pleine, l'IA s'en défausse plutôt que de l'accumuler en main.`);
       return true;
     }
   }
