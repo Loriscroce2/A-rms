@@ -17565,13 +17565,25 @@ let aiWatchdogLastSeenTurn = null;
 let aiWatchdogTurnSeenAt = 0;
 let aiWatchdogCountAtTurnStart = 0;
 let aiWatchdogKickCount = 0;
+// Filet de sécurité ABSOLU (indépendant de tout compteur d'actions) : quelle
+// que soit la cause exacte du blocage (mode de ciblage inconnu qui ne se
+// réinitialise jamais vraiment, boucle où l'IA re-tente sans fin la même
+// action sans jamais progresser, fenêtre/carrousel qui échappe aux résolveurs
+// génériques...), le tour de l'IA ne doit JAMAIS pouvoir dépasser cette durée
+// totale sans se terminer. Contrairement au minuteur de tour visible (qui se
+// MET EN PAUSE tant qu'une fenêtre de choix est ouverte — inutile ici,
+// puisque c'est justement une fenêtre bloquée qui cause le problème), ce
+// délai s'écoule TOUJOURS, sans exception, dès que c'est le tour de l'IA.
+const AI_TURN_HARD_CAP_MS = 90000;
+let aiWatchdogHardCapForced = false;
 setInterval(() => {
   try {
     if (typeof VS_AI_MODE === 'undefined' || !VS_AI_MODE) return;
-    if (typeof GAME !== 'undefined' && GAME.over) { aiWatchdogLastSeenTurn = null; aiWatchdogKickCount = 0; return; }
+    if (typeof GAME !== 'undefined' && GAME.over) { aiWatchdogLastSeenTurn = null; aiWatchdogKickCount = 0; aiWatchdogHardCapForced = false; return; }
     if (typeof currentTurn === 'undefined' || currentTurn !== AI_SEAT) {
       aiWatchdogLastSeenTurn = null;
       aiWatchdogKickCount = 0;
+      aiWatchdogHardCapForced = false;
       return;
     }
     if (aiWatchdogLastSeenTurn !== currentTurn) {
@@ -17581,6 +17593,7 @@ setInterval(() => {
       aiWatchdogTurnSeenAt = Date.now();
       aiWatchdogCountAtTurnStart = aiRunStepCallCount;
       aiWatchdogKickCount = 0;
+      aiWatchdogHardCapForced = false;
       return;
     }
     const elapsed = Date.now() - aiWatchdogTurnSeenAt;
@@ -17589,9 +17602,53 @@ setInterval(() => {
       console.warn(`[IA] Filet de secours : le tour de l'IA ne semble jamais avoir démarré — relance forcée (tentative ${aiWatchdogKickCount}/3).`);
       aiWatchdogTurnSeenAt = Date.now();
       if (typeof maybeStartAITurn === 'function') maybeStartAITurn(AI_SEAT);
+      return;
+    }
+    // Plafond dur : peu importe combien de fois runAITurnStep a été rappelé
+    // (donc même si le compteur ci-dessus progresse normalement, ce qui
+    // masquerait le filet précédent), si le tour de l'IA dure depuis plus de
+    // AI_TURN_HARD_CAP_MS, on force sa fin une bonne fois pour toutes.
+    if (elapsed > AI_TURN_HARD_CAP_MS && !aiWatchdogHardCapForced) {
+      aiWatchdogHardCapForced = true;
+      console.warn(`[IA] Plafond dur atteint (${Math.round(elapsed/1000)}s) : fin de tour forcée pour ne jamais figer la partie.`);
+      if (typeof aiForceEndStuckTurn === 'function') aiForceEndStuckTurn();
     }
   } catch(e) { console.error('[IA watchdog] erreur :', e); }
 }, 2000);
+
+// Dernier recours ABSOLU : nettoie tout ce qui pourrait empêcher
+// performEndTurn() de s'exécuter (mode de ciblage actif, fenêtre modale
+// ouverte, faction jamais choisie...), puis force réellement la fin du tour
+// de l'IA. Appelé uniquement par le plafond dur ci-dessus, après
+// AI_TURN_HARD_CAP_MS de blocage ininterrompu.
+function aiForceEndStuckTurn(){
+  try {
+    if (typeof aiForceCancelAllTargetModes === 'function') aiForceCancelAllTargetModes();
+    if (typeof hideHardBlocker === 'function') hideHardBlocker();
+    if (typeof setForceOpenExile === 'function') setForceOpenExile(false);
+    const wo = document.getElementById('waitOverlay');
+    if (wo) wo.style.display = 'none';
+    if (typeof hideFamiliarCarousel === 'function') hideFamiliarCarousel();
+    const factionOv = document.getElementById('factionOverlay');
+    if (factionOv) factionOv.style.display = 'none';
+    // Si, pour une raison quelconque, l'IA n'avait toujours pas de faction
+    // active (ne devrait normalement jamais arriver — openFactionPrompt lui
+    // en choisit une automatiquement — mais on ne prend aucun risque ici),
+    // on lui en assigne une à la volée pour ne pas rester bloqué sur ce
+    // contrôle dans performEndTurn().
+    if (typeof activeFaction !== 'undefined' && !activeFaction[AI_SEAT] && typeof FACTIONS !== 'undefined') {
+      activeFaction[AI_SEAT] = FACTIONS[Math.floor(Math.random() * FACTIONS.length)];
+    }
+    if (typeof pushHistory === 'function') {
+      pushHistory('info', `L'IA était bloquée depuis trop longtemps : son tour est forcé à sa fin pour ne pas figer la partie.`);
+    }
+    if (typeof fullRender === 'function') fullRender();
+  } catch(e) { console.error('[IA] échec du nettoyage avant fin de tour forcée :', e); }
+  // performEndTurn() elle-même vérifie encore une fois qu'aucun blocage ne
+  // subsiste : après le nettoyage ci-dessus, cette vérification doit passer.
+  try { if (typeof performEndTurn === 'function') performEndTurn(); }
+  catch(e) { console.error('[IA] performEndTurn a échoué même après nettoyage forcé :', e); }
+}
 
 // Filet de sécurité ULTIME : si l'IA reste bloquée à essayer de résoudre un
 // mode de ciblage (carte au comportement non prévu, cas limite) pendant trop
