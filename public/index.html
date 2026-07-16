@@ -1521,6 +1521,15 @@
     .factionPrompt{ width:min(360px, 88vw); border-radius:14px; padding:12px 12px 10px; background:linear-gradient(145deg,rgba(5,26,33,.55),rgba(7,43,52,.55));
       border:2px solid rgba(0,230,255,.55); box-shadow:0 0 20px rgba(0,230,255,.3), inset 0 0 10px rgba(0,230,255,.1); color:#e7feff;
       backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+    /* Pulsation dorée périodique — rappelle discrètement au joueur qu'un
+       choix de faction est en attente, sans être agressive (toutes les
+       2.5s environ, un aller-retour doux entre le contour habituel et un
+       éclat doré). */
+    .factionPrompt.fpPulse{ animation: fpGoldPulse 2.5s ease-in-out infinite; }
+    @keyframes fpGoldPulse{
+      0%, 100% { border-color: rgba(0,230,255,.55); box-shadow: 0 0 20px rgba(0,230,255,.3), inset 0 0 10px rgba(0,230,255,.1); }
+      50% { border-color: rgba(255,217,61,.95); box-shadow: 0 0 28px rgba(255,217,61,.65), inset 0 0 14px rgba(255,217,61,.25); }
+    }
     .fpTitle{ font-weight:900; letter-spacing:.06em; font-size:13px; text-transform:uppercase; color:#aefaff; margin-bottom:5px; }
     .fpQuestion{ font-size:14px; font-weight:800; margin-bottom:10px; }
     .fpButtons{ display:flex; flex-direction:column; gap:7px; }
@@ -2905,6 +2914,7 @@ const DISCARD_SFX_URL = new URL('/assets/Discard.mp3', location.href).href;
 const MOZKYTO_SFX_URL = new URL('/assets/Mozkyto.mp3', location.href).href;
 const FLIPCARD_SFX_URL = new URL('/assets/flipcard.mp3', location.href).href;
 const CHARGEMENT_MUSIC_URL = new URL('/assets/chargement.mp3', location.href).href;
+const CHOOSEFACTION_SFX_URL = new URL('/assets/choosefaction.mp3', location.href).href;
 
 let matchMusic = null;
 let victorySfx = null;
@@ -2917,6 +2927,7 @@ let discardSfx = null;
 let mozkytoSfx = null;
 let flipcardSfx = null;
 let chargementMusic = null;
+let chooseFactionSfx = null;
 let gameAudioUnlocked = false;
 let matchMusicStarted = false;
 
@@ -2969,6 +2980,10 @@ function initGameAudio(){
   chargementMusic.loop = true;
   chargementMusic.volume = 0.5;
   chargementMusic.preload = 'auto';
+
+  chooseFactionSfx = new Audio();
+  chooseFactionSfx.src = CHOOSEFACTION_SFX_URL;
+  chooseFactionSfx.preload = 'auto';
 }
 
 /* Prime les 5 pistes au 1er geste utilisateur (indispensable iOS/Safari, dont
@@ -3171,6 +3186,23 @@ async function playFlipcardSfx(){
     const retry = async () => {
       ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
       try{ flipcardSfx.currentTime = 0; await flipcardSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
+/* Se joue à l'apparition de la fenêtre de choix de faction, pour attirer
+   l'attention du joueur sur ce choix obligatoire. */
+async function playChooseFactionSfx(){
+  initGameAudio();
+  if (!chooseFactionSfx) return;
+  try{
+    chooseFactionSfx.currentTime = 0;
+    await chooseFactionSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ chooseFactionSfx.currentTime = 0; await chooseFactionSfx.play(); }catch(e){}
     };
     ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
   }
@@ -5179,6 +5211,11 @@ function openFactionPrompt(player, onChosen){
   });
   fpTitle.textContent = (player===MY_SEAT ? 'Choix de faction — Joueur 1 (vous)' : 'Choix de faction — Joueur 2 (adversaire)');
   factionOverlay.style.display='flex';
+  // Rappel sonore + pulsation dorée périodique du contour, pour que le
+  // joueur ne manque pas ce choix obligatoire.
+  if (typeof playChooseFactionSfx === 'function') playChooseFactionSfx();
+  const fpBox = factionOverlay.querySelector('.factionPrompt');
+  if (fpBox) fpBox.classList.add('fpPulse');
 
   // Minuteur anti-AFK : si aucune faction n'est choisie au bout d'une
   // minute, une faction disponible (non bloquée) est sélectionnée
@@ -5213,6 +5250,8 @@ function openFactionPrompt(player, onChosen){
 function chooseFactionAndProceed(player, f, onChosen){
   activeFaction[player]=f;
   factionOverlay.style.display='none';
+  const fpBox = factionOverlay.querySelector('.factionPrompt');
+  if (fpBox) fpBox.classList.remove('fpPulse');
   const handEl = document.getElementById(player === 'top' ? 'handTop' : 'handBottom');
   if (handEl) handEl.classList.remove('faction-select-zoom');
   pushHistory('info', `Faction choisie par ${player===MY_SEAT?'vous (Joueur 1)':'Joueur 2 (adversaire)'} : <strong>${f}</strong>.`);
