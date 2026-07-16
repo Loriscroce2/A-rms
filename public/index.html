@@ -1512,7 +1512,7 @@
     .actionPrompt.aiSilentPrompt, #familiarCarouselOverlay.aiSilentPrompt{ opacity:0 !important; pointer-events:none !important; }
 
     /* Fenêtre de faction */
-    .factionOverlay{ position:fixed; inset:0; background:transparent; z-index:2000; display:none; align-items:center; justify-content: flex-start; padding:24px; pointer-events:none; }
+    .factionOverlay{ position:fixed; inset:0; background:transparent; z-index:2000; display:none; align-items:center; justify-content: flex-end; padding:24px; pointer-events:none; }
     .factionOverlay .factionPrompt{ pointer-events:auto; }
     /* Boîte plus compacte et semi-transparente (dernier lot) : SEULS les
        boutons de faction (.fpBtn) restent en fond plein/opaque — ils ont
@@ -5423,6 +5423,15 @@ let flavioGoals = { top: 0, bottom: 0 };
 // stateSync une fois le dépôt effectivement résolu.
 // ===================================================================
 let dragMoveThrottleTs = 0;
+document.addEventListener('dragstart', () => {
+  // Dès qu'on saisit une carte pour la déplacer, le grand aperçu au survol
+  // (showZoom) doit disparaître immédiatement — sans ce filet, il pouvait
+  // rester affiché à l'écran après le dépôt, car l'événement "mouseleave"
+  // n'est pas fiable pendant un glisser-déposer natif (HTML5 drag & drop)
+  // sur tous les navigateurs. Placé ici (écouteur global), ça couvre TOUTE
+  // carte glissée dans le jeu, sans avoir à le répéter à chaque endroit.
+  if (typeof hideZoom === 'function') hideZoom();
+}, false);
 document.addEventListener('dragstart', (e) => {
   if (typeof ONLINE_MODE === 'undefined' || !ONLINE_MODE || !window.__socket || !window.__socket.connected) return;
   const id = e.target && e.target.dataset && e.target.dataset.id;
@@ -5448,6 +5457,12 @@ document.addEventListener('dragover', (e) => {
   });
 });
 
+document.addEventListener('dragend', () => {
+  // Filet de sécurité : quelle que soit l'issue du glisser-déposer (dépôt
+  // réussi, ou relâché en dehors de toute zone valide), l'aperçu au survol
+  // ne doit jamais rester affiché une fois le geste terminé.
+  if (typeof hideZoom === 'function') hideZoom();
+}, false);
 document.addEventListener('dragend', () => {
   if (typeof ONLINE_MODE === 'undefined' || !ONLINE_MODE || !window.__socket || !window.__socket.connected) return;
   window.__socket.emit('vfx', {
@@ -21667,14 +21682,28 @@ if (VS_AI_MODE) {
   (async function startAIMatchWithVersusIntro(){
     let myName = 'Joueur';
     let myAvatar = '';
+    // CORRECTIF BLOCAGE AU LANCEMENT : sans limite de temps, un simple appel
+    // réseau lent ou qui ne répond jamais (serveur qui met du temps à
+    // répondre, connexion capricieuse...) bloquait TOUT ce bloc async
+    // indéfiniment — donc ni l'écran Versus, ni même le filet de secours de
+    // 19s plus bas (jamais atteint, puisqu'il est déclaré APRÈS cet await)
+    // ne pouvaient se déclencher. La partie restait figée sur un plateau
+    // vide pour toujours. On limite donc cet appel à 4 secondes maximum :
+    // au-delà, on abandonne et on démarre quand même avec un profil par
+    // défaut, plutôt que de risquer un blocage total du lancement.
     try {
-      const res = await fetch('/api/me');
+      const controller = new AbortController();
+      const fetchTimeout = setTimeout(() => controller.abort(), 4000);
+      const res = await fetch('/api/me', { signal: controller.signal });
+      clearTimeout(fetchTimeout);
       const data = await res.json();
       if (res.ok && data.user) {
         if (data.user.name) myName = data.user.name;
         if (data.user.avatar) myAvatar = data.user.avatar;
       }
-    } catch(e){}
+    } catch(e){
+      console.warn('[Versus intro] /api/me indisponible ou trop lent — démarrage avec un profil par défaut :', e);
+    }
 
     const profiles = {
       bottom: { name: myName, avatar: myAvatar },
