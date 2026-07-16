@@ -35,7 +35,7 @@ if (!JWT_SECRET) {
 }
 
 // --- Middlewares ---
-app.use(express.json({ limit: '2mb' })); // relevé pour permettre l'upload d'avatars personnalisés
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
 // --- Helpers auth ---
@@ -90,6 +90,7 @@ const qInsertDeck = db.prepare(
 const qDecksByUser = db.prepare('SELECT * FROM decks WHERE user_id = ?');
 const qDeckById = db.prepare('SELECT * FROM decks WHERE id = ?');
 const qDeleteDeck = db.prepare('DELETE FROM decks WHERE id = ? AND user_id = ?');
+const qUpdateDeck = db.prepare('UPDATE decks SET name = ?, cards = ? WHERE id = ? AND user_id = ?');
 
 // --- Requêtes SQL préparées (collection de cartes) ---
 const qCardsByUser = db.prepare('SELECT code, count FROM user_cards WHERE user_id = ?');
@@ -511,28 +512,38 @@ app.get('/api/leaderboard', authMiddleware, (req, res) => {
   }
 });
 
+// Dossier contenant les avatars sélectionnables — la liste est TOUJOURS lue
+// dynamiquement à chaque appel, pour que les avatars ajoutés plus tard dans
+// ce dossier soient automatiquement proposés aux joueurs sans redéploiement.
+const AVATAR_DIR = path.join(__dirname, 'public', 'assets', 'Avatar');
+const AVATAR_EXT_RE = /\.(png|jpe?g|webp|gif)$/i;
+
+function listAvatarFiles() {
+  try {
+    return fs.readdirSync(AVATAR_DIR).filter(f => AVATAR_EXT_RE.test(f)).sort();
+  } catch (e) {
+    console.error('Impossible de lire le dossier avatars:', e);
+    return [];
+  }
+}
+
+app.get('/api/avatars', authMiddleware, (req, res) => {
+  res.json({ ok: true, avatars: listAvatarFiles() });
+});
+
 app.post('/api/profile/avatar', authMiddleware, (req, res) => {
   try {
-    const { code, dataUrl } = req.body || {};
+    const { filename } = req.body || {};
 
-    if (dataUrl) {
-      // Avatar personnalisé (image uploadée par le joueur, déjà redimensionnée côté client)
-      if (typeof dataUrl !== 'string' || !/^data:image\/(png|jpe?g|webp|gif);base64,/.test(dataUrl)) {
-        return res.status(400).json({ ok: false, error: 'invalid_image' });
-      }
-      if (dataUrl.length > 1_500_000) {
-        return res.status(413).json({ ok: false, error: 'image_too_large' });
-      }
-      qSetAvatar.run(dataUrl, req.user.id);
-      return res.json({ ok: true, avatar: dataUrl });
-    }
-
-    const c = String(code || '');
-    if (!/^\d{4}$/.test(c) || !catalog.ALL_CARDS.some(card => card.code === c)) {
+    const f = String(filename || '');
+    // On valide contre la liste réelle du dossier (pas de reconstruction de
+    // chemin ni de vérification de motif) pour empêcher toute traversée de
+    // répertoire — seul un nom de fichier réellement présent est accepté.
+    if (!f || !listAvatarFiles().includes(f)) {
       return res.status(400).json({ ok: false, error: 'invalid_avatar' });
     }
-    qSetAvatar.run(c, req.user.id);
-    res.json({ ok: true, avatar: c });
+    qSetAvatar.run(f, req.user.id);
+    res.json({ ok: true, avatar: f });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -562,6 +573,40 @@ app.post('/api/decks', authMiddleware, (req, res) => {
 
     const info = qInsertDeck.run(req.user.id, name, JSON.stringify(cards));
     res.status(201).json({ ok: true, deckId: info.lastInsertRowid });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+// Modifie un deck EXISTANT (nom et/ou cartes) — même validation de
+// possession que la création. Le deck doit appartenir à l'utilisateur
+// connecté (vérifié par la clause WHERE ... AND user_id = ? de qUpdateDeck).
+app.put('/api/decks/:deckId', authMiddleware, (req, res) => {
+  try {
+    const deckId = Number(req.params.deckId);
+    if (!Number.isInteger(deckId)) return res.status(400).json({ error: 'invalid_deck_id' });
+
+    const { name, cards } = req.body;
+    if (!name || !cards || !Array.isArray(cards) || cards.length === 0) {
+      return res.status(400).json({ error: 'invalid_deck_data' });
+    }
+
+    const needed = {};
+    cards.forEach(code => { needed[code] = (needed[code] || 0) + 1; });
+    for (const [code, count] of Object.entries(needed)) {
+      const row = qCardCount.get(req.user.id, code);
+      const owned = row ? row.count : 0;
+      if (count > owned) {
+        return res.status(400).json({ error: 'card_not_owned', code, owned, requested: count });
+      }
+    }
+
+    const info = qUpdateDeck.run(name, JSON.stringify(cards), deckId, req.user.id);
+    if (info.changes === 0) {
+      return res.status(404).json({ error: 'deck_not_found_or_not_authorized' });
+    }
+    res.json({ ok: true });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'server_error' });

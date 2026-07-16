@@ -301,6 +301,9 @@
 
     <section class="panel">
       <h2>Deck</h2>
+      <div id="editingBanner" class="chip" style="display:none;margin-bottom:8px;background:linear-gradient(180deg,#3d2e00,#2a1f00);border-color:#ffcf4d;color:#ffe6a3;">
+        ✎ Modification de « <span id="editingDeckName"></span> » — <a href="#" id="cancelEditLink" style="color:#7df9ff;">annuler</a>
+      </div>
       <div class="deckHead">
         <div class="deckTitle">
           <input id="deckName" placeholder="Nom du deck…" />
@@ -569,6 +572,9 @@
     const facSeg = document.getElementById('facSeg');
     const shelf = document.getElementById('shelf');
     const toast = document.getElementById('toast');
+    const editingBanner = document.getElementById('editingBanner');
+    const editingDeckNameEl = document.getElementById('editingDeckName');
+    const cancelEditLink = document.getElementById('cancelEditLink');
     const hoverZoom = document.getElementById('hoverZoom');
     const hoverZoomCard = document.getElementById('hoverZoomCard');
     
@@ -577,6 +583,10 @@
     let countsByFaction = new Map();
     let currentFacFilter = "all";
     let currentQuery = "";
+    // Non-null pendant l'édition d'un deck déjà sauvegardé : le bouton
+    // "Valider" doit alors mettre à jour ce deck (PUT) plutôt que d'en créer
+    // un nouveau (POST). Remis à null par clearDeckBuilder().
+    let editingDeckId = null;
 
     function showToast(msg){
       toast.textContent = msg;
@@ -630,6 +640,48 @@
       }
     }
 
+    async function updateDeckOnServer(deckId, name, cards) {
+      try {
+        const response = await fetch(`/api/decks/${deckId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, cards })
+        });
+        const data = await response.json();
+        if (data.ok) {
+          showToast('Deck mis à jour !');
+          loadDecksFromServer();
+          clearDeckBuilder();
+        } else {
+          showToast(`Erreur: ${data.error || 'inconnue'}`);
+        }
+      } catch (error) {
+        console.error(error);
+        showToast('Erreur de connexion pour mettre à jour le deck.');
+      }
+    }
+
+    // Charge un deck déjà sauvegardé dans le constructeur pour modification :
+    // repeuple deck/countsByCode/countsByFaction à partir de ses cartes, passe
+    // en mode édition (editingDeckId) et affiche le bandeau correspondant.
+    function loadDeckIntoBuilder(d) {
+      deck = [...d.cards];
+      countsByCode.clear();
+      countsByFaction.clear();
+      deck.forEach(code => {
+        countsByCode.set(code, (countsByCode.get(code) || 0) + 1);
+        const fac = CATALOG_BY_CODE.get(code).faction;
+        countsByFaction.set(fac, (countsByFaction.get(fac) || 0) + 1);
+      });
+      deckNameInput.value = d.name;
+      editingDeckId = d.id;
+      editingDeckNameEl.textContent = d.name;
+      editingBanner.style.display = '';
+      renderDeck();
+      updateChipsAndButton();
+      deckNameInput.closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     function renderShelf(decks = []) {
       shelf.innerHTML = '';
       if(decks.length === 0) {
@@ -653,12 +705,16 @@
             <div class="packMeta">${d.cards.length}/${getDeckSize()} — ${facsSummary}</div>
             <div class="packBtns">
               <button class="btn play-btn">▶ Jouer</button>
+              <button class="btn-secondary edit-btn">✎ Modifier</button>
               <button class="btn-secondary danger delete-btn">Supprimer</button>
             </div>
           </div>
         `;
         pack.querySelector('.play-btn').addEventListener('click', () => {
           openModeChoice(d.id, d.name, d.cards);
+        });
+        pack.querySelector('.edit-btn').addEventListener('click', () => {
+          loadDeckIntoBuilder(d);
         });
         pack.querySelector('.delete-btn').addEventListener('click', () => {
           deleteDeckFromServer(d.id);
@@ -854,13 +910,24 @@
     function clearDeckBuilder() {
       deck = []; countsByCode.clear(); countsByFaction.clear();
       deckNameInput.value = ''; renderDeck(); updateChipsAndButton();
+      editingDeckId = null;
+      editingBanner.style.display = 'none';
     }
 
     validateBtn.addEventListener('click', () => {
       if (!deckIsValid()) { showToast('Le deck n’est pas conforme.'); return; }
       const name = deckNameInput.value.trim();
       if (!name) { showToast('Donnez un nom à votre deck.'); return; }
-      saveDeckToServer(name, deck);
+      if (editingDeckId) {
+        updateDeckOnServer(editingDeckId, name, deck);
+      } else {
+        saveDeckToServer(name, deck);
+      }
+    });
+
+    cancelEditLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      clearDeckBuilder();
     });
     
     function refreshAllBadges() { document.querySelectorAll('[data-code]').forEach(el => applyMiniStatsBadges(el, el.dataset.code)); }

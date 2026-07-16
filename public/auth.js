@@ -8,7 +8,9 @@
 // choisi, on utilise l'image "?" stylée par défaut (assets/avatarbase.png).
 function armsAvatarUrl(avatar) {
   if (!avatar) return '/assets/avatarbase.png';
-  return avatar.startsWith('data:') ? avatar : `/cartes/${avatar}.png`;
+  if (avatar.startsWith('data:')) return avatar; // ancien avatar uploadé (compte existant)
+  if (/\.(png|jpe?g|webp|gif)$/i.test(avatar)) return `/assets/Avatar/${encodeURIComponent(avatar)}`;
+  return `/cartes/${avatar}.png`; // ancien avatar "carte" (compte existant)
 }
 
 function armsApplyAvatar(el, avatar) {
@@ -114,8 +116,6 @@ function armsBuildAccountModal(user) {
   overlay.id = 'armsAccountModal';
   overlay.className = 'armsModalOverlay';
 
-  const reduceMotion = localStorage.getItem('arms_reduce_motion') === '1';
-
   function renderProfileView() {
     overlay.innerHTML = `
       <div class="armsModal">
@@ -146,12 +146,6 @@ function armsBuildAccountModal(user) {
           <span class="val">Ouvrir →</span>
         </div>
 
-        <div class="armsSectionTitle">Réglages</div>
-        <div class="armsRowBtn" id="reduceMotionRow" style="cursor:default;">
-          <span class="lbl">🎬 Réduire les animations</span>
-          <div class="toggleSwitch ${reduceMotion ? 'on' : ''}" id="reduceMotionToggle"><div class="knob"></div></div>
-        </div>
-
         <button class="logoutBtnModal" id="logoutBtnModal">Se déconnecter</button>
       </div>
     `;
@@ -161,17 +155,13 @@ function armsBuildAccountModal(user) {
     overlay.querySelector('#goRankingBtn').addEventListener('click', () => { window.location.href = '/classement.html'; });
     overlay.querySelector('#goCollectionBtn').addEventListener('click', () => { window.location.href = '/play.html'; });
     overlay.querySelector('#goShopBtn').addEventListener('click', () => { window.location.href = '/boutique.html'; });
-    overlay.querySelector('#reduceMotionToggle').addEventListener('click', (e) => {
-      const on = e.currentTarget.classList.toggle('on');
-      localStorage.setItem('arms_reduce_motion', on ? '1' : '0');
-    });
     overlay.querySelector('#logoutBtnModal').addEventListener('click', async () => {
       await fetch('/api/logout', { method: 'POST' });
       window.location.href = '/accueil.html';
     });
   }
 
-  function renderAvatarPicker() {
+  async function renderAvatarPicker() {
     overlay.innerHTML = `
       <div class="armsModal">
         <button class="armsModalClose" id="armsModalCloseBtn">✕</button>
@@ -180,40 +170,58 @@ function armsBuildAccountModal(user) {
 
         <div class="profileAvatarBig" id="avatarPreview" style="margin:0 auto 18px;"></div>
 
-        <div class="armsRowBtn" id="uploadAvatarBtn" style="justify-content:center;gap:8px;">
-          <span class="lbl">📤 Uploader ma propre image</span>
+        <div id="avatarGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px;">
+          <div style="grid-column:1/-1;text-align:center;opacity:.7;font-size:13px;">Chargement…</div>
         </div>
-        <input type="file" id="avatarFileInput" accept="image/*" style="display:none;">
       </div>
     `;
     armsApplyAvatar(overlay.querySelector('#avatarPreview'), user.avatar);
     overlay.querySelector('#armsModalCloseBtn').addEventListener('click', closeModal);
     overlay.querySelector('#backToProfile').addEventListener('click', renderProfileView);
 
-    const fileInput = overlay.querySelector('#avatarFileInput');
-    overlay.querySelector('#uploadAvatarBtn').addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      try {
-        const dataUrl = await armsResizeImageToDataUrl(file, 256);
-        const res = await fetch('/api/profile/avatar', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dataUrl })
-        });
-        const data = await res.json();
-        if (data.ok) {
-          user.avatar = data.avatar;
-          armsRefreshAvatarDisplays(data.avatar);
-          renderProfileView();
-        } else {
-          alert("Impossible d'utiliser cette image (" + (data.error || 'erreur') + ").");
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Erreur lors du traitement de l'image.");
+    const grid = overlay.querySelector('#avatarGrid');
+    try {
+      const res = await fetch('/api/avatars');
+      const data = await res.json();
+      const avatars = (data.ok && Array.isArray(data.avatars)) ? data.avatars : [];
+      if (avatars.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;opacity:.7;font-size:13px;">Aucun avatar disponible.</div>`;
+        return;
       }
-    });
+      grid.innerHTML = '';
+      avatars.forEach(filename => {
+        const cell = document.createElement('div');
+        cell.style.cssText = 'width:72px;height:72px;border-radius:50%;background-size:cover;background-position:center;'
+          + 'border:2px solid rgba(125,249,255,.35);cursor:pointer;transition:border-color .15s ease,transform .15s ease;';
+        cell.style.backgroundImage = `url('/assets/Avatar/${encodeURIComponent(filename)}')`;
+        if (user.avatar === filename) cell.style.borderColor = '#7df9ff';
+        cell.addEventListener('mouseenter', () => cell.style.transform = 'scale(1.06)');
+        cell.addEventListener('mouseleave', () => cell.style.transform = 'scale(1)');
+        cell.addEventListener('click', async () => {
+          try {
+            const r = await fetch('/api/profile/avatar', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename })
+            });
+            const d = await r.json();
+            if (d.ok) {
+              user.avatar = d.avatar;
+              armsRefreshAvatarDisplays(d.avatar);
+              renderProfileView();
+            } else {
+              alert("Impossible de sélectionner cet avatar (" + (d.error || 'erreur') + ").");
+            }
+          } catch (err) {
+            console.error(err);
+            alert("Erreur de connexion lors du changement d'avatar.");
+          }
+        });
+        grid.appendChild(cell);
+      });
+    } catch (err) {
+      console.error(err);
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;opacity:.7;font-size:13px;">Erreur de chargement des avatars.</div>`;
+    }
   }
 
   function closeModal() { overlay.classList.remove('show'); }
@@ -222,27 +230,6 @@ function armsBuildAccountModal(user) {
   overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
   document.body.appendChild(overlay);
   return overlay;
-}
-
-function armsResizeImageToDataUrl(file, maxSize) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const reader = new FileReader();
-    reader.onload = () => { img.src = reader.result; };
-    reader.onerror = reject;
-    img.onload = () => {
-      let { width, height } = img;
-      if (width > height && width > maxSize) { height = Math.round(height * (maxSize / width)); width = maxSize; }
-      else if (height > maxSize) { width = Math.round(width * (maxSize / height)); height = maxSize; }
-      const canvas = document.createElement('canvas');
-      canvas.width = width; canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', 0.85));
-    };
-    img.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 function armsRefreshAvatarDisplays(avatar) {

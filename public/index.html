@@ -21218,7 +21218,6 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
         background:conic-gradient(from 0deg, transparent 0%, rgba(255,217,61,.55) 12%, transparent 24%, transparent 50%, rgba(125,249,255,.5) 62%, transparent 74%);
         animation:vsSpin 7s linear infinite; opacity:.8;}
       .vsAvatarWrap.vsBottom .vsRingSpin{animation-direction:reverse;}
-      #versusIntro.reduceMotion .vsRingSpin{animation:none;}
       @keyframes vsSpin{to{transform:rotate(360deg);}}
       .vsAvatarRing{position:relative;width:100%;height:100%;border-radius:50%;background-size:cover;background-position:center;background-color:#0a1a20;
         border:5px solid rgba(255,225,150,.9); box-shadow:0 0 0 3px rgba(0,0,0,.5), 0 0 60px rgba(125,249,255,.55), 0 20px 50px rgba(0,0,0,.6),
@@ -21346,9 +21345,10 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
     const opponentProfile = profiles[oppSeatForVs];
     const myAvatarUrl = (mySeatForVs === 'top') ? topAvatarUrl : bottomAvatarUrl;
     const opponentAvatarUrl = (oppSeatForVs === 'top') ? topAvatarUrl : bottomAvatarUrl;
-    const reduceMotion = (function(){ try { return localStorage.getItem('arms_reduce_motion') === '1'; } catch(e){ return false; } })();
-
-    const embersHtml = reduceMotion ? '' : Array.from({length: 10}, (_, i) => {
+    // Les animations du jeu ne sont plus configurables par le joueur : elles
+    // sont toujours jouées en entier (voir suppression du réglage "Réduire
+    // les animations" dans auth.js).
+    const embersHtml = Array.from({length: 10}, (_, i) => {
       const left = Math.random() * 100;
       const delay = Math.random() * 4;
       const dur = 4 + Math.random() * 3;
@@ -21358,7 +21358,6 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
 
     const overlay = document.createElement('div');
     overlay.id = 'versusIntro';
-    if (reduceMotion) overlay.classList.add('reduceMotion');
     overlay.innerHTML = `
       <div class="vsBgBase"></div>
       <div class="vsSeam"></div>
