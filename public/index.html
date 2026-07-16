@@ -21387,7 +21387,9 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
 
     function vsAvatarUrl(avatar) {
       if (!avatar) return '/assets/avatarbase.png';
-      return avatar.startsWith('data:') ? avatar : `/cartes/${avatar}.png`;
+      if (avatar.startsWith('data:')) return avatar; // ancien avatar uploadé (compte existant)
+      if (/\.(png|jpe?g|webp|gif)$/i.test(avatar)) return `/assets/Avatar/${encodeURIComponent(avatar)}`;
+      return `/cartes/${avatar}.png`; // ancien avatar "carte" (compte existant)
     }
     const topAvatarUrl = vsAvatarUrl(profiles.top.avatar);
     const bottomAvatarUrl = vsAvatarUrl(profiles.bottom.avatar);
