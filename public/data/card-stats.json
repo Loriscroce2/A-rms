@@ -504,6 +504,11 @@
     "hp": 2,
     "shield": 0
   },
+  "0246": {
+    "type": "personnage",
+    "hp": 8,
+    "shield": 0
+  },
   "0248": {
     "type": "personnage",
     "hp": 4,

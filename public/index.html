@@ -3444,6 +3444,7 @@ const CARD_IMAGES = {
  'C243': '../cartes/0243.png',
  'C244': '../cartes/0244.png',
  'C245': '../cartes/0245.png',
+ 'C246': '../cartes/0246.png',
  'C247': '../cartes/0247.png',
  'C248': '../cartes/0248.png',
  'C249': '../cartes/0249.png',
@@ -3640,6 +3641,7 @@ const CARD_TYPES  = {
  'C243': 'action',     // Rollback
  'C244': 'personnage', // Startare
  'C245': 'personnage', // Artayc
+ 'C246': 'personnage', // Balogrun
  'C247': 'familier',   // Mina Mina
  'C248': 'personnage', // Mliche
  'C249': 'personnage', // Nomya
@@ -3833,6 +3835,7 @@ const CARD_NAMES = {
  'C243': 'Rollback',
  'C244': 'Startare',
  'C245': 'Artayc',
+ 'C246': 'Balogrun',
  'C247': 'Mina Mina',
  'C248': 'Mliche',
  'C249': 'Nomya',
@@ -3961,6 +3964,7 @@ const CARD_HP_BASE = {
   'C242': 2,
   'C244': 4,
   'C245': 2,
+  'C246': 8,
   'C248': 4,
   'C249': 3,
 
@@ -4218,9 +4222,10 @@ const CARD_TAGS = {
  'C243': ['action', 'Wadoo'],    // Rollback
  'C244': ['citoyen', 'Wadoo'],   // Startare
  'C245': ['citoyen', 'Wadoo'],   // Artayc
+ 'C246': ['citoyen', 'Wadoo'],   // Balogrun
  'C247': ['familier', 'Wadoo'],  // Mina Mina
  'C248': ['citoyen', 'Wadoo'],   // Mliche
- 'C249': ['citoyen', 'Wadoo'],   // Nomya
+ 'C249': ['citoyen', 'Wadoo', 'poupée'],   // Nomya
  'C250': ['action', 'Wadoo'],    // Étroite Sagesse
  'T19': ['action', 'Wadoo', 'fléau', 'token'], // Fléau (Startare, C244)
 
@@ -4616,6 +4621,17 @@ if (label === 'C154') {
   }
   // WADOO : toute carte peut potentiellement porter un lien vaudou (mais seules les Poupées l'utilisent)
   c.wadooLink = null;
+  // WADOO 7e lot : Balogrun (C246) peut MINER deux fois par tour — compteur
+  // remis à 0 au début de chacun de ses propres tours (voir resetExhausted).
+  if (label === 'C246') {
+    c.balogrunMinesThisTurn = 0;
+  }
+  // WADOO 7e lot : Nomya (C249, Poupée) accumule un lien supplémentaire à un
+  // nouveau combattant ennemi à chacun de ses propres tours — liste des IDs
+  // liés, filtrée à l'usage sur les cibles encore en jeu (« lien actif »).
+  if (label === 'C249') {
+    c.nomyaLinkedIds = [];
+  }
   if (label === 'C212') {
     // 4 "revenez-en" disponibles au départ, affichées via le système de
     // charges standard (comme C7/C58/C112/C216/C227) — donc visibles sur la
@@ -8134,6 +8150,101 @@ if (card.label === 'C164') {
     fullRender();
 }
 
+// ===================================================================
+// WADOO 7e lot : Balogrun (C246) — Citoyen, PEUT MINER DEUX FOIS PAR TOUR.
+// Chaque minage suit les mêmes règles que performMining (coût -1 PV sauf
+// Minage gratuit/Coqsix, +1 Mithril, +bonus Coqsix), mais Balogrun n'est
+// épuisé (markAttacked) qu'après le SECOND minage du tour — le compteur
+// balogrunMinesThisTurn est remis à 0 au début de CHACUN de ses propres
+// tours (voir chooseFactionAndProceed / resetExhausted).
+// ===================================================================
+function performBalogrunMining(owner, card) {
+  const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
+  const curHP = getEffectiveHP(card);
+  const canMine = card.canMineFreely || curHP > 1 || coqsixCount > 0;
+  if (!canMine) return;
+
+  card.balogrunMinesThisTurn = (card.balogrunMinesThisTurn || 0) + 1;
+  const isSecondMine = card.balogrunMinesThisTurn >= 2;
+  if (isSecondMine) markAttacked(owner, card);
+
+  let totalGain = 1;
+  if (coqsixCount > 0) {
+    const opp = (owner === 'top') ? 'bottom' : 'top';
+    const oppHand = getHandByOwner(opp);
+    if (oppHand.length >= 7) {
+      for (let i = 0; i < coqsixCount; i++) addMithril(owner);
+      totalGain += coqsixCount;
+    } else {
+      addMithril(owner);
+    }
+  } else {
+    addMithril(owner);
+  }
+
+  const progressLabel = `minage ${card.balogrunMinesThisTurn}/2 ce tour`;
+  if (card.canMineFreely || coqsixCount > 0) {
+    pushHistory('pv', `${cardAnchor('C246')} mine sans perdre de PV (+${totalGain} Mithril) — ${progressLabel}.`);
+  } else {
+    card.hp = curHP - 1;
+    onHPDamaged(owner, card, 1, 'mining');
+    pushHistory('pv', `${cardAnchor('C246')} mine : -1 PV, +${totalGain} Mithril — ${progressLabel}.`);
+  }
+
+  fullRender();
+}
+
+// ===================================================================
+// WADOO 7e lot : Nomya (C249, Poupée) — compte les liens encore ACTIFS
+// (cibles toujours en jeu, camp confondu) parmi tous ceux accumulés au fil
+// de ses tours. Utilisée à la fois pour l'affichage du bouton Miner et pour
+// le calcul réel du vol de Mithril.
+// ===================================================================
+function countActiveNomyaLinks(card) {
+  if (!Array.isArray(card.nomyaLinkedIds) || card.nomyaLinkedIds.length === 0) return 0;
+  const boardIds = new Set([...topLine, ...botLine].map(c => c.id));
+  return card.nomyaLinkedIds.filter(id => boardIds.has(id)).length;
+}
+
+// Chez Nomya, MINER remplace ENTIÈREMENT le gain classique : au lieu de
+// gagner 1 Mithril, elle en VOLE 1 par lien encore actif (voir la liaison
+// automatique en début de ses tours). Même coût standard que tout autre
+// minage (-1 PV, sauf Minage gratuit/Coqsix) — voir applyStandardMiningGainAndCost
+// pour le principe équivalent chez Doolia/Acrylik.
+function performNomyaMining(owner, card) {
+  const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
+  const curHP = getEffectiveHP(card);
+  const canMine = card.canMineFreely || curHP > 1 || coqsixCount > 0;
+  if (!canMine) return;
+
+  markAttacked(owner, card);
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const links = countActiveNomyaLinks(card);
+  const stolen = Math.min(links, mithril[opp] || 0);
+
+  if (card.canMineFreely || coqsixCount > 0) {
+    pushHistory('pv', `${cardAnchor('C249')} mine sans perdre de PV.`);
+  } else {
+    card.hp = curHP - 1;
+    onHPDamaged(owner, card, 1, 'mining');
+    pushHistory('pv', `${cardAnchor('C249')} mine : -1 PV.`);
+  }
+
+  if (stolen > 0) {
+    mithril[opp] -= stolen;
+    addMithril(owner, stolen);
+    updateMithril();
+    pushHistory('mithril', `${cardAnchor('C249')} vole ${stolen} Mithril à ${playerLabel(opp)} (${links} lien${links > 1 ? 's' : ''} actif${links > 1 ? 's' : ''}).`);
+  } else if (links > 0) {
+    pushHistory('info', `${cardAnchor('C249')} : ${playerLabel(opp)} n'a aucun Mithril à voler malgré ${links} lien${links > 1 ? 's' : ''} actif${links > 1 ? 's' : ''}.`);
+  } else {
+    pushHistory('info', `${cardAnchor('C249')} : aucun lien actif, aucun Mithril volé.`);
+  }
+
+  fullRender();
+}
+
 // AJOUT C120 : Fonction pour activer la capacité de Salomon II
 // REMPLACEZ L'ANCIENNE FONCTION PAR CELLE-CI
 function useSalomonIIAbility(owner, card) {
@@ -8463,7 +8574,28 @@ function openMiningPrompt(owner, card, fromEl){
     }
     
     // Le reste de la logique pour les autres cartes reste identique
-    if(card.label === 'C9') {
+    if (card.label === 'C246') {
+      title = 'Balogrun';
+      // Balogrun peut MINER deux fois par tour : on réutilise le mineButton
+      // standard (même coût -1 PV / gratuit, même gain +1 Mithril), mais son
+      // onClick passe par performBalogrunMining, qui ne l'épuise (markAttacked)
+      // qu'au SECOND minage du tour.
+      const minesLeft = 2 - (card.balogrunMinesThisTurn || 0);
+      mineButton.label += ` (${Math.max(0, minesLeft)}/2 ce tour)`;
+      mineButton.onClick = () => { performBalogrunMining(owner, card); };
+      buttons.push(mineButton);
+    } else if (card.label === 'C249') {
+      title = 'Nomya';
+      // Chez Nomya, MINER remplace ENTIÈREMENT le gain classique par un vol
+      // de Mithril proportionnel à ses liens encore actifs (voir la liaison
+      // automatique en début de ses tours, dans chooseFactionAndProceed) —
+      // même principe que Doolia/Acrylik : un seul bouton "Miner", même coût
+      // standard (-1 PV, sauf Minage gratuit/Coqsix).
+      const activeLinks = countActiveNomyaLinks(card);
+      mineButton.label = `Miner (Voler ${activeLinks} Mithril${card.canMineFreely || coqsixCount > 0 ? ', Gratuit' : ', -1 PV'})`;
+      mineButton.onClick = () => { performNomyaMining(owner, card); };
+      buttons.push(mineButton);
+    } else if(card.label === 'C9') {
       title = 'Zcyvenger';
       msg = 'Choisissez&nbsp;: <strong>Miner</strong> ou <strong>Utiliser la capacité</strong>.';
       buttons.push(mineButton, { label:'Capacité de Zcyvenger', className:'confirm', onClick:()=>{ openC9AbilityPrompt(owner, card, fromEl); } });
@@ -19003,37 +19135,10 @@ function startTurn(player){
     }
   } catch(err) { console.error('[Dembelaid] effet impossible :', err); }
 
-  // ===================================================================
-  // WADOO 7e lot : Nomya (C249) — à CHAQUE tour de jeu (les deux joueurs,
-  // indépendamment de qui a la main), chaque Nomya en jeu bascule de zone de
-  // combat (top <-> bottom). Si elle atterrit dans la zone qui N'EST PAS
-  // celle de son propriétaire d'origine (trueOwnerOf), celui-ci vole 1
-  // Mithril à l'adversaire qui héberge alors Nomya.
-  // ===================================================================
-  try {
-    [...topLine, ...botLine].filter(c => c.label === 'C249').forEach(nomya => {
-      const currentSide = topLine.includes(nomya) ? 'top' : 'bottom';
-      const otherSide = (currentSide === 'top') ? 'bottom' : 'top';
-      const fromLine = getLineByOwner(currentSide);
-      const toLine = getLineByOwner(otherSide);
-      const nIdx = fromLine.findIndex(c2 => c2.id === nomya.id);
-      if (nIdx === -1) return;
-      fromLine.splice(nIdx, 1);
-      toLine.push(nomya);
-      pushHistory('info', `${cardAnchor('C249')} change de zone de combat (${playerLabel(currentSide)} → ${playerLabel(otherSide)}).`);
-
-      const nomyaTrueOwner = trueOwnerOf(nomya);
-      if (otherSide !== nomyaTrueOwner) {
-        const victim = (nomyaTrueOwner === 'top') ? 'bottom' : 'top';
-        if ((mithril[victim] || 0) > 0) {
-          mithril[victim]--;
-          addMithril(nomyaTrueOwner);
-          updateMithril();
-          pushHistory('mithril', `${cardAnchor('C249')} atterrit chez l'adversaire : ${playerLabel(nomyaTrueOwner)} vole 1 Mithril à ${playerLabel(victim)} !`);
-        }
-      }
-    });
-  } catch(err) { console.error('[Nomya] effet impossible :', err); }
+  // Nomya (C249) : l'ancien effet (bascule de zone de combat à chaque tour)
+  // a été remplacé par une Poupée classique — voir la liaison cumulative en
+  // début de CHACUN de ses propres tours (dans chooseFactionAndProceed) et
+  // son MINER dédié (performNomyaMining, voir openMiningPrompt).
 
   // ===================================================================
   // WADOO 3e lot : Qasar (C224) — au début de CHAQUE tour (une seule fois par
@@ -19093,6 +19198,31 @@ function startTurn(player){
     try{
       resetExhausted(player);
       resetArtifactExhausted(player);
+
+      // WADOO 7e lot : Balogrun (C246) — remise à zéro de son compteur de
+      // minage au début de CE tour (le sien), pour qu'il retrouve ses 2
+      // minages disponibles.
+      getLineByOwner(player).forEach(c => { if (c.label === 'C246') c.balogrunMinesThisTurn = 0; });
+
+      // WADOO 7e lot : Nomya (C249, Poupée) — au début de CHACUN de ses
+      // propres tours, chaque Nomya de la zone de combat de `player` se lie
+      // à UN NOUVEAU combattant ennemi (choisi au hasard parmi ceux pas
+      // encore liés) — ce lien s'ajoute aux précédents plutôt que de les
+      // remplacer. Réutilisé par son MINER (voir performNomyaMining) pour
+      // voler 1 Mithril par lien encore actif (cible toujours en jeu).
+      try {
+        const nomyaOpp = (player === 'top') ? 'bottom' : 'top';
+        getLineByOwner(player).filter(c => c.label === 'C249').forEach(nomya => {
+          if (!Array.isArray(nomya.nomyaLinkedIds)) nomya.nomyaLinkedIds = [];
+          const linkedSet = new Set(nomya.nomyaLinkedIds);
+          const candidates = getLineByOwner(nomyaOpp).filter(c => getType(c.label) === 'personnage' && !linkedSet.has(c.id));
+          if (candidates.length > 0) {
+            const target = candidates[Math.floor(Math.random() * candidates.length)];
+            nomya.nomyaLinkedIds.push(target.id);
+            pushHistory('info', `${cardAnchor('C249')} se lie à ${cardAnchor(target.label)} (${nomya.nomyaLinkedIds.length} lien${nomya.nomyaLinkedIds.length > 1 ? 's' : ''} au total).`);
+          }
+        });
+      } catch(err) { console.error('[Nomya] liaison impossible :', err); }
 
       const recharged = resetAllShields();
       checkForge(player);
