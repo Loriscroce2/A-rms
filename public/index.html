@@ -5229,8 +5229,15 @@ function openFactionPrompt(player, onChosen){
   fpTitle.textContent = (player===MY_SEAT ? 'Choix de faction — Joueur 1 (vous)' : 'Choix de faction — Joueur 2 (adversaire)');
   factionOverlay.style.display='flex';
   // Rappel sonore + pulsation dorée périodique du contour, pour que le
-  // joueur ne manque pas ce choix obligatoire.
-  if (typeof playChooseFactionSfx === 'function') playChooseFactionSfx();
+  // joueur ne manque pas ce choix obligatoire. Le son ne doit se déclencher
+  // QUE sur NOTRE propre tour (celui de MY_SEAT — le joueur du bas en local/
+  // vs IA) : inutile de l'entendre pendant que l'adversaire choisit sa
+  // faction. Il est aussi volontairement coupé au tout premier tour de la
+  // partie (ownerTurnCount[player] === 1), pour ne pas sonner dès l'écran de
+  // chargement/avant que le joueur n'ait vraiment commencé à jouer.
+  const isMyOwnTurn = (player === MY_SEAT);
+  const isVeryFirstTurn = (ownerTurnCount[player] || 0) === 1;
+  if (isMyOwnTurn && !isVeryFirstTurn && typeof playChooseFactionSfx === 'function') playChooseFactionSfx();
   const fpBox = factionOverlay.querySelector('.factionPrompt');
   if (fpBox) fpBox.classList.add('fpPulse');
 
@@ -23140,10 +23147,23 @@ function startTutorialCoach(){
         fullRender();
       }catch(e){}
       setTimeout(()=>{
-        const armsBefore = arms['bottom'] || 0;
-        const btn = document.getElementById('endTurn');
-        if (btn) btn.click();
-        waitForCondition(() => currentTurn === 'bottom', () => step10b_NewTurnFaction(armsBefore));
+        // CORRECTIF BLOCAGE : ce tour adverse est entièrement scripté (pas
+        // d'IA en didacticiel), mais le vrai choix de faction obligatoire
+        // pour 'top' (ouvert par startTurn au moment où currentTurn est
+        // passé à 'top') reste affiché sans que personne ne clique jamais
+        // dessus. performEndTurn() refuse alors de terminer le tour tant
+        // qu'activeFaction['top'] est vide (garde-fou "choisissez d'abord
+        // votre faction") — le didacticiel restait bloqué indéfiniment ici.
+        // On simule un clic sur le premier bouton de faction disponible,
+        // exactement comme le ferait un vrai joueur.
+        const fpBtn = document.querySelector('#fpButtons .fpBtn:not([disabled])');
+        if (fpBtn) fpBtn.click();
+        setTimeout(() => {
+          const armsBefore = arms['bottom'] || 0;
+          const btn = document.getElementById('endTurn');
+          if (btn) btn.click();
+          waitForCondition(() => currentTurn === 'bottom', () => step10b_NewTurnFaction(armsBefore));
+        }, 500);
       }, 1400);
     }
 
