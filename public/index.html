@@ -20983,6 +20983,35 @@ function drawPrismisLinks() {
         linkCtx.stroke();
         linkCtx.setLineDash([]);
     });
+
+    // === CORRECTIF : liens de Nomya (C249, Poupée) — contrairement aux
+    // autres Poupées (un seul lien, stocké dans wadooLink), Nomya accumule
+    // PLUSIEURS liens au fil de ses tours (voir nomyaLinkedIds), donc le
+    // rendu ci-dessus (qui ne lit que .wadooLink) ne la dessinait jamais —
+    // aucun fil n'était visible à l'écran. Même style visuel, mais un fil
+    // par lien encore ACTIF (cible toujours en jeu).
+    const nomyaDolls = allPlayableCards.filter(c => c.label === 'C249' && Array.isArray(c.nomyaLinkedIds) && c.nomyaLinkedIds.length > 0);
+    nomyaDolls.forEach(nomya => {
+        const dollEl = document.querySelector(`.card.placed[data-id="${nomya.id}"]`);
+        if (!dollEl) return;
+        const start = centerOf(dollEl);
+        nomya.nomyaLinkedIds.forEach(targetId => {
+            const targetEl = document.querySelector(`.card.placed[data-id="${targetId}"]`);
+            if (!targetEl) return; // lien inactif : la cible n'est plus en jeu
+            const end = centerOf(targetEl);
+
+            linkCtx.beginPath();
+            linkCtx.moveTo(start.x, start.y);
+            linkCtx.quadraticCurveTo((start.x + end.x) / 2, (start.y + end.y) / 2 + 40, end.x, end.y);
+            linkCtx.strokeStyle = 'rgba(255, 217, 61, 0.85)';
+            linkCtx.setLineDash([6, 6]);
+            linkCtx.lineWidth = 3;
+            linkCtx.shadowColor = 'rgba(255, 217, 61, 0.9)';
+            linkCtx.shadowBlur = 8;
+            linkCtx.stroke();
+            linkCtx.setLineDash([]);
+        });
+    });
 }
 
 // Fin des ajouts pour Prismis
