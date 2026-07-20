@@ -1611,6 +1611,204 @@
     #zoom .provocateurBadge.versLInfiniBadge{ top:96px; }
 
     /* ===================================================================
+       CHIMERIA (8e lot) : Memory (C195) — overlay plein écran, opaque,
+       qui masque ENTIÈREMENT l'écran de combat pendant le mini-jeu.
+       =================================================================== */
+    #memoryOverlay{
+      position:fixed; inset:0; z-index:20000;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(120,90,190,.35), transparent 60%),
+        linear-gradient(160deg, #120a1f 0%, #0a0714 55%, #060410 100%);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:32px 16px;
+      animation:memoryPortalIn .75s cubic-bezier(.22,.85,.25,1);
+    }
+    @keyframes memoryPortalIn{
+      0%{ clip-path:circle(0% at 50% 50%); opacity:0; }
+      45%{ opacity:1; }
+      100%{ clip-path:circle(75% at 50% 50%); opacity:1; }
+    }
+    /* Flash/vortex de transition joué UNE fois à l'ouverture, par-dessus
+       l'overlay, avant de s'effacer — donne l'impression d'un portail qui
+       s'ouvre plutôt qu'un simple changement d'écran. */
+    #memoryTransitionFlash{
+      position:fixed; inset:0; z-index:20010; pointer-events:none;
+      background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.95), rgba(160,120,255,.55) 28%, rgba(80,40,140,.15) 55%, transparent 72%);
+      animation:memoryFlashPulse .7s ease-out forwards;
+    }
+    @keyframes memoryFlashPulse{
+      0%{ opacity:0; transform:scale(.15); }
+      30%{ opacity:1; transform:scale(1); }
+      100%{ opacity:0; transform:scale(1.9); }
+    }
+    #memoryTransitionRing{
+      position:fixed; top:50%; left:50%; z-index:20009; pointer-events:none;
+      width:40px; height:40px; margin:-20px 0 0 -20px;
+      border-radius:50%; border:3px solid rgba(190,150,255,.9);
+      box-shadow:0 0 30px rgba(160,120,255,.8);
+      animation:memoryRingExpand .8s cubic-bezier(.2,.8,.3,1) forwards;
+    }
+    @keyframes memoryRingExpand{
+      0%{ width:40px; height:40px; margin:-20px 0 0 -20px; opacity:1; }
+      100%{ width:1400px; height:1400px; margin:-700px 0 0 -700px; opacity:0; }
+    }
+    .memoryPanel{
+      width:min(1180px, 97vw);
+      max-height:94vh;
+      display:flex; flex-direction:column; align-items:center;
+      gap:16px;
+    }
+    .memoryHeader{
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+      text-align:center;
+    }
+    .memoryHeader h2{
+      margin:0; font-size:30px; letter-spacing:2px; text-transform:uppercase;
+      background:linear-gradient(90deg,#e7c8ff,#8fd8ff,#e7c8ff);
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      text-shadow:0 0 24px rgba(160,120,255,.35);
+    }
+    .memoryHeader .memorySub{ color:#c9bfe0; font-size:14px; opacity:.85; }
+    .memoryScores{
+      display:flex; gap:22px; align-items:center; justify-content:center;
+      font-size:14px; color:#dcd3f0;
+    }
+    .memoryScoreChip{
+      display:flex; align-items:center; gap:8px;
+      padding:6px 16px; border-radius:999px;
+      background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12);
+      transition:all .25s ease;
+    }
+    .memoryScoreChip.activeTurn{
+      border-color:rgba(160,120,255,.85);
+      box-shadow:0 0 16px rgba(160,120,255,.45);
+      background:rgba(160,120,255,.14);
+    }
+    .memoryScoreChip b{ font-size:18px; color:#fff; }
+    .memoryGrid{
+      display:grid;
+      grid-template-columns:repeat(var(--memCols,6), minmax(64px,118px));
+      gap:10px;
+      justify-content:center;
+      width:100%;
+      max-height:62vh;
+      overflow-y:auto;
+      padding:6px;
+    }
+    .memoryCard{
+      position:relative;
+      aspect-ratio:5/7;
+      cursor:pointer;
+      perspective:900px;
+    }
+    .memoryCard.locked{ cursor:default; }
+    .memoryCardInner{
+      position:relative; width:100%; height:100%;
+      transform-style:preserve-3d;
+      transition:transform .45s cubic-bezier(.2,.7,.3,1);
+      border-radius:10px;
+      box-shadow:0 4px 14px rgba(0,0,0,.55);
+    }
+    .memoryCard.flipped .memoryCardInner,
+    .memoryCard.matched .memoryCardInner{ transform:rotateY(180deg); }
+    .memoryCardFace{
+      position:absolute; inset:0;
+      backface-visibility:hidden;
+      border-radius:10px;
+      background-size:cover; background-position:center;
+      border:1px solid rgba(255,255,255,.14);
+    }
+    .memoryCardFace.memoryBack{
+      background-image:url("../cartes/Versobasic.png");
+    }
+    .memoryCardFace.memoryFront{
+      transform:rotateY(180deg);
+    }
+    .memoryCard:not(.locked):hover .memoryCardInner{
+      transform:translateY(-3px) scale(1.02);
+      box-shadow:0 8px 22px rgba(160,120,255,.35);
+    }
+    .memoryCard.flipped:not(.locked):hover .memoryCardInner,
+    .memoryCard.matched:hover .memoryCardInner{
+      transform:rotateY(180deg);
+    }
+    .memoryCard.matched .memoryCardFace.memoryFront{
+      filter:saturate(1.15) brightness(1.05);
+      box-shadow:0 0 0 2px rgba(120,255,170,.85), 0 0 18px rgba(120,255,170,.55);
+    }
+    .memoryCard.mismatch .memoryCardInner{
+      animation:memoryShake .4s ease;
+    }
+    @keyframes memoryShake{
+      0%,100%{ transform:rotateY(180deg) translateX(0); }
+      25%{ transform:rotateY(180deg) translateX(-4px); }
+      75%{ transform:rotateY(180deg) translateX(4px); }
+    }
+    .memoryBanner{
+      min-height:26px;
+      color:#f0e9ff; font-size:15px; text-align:center;
+      text-shadow:0 0 10px rgba(160,120,255,.5);
+    }
+    .memoryResultCard{
+      display:flex; flex-direction:column; align-items:center; gap:14px;
+      padding:26px 34px; border-radius:16px;
+      background:rgba(20,12,34,.92); border:1px solid rgba(160,120,255,.4);
+      box-shadow:0 0 40px rgba(120,80,220,.35);
+      text-align:center;
+    }
+    .memoryResultCard h3{ margin:0; font-size:22px; color:#fff; letter-spacing:1px; }
+    .memoryResultCard p{ margin:0; color:#d8cff0; font-size:14px; line-height:1.5; }
+    .memoryCloseBtn{
+      margin-top:4px; padding:9px 22px; border-radius:999px; border:none;
+      background:linear-gradient(90deg,#8f6bff,#5ea9ff); color:#0a0714;
+      font-weight:700; letter-spacing:.5px; cursor:pointer;
+      box-shadow:0 4px 14px rgba(120,90,255,.4);
+    }
+    .memoryCloseBtn:hover{ filter:brightness(1.08); }
+
+    /* ---- Coach (même personnage/esprit que le didacticiel) : explique les
+       règles du Memory avant que la partie ne débute réellement. ---- */
+    #memoryRulesBlocker{
+      position:fixed; inset:0; z-index:20020;
+      background:rgba(4,2,10,.72);
+      display:flex; align-items:center; justify-content:center;
+      animation:memoryFadeIn2 .3s ease;
+    }
+    @keyframes memoryFadeIn2{ from{ opacity:0; } to{ opacity:1; } }
+    .memoryCoachBox{
+      width:min(560px, 92vw); max-height:88vh; overflow-y:auto;
+      display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px;
+      padding:26px 28px 22px;
+      background:linear-gradient(150deg,#1b1030,#0c0718);
+      border:1.5px solid rgba(190,150,255,.55);
+      border-radius:20px;
+      box-shadow:0 20px 50px rgba(0,0,0,.65), 0 0 40px rgba(160,110,255,.28);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:#efe8ff;
+      animation:memoryCoachIn .4s cubic-bezier(.2,.8,.3,1);
+    }
+    @keyframes memoryCoachIn{
+      0%{ transform:translateY(18px) scale(.96); opacity:0; }
+      100%{ transform:translateY(0) scale(1); opacity:1; }
+    }
+    .memoryCoachBox .memoryCoachAvatar{
+      width:min(46vw,190px); height:min(46vw,190px); object-fit:contain;
+      filter:drop-shadow(0 8px 16px rgba(0,0,0,.55));
+    }
+    .memoryCoachBox .memoryCoachTitle{
+      font-size:17px; font-weight:900; text-transform:uppercase; letter-spacing:.1em;
+      color:#c9a8ff; text-shadow:0 0 12px rgba(190,150,255,.5);
+    }
+    .memoryCoachBox .memoryCoachText{ font-size:14px; line-height:1.65; text-align:left; }
+    .memoryCoachBox .memoryCoachText strong{ color:#ffd93d; }
+    .memoryCoachBtn{
+      margin-top:6px; padding:11px 26px; border-radius:11px; border:none;
+      font-weight:900; font-size:14px; cursor:pointer; letter-spacing:.3px;
+      background:linear-gradient(180deg,#a978ff,#6b3fe0); color:#fbf6ff;
+      box-shadow:0 6px 18px rgba(140,90,255,.45);
+    }
+    .memoryCoachBtn:hover{ filter:brightness(1.08); }
+
+    /* ===================================================================
        POISON — encadré verdâtre vivant + coulures qui dégoulinent du haut
        de la carte, façon toxine qui suinte. Purement visuel (voir
        attachPoisonEffect) : posé/retiré à chaque rendu selon hasTag(card,
@@ -3462,6 +3660,7 @@ const CARD_IMAGES = {
  'C192': '../cartes/0192.png',
  'C193': '../cartes/0193.png',
  'C194': '../cartes/0194.png',
+ 'C195': '../cartes/0195.png',
  'C196': '../cartes/0196.png',
  'C197': '../cartes/0197.png',
  'C198': '../cartes/0198.png',
@@ -3609,6 +3808,7 @@ const CARD_TYPES  = {
  'C192': 'action',      // Boy's band
  'C193': 'personnage',  // Talhim
  'C194': 'personnage',  // Jetvils
+ 'C195': 'action',      // Memory
  'C196': 'action',      // Diviser pour régner
  'C197': 'personnage',  // Boudhya
  'C198': 'personnage',  // Mhia Kimeria
@@ -3822,6 +4022,7 @@ const CARD_NAMES = {
  'C192': "Boy's band",
  'C193': 'Talhim',
  'C194': 'Jetvils',
+ 'C195': 'Memory',
  'C196': 'Diviser pour régner',
  'C197': 'Boudhya',
  'C198': 'Mhia Kimeria',
@@ -4249,6 +4450,7 @@ const CARD_TAGS = {
  'C192': ['action', 'Chimeria'],                           // Boy's band
  'C193': ['guerrier', 'Chimeria'],                         // Talhim
  'C194': ['guerrier', 'Chimeria', 'provocateur'],          // Jetvils (PROVOCATEUR imprimé, inversé tant qu'il est en jeu)
+ 'C195': ['action', 'Chimeria'],                           // Memory
  'C196': ['action', 'Chimeria'],                           // Diviser pour régner
  'C197': ['citoyen', 'Chimeria'],                          // Boudhya
  'C198': ['citoyen', 'Chimeria'],                          // Mhia Kimeria
@@ -7216,6 +7418,366 @@ function playActionDiviserPourRegner(owner, actionCard) {
   ['top', 'bottom'].forEach(side => { mithril[side] = Math.floor(mithril[side] / 2); });
   updateMithril();
   pushHistory('action', `${cardAnchor('C196')} divise par deux le stock de Mithril de chaque joueur !`);
+  fullRender();
+}
+
+// ===================================================================
+// CHIMERIA (8e lot) : Memory (C195) — mini-jeu de paires plein écran.
+// Le joueur qui joue la carte commence toujours. Le gagnant remporte
+// +1 Mithril et rejoue une carte Action de sa défausse deux fois (parmi
+// un sous-ensemble de cartes Action sûres à rejouer automatiquement,
+// voir MEMORY_REPLAYABLE_ACTIONS).
+// ===================================================================
+let memoryGame = null;
+let memoryAiSeen = {}; // label -> [indices connus par l'IA], remis à zéro à chaque partie
+
+function playActionMemory(owner, actionCard) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  startMemoryGame(owner);
+}
+
+function buildMemoryDeck(pairCount){
+  const candidates = Object.keys(CARD_TYPES).filter(l => CARD_TYPES[l] === 'personnage' && CARD_IMAGES[l] && CARD_NAMES[l]);
+  const chosen = shuffle(candidates).slice(0, Math.min(pairCount, candidates.length));
+  const deck = [];
+  chosen.forEach(label => {
+    deck.push({ uid: label + '_a', label, matched: false });
+    deck.push({ uid: label + '_b', label, matched: false });
+  });
+  return shuffle(deck);
+}
+
+const MEMORY_PAIR_COUNT = 15; // IMPAIR : garantit mathématiquement qu'il n'y a jamais d'égalité
+const MEMORY_GRID_COLS = 6;
+
+function startMemoryGame(owner){
+  memoryAiSeen = {};
+  memoryGame = {
+    active: true,
+    starter: owner,
+    turn: owner,
+    scores: { top: 0, bottom: 0 },
+    cards: buildMemoryDeck(MEMORY_PAIR_COUNT),
+    flippedIdx: [],
+    busy: false,
+    rulesAcknowledged: false,
+    banner: `${playerLabel(owner)} joue ${cardAnchor('C195')} et commence !`,
+  };
+  playMemoryTransition();
+  renderMemoryOverlay();
+  // Le tour IA (si applicable) n'est déclenché qu'une fois les règles
+  // validées par le joueur — voir acknowledgeMemoryRules().
+}
+
+// Petit portail lumineux joué UNE fois à l'ouverture de l'overlay, par-dessus
+// tout le reste — coupe franchement l'écran de combat avant de révéler le
+// plateau de Memory (voir animation memoryPortalIn sur #memoryOverlay lui-même).
+function playMemoryTransition(){
+  const flash = document.createElement('div');
+  flash.id = 'memoryTransitionFlash';
+  document.body.appendChild(flash);
+  const ring = document.createElement('div');
+  ring.id = 'memoryTransitionRing';
+  document.body.appendChild(ring);
+  setTimeout(() => { flash.remove(); }, 750);
+  setTimeout(() => { ring.remove(); }, 850);
+}
+
+function closeMemoryOverlay(){
+  const el = document.getElementById('memoryOverlay');
+  if (el) el.remove();
+  const blocker = document.getElementById('memoryRulesBlocker');
+  if (blocker) blocker.remove();
+  memoryGame = null;
+  fullRender();
+}
+
+function acknowledgeMemoryRules(){
+  if (!memoryGame) return;
+  memoryGame.rulesAcknowledged = true;
+  const blocker = document.getElementById('memoryRulesBlocker');
+  if (blocker) blocker.remove();
+  renderMemoryOverlay();
+  maybeTriggerAiMemoryTurn();
+}
+
+function renderMemoryOverlay(){
+  if (!memoryGame) return;
+  let overlay = document.getElementById('memoryOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'memoryOverlay';
+    document.body.appendChild(overlay);
+  }
+  const g = memoryGame;
+  overlay.innerHTML = `
+    <div class="memoryPanel">
+      <div class="memoryHeader">
+        <h2>Memory</h2>
+        <div class="memorySub">${cardAnchor('C195')} — ${g.cards.length / 2} paires à retrouver. Le gagnant remporte 1 Mithril et rejoue une carte Action de sa défausse, deux fois.</div>
+      </div>
+      <div class="memoryScores">
+        <div class="memoryScoreChip${g.turn === 'top' ? ' activeTurn' : ''}">${playerLabel('top')} <b>${g.scores.top}</b></div>
+        <div class="memoryScoreChip${g.turn === 'bottom' ? ' activeTurn' : ''}">${playerLabel('bottom')} <b>${g.scores.bottom}</b></div>
+      </div>
+      <div class="memoryGrid" id="memoryGrid" style="--memCols:${MEMORY_GRID_COLS};"></div>
+      <div class="memoryBanner" id="memoryBanner">${g.banner || ''}</div>
+    </div>
+  `;
+  const grid = overlay.querySelector('#memoryGrid');
+  const locked = !g.rulesAcknowledged || g.busy || (VS_AI_MODE && !isMemoryHumanTurn());
+  g.cards.forEach((c, i) => {
+    const cardEl = document.createElement('div');
+    cardEl.className = 'memoryCard';
+    const isFlipped = g.flippedIdx.includes(i) || c.matched;
+    if (isFlipped) cardEl.classList.add('flipped');
+    if (c.matched) cardEl.classList.add('matched');
+    if (locked || c.matched) cardEl.classList.add('locked');
+    cardEl.innerHTML = `
+      <div class="memoryCardInner">
+        <div class="memoryCardFace memoryBack"></div>
+        <div class="memoryCardFace memoryFront" style="background-image:url('${CARD_IMAGES[c.label] || ''}')"></div>
+      </div>
+    `;
+    cardEl.addEventListener('click', () => handleMemoryCardClick(i));
+    grid.appendChild(cardEl);
+  });
+
+  if (!g.rulesAcknowledged) {
+    renderMemoryRulesCoach(g);
+  }
+}
+
+// Boîte du coach (même personnage que le didacticiel) expliquant les règles
+// avant que la partie ne débute réellement — bloque toute interaction avec
+// la grille tant qu'elle n'a pas été validée.
+function renderMemoryRulesCoach(g){
+  if (document.getElementById('memoryRulesBlocker')) return;
+  const blocker = document.createElement('div');
+  blocker.id = 'memoryRulesBlocker';
+  const pairs = g.cards.length / 2;
+  blocker.innerHTML = `
+    <div class="memoryCoachBox">
+      <img class="memoryCoachAvatar" src="/assets/professeur.png" alt="Votre guide">
+      <div class="memoryCoachTitle">Règles du Memory</div>
+      <div class="memoryCoachText">
+        Retrouvez les paires de combattants identiques en retournant deux cartes à la fois.<br><br>
+        • <strong>${playerLabel(g.starter)}</strong> commence, car c'est ${playerLabel(g.starter)} qui a joué ${cardAnchor('C195')}.<br>
+        • Une paire trouvée = vous rejouez immédiatement.<br>
+        • Pas de paire = le tour passe à l'adversaire.<br>
+        • <strong>${pairs} paires</strong> à trouver au total (un nombre impair : il ne peut jamais y avoir d'égalité !).<br><br>
+        Le grand gagnant remporte <strong>+1 Mithril</strong> et pourra <strong>rejouer une carte Action</strong> de sa défausse, deux fois d'affilée !
+      </div>
+      <button class="memoryCoachBtn" id="memoryCoachBtn">C'est parti !</button>
+    </div>
+  `;
+  document.body.appendChild(blocker);
+  blocker.querySelector('#memoryCoachBtn').addEventListener('click', acknowledgeMemoryRules);
+}
+
+function isMemoryHumanTurn(){
+  if (!memoryGame) return false;
+  if (!VS_AI_MODE) return true; // hotseat / online : cliquable localement
+  return memoryGame.turn !== AI_SEAT;
+}
+
+function handleMemoryCardClick(i){
+  if (!memoryGame || memoryGame.busy || !memoryGame.rulesAcknowledged) return;
+  if (VS_AI_MODE && !isMemoryHumanTurn()) return;
+  handleMemoryCardClickForced(i);
+}
+
+// Variante interne sans restriction de tour humain — utilisée aussi par l'IA.
+function handleMemoryCardClickForced(i){
+  if (!memoryGame || memoryGame.busy) return;
+  const g = memoryGame;
+  const card = g.cards[i];
+  if (!card || card.matched || g.flippedIdx.includes(i)) return;
+  if (g.flippedIdx.length >= 2) return;
+  g.flippedIdx.push(i);
+  renderMemoryOverlay();
+  if (g.flippedIdx.length === 2) resolveMemoryFlip();
+}
+
+function resolveMemoryFlip(){
+  const g = memoryGame;
+  if (!g) return;
+  g.busy = true;
+  const [i1, i2] = g.flippedIdx;
+  const c1 = g.cards[i1], c2 = g.cards[i2];
+  const isMatch = c1.label === c2.label;
+
+  setTimeout(() => {
+    if (!memoryGame) return;
+    if (isMatch) {
+      c1.matched = true; c2.matched = true;
+      memoryGame.scores[memoryGame.turn]++;
+      memoryGame.flippedIdx = [];
+      memoryGame.busy = false;
+      memoryGame.banner = `Paire ${cardName(c1.label)} trouvée par ${playerLabel(memoryGame.turn)} : elle/il rejoue !`;
+      renderMemoryOverlay();
+      if (memoryGame.cards.every(c => c.matched)) {
+        setTimeout(() => finishMemoryGame(), 500);
+        return;
+      }
+      maybeTriggerAiMemoryTurn();
+    } else {
+      const el = document.getElementById('memoryGrid');
+      if (el) { [i1, i2].forEach(idx => { const ce = el.children[idx]; if (ce) ce.classList.add('mismatch'); }); }
+      setTimeout(() => {
+        if (!memoryGame) return;
+        memoryGame.flippedIdx = [];
+        memoryGame.busy = false;
+        const nextTurn = (memoryGame.turn === 'top') ? 'bottom' : 'top';
+        memoryGame.banner = `Pas de paire. Au tour de ${playerLabel(nextTurn)}.`;
+        memoryGame.turn = nextTurn;
+        renderMemoryOverlay();
+        maybeTriggerAiMemoryTurn();
+      }, 500);
+    }
+  }, 900);
+}
+
+function maybeTriggerAiMemoryTurn(){
+  if (!memoryGame || !VS_AI_MODE || memoryGame.turn !== AI_SEAT) return;
+  setTimeout(() => aiPlayMemoryTurn(), 750);
+}
+
+// IA très simple : se souvient des cartes déjà révélées pendant la partie et
+// privilégie une paire connue ; sinon pioche au hasard parmi les inconnues.
+function aiPlayMemoryTurn(){
+  const g = memoryGame;
+  if (!g || g.turn !== AI_SEAT || g.busy) return;
+
+  let pick1 = null, pick2 = null;
+  for (const label in memoryAiSeen) {
+    const idxs = memoryAiSeen[label].filter(i => g.cards[i] && !g.cards[i].matched);
+    if (idxs.length >= 2) { pick1 = idxs[0]; pick2 = idxs[1]; break; }
+  }
+  if (pick1 === null) {
+    const pool = shuffle(g.cards.map((c, i) => i).filter(i => !g.cards[i].matched));
+    pick1 = pool[0];
+  }
+  memorizeAiPick(pick1);
+  handleMemoryCardClickForced(pick1);
+
+  setTimeout(() => {
+    if (!memoryGame || memoryGame.busy) return;
+    let second = pick2;
+    if (second === null || second === pick1) {
+      const remaining = shuffle(memoryGame.cards.map((c, i) => i).filter(i => i !== pick1 && !memoryGame.cards[i].matched));
+      second = remaining[0];
+    }
+    memorizeAiPick(second);
+    handleMemoryCardClickForced(second);
+  }, 650);
+}
+
+function memorizeAiPick(i){
+  if (!memoryGame || i === undefined || i === null) return;
+  const card = memoryGame.cards[i];
+  if (!card) return;
+  if (!memoryAiSeen[card.label]) memoryAiSeen[card.label] = [];
+  if (!memoryAiSeen[card.label].includes(i)) memoryAiSeen[card.label].push(i);
+}
+
+// Sous-ensemble volontairement restreint de cartes Action pouvant être
+// rejouées automatiquement depuis la défausse (effets simples, sans
+// ciblage ni fenêtre supplémentaire, pour garantir un résultat toujours
+// correct quand on les déclenche deux fois de suite par programme).
+const MEMORY_REPLAYABLE_ACTIONS = {
+  'C21': (o, c) => playActionC21(o, c),
+  'C190': (o, c) => playActionExploseRock(o, c),
+  'C196': (o, c) => playActionDiviserPourRegner(o, c),
+  'C243': (o, c) => playActionRollback(o, c),
+  'C250': (o, c) => playActionEtroiteSagesse(o, c),
+};
+
+function replayActionCardFromDiscard(owner, originalSide, sourceCard){
+  const handler = MEMORY_REPLAYABLE_ACTIONS[sourceCard.label];
+  if (typeof handler !== 'function') return;
+
+  const originalDiscard = (originalSide === 'top') ? topDiscard : botDiscard;
+  const idx0 = originalDiscard.findIndex(c => c.id === sourceCard.id);
+  if (idx0 === -1) return;
+  originalDiscard.splice(idx0, 1);
+  getHandByOwner(owner).push(sourceCard);
+  try { handler(owner, sourceCard); } catch(e){ console.error('[Memory] rejeu 1/2 a échoué :', e); }
+
+  const ownerDiscard = (owner === 'top') ? topDiscard : botDiscard;
+  const idx1 = ownerDiscard.findIndex(c => c.id === sourceCard.id);
+  if (idx1 !== -1) {
+    ownerDiscard.splice(idx1, 1);
+    getHandByOwner(owner).push(sourceCard);
+    try { handler(owner, sourceCard); } catch(e){ console.error('[Memory] rejeu 2/2 a échoué :', e); }
+  }
+  pushHistory('action', `${cardAnchor('C195')} : ${playerLabel(owner)} rejoue ${cardAnchor(sourceCard.label)} deux fois depuis la défausse !`);
+  fullRender();
+}
+
+function renderMemoryReplayChoice(winner){
+  const zone = document.getElementById('memoryReplayZone');
+  if (!zone) return;
+  const pools = [{ side: 'top', arr: topDiscard }, { side: 'bottom', arr: botDiscard }];
+  const candidates = [];
+  pools.forEach(p => { p.arr.forEach(c => { if (MEMORY_REPLAYABLE_ACTIONS[c.label]) candidates.push({ side: p.side, card: c }); }); });
+
+  if (candidates.length === 0) {
+    zone.innerHTML = `<p style="margin:0;color:#c9bfe0;font-size:13px;">Aucune carte Action rejouable dans les défausses actuellement.</p>`;
+    return;
+  }
+  zone.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:440px;';
+  candidates.forEach(({ side, card }) => {
+    const btn = document.createElement('button');
+    btn.className = 'memoryCloseBtn';
+    btn.style.background = 'linear-gradient(90deg,#6bffb0,#5ea9ff)';
+    btn.innerHTML = `${cardName(card.label)} (${playerLabel(side)})`;
+    btn.addEventListener('click', () => {
+      replayActionCardFromDiscard(winner, side, card);
+      zone.innerHTML = `<p style="margin:0;color:#9bffcf;font-size:13px;">${cardName(card.label)} rejouée deux fois !</p>`;
+    });
+    wrap.appendChild(btn);
+  });
+  zone.appendChild(wrap);
+}
+
+function finishMemoryGame(){
+  const g = memoryGame;
+  if (!g) return;
+  let winner;
+  if (g.scores.top > g.scores.bottom) winner = 'top';
+  else if (g.scores.bottom > g.scores.top) winner = 'bottom';
+  // MEMORY_PAIR_COUNT est volontairement IMPAIR : la somme des deux scores
+  // ne peut jamais être divisée à égalité, ce cas ne devrait donc jamais se
+  // produire — filet de sécurité conservé au cas où la constante changerait.
+  else winner = g.starter;
+
+  addMithril(winner);
+  updateMithril();
+  pushHistory('jeu', `${cardAnchor('C195')} : ${playerLabel(winner)} remporte le Memory (${g.scores.top}-${g.scores.bottom}) et gagne +1 Mithril !`);
+
+  const overlay = document.getElementById('memoryOverlay');
+  const panel = overlay ? overlay.querySelector('.memoryPanel') : null;
+  if (panel) {
+    panel.innerHTML = `
+      <div class="memoryResultCard">
+        <h3>${playerLabel(winner)} remporte le Memory !</h3>
+        <p>Score final — ${playerLabel('top')} : ${g.scores.top} &nbsp;|&nbsp; ${playerLabel('bottom')} : ${g.scores.bottom}<br>
+        +1 Mithril pour ${playerLabel(winner)}. Choisissez une carte Action à rejouer deux fois depuis une défausse :</p>
+        <div id="memoryReplayZone"></div>
+        <button class="memoryCloseBtn" id="memoryCloseBtn">Continuer</button>
+      </div>
+    `;
+    renderMemoryReplayChoice(winner);
+    overlay.querySelector('#memoryCloseBtn').addEventListener('click', closeMemoryOverlay);
+  }
   fullRender();
 }
 
@@ -12288,7 +12850,8 @@ function isAnyTargetSelectionActive(){
     arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
     c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
     varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
-    couveuseStealTargetMode || roiDRoiTargetMode
+    couveuseStealTargetMode || roiDRoiTargetMode ||
+    (typeof memoryGame !== 'undefined' && memoryGame && memoryGame.active !== false)
   );
 }
 // Petit rappel visuel/textuel quand une action est refusée à cause d'un choix en attente.
@@ -14096,6 +14659,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C190') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionExploseRock(owner, card)); }); }
             if (card.label === 'C192') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC192Prompt(owner, card, el)); }); }
             if (card.label === 'C196') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC196Prompt(owner, card, el)); }); }
+            if (card.label === 'C195') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionMemory(owner, card)); }); }
 
             // KRYLLS (nouveau lot) : Ozokshi (C34) — clic direct sur un
             // artefact illuminé en main pour le jouer gratuitement.
