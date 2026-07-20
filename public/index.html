@@ -2881,7 +2881,7 @@ function showZoom(label, card=null, side='right'){
   const render = () => {
     const safeCard = card || { label };
     attachHP(zoomCard, safeCard);
-    if (safeCard.label === 'C7' || safeCard.label === 'C58' || safeCard.label === 'C112' || safeCard.label === 'C216' || safeCard.label === 'C227' || safeCard.label === 'C212' || safeCard.label === 'C74'){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
+    if (safeCard.label === 'C7' || safeCard.label === 'C58' || safeCard.label === 'C112' || safeCard.label === 'C216' || safeCard.label === 'C227' || safeCard.label === 'C212' || safeCard.label === 'C74' || safeCard.label === 'C191' || safeCard.label === 'C193' || safeCard.label === 'C199' || safeCard.label === 'T24'){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
     if (safeCard.label === 'C8'){ attachSealedBadge(zoomCard, safeCard); }
     if (safeCard.label === 'C68'){ attachCapturedMithril(zoomCard, safeCard); }
     if (getType(safeCard.label) === 'personnage'){ attachFamiliersZoom(zoomCard, safeCard); }
@@ -3454,6 +3454,25 @@ const CARD_IMAGES = {
  // carte "maudite" qui encombre le deck plutôt qu'une vraie carte jouable.
  'T19': '../cartes/Versobasic.png',
 
+ /* CHIMERIA — 8e lot (0188-0200, sauf 0195 Memory non implémentée) */
+ 'C188': '../cartes/0188.png',
+ 'C189': '../cartes/0189.png',
+ 'C190': '../cartes/0190.png',
+ 'C191': '../cartes/0191.png',
+ 'C192': '../cartes/0192.png',
+ 'C193': '../cartes/0193.png',
+ 'C194': '../cartes/0194.png',
+ 'C196': '../cartes/0196.png',
+ 'C197': '../cartes/0197.png',
+ 'C198': '../cartes/0198.png',
+ 'C199': '../cartes/0199.png',
+ 'C200': '../cartes/0200.png',
+ 'T20': '../cartes/T20.png',
+ 'T21': '../cartes/T21.png',
+ 'T22': '../cartes/T22.png',
+ 'T23': '../cartes/T23.png',
+ 'T24': '../cartes/T24.png',
+
  /* === FACTION KRYLLS — nouveau lot === */
  'C23': '../cartes/0023.png',
  'C24': '../cartes/0024.png',
@@ -3581,6 +3600,25 @@ const CARD_TYPES  = {
  'C185': 'personnage',
  'C186': 'artefact',
  'C187': 'familier',
+
+ /* === FACTION CHIMERIA — 8e lot (0188-0200, 0195 Memory non implémentée) === */
+ 'C188': 'action',      // Dragoons V
+ 'C189': 'personnage',  // Homère
+ 'C190': 'action',      // Explose rock
+ 'C191': 'artefact',    // Temple d'Aphrodite
+ 'C192': 'action',      // Boy's band
+ 'C193': 'personnage',  // Talhim
+ 'C194': 'personnage',  // Jetvils
+ 'C196': 'action',      // Diviser pour régner
+ 'C197': 'personnage',  // Boudhya
+ 'C198': 'personnage',  // Mhia Kimeria
+ 'C199': 'personnage',  // Dr.Melvina
+ 'C200': 'personnage',  // Lugula
+ 'T20': 'artefact',     // Relique irisée (token, Homère C189)
+ 'T21': 'personnage',   // Aphrodite (token, Temple d'Aphrodite C191)
+ 'T22': 'personnage',   // Aphrodite Corrompue (token, Temple d'Aphrodite C191)
+ 'T23': 'personnage',   // Lotusya (token, Boudhya C197)
+ 'T24': 'personnage',   // Dr.Melvina² (token, Dr.Melvina C199)
 
  /* === FACTION WADOO — premier lot (10 cartes) === */
  'C201': 'personnage',
@@ -3775,6 +3813,25 @@ const CARD_NAMES = {
  'C185': 'Ouraboréas',
  'C186': 'Funarium',
  'C187': 'Blokméria',
+
+ /* === FACTION CHIMERIA — 8e lot (0188-0200) === */
+ 'C188': 'Dragoons V',
+ 'C189': 'Homère',
+ 'C190': 'Explose rock',
+ 'C191': "Temple d'Aphrodite",
+ 'C192': "Boy's band",
+ 'C193': 'Talhim',
+ 'C194': 'Jetvils',
+ 'C196': 'Diviser pour régner',
+ 'C197': 'Boudhya',
+ 'C198': 'Mhia Kimeria',
+ 'C199': 'Dr.Melvina',
+ 'C200': 'Lugula',
+ 'T20': 'Relique irisée',
+ 'T21': 'Aphrodite',
+ 'T22': 'Aphrodite Corrompue',
+ 'T23': 'Lotusya',
+ 'T24': 'Dr.Melvina²',
 
  /* === FACTION WADOO === */
  'C201': 'Assiba',
@@ -4008,6 +4065,19 @@ const CARD_HP_BASE = {
   'C180': 6,
   'C181': 4,
   'C185': 4,
+
+  /* CHIMERIA — 8e lot (0188-0200) : personnages uniquement + tokens. */
+  'C189': 4,   // Homère
+  'C193': 5,   // Talhim
+  'C194': 3,   // Jetvils
+  'C197': 2,   // Boudhya
+  'C198': 3,   // Mhia Kimeria
+  'C199': 4,   // Dr.Melvina
+  'C200': 3,   // Lugula
+  'T21': 6,    // Aphrodite
+  'T22': 6,    // Aphrodite Corrompue
+  'T23': 2,    // Lotusya
+  'T24': 5,    // Dr.Melvina²
 };
 
 const CARD_SHIELD_BASE = {
@@ -4069,6 +4139,14 @@ const CARD_SHIELD_BASE = {
   /* CHIMERIA — dernier lot (0175-0187) : uniquement celles avec un Bouclier > 0. */
   'C175': 1,
   'C180': 1,
+
+  /* CHIMERIA — 8e lot (0188-0200) : uniquement celles avec un Bouclier > 0. */
+  'C193': 1,   // Talhim
+  'C194': 1,   // Jetvils
+  'C199': 1,   // Dr.Melvina
+  'T21': 2,    // Aphrodite
+  'T22': 2,    // Aphrodite Corrompue
+  'T24': 2,    // Dr.Melvina²
 };
 
 /* Tags */
@@ -4162,6 +4240,25 @@ const CARD_TAGS = {
  'C185': ['guerrier', 'Chimeria'],
  'C186': ['artefact', 'Chimeria'],
  'C187': ['familier', 'Chimeria'],
+
+ /* === FACTION CHIMERIA — 8e lot (0188-0200) === */
+ 'C188': ['action', 'Chimeria'],                          // Dragoons V
+ 'C189': ['citoyen', 'Chimeria'],                          // Homère
+ 'C190': ['action', 'Chimeria'],                           // Explose rock
+ 'C191': ['artefact', 'Chimeria'],                         // Temple d'Aphrodite
+ 'C192': ['action', 'Chimeria'],                           // Boy's band
+ 'C193': ['guerrier', 'Chimeria'],                         // Talhim
+ 'C194': ['guerrier', 'Chimeria', 'provocateur'],          // Jetvils (PROVOCATEUR imprimé, inversé tant qu'il est en jeu)
+ 'C196': ['action', 'Chimeria'],                           // Diviser pour régner
+ 'C197': ['citoyen', 'Chimeria'],                          // Boudhya
+ 'C198': ['citoyen', 'Chimeria'],                          // Mhia Kimeria
+ 'C199': ['medic', 'Chimeria'],                            // Dr.Melvina
+ 'C200': ['citoyen', 'Chimeria'],                          // Lugula
+ 'T20': ['artefact', 'Chimeria', 'token'],                 // Relique irisée
+ 'T21': ['déesse', 'Chimeria', 'token'],                   // Aphrodite
+ 'T22': ['déesse', 'Chimeria', 'token'],                   // Aphrodite Corrompue
+ 'T23': ['citoyen', 'Chimeria', 'token'],                  // Lotusya
+ 'T24': ['medic', 'Chimeria', 'token'],                    // Dr.Melvina²
 
  /* WADOO */
  'C201': ['citoyen', 'Wadoo'],
@@ -4345,9 +4442,22 @@ function getEffectiveTags(cardOrLabel) {
         if (hasScapoo) {
             baseTags.add('poupée');
         }
+
+        // CHIMERIA (8e lot) : Jetvils (C194) — tant qu'il est en jeu (n'importe
+        // quel camp), inverse le statut PROVOCATEUR de TOUS les combattants
+        // en jeu (lui compris) : ceux qui l'ont le perdent, ceux qui ne l'ont
+        // pas le gagnent. On ne touche que les combattants réellement sur le
+        // plateau (pas les cartes en main/défausse/etc.).
+        const isOnBoard194 = topLine.some(c => c.id === cardOrLabel.id) || botLine.some(c => c.id === cardOrLabel.id);
+        if (isOnBoard194 && getType(typeof cardOrLabel === 'string' ? cardOrLabel : cardOrLabel.label) === 'personnage' && isJetvilsActive()) {
+            if (baseTags.has('provocateur')) baseTags.delete('provocateur'); else baseTags.add('provocateur');
+        }
     }
 
     return Array.from(baseTags);
+}
+function isJetvilsActive(){
+  return topLine.concat(botLine).some(c => c.label === 'C194');
 }
 // VERSION DÉFINITIVE À UTILISER
 function hasTag(cardOrLabel, tag) {
@@ -4631,6 +4741,11 @@ if (label === 'C154') {
   // liés, filtrée à l'usage sur les cibles encore en jeu (« lien actif »).
   if (label === 'C249') {
     c.nomyaLinkedIds = [];
+  }
+  // CHIMERIA (8e lot) : Aphrodite (T21) / Aphrodite Corrompue (T22) — ne
+  // perdent jamais de PV en combat NI en minant (minage toujours gratuit).
+  if (label === 'T21' || label === 'T22') {
+    c.canMineFreely = true;
   }
   if (label === 'C212') {
     // 4 "revenez-en" disponibles au départ, affichées via le système de
@@ -6961,6 +7076,149 @@ function playActionFleau(owner, actionCard){
   fullRender();
 }
 
+// ===================================================================
+// CHIMERIA — 8e lot (0188-0200)
+// ===================================================================
+
+/* ---- Dragoons V (C188) : redresse un allié épuisé, Chimeria jusqu'à la fin du tour ---- */
+let dragoonsChimeriaBuffs = []; // { id, owner } — nettoyé en fin de tour du propriétaire
+function openC188Prompt(owner, card, anchorEl) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  const candidates = getLineByOwner(owner).filter(c => exhausted[owner] && exhausted[owner].has(c.id));
+  if (candidates.length === 0) {
+    pushHistory('info', `${cardAnchor('C188')} : aucun combattant allié épuisé à redresser.`);
+    return;
+  }
+  const buttons = candidates.map(c => ({
+    label: cardAnchor(c.label),
+    className: 'confirm',
+    onClick: () => playActionDragoonsV(owner, card, c.id)
+  }));
+  buttons.push({ label: 'Annuler', className: 'cancel', onClick: () => {} });
+  openButtonsPrompt('Dragoons V', 'Choisissez le combattant allié épuisé à redresser.', anchorEl, buttons);
+}
+function playActionDragoonsV(owner, actionCard, targetId) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const target = getLineByOwner(owner).find(c => c.id === targetId);
+  if (!target) { fullRender(); return; }
+  exhausted[owner].delete(target.id);
+  if (!Array.isArray(target.addedTags)) target.addedTags = [];
+  if (!target.addedTags.includes('Chimeria')) target.addedTags.push('Chimeria');
+  dragoonsChimeriaBuffs.push({ id: target.id, owner });
+  pushHistory('action', `${cardAnchor('C188')} redresse ${cardAnchor(target.label)} et lui accorde temporairement la faction Chimeria (jusqu'à la fin du tour) !`);
+  fullRender();
+}
+function cleanupDragoonsChimeriaBuffs(player) {
+  if (!Array.isArray(dragoonsChimeriaBuffs) || dragoonsChimeriaBuffs.length === 0) return;
+  const stillActive = [];
+  dragoonsChimeriaBuffs.forEach(buff => {
+    if (buff.owner !== player) { stillActive.push(buff); return; }
+    const c = getLineByOwner(buff.owner).find(x => x.id === buff.id);
+    if (c && Array.isArray(c.addedTags)) {
+      const i = c.addedTags.indexOf('Chimeria');
+      if (i !== -1) c.addedTags.splice(i, 1);
+    }
+  });
+  dragoonsChimeriaBuffs = stillActive;
+}
+
+/* ---- Explose rock (C190) : mille 3 cartes du deck adverse, exile celles PROVOCATEUR ---- */
+function playActionExploseRock(owner, actionCard) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const deck = getDeckByOwner(opp);
+  const discard = (opp === 'bottom') ? botDiscard : topDiscard;
+  const milled = [];
+  for (let i = 0; i < 3; i++) {
+    if (deck.length === 0) break;
+    milled.push(deck.shift());
+  }
+  let exiledCount = 0;
+  milled.forEach(c => {
+    if (hasTag(c, 'provocateur')) {
+      exilePile.push(c);
+      exiledCount++;
+    } else {
+      discard.unshift(c);
+    }
+  });
+  pushHistory('action', `${cardAnchor('C190')} défausse ${milled.length} carte${milled.length > 1 ? 's' : ''} du dessus du deck de ${playerLabel(opp)}${exiledCount > 0 ? `, dont ${exiledCount} exilée${exiledCount > 1 ? 's' : ''} (trait PROVOCATEUR)` : ''}.`);
+  updateDeckCounters();
+  updateDiscardUI();
+  fullRender();
+}
+
+/* ---- Boy's band (C192) : duplique une carte de la main, +2 Mithril si 3 exemplaires ---- */
+function openC192Prompt(owner, card, anchorEl) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  const hand = getHandByOwner(owner).filter(c => c.id !== card.id);
+  if (hand.length === 0) {
+    pushHistory('info', `${cardAnchor('C192')} : main vide, aucune carte à dupliquer.`);
+    return;
+  }
+  const buttons = hand.map(c => ({
+    label: cardAnchor(c.label),
+    className: 'confirm',
+    onClick: () => playActionBoysBand(owner, card, c.label)
+  }));
+  buttons.push({ label: 'Annuler', className: 'cancel', onClick: () => {} });
+  openButtonsPrompt("Boy's band", 'Choisissez la carte à dupliquer dans votre main.', anchorEl, buttons);
+}
+function playActionBoysBand(owner, actionCard, targetLabel) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  const prefix = owner === 'top' ? 'T' : 'B';
+  const dup = createCard(targetLabel, prefix);
+  hand.push(dup);
+  pushHistory('action', `${cardAnchor('C192')} duplique ${cardAnchor(targetLabel)} !`);
+
+  const copies = hand.filter(c => c.label === targetLabel).length;
+  if (copies >= 3) {
+    addMithril(owner, 2);
+    pushHistory('mithril', `${playerLabel(owner)} possède 3 exemplaires de ${cardAnchor(targetLabel)} : +2 Mithril !`);
+  }
+  fullRender();
+}
+
+/* ---- Diviser pour régner (C196) : divise par deux le Mithril de chaque joueur ---- */
+function openC196Prompt(owner, card, anchorEl) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  openButtonsPrompt('Diviser pour régner', "Jouer <strong>Diviser pour régner</strong> ?<br><small>Effet : le stock de Mithril de chaque joueur est divisé par deux (arrondi à l'inférieur).</small>", anchorEl, [
+    { label: 'Valider', className: 'confirm', onClick: () => playActionDiviserPourRegner(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: () => {} },
+  ]);
+}
+function playActionDiviserPourRegner(owner, actionCard) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  ['top', 'bottom'].forEach(side => { mithril[side] = Math.floor(mithril[side] / 2); });
+  updateMithril();
+  pushHistory('action', `${cardAnchor('C196')} divise par deux le stock de Mithril de chaque joueur !`);
+  fullRender();
+}
+
 // Animation propre à "Fusionner les tous" (C236) : l'écran s'éteint
 // COMPLÈTEMENT (noir total), tous les combattants fusionnés apparaissent
 // zoomés au centre en éventail, tourbillonnent et convergent visuellement,
@@ -8269,6 +8527,93 @@ function performNomyaMining(owner, card) {
 
 // AJOUT C120 : Fonction pour activer la capacité de Salomon II
 // REMPLACEZ L'ANCIENNE FONCTION PAR CELLE-CI
+// CHIMERIA (8e lot) : Dr.Melvina (C199) — MINER : mining classique (+1
+// Mithril, -1 PV sauf gratuit/Coqsix) PUIS, en plus, tous les combattants à
+// 1 PV (les deux camps) gagnent +5 PB ; Dr.Melvina gagne 1 charge, et à 3
+// charges se transforme en Dr.Melvina² (T24).
+function performDrMelvinaMining(owner, card) {
+  const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
+  const curHP = getEffectiveHP(card);
+  const canMine = card.canMineFreely || curHP > 1 || coqsixCount > 0;
+  if (!canMine) return;
+  markAttacked(owner, card);
+  let totalGain = 1;
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  if (coqsixCount > 0) {
+    const oppHand = getHandByOwner(opp);
+    if (oppHand.length >= 7) { for (let i = 0; i < coqsixCount; i++) addMithril(owner); totalGain += coqsixCount; }
+    else { addMithril(owner); }
+  } else {
+    addMithril(owner);
+  }
+  if (card.canMineFreely || coqsixCount > 0) {
+    pushHistory('pv', `${cardAnchor('C199')} mine sans perdre de PV (+${totalGain} Mithril).`);
+  } else {
+    card.hp = curHP - 1; onHPDamaged(owner, card, 1, 'mining');
+    pushHistory('pv', `${cardAnchor('C199')} mine : -1 PV, +${totalGain} Mithril.`);
+  }
+
+  const healed = [];
+  topLine.concat(botLine).forEach(c => {
+    if (getType(c.label) === 'personnage' && getEffectiveHP(c) === 1) {
+      c.shield = (c.shield || 0) + 5;
+      healed.push(c);
+    }
+  });
+  if (healed.length > 0) {
+    pushHistory('pv', `${cardAnchor('C199')} : ${healed.map(c => cardAnchor(c.label)).join(', ')} gagne${healed.length > 1 ? 'nt' : ''} <strong>+5 PB</strong> (1 PV) !`);
+  }
+
+  if (typeof card.charges !== 'number') card.charges = 0;
+  card.charges++;
+  pushHistory('info', `${cardAnchor('C199')} gagne une charge (${card.charges}/3).`);
+  if (card.charges >= 3) {
+    transformDrMelvina(owner, card);
+  }
+  fullRender();
+}
+function transformDrMelvina(owner, card) {
+  const line = getLineByOwner(owner);
+  const idx = line.findIndex(c => c.id === card.id);
+  if (idx === -1) return;
+  const prefix = owner === 'top' ? 'T' : 'B';
+  const evolved = createCard('T24', prefix);
+  const wasExhausted = exhausted[owner].has(card.id);
+  line[idx] = evolved;
+  if (wasExhausted) exhausted[owner].add(evolved.id);
+  pushHistory('jeu', `${cardAnchor('C199')} se transforme en ${cardAnchor('T24')} !`);
+}
+
+// CHIMERIA (8e lot) : Dr.Melvina² (T24) — ACTION : +5 PB et 1 charge ; à 3
+// charges, +6 Mithril et retransformation en Dr.Melvina (C199).
+function useDrMelvina2Action(owner, card) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+  markAttacked(owner, card);
+  card.shield = (card.shield || 0) + 5;
+  if (typeof card.charges !== 'number') card.charges = 0;
+  card.charges++;
+  pushHistory('jeu', `${cardAnchor('T24')} gagne <strong>+5 PB</strong> et une charge (${card.charges}/3).`);
+  if (card.charges >= 3) {
+    addMithril(owner, 6);
+    pushHistory('mithril', `${cardAnchor('T24')} atteint 3 charges : <strong>+6 Mithril</strong> !`);
+    transformDrMelvina2Back(owner, card);
+  }
+  closeActionPrompt();
+  fullRender();
+}
+function transformDrMelvina2Back(owner, card) {
+  const line = getLineByOwner(owner);
+  const idx = line.findIndex(c => c.id === card.id);
+  if (idx === -1) return;
+  const prefix = owner === 'top' ? 'T' : 'B';
+  const reverted = createCard('C199', prefix);
+  const wasExhausted = exhausted[owner].has(card.id);
+  line[idx] = reverted;
+  if (wasExhausted) exhausted[owner].add(reverted.id);
+  pushHistory('jeu', `${cardAnchor('T24')} se retransforme en ${cardAnchor('C199')} !`);
+}
+
 function useSalomonIIAbility(owner, card) {
   markAttacked(owner, card);
 
@@ -8636,6 +8981,14 @@ function openMiningPrompt(owner, card, fromEl){
       mineButton.label += activeLinks > 0 ? ` + Voler ${activeLinks} Mithril` : '';
       mineButton.onClick = () => { performNomyaMining(owner, card); };
       buttons.push(mineButton);
+    } else if (card.label === 'C199') {
+      title = 'Dr.Melvina';
+      // MINER de Dr.Melvina conserve le gain classique ET ajoute son effet :
+      // tous les combattants à 1 PV (les deux camps) gagnent +5 PB (le
+      // "MINER :" s'ajoute toujours au minage classique, jamais ne le remplace).
+      mineButton.label += ' + soigne les combattants à 1 PV (+5 PB)';
+      mineButton.onClick = () => { performDrMelvinaMining(owner, card); };
+      buttons.push(mineButton);
     } else if(card.label === 'C9') {
       title = 'Zcyvenger';
       msg = 'Choisissez&nbsp;: <strong>Miner</strong> ou <strong>Utiliser la capacité</strong>.';
@@ -8761,6 +9114,21 @@ function openMiningPrompt(owner, card, fromEl){
         const canUseCloonay = otherAllies.length > 0;
         msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (tous vos autres combattants gagnent +3 ATK et +1 PB).';
         buttons.push(mineButton, { label: 'Action (+3 ATK et +1 PB à vos autres combattants)', className: 'confirm' + (canUseCloonay ? '' : ' disabled'), disabled: !canUseCloonay, onClick: () => { if (canUseCloonay) useCloonayAbility(owner, card); } });
+    } else if (card.label === 'C193') {
+        title = 'Talhim';
+        const talhimCharges = card.charges || 0;
+        const canUseTalhim = talhimCharges > 0;
+        msg = `Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (gagnez +${talhimCharges} Mithril, 1 par charge).`;
+        buttons.push(mineButton, { label: `Action (+${talhimCharges} Mithril, ${talhimCharges} charge${talhimCharges > 1 ? 's' : ''})`, className: 'confirm' + (canUseTalhim ? '' : ' disabled'), disabled: !canUseTalhim, onClick: () => { if (canUseTalhim) useTalhimAction(owner, card); } });
+    } else if (card.label === 'T21') {
+        title = 'Aphrodite';
+        msg = 'Choisissez : <strong>Miner</strong> (gratuit) ou <strong>Action</strong> (vole 1 Mithril à l\'adversaire et gagne +2 PV).';
+        buttons.push(mineButton, { label: "Action (vole 1 Mithril, +2 PV)", className: 'confirm', onClick: () => { useAphroditeAction(owner, card); } });
+    } else if (card.label === 'T24') {
+        title = 'Dr.Melvina²';
+        const t24Charges = card.charges || 0;
+        msg = `Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (+5 PB et 1 charge, ${t24Charges}/3 — à 3 charges : +6 Mithril et retour à Dr.Melvina).`;
+        buttons.push(mineButton, { label: `Action (+5 PB, +1 charge — ${t24Charges}/3)`, className: 'confirm', onClick: () => { useDrMelvina2Action(owner, card); } });
     } else {
       buttons.push(mineButton);
     }
@@ -9202,6 +9570,44 @@ function useCloonayAbility(owner, card){
   });
 
   pushHistory('action', `${cardAnchor('C241')} utilise sa capacité : tous vos autres combattants gagnent +3 PV et +1 PB !`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// CHIMERIA (8e lot) : Talhim (C193) — ACTION : gagne +1 Mithril par charge
+// accumulée (charges consommées).
+function useTalhimAction(owner, card){
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+  const gain = card.charges || 0;
+  if (gain <= 0) { closeActionPrompt(); return; }
+
+  markAttacked(owner, card);
+  addMithril(owner, gain);
+  card.charges = 0;
+  pushHistory('mithril', `${cardAnchor('C193')} utilise son Action : +${gain} Mithril (${gain} charge${gain > 1 ? 's' : ''} consommée${gain > 1 ? 's' : ''}) !`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// CHIMERIA (8e lot) : Aphrodite (T21) — ACTION : vole 1 Mithril à
+// l'adversaire (s'il en a) et gagne +2 PV.
+function useAphroditeAction(owner, card){
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+
+  markAttacked(owner, card);
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  if ((mithril[opp] || 0) > 0) {
+    mithril[opp]--;
+    addMithril(owner);
+    updateMithril();
+    pushHistory('mithril', `${cardAnchor('T21')} vole 1 Mithril à ${playerLabel(opp)} !`);
+  } else {
+    pushHistory('info', `${cardAnchor('T21')} tente de voler du Mithril, mais ${playerLabel(opp)} n'en a pas.`);
+  }
+  if (typeof card.hp === 'number') card.hp += 2;
+  pushHistory('jeu', `${cardAnchor('T21')} gagne <strong>+2 PV</strong> !`);
   closeActionPrompt();
   fullRender();
 }
@@ -13060,6 +13466,33 @@ function resolveFight(from, to){
     // le gain soit bien visible et pas noyé dans l'animation Versus qui
     // suit immédiatement.
     // ===================================================================
+    // ===================================================================
+    // CHIMERIA (8e lot) : Aphrodite (T21) — COMBAT : +1 Mithril.
+    // ===================================================================
+    if (from.card.label === 'T21') {
+      addMithril(from.owner);
+      pushHistory('mithril', `${cardAnchor('T21')} gagne <strong>+1 Mithril</strong> au combat !`);
+    }
+    // ===================================================================
+    // CHIMERIA (8e lot) : Aphrodite Corrompue (T22) — COMBAT : vole +1
+    // Mithril à l'adversaire, qui peut passer en négatif.
+    // ===================================================================
+    if (from.card.label === 'T22') {
+      const t22Opp = (from.owner === 'top') ? 'bottom' : 'top';
+      mithril[t22Opp] = (mithril[t22Opp] || 0) - 1;
+      addMithril(from.owner);
+      updateMithril();
+      pushHistory('mithril', `${cardAnchor('T22')} vole <strong>1 Mithril</strong> à ${playerLabel(t22Opp)} au combat (peut devenir négatif) !`);
+    }
+    // ===================================================================
+    // CHIMERIA (8e lot) : Lotusya (T23) — COMBAT : défausse la carte du
+    // dessus du deck adverse.
+    // ===================================================================
+    if (from.card.label === 'T23') {
+      const t23Opp = (from.owner === 'top') ? 'bottom' : 'top';
+      forceDiscardFromDeckTop(t23Opp, 1, 'T23');
+    }
+
     if (from.card.label === 'C73') {
       from.card.hp = getEffectiveHP(from.card) + 3;
       pushHistory('jeu', `${cardAnchor('C73')} gagne <strong>+3 PV</strong> au combat !`);
@@ -13175,8 +13608,10 @@ function continueResolveFight(from, to){
   // Les -3 PV supplémentaires sont désormais gérés SÉPARÉMENT, AVANT cette
   // fonction, avec confirmation du joueur (voir resolveFight).
   const isFouAttacking = from.card.label === 'T18';
-  const dmgToDefender = (to.card.label === 'C232') ? 0 : atkA;
-  const dmgToAttacker = (from.card.label === 'C232') ? 0 : atkB;
+  // CHIMERIA (8e lot) : Aphrodite (T21) / Aphrodite Corrompue (T22) — ne
+  // perdent jamais de PV en combat (ni en attaquant, ni en ripostant).
+  const dmgToDefender = (to.card.label === 'C232' || to.card.label === 'T21' || to.card.label === 'T22') ? 0 : atkA;
+  const dmgToAttacker = (from.card.label === 'C232' || from.card.label === 'T21' || from.card.label === 'T22') ? 0 : atkB;
 
   // Snapshot "avant" pour l'animation Versus (avant toute mutation de PV/bouclier)
   const cvBefore = {
@@ -13291,6 +13726,16 @@ function continueResolveFight(from, to){
   }
   if (cvAfter.attackerDied && hasTag(to.card, 'poison')) {
     addGazocubateuCharge(to.owner);
+  }
+
+  // ===================================================================
+  // CHIMERIA (8e lot) : Talhim (C193) — chaque ESPRIT qu'elle tue au
+  // combat lui confère une charge (ACTION : +1 Mithril par charge).
+  // ===================================================================
+  if (from.card.label === 'C193' && cvAfter.defenderDied && hasTag(to.card, 'Esprit')) {
+    if (typeof from.card.charges !== 'number') from.card.charges = 0;
+    from.card.charges++;
+    pushHistory('info', `${cardAnchor('C193')} gagne une charge en éliminant un ESPRIT (${from.card.charges} charge${from.card.charges > 1 ? 's' : ''}).`);
   }
 
   const riposteMessage = isTargetFrozen
@@ -13430,8 +13875,11 @@ function maybeResolveAttack(from, to){
 
   const isAttackerEsprit = hasTag(from.card, 'Esprit');
   const isDefenderEsprit = hasTag(to.card, 'Esprit');
+  // CHIMERIA (8e lot) : Talhim (C193) peut attaquer les combattants ESPRIT
+  // sans en être elle-même (exception explicite au texte imprimé).
+  const talhimEspritException = (from.card.label === 'C193' && isDefenderEsprit && !isAttackerEsprit);
 
-  if (isAttackerEsprit !== isDefenderEsprit) {
+  if (isAttackerEsprit !== isDefenderEsprit && !talhimEspritException) {
     const el = document.querySelector(`.lane .card.placed[data-id="${to.card.id}"]`);
     if(el){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'),260); }
     pushHistory('info', `Cible refusée : les personnages "Esprit" ne peuvent interagir qu'entre eux.`);
@@ -13642,6 +14090,12 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C250') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionEtroiteSagesse(owner, card)); }); }
             if (card.label === 'T19') { el.addEventListener('click', () => { if (currentTurn !== owner) return; playActionFleau(owner, card); }); }
             if (card.label === 'C23') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionReveillezVous(owner, card)); }); }
+
+            // CHIMERIA — 8e lot (0188-0200)
+            if (card.label === 'C188') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC188Prompt(owner, card, el)); }); }
+            if (card.label === 'C190') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionExploseRock(owner, card)); }); }
+            if (card.label === 'C192') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC192Prompt(owner, card, el)); }); }
+            if (card.label === 'C196') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC196Prompt(owner, card, el)); }); }
 
             // KRYLLS (nouveau lot) : Ozokshi (C34) — clic direct sur un
             // artefact illuminé en main pour le jouer gratuitement.
@@ -13946,7 +14400,7 @@ function applyCardFace(el, card){
 
   const afterFace = () => {
     attachHP(el, card);
-    if ((lbl === 'C7' || lbl === 'C58' || lbl === 'C112' || lbl === 'C216' || lbl === 'C227' || lbl === 'C212') && el.classList.contains('placed')) {
+    if ((lbl === 'C7' || lbl === 'C58' || lbl === 'C112' || lbl === 'C216' || lbl === 'C227' || lbl === 'C212' || lbl === 'C191' || lbl === 'C193' || lbl === 'C199' || lbl === 'T24') && el.classList.contains('placed')) {
       if (typeof card.charges !== 'number') card.charges = 0;
       attachCharges(el, card);
     }
@@ -14420,7 +14874,7 @@ function makeArtifactCard(card, owner){
   }
 
   applyCardFace(el, card);
-  if(card.label==='C7' || card.label === 'C58' || card.label === 'C112' || card.label === 'C216' || card.label === 'C227' || card.label === 'C212' || card.label === 'C74') attachCharges(el, card);
+  if(card.label==='C7' || card.label === 'C58' || card.label === 'C112' || card.label === 'C216' || card.label === 'C227' || card.label === 'C212' || card.label === 'C74' || card.label === 'C191' || card.label === 'C193' || card.label === 'C199' || card.label === 'T24') attachCharges(el, card);
   if(card.label==='C8') renderRescelleurUnderStack(el, card);
 
   if(artifactExhausted[owner].has(card.id)) el.classList.add('exhausted'); else el.classList.remove('exhausted');
@@ -14720,7 +15174,33 @@ function onCharacterEnterBattlefield(card, owner) {
     return false;
   }
 }
+// CHIMERIA (8e lot) : Mhia Kimeria (C198) — déplace un artefact donné de sa
+// zone actuelle vers celle de l'autre joueur.
+function moveArtifactToOtherZone(artifactCard, side) {
+  const fromArr = (side === 'top') ? topArts : botArts;
+  const toSide = (side === 'top') ? 'bottom' : 'top';
+  const toArr = (toSide === 'top') ? topArts : botArts;
+  const idx = fromArr.findIndex(a => a.id === artifactCard.id);
+  if (idx === -1) return;
+  fromArr.splice(idx, 1);
+  if (artifactExhausted[side] && artifactExhausted[side].has(artifactCard.id)) artifactExhausted[side].delete(artifactCard.id);
+  toArr.push(artifactCard);
+  pushHistory('jeu', `${cardAnchor('C198')} : ${cardAnchor(artifactCard.label)} change de zone d'artefact et rejoint celle de ${playerLabel(toSide)} !`);
+  fullRender();
+}
+
 function onCharacterEnterBattlefield_impl(card, owner) {
+  // CHIMERIA (8e lot) : Relique irisée (T20) — tant qu'elle est dans la zone
+  // d'artefact d'un joueur, chaque fois qu'une carte lui appartenant à
+  // l'origine entre en jeu (même jouée par l'adversaire), il gagne +1 Mithril.
+  ['top', 'bottom'].forEach(reliqueSide => {
+    const reliqueArts = (reliqueSide === 'top') ? topArts : botArts;
+    if (reliqueArts.some(a => a.label === 'T20') && typeof trueOwnerOf === 'function' && trueOwnerOf(card) === reliqueSide) {
+      addMithril(reliqueSide);
+      pushHistory('mithril', `${cardAnchor('T20')} : ${cardAnchor(card.label)} appartient à l'origine à ${playerLabel(reliqueSide)}, qui gagne +1 Mithril !`);
+    }
+  });
+
   // CHIMERIA (dernier lot) : Ouraboréas (C185) — JOUER : renvoie en main de
   // leur propriétaire le combattant le plus à GAUCHE et celui le plus à
   // DROITE de la zone de combat adverse (s'il n'y en a qu'un seul, il n'est
@@ -14760,6 +15240,59 @@ function onCharacterEnterBattlefield_impl(card, owner) {
   // NOUVEAU : Déclenchement de l'effet de Prismis (C152)
   if (card.label === 'C152') {
     startPrismisTargeting(owner, card);
+  }
+
+  // CHIMERIA (8e lot) : Homère (C189) — JOUER : place une Relique irisée
+  // (T20) dans SA zone d'artefact.
+  if (card.label === 'C189') {
+    const ownerArts189 = (owner === 'top') ? topArts : botArts;
+    const ownerPrefix189 = (owner === 'top') ? 'T' : 'B';
+    ownerArts189.push(createCard('T20', ownerPrefix189));
+    pushHistory('jeu', `${cardAnchor('C189')} place une ${cardAnchor('T20')} dans votre zone d'artefact !`);
+  }
+
+  // CHIMERIA (8e lot) : Boudhya (C197) — JOUER : transforme tous les
+  // combattants en jeu (les deux camps, Boudhya elle-même épargnée) en
+  // Lotusya (T23).
+  if (card.label === 'C197') {
+    let transformedCount197 = 0;
+    ['top', 'bottom'].forEach(side197 => {
+      const line197 = getLineByOwner(side197);
+      for (let i197 = 0; i197 < line197.length; i197++) {
+        const c197 = line197[i197];
+        if (c197.id === card.id) continue; // Boudhya elle-même épargnée
+        if (getType(c197.label) !== 'personnage') continue;
+        detachFamiliarsOnHost(c197, side197, false); // familiers attachés → main, pas une mort
+        if (typeof cleanupPrismisLinksOnCardRemoval === 'function') cleanupPrismisLinksOnCardRemoval(c197);
+        if (typeof cleanupWadooLinksOnCardRemoval === 'function') cleanupWadooLinksOnCardRemoval(c197);
+        const sidePrefix197 = side197 === 'top' ? 'T' : 'B';
+        const lotusya197 = createCard('T23', sidePrefix197);
+        const wasExhausted197 = exhausted[side197].has(c197.id);
+        line197[i197] = lotusya197;
+        if (wasExhausted197) exhausted[side197].add(lotusya197.id);
+        transformedCount197++;
+      }
+    });
+    pushHistory('jeu', `${cardAnchor('C197')} transforme ${transformedCount197} combattant${transformedCount197 > 1 ? 's' : ''} en ${cardAnchor('T23')} !`);
+  }
+
+  // CHIMERIA (8e lot) : Mhia Kimeria (C198) — JOUER : un artefact change de
+  // zone d'artefact (bascule entre la vôtre et celle de l'adversaire).
+  if (card.label === 'C198') {
+    const allArts198 = [...topArts.map(a => ({ a, side: 'top' })), ...botArts.map(a => ({ a, side: 'bottom' }))];
+    if (allArts198.length === 0) {
+      pushHistory('info', `${cardAnchor('C198')} entre en jeu, mais aucun artefact n'est en jeu à déplacer.`);
+    } else if (allArts198.length === 1) {
+      moveArtifactToOtherZone(allArts198[0].a, allArts198[0].side);
+    } else {
+      const buttons198 = allArts198.map(({ a, side }) => ({
+        label: `${cardAnchor(a.label)} (${playerLabel(side)})`,
+        className: 'confirm',
+        onClick: () => moveArtifactToOtherZone(a, side)
+      }));
+      buttons198.push({ label: 'Annuler', className: 'cancel', onClick: () => {} });
+      openButtonsPrompt('Mhia Kimeria', "Choisissez l'artefact qui change de zone.", null, buttons198);
+    }
   }
 
 // ===================================================================
@@ -15997,7 +16530,50 @@ function getDamniaMultiplier(owner){
   return line.some(c => c.label === 'C92') ? 2 : 1;
 }
 
+// CHIMERIA (8e lot) : Temple d'Aphrodite (C191) — gagne une charge à chaque
+// carte "Action" jouée par son propriétaire ; à 7 charges, il est exilé et
+// une Aphrodite (T21) rejoint la zone de combat de son propriétaire — ou une
+// Aphrodite Corrompue (T22) si AU MOINS UNE des 7 charges provient d'une
+// source AUTRE que le gain classique (paramètre isClassic=false), pour de
+// futures cartes qui ajouteraient des charges autrement.
+function addTempleAphroditeCharge(owner, isClassic){
+  const arts = (owner === 'top') ? topArts : botArts;
+  const temple = arts.find(a => a.label === 'C191');
+  if (!temple) return;
+  if (typeof temple.charges !== 'number') temple.charges = 0;
+  if (!isClassic) temple.aphroditeCorrupted = true;
+  temple.charges++;
+  pushHistory('info', `${cardAnchor('C191')} gagne une charge (${temple.charges}/7).`);
+  if (temple.charges >= 7) {
+    const idx = arts.findIndex(a => a.id === temple.id);
+    if (idx !== -1) arts.splice(idx, 1);
+    exilePile.push(temple);
+    const line = getLineByOwner(owner);
+    const prefix = owner === 'top' ? 'T' : 'B';
+    if (line.length < getMaxCombatantsForOwner(owner)) {
+      const spawnLabel = temple.aphroditeCorrupted ? 'T22' : 'T21';
+      const spawned = createCard(spawnLabel, prefix);
+      line.push(spawned);
+      pushHistory('jeu', `${cardAnchor('C191')} atteint 7 charges : il est exilé et ${cardAnchor(spawnLabel)} rejoint votre zone de combat !`);
+    } else {
+      pushHistory('info', `${cardAnchor('C191')} atteint 7 charges et est exilé, mais votre zone de combat est pleine : aucune Aphrodite ne peut apparaître.`);
+    }
+    fullRender();
+  }
+}
+
+// CHIMERIA (8e lot) : Lugula (C200) — liste (meilleur effort, basée sur les
+// cartes ayant effectivement un déclencheur "MORT:" codé dans discardCard)
+// des combattants possédant un effet "Mort:" qu'elle peut renvoyer en jeu.
+const MORT_EFFECT_LABELS = ['T16','C78','C212','C214','C223','C93','T02','C66','C117','C61','C25','C35','C38','C71','C200'];
+
 function discardCard(card, owner, reason='other', context = {}){
+  // CHIMERIA (8e lot) : Temple d'Aphrodite (C191) — chaque carte "Action"
+  // jouée par son propriétaire (donc envoyée en défausse avec reason==='action')
+  // lui accorde une charge classique.
+  if (reason === 'action') {
+    try { addTempleAphroditeCharge(owner, true); } catch(e){ console.error("[Temple d'Aphrodite] charge échouée :", e); }
+  }
   // IMPY (dernier lot) : Negatron (C89) — le combattant hôte part en EXIL
   // au lieu de la défausse normale (drapeau posé par detachFamiliarsOnHost,
   // juste avant que son appelant n'appelle discardCard sur ce même hôte).
@@ -16218,6 +16794,41 @@ if (reason === 'manual') {
       pushHistory('info', `${cardAnchor('C38')} : aucun combattant sur le plateau, son effet ne se déclenche pas.`);
     }
   }
+  // CHIMERIA (8e lot) : Lugula (C200) — MORT : +1 Mithril, puis renvoie
+  // depuis SA défausse un combattant possédant un effet "Mort:" dans sa
+  // zone de combat (choix du joueur s'il y a plusieurs candidats).
+  if (card.label === 'C200' && reason === 'death') {
+    addMithril(owner);
+    pushHistory('mithril', `${cardAnchor('C200')} : +1 Mithril à sa mort.`);
+    const ownDiscard200 = (owner === 'bottom') ? botDiscard : topDiscard;
+    const candidates200 = ownDiscard200.filter(c => c.id !== card.id && MORT_EFFECT_LABELS.includes(c.label));
+    if (candidates200.length > 0) {
+      const reviveOne200 = (chosen) => {
+        if (getLineByOwner(owner).length >= getMaxCombatantsForOwner(owner)) {
+          pushHistory('info', `${cardAnchor('C200')} : votre zone de combat est pleine, impossible de renvoyer ${cardAnchor(chosen.label)}.`);
+          return;
+        }
+        const dIdx = ownDiscard200.findIndex(c => c.id === chosen.id);
+        if (dIdx === -1) return;
+        ownDiscard200.splice(dIdx, 1);
+        if (typeof chosen.hp === 'number') chosen.hp = getBaseHP(chosen.label);
+        chosen.shield = getBaseShield(chosen.label);
+        getLineByOwner(owner).push(chosen);
+        pushHistory('jeu', `${cardAnchor('C200')} renvoie ${cardAnchor(chosen.label)} depuis la défausse dans la zone de combat !`);
+        fullRender();
+      };
+      if (candidates200.length === 1) {
+        reviveOne200(candidates200[0]);
+      } else {
+        const buttons200 = candidates200.map(c => ({ label: cardAnchor(c.label), className: 'confirm', onClick: () => reviveOne200(c) }));
+        buttons200.push({ label: 'Annuler', className: 'cancel', onClick: () => {} });
+        openButtonsPrompt('Lugula', 'Choisissez le combattant (avec un effet "Mort:") à renvoyer dans votre zone de combat.', null, buttons200);
+      }
+    } else {
+      pushHistory('info', `${cardAnchor('C200')} : aucun combattant avec un effet "Mort:" dans votre défausse.`);
+    }
+  }
+
   // IMPY (nouveau lot) : Soubrsot (C71) — MORT : détruit une A'rms
   // adverse SI l'Exil contient au moins 10 cartes au moment de sa mort
   // (doublé par Damnia si son propriétaire la contrôle : jusqu'à 2 A'rms).
@@ -17209,6 +17820,7 @@ function performEndTurn(){
   // alors bloqués indéfiniment, le jeu étant strictement au tour par tour.
   // On isole donc chaque étape : le tour change TOUJOURS, quoi qu'il arrive.
   try{ cleanupWhyMeBuffs(); }catch(e){ console.error('[performEndTurn] cleanupWhyMeBuffs a échoué :', e); }
+  try{ cleanupDragoonsChimeriaBuffs(finishingPlayer); }catch(e){ console.error('[performEndTurn] cleanupDragoonsChimeriaBuffs a échoué :', e); }
   try{ upkeepCharactersFor(finishingPlayer); }catch(e){ console.error('[performEndTurn] upkeepCharactersFor a échoué :', e); }
   try{ refillHand(finishingPlayer); }catch(e){ console.error('[performEndTurn] refillHand a échoué :', e); }
 
@@ -18903,7 +19515,7 @@ function aiTryAttack(){
 // ===================================================================
 const AI_COMBATANT_ACTION_LABELS = [
   'C9','C22','C44','C105','C114','C120','C155','C173',
-  'C202','C203','C206','C211','C218','C216','C94','C99','C100','C240','C241','C32'
+  'C202','C203','C206','C211','C218','C216','C94','C99','C100','C240','C241','C32','C193','T21','T24'
 ];
 
 function aiCombatantActionIsUsable(card){
@@ -18941,6 +19553,9 @@ function aiCombatantActionIsUsable(card){
     case 'C240': return getHandByOwner(owner).some(c => hasTag(c, 'Impy')); // MSmith
     case 'C241': return getLineByOwner(owner).some(c => c.id !== card.id && getType(c.label) === 'personnage'); // Cloonay
     case 'C32':  return true; // Bobyz : crée une Pièce détachée, toujours bon
+    case 'C193': return (card.charges || 0) > 0; // Talhim : gagner du Mithril seulement si des charges sont dispo
+    case 'T21':  return true; // Aphrodite : vole du Mithril et gagne des PV, toujours bon
+    case 'T24':  return true; // Dr.Melvina² : +5 PB et charge, toujours bon
     default: return false;
   }
 }
