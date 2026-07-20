@@ -7854,8 +7854,10 @@ function endC114TargetingCleanup() {
   fullRender();
 }
 
-// === WADOO 5e lot : Doolia (C231) — Capacité (remplace Miner) : renvoie un
-// combattant ennemi dans la main de son propriétaire. ===
+// === WADOO 5e lot : Doolia (C231) — MINER : en plus du gain normal de
+// 1 Mithril (et du coût -1 PV), renvoie un combattant ennemi dans la main de
+// son propriétaire. Un effet "MINER :" s'ajoute toujours au minage
+// classique, il ne le remplace pas (voir applyStandardMiningGainAndCost). ===
 function startC231Targeting(owner, card) {
   c231TargetMode = { owner, cardId: card.id };
   markAttacked(owner, card); // L'utilisation de la capacité compte comme son action
@@ -8213,12 +8215,12 @@ function countActiveNomyaLinks(card) {
   return card.nomyaLinkedIds.filter(id => boardIds.has(id)).length;
 }
 
-// CORRECTIF DE PRINCIPE : un effet inscrit sur "MINER :" S'AJOUTE au minage
-// classique (+1 Mithril, -1 PV sauf Minage gratuit/Coqsix), il ne le
-// REMPLACE PAS — contrairement à Doolia (C231)/Acrylik (C181), dont l'effet
-// remplace bel et bien le gain normal (choix de conception assumé pour ces
-// deux-là, à ne pas généraliser). Chez Nomya, MINER rapporte donc le gain
-// standard ET, en plus, vole 1 Mithril par lien encore actif.
+// PRINCIPE DE CONCEPTION : un effet inscrit sur "MINER :" S'AJOUTE toujours
+// au minage classique (+1 Mithril, -1 PV sauf Minage gratuit/Coqsix), il ne
+// le REMPLACE PAS — Doolia (C231) et Acrylik (C181) suivent déjà cette règle
+// (voir applyStandardMiningGainAndCost, appelée dans startC231Targeting et
+// useAcrylikMining). Chez Nomya, MINER rapporte donc le gain standard ET, en
+// plus, vole 1 Mithril par lien encore actif.
 function performNomyaMining(owner, card) {
   const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
   const curHP = getEffectiveHP(card);
@@ -8549,34 +8551,38 @@ function openMiningPrompt(owner, card, fromEl){
     });
   }
 
-  // WADOO 7e lot : Mina Mina (C247) — remplace ENTIÈREMENT le Minage normal
-  // sur son hôte : un clic détruit directement la/les combattant(s) (tous
-  // camps confondus) ayant la plus faible "puissance" (ATK + PV effectifs),
-  // sans gain de Mithril ni perte de PV pour l'hôte. Prioritaire sur toute
+  // WADOO 7e lot : Mina Mina (C247) — capacité de MINAGE accordée à son
+  // hôte : détruit la/les combattant(s) (tous camps confondus) ayant la plus
+  // faible "puissance" (ATK + PV effectifs), EN PLUS du gain normal de
+  // 1 Mithril (et du coût -1 PV) — un effet "MINER :" s'ajoute toujours au
+  // minage classique, il ne le remplace pas (même principe que Doolia/
+  // Acrylik, voir applyStandardMiningGainAndCost). Prioritaire sur toute
   // autre logique de bouton (Coqsix, capacités bespoke...).
   const minaMinaCount = attachedFamiliars.filter(f => f.label === 'C247').length;
+  const minaMinaGainLabel = `${card.canMineFreely || coqsixCount > 0 ? '+1 Mithril, Gratuit' : '+1 Mithril, -1 PV'}`;
 
   if (canPerformActions && minaMinaCount > 0 && card.label === 'C246') {
     // CORRECTIF : Balogrun (peut miner 2 fois par tour) perdait ce bonus dès
-    // que Mina Mina (C247, qui REMPLACE le minage classique par une
-    // destruction) lui était attaché — le menu Mina Mina générique
+    // que Mina Mina (C247) lui était attaché — le menu Mina Mina générique
     // l'épuisait après une seule utilisation, court-circuitant entièrement
     // sa capacité. On applique donc le même compteur balogrunMinesThisTurn
     // à cette version du minage aussi.
     title = 'Balogrun';
     const minesLeft = 2 - (card.balogrunMinesThisTurn || 0);
-    msg = 'Choisissez : <strong>Miner</strong> (détruit le/les combattant(s) le(s) plus faible(s) du plateau) — jusqu\'à 2 fois ce tour.';
+    msg = 'Choisissez : <strong>Miner</strong> (' + minaMinaGainLabel + ', détruit le/les combattant(s) le(s) plus faible(s) du plateau) — jusqu\'à 2 fois ce tour.';
     buttons.push({
-      label: `Miner (détruire les plus faibles) (${Math.max(0, minesLeft)}/2 ce tour)`,
-      className: 'confirm',
-      onClick: () => { performBalogrunMinaMinaMining(owner, card); }
+      label: `Miner (${minaMinaGainLabel}, détruire les plus faibles) (${Math.max(0, minesLeft)}/2 ce tour)`,
+      className: 'confirm' + (canMine ? '' : ' disabled'),
+      disabled: !canMine,
+      onClick: () => { if (canMine) performBalogrunMinaMinaMining(owner, card); }
     });
   } else if (canPerformActions && minaMinaCount > 0) {
-    msg = 'Choisissez : <strong>Miner</strong> (détruit le/les combattant(s) le(s) plus faible(s) du plateau).';
+    msg = 'Choisissez : <strong>Miner</strong> (' + minaMinaGainLabel + ', détruit le/les combattant(s) le(s) plus faible(s) du plateau).';
     buttons.push({
-      label: 'Miner (détruire les plus faibles)',
-      className: 'confirm',
-      onClick: () => { useMinaMinaMining(owner, card); }
+      label: `Miner (${minaMinaGainLabel}, détruire les plus faibles)`,
+      className: 'confirm' + (canMine ? '' : ' disabled'),
+      disabled: !canMine,
+      onClick: () => { if (canMine) useMinaMinaMining(owner, card); }
     });
   } else if (canPerformActions) {
     let mineButton;
@@ -8655,13 +8661,15 @@ function openMiningPrompt(owner, card, fromEl){
       title = 'Doolia';
       const opp = (owner === 'top') ? 'bottom' : 'top';
       // Chez Doolia, l'effet (renvoyer un ennemi en main) se déclenche EN
-      // MINANT et paie désormais le même coût que tout autre minage (-1 PV) —
-      // le bouton doit donc aussi être désactivé si elle ne peut PAS miner
-      // (1 PV restant, sans Coqsix ni Minage gratuit), comme n'importe quel
-      // autre combattant.
+      // MINANT, en PLUS du gain normal de 1 Mithril (voir
+      // applyStandardMiningGainAndCost dans startC231Targeting) — un effet
+      // "MINER :" s'ajoute au minage classique, il ne le remplace pas. Même
+      // coût que tout autre minage (-1 PV) — le bouton doit donc aussi être
+      // désactivé si elle ne peut PAS miner (1 PV restant, sans Coqsix ni
+      // Minage gratuit), comme n'importe quel autre combattant.
       const canUseAbility = canMine && getLineByOwner(opp).some(c => getType(c.label) === 'personnage');
       buttons.push({
-        label: `Miner (Renvoyer un ennemi en main${card.canMineFreely || coqsixCount > 0 ? ', Gratuit' : ', -1 PV'})`,
+        label: `Miner (+1 Mithril, Renvoyer un ennemi en main${card.canMineFreely || coqsixCount > 0 ? ', Gratuit' : ', -1 PV'})`,
         className: 'confirm' + (canUseAbility ? '' : ' disabled'),
         disabled: !canUseAbility,
         onClick: () => { if (canUseAbility) startC231Targeting(owner, card); }
@@ -8670,12 +8678,13 @@ function openMiningPrompt(owner, card, fromEl){
       title = 'Acrylik';
       // CHIMERIA (dernier lot) : chez Acrylik, l'effet (défausser une carte
       // de la main adverse + donner une carte à l'adversaire) se déclenche
-      // EN MINANT et paie désormais le même coût que tout autre minage
-      // (-1 PV) — même principe que Doolia ci-dessus, un seul bouton "Miner"
-      // à la place du duo Miner/Capacité habituel, désactivé si elle ne peut
-      // pas miner (1 PV restant, sans Coqsix ni Minage gratuit).
+      // EN MINANT, en PLUS du gain normal de 1 Mithril (voir
+      // applyStandardMiningGainAndCost dans useAcrylikMining) — même
+      // principe que Doolia ci-dessus, un seul bouton "Miner" à la place du
+      // duo Miner/Capacité habituel, désactivé si elle ne peut pas miner
+      // (1 PV restant, sans Coqsix ni Minage gratuit).
       buttons.push({
-        label: `Miner (Défausse adverse + donner une carte${card.canMineFreely || coqsixCount > 0 ? ', Gratuit' : ', -1 PV'})`,
+        label: `Miner (+1 Mithril, Défausse adverse + donner une carte${card.canMineFreely || coqsixCount > 0 ? ', Gratuit' : ', -1 PV'})`,
         className: 'confirm' + (canMine ? '' : ' disabled'),
         disabled: !canMine,
         onClick: () => { if (canMine) useAcrylikMining(owner, card); }
@@ -8982,17 +8991,47 @@ function startPilateRecursion(owner, card){
 // WADOO : Mama Cécile (C206) se soigne elle-même
 // ===================================================================
 // WADOO 7e lot : Mina Mina (C247) — capacité de Minage accordée à son hôte :
-// détruit directement le/les combattant(s) (tous camps confondus) ayant la
-// plus faible "puissance" (= PV effectifs — l'ATK de ce jeu est toujours
-// égale aux PV effectifs, voir getATK), sans gain de Mithril ni perte de PV
-// pour l'hôte lui-même. En cas d'égalité, TOUS les combattants à égalité
-// sont détruits (texte imprimé : "la/les combattants").
+// EN PLUS du gain normal de 1 Mithril (et du coût -1 PV, sauf Minage
+// gratuit/Coqsix), détruit directement le/les combattant(s) (tous camps
+// confondus) ayant la plus faible "puissance" (= PV effectifs — l'ATK de ce
+// jeu est toujours égale aux PV effectifs, voir getATK). En cas d'égalité,
+// TOUS les combattants à égalité sont détruits (texte imprimé : "la/les
+// combattants"). Un effet "MINER :" s'ajoute toujours au minage classique,
+// il ne le remplace pas.
 // ===================================================================
 function useMinaMinaMining(owner, card){
   if (!canPlayThisCardNow(owner, card)) return;
   if (hasAttacked(owner, card)) return;
 
+  const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
+  const curHP = getEffectiveHP(card);
+  const canMine = card.canMineFreely || curHP > 1 || coqsixCount > 0;
+  if (!canMine) return;
+
   markAttacked(owner, card);
+
+  // ---- Minage classique (identique à performMining) ----
+  let totalGain = 1;
+  if (coqsixCount > 0) {
+    const opp = (owner === 'top') ? 'bottom' : 'top';
+    const oppHand = getHandByOwner(opp);
+    if (oppHand.length >= 7) {
+      for (let i = 0; i < coqsixCount; i++) addMithril(owner);
+      totalGain += coqsixCount;
+    } else {
+      addMithril(owner);
+    }
+  } else {
+    addMithril(owner);
+  }
+
+  if (card.canMineFreely || coqsixCount > 0) {
+    pushHistory('pv', `${cardAnchor(card.label)} mine sans perdre de PV (+${totalGain} Mithril).`);
+  } else {
+    card.hp = curHP - 1;
+    onHPDamaged(owner, card, 1, 'mining');
+    pushHistory('pv', `${cardAnchor(card.label)} mine : -1 PV, +${totalGain} Mithril.`);
+  }
 
   const allCombatants = topLine.concat(botLine).filter(c => getType(c.label) === 'personnage');
   if (allCombatants.length === 0) {
@@ -9029,9 +9068,38 @@ function performBalogrunMinaMinaMining(owner, card){
   if (!canPlayThisCardNow(owner, card)) return;
   if (hasAttacked(owner, card)) return;
 
+  const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
+  const curHP = getEffectiveHP(card);
+  const canMine = card.canMineFreely || curHP > 1 || coqsixCount > 0;
+  if (!canMine) return;
+
   card.balogrunMinesThisTurn = (card.balogrunMinesThisTurn || 0) + 1;
   const isSecondMine = card.balogrunMinesThisTurn >= 2;
   if (isSecondMine) markAttacked(owner, card);
+
+  // ---- Minage classique (identique à performBalogrunMining) ----
+  let totalGain = 1;
+  if (coqsixCount > 0) {
+    const opp = (owner === 'top') ? 'bottom' : 'top';
+    const oppHand = getHandByOwner(opp);
+    if (oppHand.length >= 7) {
+      for (let i = 0; i < coqsixCount; i++) addMithril(owner);
+      totalGain += coqsixCount;
+    } else {
+      addMithril(owner);
+    }
+  } else {
+    addMithril(owner);
+  }
+
+  const progressLabel = `minage ${card.balogrunMinesThisTurn}/2 ce tour`;
+  if (card.canMineFreely || coqsixCount > 0) {
+    pushHistory('pv', `${cardAnchor('C246')} mine sans perdre de PV (+${totalGain} Mithril) — ${progressLabel}.`);
+  } else {
+    card.hp = curHP - 1;
+    onHPDamaged(owner, card, 1, 'mining');
+    pushHistory('pv', `${cardAnchor('C246')} mine : -1 PV, +${totalGain} Mithril — ${progressLabel}.`);
+  }
 
   const allCombatants = topLine.concat(botLine).filter(c => getType(c.label) === 'personnage');
   if (allCombatants.length === 0) {
