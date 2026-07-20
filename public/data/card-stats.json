@@ -589,6 +589,11 @@
     "hp": 4,
     "shield": 0
   },
+  "0188": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 1
+  },
   "0189": {
     "type": "personnage",
     "hp": 4,

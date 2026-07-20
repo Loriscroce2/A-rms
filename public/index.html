@@ -3650,7 +3650,7 @@ const CARD_IMAGES = {
  // T19 "Fléau" : carte-token maudite (voir Startare, C244) sans illustration
  // dédiée — réutilise le dos de carte générique, cohérent avec son statut de
  // carte "maudite" qui encombre le deck plutôt qu'une vraie carte jouable.
- 'T19': '../cartes/Versobasic.png',
+ 'T25': '../cartes/Versobasic.png',
 
  /* CHIMERIA — 8e lot (0188-0200, sauf 0195 Memory non implémentée) */
  'C188': '../cartes/0188.png',
@@ -3666,7 +3666,7 @@ const CARD_IMAGES = {
  'C198': '../cartes/0198.png',
  'C199': '../cartes/0199.png',
  'C200': '../cartes/0200.png',
- 'T20': '../cartes/T20.png',
+ 'T19': '../cartes/T19.png',
  'T21': '../cartes/T21.png',
  'T22': '../cartes/T22.png',
  'T23': '../cartes/T23.png',
@@ -3801,7 +3801,7 @@ const CARD_TYPES  = {
  'C187': 'familier',
 
  /* === FACTION CHIMERIA — 8e lot (0188-0200, 0195 Memory non implémentée) === */
- 'C188': 'action',      // Dragoons V
+ 'C188': 'personnage',  // Dragoons V (combattant — subtype "Dragoons")
  'C189': 'personnage',  // Homère
  'C190': 'action',      // Explose rock
  'C191': 'artefact',    // Temple d'Aphrodite
@@ -3814,7 +3814,7 @@ const CARD_TYPES  = {
  'C198': 'personnage',  // Mhia Kimeria
  'C199': 'personnage',  // Dr.Melvina
  'C200': 'personnage',  // Lugula
- 'T20': 'artefact',     // Relique irisée (token, Homère C189)
+ 'T19': 'artefact',     // Relique irisée (token, Homère C189)
  'T21': 'personnage',   // Aphrodite (token, Temple d'Aphrodite C191)
  'T22': 'personnage',   // Aphrodite Corrompue (token, Temple d'Aphrodite C191)
  'T23': 'personnage',   // Lotusya (token, Boudhya C197)
@@ -3884,7 +3884,7 @@ const CARD_TYPES  = {
  'C248': 'personnage', // Mliche
  'C249': 'personnage', // Nomya
  'C250': 'action',     // Étroite Sagesse
- 'T19': 'action',       // Fléau (token maudit, voir Startare C244)
+ 'T25': 'action',       // Fléau (token maudit, voir Startare C244)
 
  /* === FACTION KRYLLS — nouveau lot === */
  'C23': 'action',      // Réveillez vous
@@ -4028,7 +4028,7 @@ const CARD_NAMES = {
  'C198': 'Mhia Kimeria',
  'C199': 'Dr.Melvina',
  'C200': 'Lugula',
- 'T20': 'Relique irisée',
+ 'T19': 'Relique irisée',
  'T21': 'Aphrodite',
  'T22': 'Aphrodite Corrompue',
  'T23': 'Lotusya',
@@ -4098,7 +4098,7 @@ const CARD_NAMES = {
  'C248': 'Mliche',
  'C249': 'Nomya',
  'C250': 'Étroite Sagesse',
- 'T19': 'Fléau',
+ 'T25': 'Fléau',
 
  /* === FACTION KRYLLS — nouveau lot === */
  'C23': 'Réveillez vous',
@@ -4268,6 +4268,7 @@ const CARD_HP_BASE = {
   'C185': 4,
 
   /* CHIMERIA — 8e lot (0188-0200) : personnages uniquement + tokens. */
+  'C188': 4,   // Dragoons V
   'C189': 4,   // Homère
   'C193': 5,   // Talhim
   'C194': 3,   // Jetvils
@@ -4342,6 +4343,7 @@ const CARD_SHIELD_BASE = {
   'C180': 1,
 
   /* CHIMERIA — 8e lot (0188-0200) : uniquement celles avec un Bouclier > 0. */
+  'C188': 1,   // Dragoons V
   'C193': 1,   // Talhim
   'C194': 1,   // Jetvils
   'C199': 1,   // Dr.Melvina
@@ -4443,7 +4445,7 @@ const CARD_TAGS = {
  'C187': ['familier', 'Chimeria'],
 
  /* === FACTION CHIMERIA — 8e lot (0188-0200) === */
- 'C188': ['action', 'Chimeria'],                          // Dragoons V
+ 'C188': ['guerrier', 'Chimeria', 'Dragoons'],             // Dragoons V (combattant)
  'C189': ['citoyen', 'Chimeria'],                          // Homère
  'C190': ['action', 'Chimeria'],                           // Explose rock
  'C191': ['artefact', 'Chimeria'],                         // Temple d'Aphrodite
@@ -4456,7 +4458,7 @@ const CARD_TAGS = {
  'C198': ['citoyen', 'Chimeria'],                          // Mhia Kimeria
  'C199': ['medic', 'Chimeria'],                            // Dr.Melvina
  'C200': ['citoyen', 'Chimeria'],                          // Lugula
- 'T20': ['artefact', 'Chimeria', 'token'],                 // Relique irisée
+ 'T19': ['artefact', 'Chimeria', 'token'],                 // Relique irisée
  'T21': ['déesse', 'Chimeria', 'token'],                   // Aphrodite
  'T22': ['déesse', 'Chimeria', 'token'],                   // Aphrodite Corrompue
  'T23': ['citoyen', 'Chimeria', 'token'],                  // Lotusya
@@ -4526,7 +4528,7 @@ const CARD_TAGS = {
  'C248': ['citoyen', 'Wadoo'],   // Mliche
  'C249': ['citoyen', 'Wadoo', 'poupée'],   // Nomya
  'C250': ['action', 'Wadoo'],    // Étroite Sagesse
- 'T19': ['action', 'Wadoo', 'fléau', 'token'], // Fléau (Startare, C244)
+ 'T25': ['action', 'Wadoo', 'fléau', 'token'], // Fléau (Startare, C244)
 
  // T08 "Ignominie" : Guerrier NEUTRE — appartient aux 5 factions à la fois
  // (toute vérification de faction, quelle qu'elle soit, la considère comme
@@ -5309,9 +5311,9 @@ function checkStartareStartingHand(){
     if (!hand.some(c => c.label === 'C244')) return;
     const deck = getDeckByOwner(owner);
     const prefix = (owner === 'top') ? 'T' : 'B';
-    deck.push(createCard('T19', prefix), createCard('T19', prefix));
+    deck.push(createCard('T25', prefix), createCard('T25', prefix));
     shuffle(deck);
-    pushHistory('info', `${cardAnchor('C244')} est révélée depuis la main de départ de ${playerLabel(owner)} : 2 ${cardAnchor('T19')} sont mélangés dans son deck !`);
+    pushHistory('info', `${cardAnchor('C244')} est révélée depuis la main de départ de ${playerLabel(owner)} : 2 ${cardAnchor('T25')} sont mélangés dans son deck !`);
   });
 }
 
@@ -7274,7 +7276,7 @@ function playActionFleau(owner, actionCard){
   if (idx !== -1) hand.splice(idx, 1);
   discardCard(actionCard, owner, 'action');
 
-  pushHistory('info', `${cardAnchor('T19')} est une carte maudite sans le moindre effet — elle rejoint simplement la défausse.`);
+  pushHistory('info', `${cardAnchor('T25')} est une carte maudite sans le moindre effet — elle rejoint simplement la défausse.`);
   fullRender();
 }
 
@@ -7282,38 +7284,38 @@ function playActionFleau(owner, actionCard){
 // CHIMERIA — 8e lot (0188-0200)
 // ===================================================================
 
-/* ---- Dragoons V (C188) : redresse un allié épuisé, Chimeria jusqu'à la fin du tour ---- */
+/* ---- Dragoons V (C188) : COMBATTANT. ACTION : redresse un allié épuisé,
+   Chimeria jusqu'à la fin du tour. Dragoons V s'épuise en utilisant son
+   ACTION, comme toute capacité ACTION: du jeu. ---- */
 let dragoonsChimeriaBuffs = []; // { id, owner } — nettoyé en fin de tour du propriétaire
-function openC188Prompt(owner, card, anchorEl) {
+function openC188ActionPrompt(owner, card, anchorEl) {
   if (!canPlayThisCardNow(owner, card)) return;
-  const candidates = getLineByOwner(owner).filter(c => exhausted[owner] && exhausted[owner].has(c.id));
+  const candidates = getLineByOwner(owner).filter(c => c.id !== card.id && exhausted[owner] && exhausted[owner].has(c.id));
   if (candidates.length === 0) {
-    pushHistory('info', `${cardAnchor('C188')} : aucun combattant allié épuisé à redresser.`);
+    pushHistory('info', `${cardAnchor('C188')} : aucun autre combattant allié épuisé à redresser.`);
     return;
   }
   const buttons = candidates.map(c => ({
     label: cardAnchor(c.label),
     className: 'confirm',
-    onClick: () => playActionDragoonsV(owner, card, c.id)
+    onClick: () => useDragoonsAction(owner, card, c.id)
   }));
   buttons.push({ label: 'Annuler', className: 'cancel', onClick: () => {} });
   openButtonsPrompt('Dragoons V', 'Choisissez le combattant allié épuisé à redresser.', anchorEl, buttons);
 }
-function playActionDragoonsV(owner, actionCard, targetId) {
-  if (!canPlayThisCardNow(owner, actionCard)) return;
-  consumeAllowanceIfNeeded(owner, actionCard);
-  const hand = getHandByOwner(owner);
-  const idx = hand.findIndex(c => c.id === actionCard.id);
-  if (idx !== -1) hand.splice(idx, 1);
-  discardCard(actionCard, owner, 'action');
-
+function useDragoonsAction(owner, card, targetId) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
   const target = getLineByOwner(owner).find(c => c.id === targetId);
-  if (!target) { fullRender(); return; }
+  if (!target) { closeActionPrompt(); return; }
+
+  markAttacked(owner, card);
   exhausted[owner].delete(target.id);
   if (!Array.isArray(target.addedTags)) target.addedTags = [];
   if (!target.addedTags.includes('Chimeria')) target.addedTags.push('Chimeria');
   dragoonsChimeriaBuffs.push({ id: target.id, owner });
   pushHistory('action', `${cardAnchor('C188')} redresse ${cardAnchor(target.label)} et lui accorde temporairement la faction Chimeria (jusqu'à la fin du tour) !`);
+  closeActionPrompt();
   fullRender();
 }
 function cleanupDragoonsChimeriaBuffs(player) {
@@ -9653,18 +9655,18 @@ function openMiningPrompt(owner, card, fromEl){
         const c94EnemyEggrreurs = getLineByOwner(c94Opp).filter(c => c.label === 'C93');
         const canUseCouveuse = c94EnemyEggrreurs.length > 0;
         msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (prendre le contrôle d\'un Eggrreur adverse).';
-        buttons.push(mineButton, { label: 'Action (Prendre le contrôle d\'un Eggrreur)', className: 'confirm' + (canUseCouveuse ? '' : ' disabled'), disabled: !canUseCouveuse, onClick: () => { if (canUseCouveuse) startCouveuseStealTargeting(owner); } });
+        buttons.push(mineButton, { label: 'Action (Prendre le contrôle d\'un Eggrreur)', className: 'confirm' + (canUseCouveuse ? '' : ' disabled'), disabled: !canUseCouveuse, onClick: () => { if (canUseCouveuse) startCouveuseStealTargeting(owner, card); } });
     } else if (card.label === 'C99') {
         title = 'Exdote';
         const canUseExdote = topLine.concat(botLine).length > 0;
         msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (donner POISON à un combattant).';
-        buttons.push(mineButton, { label: 'Action (Donner Poison)', className: 'confirm' + (canUseExdote ? '' : ' disabled'), disabled: !canUseExdote, onClick: () => { if (canUseExdote) startExdoteTargeting(owner); } });
+        buttons.push(mineButton, { label: 'Action (Donner Poison)', className: 'confirm' + (canUseExdote ? '' : ' disabled'), disabled: !canUseExdote, onClick: () => { if (canUseExdote) startExdoteTargeting(owner, card); } });
     } else if (card.label === 'C100') {
         title = 'Roi-D-Roi';
         const c100Opp = (owner === 'top') ? 'bottom' : 'top';
         const canUseRoiDRoi = getLineByOwner(c100Opp).some(c => hasTag(c, 'Diplomate'));
         msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (détruire un diplomate adverse).';
-        buttons.push(mineButton, { label: 'Action (Détruire un diplomate)', className: 'confirm' + (canUseRoiDRoi ? '' : ' disabled'), disabled: !canUseRoiDRoi, onClick: () => { if (canUseRoiDRoi) startRoiDRoiTargeting(owner); } });
+        buttons.push(mineButton, { label: 'Action (Détruire un diplomate)', className: 'confirm' + (canUseRoiDRoi ? '' : ' disabled'), disabled: !canUseRoiDRoi, onClick: () => { if (canUseRoiDRoi) startRoiDRoiTargeting(owner, card); } });
     } else if (card.label === 'C240') {
         title = 'MSmith';
         const canUseMSmith = getHandByOwner(owner).some(c => hasTag(c, 'Impy'));
@@ -9686,6 +9688,12 @@ function openMiningPrompt(owner, card, fromEl){
         title = 'Aphrodite';
         msg = 'Choisissez : <strong>Miner</strong> (gratuit) ou <strong>Action</strong> (vole 1 Mithril à l\'adversaire et gagne +2 PV).';
         buttons.push(mineButton, { label: "Action (vole 1 Mithril, +2 PV)", className: 'confirm', onClick: () => { useAphroditeAction(owner, card); } });
+    } else if (card.label === 'C188') {
+        title = 'Dragoons V';
+        const c188Candidates = getLineByOwner(owner).filter(c => c.id !== card.id && exhausted[owner] && exhausted[owner].has(c.id));
+        const canUseDragoons = c188Candidates.length > 0;
+        msg = "Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (redresser un allié épuisé et lui donner la faction Chimeria jusqu'à la fin du tour).";
+        buttons.push(mineButton, { label: `Action (redresser un allié — ${c188Candidates.length} disponible${c188Candidates.length > 1 ? 's' : ''})`, className: 'confirm' + (canUseDragoons ? '' : ' disabled'), disabled: !canUseDragoons, onClick: () => { if (canUseDragoons) openC188ActionPrompt(owner, card, fromEl); } });
     } else if (card.label === 'T24') {
         title = 'Dr.Melvina²';
         const t24Charges = card.charges || 0;
@@ -14651,11 +14659,11 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C237') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionChasseALaiguille(owner, card)); }); }
             if (card.label === 'C243') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionRollback(owner, card)); }); }
             if (card.label === 'C250') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionEtroiteSagesse(owner, card)); }); }
-            if (card.label === 'T19') { el.addEventListener('click', () => { if (currentTurn !== owner) return; playActionFleau(owner, card); }); }
+            if (card.label === 'T25') { el.addEventListener('click', () => { if (currentTurn !== owner) return; playActionFleau(owner, card); }); }
             if (card.label === 'C23') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionReveillezVous(owner, card)); }); }
 
-            // CHIMERIA — 8e lot (0188-0200)
-            if (card.label === 'C188') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC188Prompt(owner, card, el)); }); }
+            // CHIMERIA — 8e lot (0188-0200) — C188 Dragoons V est un COMBATTANT
+            // (pas une Action) : son ACTION se déclenche depuis openMiningPrompt.
             if (card.label === 'C190') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionExploseRock(owner, card)); }); }
             if (card.label === 'C192') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC192Prompt(owner, card, el)); }); }
             if (card.label === 'C196') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC196Prompt(owner, card, el)); }); }
@@ -15754,14 +15762,20 @@ function moveArtifactToOtherZone(artifactCard, side) {
 }
 
 function onCharacterEnterBattlefield_impl(card, owner) {
-  // CHIMERIA (8e lot) : Relique irisée (T20) — tant qu'elle est dans la zone
-  // d'artefact d'un joueur, chaque fois qu'une carte lui appartenant à
-  // l'origine entre en jeu (même jouée par l'adversaire), il gagne +1 Mithril.
+  // CHIMERIA (8e lot) : Relique irisée (T19) — tant qu'elle est dans la zone
+  // d'artefact d'un joueur, elle ne se déclenche QUE quand l'ADVERSAIRE joue
+  // une carte lui appartenant à l'origine (ex. une carte qu'il lui aurait
+  // donnée) — pas quand le propriétaire joue simplement ses propres cartes.
   ['top', 'bottom'].forEach(reliqueSide => {
     const reliqueArts = (reliqueSide === 'top') ? topArts : botArts;
-    if (reliqueArts.some(a => a.label === 'T20') && typeof trueOwnerOf === 'function' && trueOwnerOf(card) === reliqueSide) {
+    if (
+      reliqueArts.some(a => a.label === 'T19') &&
+      typeof trueOwnerOf === 'function' &&
+      trueOwnerOf(card) === reliqueSide &&
+      owner !== reliqueSide
+    ) {
       addMithril(reliqueSide);
-      pushHistory('mithril', `${cardAnchor('T20')} : ${cardAnchor(card.label)} appartient à l'origine à ${playerLabel(reliqueSide)}, qui gagne +1 Mithril !`);
+      pushHistory('mithril', `${cardAnchor('T19')} : ${playerLabel(owner)} joue ${cardAnchor(card.label)}, une carte appartenant à l'origine à ${playerLabel(reliqueSide)}, qui gagne +1 Mithril !`);
     }
   });
 
@@ -15811,8 +15825,8 @@ function onCharacterEnterBattlefield_impl(card, owner) {
   if (card.label === 'C189') {
     const ownerArts189 = (owner === 'top') ? topArts : botArts;
     const ownerPrefix189 = (owner === 'top') ? 'T' : 'B';
-    ownerArts189.push(createCard('T20', ownerPrefix189));
-    pushHistory('jeu', `${cardAnchor('C189')} place une ${cardAnchor('T20')} dans votre zone d'artefact !`);
+    ownerArts189.push(createCard('T19', ownerPrefix189));
+    pushHistory('jeu', `${cardAnchor('C189')} place une ${cardAnchor('T19')} dans votre zone d'artefact !`);
   }
 
   // CHIMERIA (8e lot) : Boudhya (C197) — JOUER : transforme tous les
@@ -20079,7 +20093,7 @@ function aiTryAttack(){
 // ===================================================================
 const AI_COMBATANT_ACTION_LABELS = [
   'C9','C22','C44','C105','C114','C120','C155','C173',
-  'C202','C203','C206','C211','C218','C216','C94','C99','C100','C240','C241','C32','C193','T21','T24'
+  'C202','C203','C206','C211','C218','C216','C94','C99','C100','C240','C241','C32','C193','T21','T24','C188'
 ];
 
 function aiCombatantActionIsUsable(card){
@@ -20120,6 +20134,10 @@ function aiCombatantActionIsUsable(card){
     case 'C193': return (card.charges || 0) > 0; // Talhim : gagner du Mithril seulement si des charges sont dispo
     case 'T21':  return true; // Aphrodite : vole du Mithril et gagne des PV, toujours bon
     case 'T24':  return true; // Dr.Melvina² : +5 PB et charge, toujours bon
+    case 'C188': { // Dragoons V : a-t-il un autre allié épuisé à redresser ?
+      const ownLine188 = getLineByOwner(owner);
+      return ownLine188.some(c => c.id !== card.id && exhausted[owner] && exhausted[owner].has(c.id));
+    }
     default: return false;
   }
 }
@@ -21050,8 +21068,8 @@ function handleCopieDesEnfersTargetSelection(targetCard, targetCardOwner){
 // ===================================================================
 // IMPY (dernier lot) : Exdote (C99) — capacité : donne POISON à un combattant
 // ===================================================================
-function startExdoteTargeting(owner){
-  exdoteTargetMode = { owner };
+function startExdoteTargeting(owner, casterCard){
+  exdoteTargetMode = { owner, casterCardId: casterCard ? casterCard.id : null };
   closeActionPrompt();
   const promptEl = document.createElement('div');
   promptEl.id = 'exdote-prompt';
@@ -21071,11 +21089,17 @@ function startExdoteTargeting(owner){
 }
 function handleExdoteTargetSelection(targetCard, targetCardOwner){
   if (!exdoteTargetMode) return;
+  const { owner: c99Owner, casterCardId } = exdoteTargetMode;
   if (!Array.isArray(targetCard.addedTags)) targetCard.addedTags = [];
   if (!targetCard.addedTags.includes('poison')) targetCard.addedTags.push('poison');
   pushHistory('action', `${cardAnchor('C99')} donne <strong>POISON</strong> à ${cardAnchor(targetCard.label)} !`);
   exdoteTargetMode = null;
   closeActionPrompt();
+  // CORRECTIF : Exdote doit s'épuiser après avoir utilisé son ACTION.
+  if (casterCardId) {
+    const casterCard = getLineByOwner(c99Owner).find(c => c.id === casterCardId);
+    if (casterCard) markAttacked(c99Owner, casterCard);
+  }
   fullRender();
 }
 
@@ -21083,8 +21107,8 @@ function handleExdoteTargetSelection(targetCard, targetCardOwner){
 // IMPY (dernier lot) : Couveuse (C94) — capacité : prend le contrôle d'un
 // Eggrreur (C93) adverse (uniquement ce combattant précis).
 // ===================================================================
-function startCouveuseStealTargeting(casterOwner){
-  couveuseStealTargetMode = { casterOwner };
+function startCouveuseStealTargeting(casterOwner, casterCard){
+  couveuseStealTargetMode = { casterOwner, casterCardId: casterCard ? casterCard.id : null };
   closeActionPrompt();
   const promptEl = document.createElement('div');
   promptEl.id = 'couveuse-steal-prompt';
@@ -21104,7 +21128,7 @@ function startCouveuseStealTargeting(casterOwner){
 }
 function handleCouveuseStealTargetSelection(targetCard, targetCardOwner){
   if (!couveuseStealTargetMode) return;
-  const { casterOwner } = couveuseStealTargetMode;
+  const { casterOwner, casterCardId } = couveuseStealTargetMode;
   if (targetCardOwner === casterOwner) return; // adverse uniquement
   if (targetCard.label !== 'C93') return; // uniquement un Eggrreur
   couveuseStealTargetMode = null;
@@ -21122,14 +21146,19 @@ function handleCouveuseStealTargetSelection(targetCard, targetCardOwner){
   fromLine.splice(idx, 1);
   toLine.push(targetCard);
   pushHistory('action', `${cardAnchor('C94')} prend le contrôle d'un ${cardAnchor('C93')} adverse !`);
+  // CORRECTIF : Couveuse doit s'épuiser après avoir utilisé son ACTION.
+  if (casterCardId) {
+    const casterCard = toLine.find(c => c.id === casterCardId) || getLineByOwner(casterOwner).find(c => c.id === casterCardId);
+    if (casterCard) markAttacked(casterOwner, casterCard);
+  }
   fullRender();
 }
 
 // ===================================================================
 // IMPY (dernier lot) : Roi-D-Roi (C100) — capacité : détruit un diplomate adverse
 // ===================================================================
-function startRoiDRoiTargeting(casterOwner){
-  roiDRoiTargetMode = { casterOwner };
+function startRoiDRoiTargeting(casterOwner, casterCard){
+  roiDRoiTargetMode = { casterOwner, casterCardId: casterCard ? casterCard.id : null };
   closeActionPrompt();
   const promptEl = document.createElement('div');
   promptEl.id = 'roidroi-prompt';
@@ -21149,7 +21178,7 @@ function startRoiDRoiTargeting(casterOwner){
 }
 function handleRoiDRoiTargetSelection(targetCard, targetCardOwner){
   if (!roiDRoiTargetMode) return;
-  const { casterOwner } = roiDRoiTargetMode;
+  const { casterOwner, casterCardId } = roiDRoiTargetMode;
   if (targetCardOwner === casterOwner) return; // adverse uniquement
   if (!hasTag(targetCard, 'Diplomate')) return; // uniquement un diplomate
   roiDRoiTargetMode = null;
@@ -21161,6 +21190,11 @@ function handleRoiDRoiTargetSelection(targetCard, targetCardOwner){
     detachFamiliarsOnHost(targetCard, targetCardOwner);
     discardCard(targetCard, targetCardOwner, 'death');
     pushHistory('action', `${cardAnchor('C100')} détruit ${cardAnchor(targetCard.label)} !`);
+  }
+  // CORRECTIF : Roi-D-Roi doit s'épuiser après avoir utilisé son ACTION.
+  if (casterCardId) {
+    const casterCard = getLineByOwner(casterOwner).find(c => c.id === casterCardId);
+    if (casterCard) markAttacked(casterOwner, casterCard);
   }
   fullRender();
 }
