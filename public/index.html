@@ -8213,11 +8213,12 @@ function countActiveNomyaLinks(card) {
   return card.nomyaLinkedIds.filter(id => boardIds.has(id)).length;
 }
 
-// Chez Nomya, MINER remplace ENTIÈREMENT le gain classique : au lieu de
-// gagner 1 Mithril, elle en VOLE 1 par lien encore actif (voir la liaison
-// automatique en début de ses tours). Même coût standard que tout autre
-// minage (-1 PV, sauf Minage gratuit/Coqsix) — voir applyStandardMiningGainAndCost
-// pour le principe équivalent chez Doolia/Acrylik.
+// CORRECTIF DE PRINCIPE : un effet inscrit sur "MINER :" S'AJOUTE au minage
+// classique (+1 Mithril, -1 PV sauf Minage gratuit/Coqsix), il ne le
+// REMPLACE PAS — contrairement à Doolia (C231)/Acrylik (C181), dont l'effet
+// remplace bel et bien le gain normal (choix de conception assumé pour ces
+// deux-là, à ne pas généraliser). Chez Nomya, MINER rapporte donc le gain
+// standard ET, en plus, vole 1 Mithril par lien encore actif.
 function performNomyaMining(owner, card) {
   const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
   const curHP = getEffectiveHP(card);
@@ -8226,27 +8227,39 @@ function performNomyaMining(owner, card) {
 
   markAttacked(owner, card);
 
+  // ---- Minage classique (identique à performMining) ----
+  let totalGain = 1;
   const opp = (owner === 'top') ? 'bottom' : 'top';
-  const links = countActiveNomyaLinks(card);
-  const stolen = Math.min(links, mithril[opp] || 0);
+  if (coqsixCount > 0) {
+    const oppHand = getHandByOwner(opp);
+    if (oppHand.length >= 7) {
+      for (let i = 0; i < coqsixCount; i++) addMithril(owner);
+      totalGain += coqsixCount;
+    } else {
+      addMithril(owner);
+    }
+  } else {
+    addMithril(owner);
+  }
 
   if (card.canMineFreely || coqsixCount > 0) {
-    pushHistory('pv', `${cardAnchor('C249')} mine sans perdre de PV.`);
+    pushHistory('pv', `${cardAnchor('C249')} mine sans perdre de PV (+${totalGain} Mithril).`);
   } else {
     card.hp = curHP - 1;
     onHPDamaged(owner, card, 1, 'mining');
-    pushHistory('pv', `${cardAnchor('C249')} mine : -1 PV.`);
+    pushHistory('pv', `${cardAnchor('C249')} mine : -1 PV, +${totalGain} Mithril.`);
   }
 
+  // ---- Effet supplémentaire propre à Nomya : vol par lien actif ----
+  const links = countActiveNomyaLinks(card);
+  const stolen = Math.min(links, mithril[opp] || 0);
   if (stolen > 0) {
     mithril[opp] -= stolen;
     addMithril(owner, stolen);
     updateMithril();
-    pushHistory('mithril', `${cardAnchor('C249')} vole ${stolen} Mithril à ${playerLabel(opp)} (${links} lien${links > 1 ? 's' : ''} actif${links > 1 ? 's' : ''}).`);
+    pushHistory('mithril', `${cardAnchor('C249')} vole en plus ${stolen} Mithril à ${playerLabel(opp)} (${links} lien${links > 1 ? 's' : ''} actif${links > 1 ? 's' : ''}).`);
   } else if (links > 0) {
     pushHistory('info', `${cardAnchor('C249')} : ${playerLabel(opp)} n'a aucun Mithril à voler malgré ${links} lien${links > 1 ? 's' : ''} actif${links > 1 ? 's' : ''}.`);
-  } else {
-    pushHistory('info', `${cardAnchor('C249')} : aucun lien actif, aucun Mithril volé.`);
   }
 
   fullRender();
@@ -8608,13 +8621,13 @@ function openMiningPrompt(owner, card, fromEl){
       buttons.push(mineButton);
     } else if (card.label === 'C249') {
       title = 'Nomya';
-      // Chez Nomya, MINER remplace ENTIÈREMENT le gain classique par un vol
-      // de Mithril proportionnel à ses liens encore actifs (voir la liaison
-      // automatique en début de ses tours, dans chooseFactionAndProceed) —
-      // même principe que Doolia/Acrylik : un seul bouton "Miner", même coût
-      // standard (-1 PV, sauf Minage gratuit/Coqsix).
+      // Chez Nomya, MINER conserve le gain classique (+1 Mithril, -1 PV sauf
+      // Minage gratuit/Coqsix) ET vole EN PLUS 1 Mithril par lien encore
+      // actif (voir la liaison automatique en début de ses tours, dans
+      // chooseFactionAndProceed) — un effet "MINER :" s'ajoute toujours au
+      // minage classique, il ne le remplace pas.
       const activeLinks = countActiveNomyaLinks(card);
-      mineButton.label = `Miner (Voler ${activeLinks} Mithril${card.canMineFreely || coqsixCount > 0 ? ', Gratuit' : ', -1 PV'})`;
+      mineButton.label += activeLinks > 0 ? ` + Voler ${activeLinks} Mithril` : '';
       mineButton.onClick = () => { performNomyaMining(owner, card); };
       buttons.push(mineButton);
     } else if(card.label === 'C9') {
