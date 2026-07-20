@@ -3031,6 +3031,13 @@ function getStatsForLabel(label){
   return o;
 }
 function getType(label){
+  // Garde-fou CHIMERIA : tout combattant portant le sous-type "Dragoons"
+  // (Dragoons V, C188, et toute future carte Dragoons) DOIT toujours être
+  // traité comme un personnage/combattant — même si son type n'était pas
+  // correctement renseigné ailleurs. Vérifié en premier, avant tout fallback.
+  if (typeof CARD_TAGS !== 'undefined' && Array.isArray(CARD_TAGS[label]) && CARD_TAGS[label].includes('Dragoons')) {
+    return 'personnage';
+  }
   const st = getStatsForLabel(label);
   return st && st.type ? st.type : 'personnage'; // défaut = personnage pour “nouvelles” cartes
 }
@@ -7364,12 +7371,15 @@ function playActionExploseRock(owner, actionCard) {
   fullRender();
 }
 
-/* ---- Boy's band (C192) : duplique une carte de la main, +2 Mithril si 3 exemplaires ---- */
+/* ---- Boy's band (C192) : duplique une carte de la main, +2 Mithril si 3 exemplaires ----
+   Exclusion TOTALE de "Boy's band" elle-même : aucun exemplaire de cette
+   carte (peu importe lequel) ne peut être choisi comme cible, pas seulement
+   l'exemplaire précis en train d'être joué. */
 function openC192Prompt(owner, card, anchorEl) {
   if (!canPlayThisCardNow(owner, card)) return;
-  const hand = getHandByOwner(owner).filter(c => c.id !== card.id);
+  const hand = getHandByOwner(owner).filter(c => c.label !== 'C192');
   if (hand.length === 0) {
-    pushHistory('info', `${cardAnchor('C192')} : main vide, aucune carte à dupliquer.`);
+    pushHistory('info', `${cardAnchor('C192')} : aucune autre carte à dupliquer dans votre main.`);
     return;
   }
   const buttons = hand.map(c => ({
