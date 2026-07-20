@@ -8543,7 +8543,22 @@ function openMiningPrompt(owner, card, fromEl){
   // autre logique de bouton (Coqsix, capacités bespoke...).
   const minaMinaCount = attachedFamiliars.filter(f => f.label === 'C247').length;
 
-  if (canPerformActions && minaMinaCount > 0) {
+  if (canPerformActions && minaMinaCount > 0 && card.label === 'C246') {
+    // CORRECTIF : Balogrun (peut miner 2 fois par tour) perdait ce bonus dès
+    // que Mina Mina (C247, qui REMPLACE le minage classique par une
+    // destruction) lui était attaché — le menu Mina Mina générique
+    // l'épuisait après une seule utilisation, court-circuitant entièrement
+    // sa capacité. On applique donc le même compteur balogrunMinesThisTurn
+    // à cette version du minage aussi.
+    title = 'Balogrun';
+    const minesLeft = 2 - (card.balogrunMinesThisTurn || 0);
+    msg = 'Choisissez : <strong>Miner</strong> (détruit le/les combattant(s) le(s) plus faible(s) du plateau) — jusqu\'à 2 fois ce tour.';
+    buttons.push({
+      label: `Miner (détruire les plus faibles) (${Math.max(0, minesLeft)}/2 ce tour)`,
+      className: 'confirm',
+      onClick: () => { performBalogrunMinaMinaMining(owner, card); }
+    });
+  } else if (canPerformActions && minaMinaCount > 0) {
     msg = 'Choisissez : <strong>Miner</strong> (détruit le/les combattant(s) le(s) plus faible(s) du plateau).';
     buttons.push({
       label: 'Miner (détruire les plus faibles)',
@@ -8989,6 +9004,45 @@ function useMinaMinaMining(owner, card){
   });
 
   pushHistory('action', `${cardAnchor('C247')} détruit ${targets.length > 1 ? 'les combattants les plus faibles' : 'le combattant le plus faible'} du plateau (${targets.map(t => cardAnchor(t.label)).join(', ')}) !`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// WADOO 7e lot : même effet que useMinaMinaMining ci-dessus, mais pour
+// Balogrun (C246) qui peut miner deux fois par tour — cette version n'épuise
+// (markAttacked) l'hôte qu'au SECOND déclenchement, via le même compteur
+// balogrunMinesThisTurn que performBalogrunMining (voir plus haut).
+function performBalogrunMinaMinaMining(owner, card){
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+
+  card.balogrunMinesThisTurn = (card.balogrunMinesThisTurn || 0) + 1;
+  const isSecondMine = card.balogrunMinesThisTurn >= 2;
+  if (isSecondMine) markAttacked(owner, card);
+
+  const allCombatants = topLine.concat(botLine).filter(c => getType(c.label) === 'personnage');
+  if (allCombatants.length === 0) {
+    pushHistory('info', `${cardAnchor('C247')} (sur ${cardAnchor('C246')}) : aucun combattant sur le plateau à détruire.`);
+    closeActionPrompt();
+    fullRender();
+    return;
+  }
+
+  const power = (c) => getEffectiveHP(c);
+  const lowest = Math.min(...allCombatants.map(power));
+  const targets = allCombatants.filter(c => power(c) === lowest);
+
+  targets.forEach(t => {
+    const tOwner = topLine.includes(t) ? 'top' : 'bottom';
+    const tLine = getLineByOwner(tOwner);
+    const idx = tLine.findIndex(c2 => c2.id === t.id);
+    if (idx === -1) return;
+    tLine.splice(idx, 1);
+    detachFamiliarsOnHost(t, tOwner);
+    discardCard(t, tOwner, 'destroyed');
+  });
+
+  pushHistory('action', `${cardAnchor('C247')} (sur ${cardAnchor('C246')}) détruit ${targets.length > 1 ? 'les combattants les plus faibles' : 'le combattant le plus faible'} du plateau (${targets.map(t => cardAnchor(t.label)).join(', ')}) — minage ${card.balogrunMinesThisTurn}/2 ce tour !`);
   closeActionPrompt();
   fullRender();
 }
@@ -18138,8 +18192,15 @@ function aiEndTurn(){
 function aiResolveAnyOpenPrompt(){
   const carousel = document.getElementById('familiarCarouselOverlay');
   if (carousel && carousel.style.display && carousel.style.display !== 'none') {
-    const thumbs = carousel.querySelectorAll('.dthumb');
-    if (thumbs.length > 0) { thumbs[Math.floor(Math.random()*thumbs.length)].click(); return true; }
+    // CORRECTIF BLOCAGE : ce carrousel (ouvert par le bouton "Voir
+    // Familiers (N)" de openMiningPrompt) n'a JAMAIS eu de gestionnaire de
+    // clic sur ses vignettes .dthumb — seulement du survol pour le zoom
+    // (voir showFamiliarCarousel). Cliquer une vignette au hasard était donc
+    // un no-op total : l'overlay ne se refermait jamais, et cette fonction
+    // retournait indéfiniment true sans jamais faire progresser le tour de
+    // l'IA. On referme directement le carrousel comme le ferait le bouton
+    // "×" (fcoCloseBtn) ou un clic sur le fond.
+    if (typeof hideFamiliarCarousel === 'function') { hideFamiliarCarousel(); return true; }
   }
 
   // Modes de ciblage pour lesquels l'IA sait VRAIMENT choisir une cible
@@ -18195,7 +18256,15 @@ function aiResolveAnyOpenPrompt(){
       // ensuite — sans cette préférence, l'IA aurait toujours miné sans
       // jamais utiliser la moindre capacité. On privilégie donc un bouton
       // NON "Miner" (une vraie capacité) quand il est disponible.
-      const abilityBtn = confirmBtns.find(b => !/^Miner/i.test((b.textContent || '').trim()));
+      // CORRECTIF BLOCAGE : "Voir Familiers (N)" est aussi ajouté comme
+      // bouton .confirm dès qu'un familier est attaché (voir
+      // openMiningPrompt) — il était donc lui aussi préféré au vrai bouton
+      // d'Action/Capacité. Or son carrousel (showFamiliarCarousel) n'offre
+      // aucun clic possible sur ses vignettes pour l'IA (uniquement du
+      // survol) : une fois ouvert par erreur, plus rien ne pouvait jamais
+      // le refermer — l'IA restait bloquée en boucle silencieuse jusqu'au
+      // minuteur de tour (90s). On exclut donc ce bouton du choix.
+      const abilityBtn = confirmBtns.find(b => !/^(Miner|Voir Familiers)/i.test((b.textContent || '').trim()));
       const chosen = abilityBtn || confirmBtns[0];
       chosen.click();
       return true;

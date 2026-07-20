@@ -375,6 +375,27 @@
   <script src="/sitenav.js"></script>
   <script src="/boosterViewer.js"></script>
   <script>
+    // CORRECTIF : après un match (lancé en plein écran depuis cette page,
+    // voir goFullscreenThenPlay ci-dessous), le navigateur pouvait revenir
+    // sur cette page de construction de deck en restant dans un état de
+    // plein écran "à moitié" résolu — la demande de requestFullscreen()
+    // n'avait pas le temps de véritablement aboutir avant que la navigation
+    // (window.location.href) ne coupe court à sa promesse. Le symptôme
+    // observé : impossible d'écrire dans le champ "Nom du deck" tant qu'on
+    // n'a pas forcé un vrai changement de focus au niveau du système
+    // (touche Windows, puis reclic pour repasser en plein écran). Comme la
+    // construction de deck n'a de toute façon aucune raison d'être en plein
+    // écran, on en sort systématiquement et proprement dès le chargement de
+    // cette page, pour repartir d'un état de focus clavier fiable.
+    (function ensureNotFullscreenOnDeckBuilder(){
+      try {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          const exit = document.exitFullscreen || document.webkitExitFullscreen;
+          if (exit) { const p = exit.call(document); if (p && p.catch) p.catch(()=>{}); }
+        }
+      } catch(e){}
+    })();
+
     const MAX_DECKS = 10;
     const MAX_COPIES = 2;
     // IMPY (nouveau lot) : Syphon (0083) — change complètement la règle de
@@ -438,11 +459,15 @@
       document.getElementById('modeChoiceOverlay').style.display = 'none';
     }
     function goFullscreenThenPlay(deckId, deckName, mode){
-      try {
-        const el = document.documentElement;
-        const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-        if (req) { const p = req.call(el); if (p && p.catch) p.catch(()=>{}); }
-      } catch(e){}
+      // CORRECTIF : on ne demande PLUS le plein écran ici. La promesse de
+      // requestFullscreen() n'a pas le temps d'aboutir avant la navigation
+      // qui suit (openMatchmaking → window.location.href vers index.html),
+      // ce qui pouvait laisser le navigateur dans un état de plein écran
+      // à moitié résolu — cassant ensuite le focus clavier au retour sur
+      // cette page (ex. impossible d'écrire le nom d'un nouveau deck).
+      // index.html gère déjà lui-même sa propre demande de plein écran,
+      // de façon fiable, dès le premier clic une fois la page chargée
+      // (voir requestFullscreenSafely).
       openMatchmaking(deckId, deckName, mode);
     }
     document.getElementById('chooseCasualBtn').addEventListener('click', () => {
@@ -465,11 +490,10 @@
         try {
           localStorage.setItem('arms_active_deck', JSON.stringify({ cards: PENDING_DECK.cards || [] }));
         } catch(e){}
-        try {
-          const el = document.documentElement;
-          const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-          if (req) { const p = req.call(el); if (p && p.catch) p.catch(()=>{}); }
-        } catch(e){}
+        // CORRECTIF : requestFullscreen() retiré ici aussi, pour la même
+        // raison que dans goFullscreenThenPlay ci-dessus — voir ce
+        // commentaire pour le détail. index.html se charge lui-même de
+        // proposer le plein écran une fois chargé.
         window.location.href = '/index.html?vsAI=1';
       }
       PENDING_DECK = null;
