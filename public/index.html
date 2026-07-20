@@ -1687,13 +1687,11 @@
     .memoryScoreChip b{ font-size:18px; color:#fff; }
     .memoryGrid{
       display:grid;
-      grid-template-columns:repeat(var(--memCols,6), minmax(64px,118px));
+      grid-template-columns:repeat(var(--memCols,6), var(--memCardW, 108px));
       gap:10px;
       justify-content:center;
+      align-content:center;
       width:100%;
-      max-height:62vh;
-      overflow-y:auto;
-      padding:6px;
     }
     .memoryCard{
       position:relative;
@@ -1755,6 +1753,18 @@
       background:rgba(20,12,34,.92); border:1px solid rgba(160,120,255,.4);
       box-shadow:0 0 40px rgba(120,80,220,.35);
       text-align:center;
+    }
+    .memoryBravo{
+      font-size:26px; font-weight:900; letter-spacing:.5px;
+      background:linear-gradient(90deg,#ffd93d,#ff9ecb,#ffd93d);
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+      text-shadow:0 0 26px rgba(255,217,61,.4);
+      animation:memoryBravoPop .5s cubic-bezier(.25,.9,.3,1.3);
+    }
+    @keyframes memoryBravoPop{
+      0%{ transform:scale(.6); opacity:0; }
+      70%{ transform:scale(1.08); opacity:1; }
+      100%{ transform:scale(1); opacity:1; }
     }
     .memoryResultCard h3{ margin:0; font-size:22px; color:#fff; letter-spacing:1px; }
     .memoryResultCard p{ margin:0; color:#d8cff0; font-size:14px; line-height:1.5; }
@@ -2925,13 +2935,13 @@ body.fusion-shake {
   <div id="chatPanel" class="collapsed">
     <div class="chatHeader">
       <div class="chatTabs">
-        <button class="tabBtn active" data-tab="chat">Tchat</button>
-        <button class="tabBtn" data-tab="history">Historique</button>
+        <button class="tabBtn" data-tab="chat">Tchat</button>
+        <button class="tabBtn active" data-tab="history">Historique</button>
       </div>
       <button id="chatClose" title="Réduire">▾</button>
     </div>
     <div class="chatBody">
-      <div id="chatView" class="tab active">
+      <div id="chatView" class="tab">
         <div id="chatMessages"></div>
         <div class="chatInput">
           <select id="chatAs">
@@ -2942,7 +2952,7 @@ body.fusion-shake {
           <button id="chatSend">Envoyer</button>
         </div>
       </div>
-      <div id="historyView" class="tab">
+      <div id="historyView" class="tab active">
         <div id="historyLog"></div>
       </div>
     </div>
@@ -7482,8 +7492,44 @@ function startMemoryGame(owner){
   };
   playMemoryTransition();
   renderMemoryOverlay();
+  window.addEventListener('resize', fitMemoryGridToScreen);
   // Le tour IA (si applicable) n'est déclenché qu'une fois les règles
   // validées par le joueur — voir acknowledgeMemoryRules().
+}
+
+// Calcule dynamiquement la taille des cartes pour que TOUTE la grille tienne
+// sur un seul écran, sans jamais avoir besoin de défiler, quelle que soit la
+// taille de la fenêtre — mesure l'espace réellement pris par l'en-tête/les
+// scores/la bannière, puis déduit la plus grande taille de carte (au ratio
+// 5:7) qui tient à la fois en largeur ET en hauteur.
+function fitMemoryGridToScreen(){
+  if (!memoryGame) return;
+  const panel = document.querySelector('#memoryOverlay .memoryPanel');
+  const grid = document.getElementById('memoryGrid');
+  if (!panel || !grid) return;
+
+  const cols = MEMORY_GRID_COLS;
+  const rows = Math.ceil(memoryGame.cards.length / cols);
+  const gap = 10;
+
+  let usedH = 0;
+  Array.from(panel.children).forEach(el => {
+    if (el.id !== 'memoryGrid') usedH += el.getBoundingClientRect().height;
+  });
+  const panelGap = parseFloat(getComputedStyle(panel).rowGap || getComputedStyle(panel).gap) || 16;
+  usedH += panelGap * (panel.children.length - 1);
+
+  const availH = Math.max(180, window.innerHeight * 0.94 - usedH - 40);
+  const availW = Math.max(180, panel.clientWidth - 12);
+
+  let cardW = (availW - gap * (cols - 1)) / cols;
+  let cardH = cardW * 7 / 5;
+  if (cardH * rows + gap * (rows - 1) > availH) {
+    cardH = (availH - gap * (rows - 1)) / rows;
+    cardW = cardH * 5 / 7;
+  }
+  cardW = Math.max(42, Math.floor(cardW));
+  grid.style.setProperty('--memCardW', cardW + 'px');
 }
 
 // Petit portail lumineux joué UNE fois à l'ouverture de l'overlay, par-dessus
@@ -7505,7 +7551,11 @@ function closeMemoryOverlay(){
   if (el) el.remove();
   const blocker = document.getElementById('memoryRulesBlocker');
   if (blocker) blocker.remove();
+  window.removeEventListener('resize', fitMemoryGridToScreen);
   memoryGame = null;
+  // Reprend la partie EXACTEMENT là où elle s'était arrêtée : aucun état de
+  // la partie principale (tour, PV, Mithril...) n'a été touché pendant le
+  // Memory, on se contente de rafraîchir l'affichage du plateau normal.
   fullRender();
 }
 
@@ -7563,6 +7613,8 @@ function renderMemoryOverlay(){
   if (!g.rulesAcknowledged) {
     renderMemoryRulesCoach(g);
   }
+
+  requestAnimationFrame(fitMemoryGridToScreen);
 }
 
 // Boîte du coach (même personnage que le didacticiel) expliquant les règles
@@ -7632,6 +7684,7 @@ function resolveMemoryFlip(){
       memoryGame.flippedIdx = [];
       memoryGame.busy = false;
       memoryGame.banner = `Paire ${cardName(c1.label)} trouvée par ${playerLabel(memoryGame.turn)} : elle/il rejoue !`;
+      playMemorySuccesSfx();
       renderMemoryOverlay();
       if (memoryGame.cards.every(c => c.matched)) {
         setTimeout(() => finishMemoryGame(), 500);
@@ -7774,23 +7827,36 @@ function finishMemoryGame(){
   addMithril(winner);
   updateMithril();
   pushHistory('jeu', `${cardAnchor('C195')} : ${playerLabel(winner)} remporte le Memory (${g.scores.top}-${g.scores.bottom}) et gagne +1 Mithril !`);
+  playMemoryVictorySfx();
 
   const overlay = document.getElementById('memoryOverlay');
   const panel = overlay ? overlay.querySelector('.memoryPanel') : null;
   if (panel) {
     panel.innerHTML = `
       <div class="memoryResultCard">
+        <div class="memoryBravo">🎉 Bravo ${playerLabel(winner)} ! 🎉</div>
         <h3>${playerLabel(winner)} remporte le Memory !</h3>
         <p>Score final — ${playerLabel('top')} : ${g.scores.top} &nbsp;|&nbsp; ${playerLabel('bottom')} : ${g.scores.bottom}<br>
         +1 Mithril pour ${playerLabel(winner)}. Choisissez une carte Action à rejouer deux fois depuis une défausse :</p>
         <div id="memoryReplayZone"></div>
-        <button class="memoryCloseBtn" id="memoryCloseBtn">Continuer</button>
+        <button class="memoryCloseBtn" id="memoryCloseBtn">Continuer la partie</button>
       </div>
     `;
     renderMemoryReplayChoice(winner);
     overlay.querySelector('#memoryCloseBtn').addEventListener('click', closeMemoryOverlay);
   }
   fullRender();
+}
+
+// Sons du mini-jeu Memory : succès à chaque paire trouvée, fanfare de
+// victoire à la fin de la partie. Simples Audio() à la volée (comme
+// nopudding.mp3/yesyes.mp3 ailleurs dans le jeu) — pas de dépendance au
+// système de préchargement global.
+function playMemorySuccesSfx(){
+  try{ const a = new Audio('/assets/succes.mp3'); a.volume = 0.85; a.play().catch(()=>{}); }catch(e){}
+}
+function playMemoryVictorySfx(){
+  try{ const a = new Audio('/assets/victoirememory.mp3'); a.volume = 0.9; a.play().catch(()=>{}); }catch(e){}
 }
 
 // Animation propre à "Fusionner les tous" (C236) : l'écran s'éteint
@@ -15951,19 +16017,22 @@ if (card.label === 'C46') {
 // ===================================================================
 
 // ===================================================================
-// WADOO 7e lot : Cyclor (C238) — JOUER : +3 Mithril par cycle (tour) déjà
-// joué par l'ADVERSAIRE jusqu'ici. Réutilise ownerTurnCount (compteur de
-// tour PAR JOUEUR déjà utilisé par Pezske, C47).
+// WADOO 7e lot : Cyclor (C238) — JOUER : +3 Mithril par marqueur "Cycle"
+// actif déjà accumulé par l'ADVERSAIRE (voir le repère ☠/3 aux côtés de
+// chaque joueur, incrémenté à chaque fois que sa défausse est remélangée
+// dans son deck — 3 Cycles = défaite immédiate). CORRECTIF : utilisait par
+// erreur ownerTurnCount (le nombre de TOURS joués par l'adversaire, sans
+// aucun rapport), au lieu du vrai compteur "cycles" ci-dessous.
 // ===================================================================
 if (card.label === 'C238') {
   const cyclorOpp = (owner === 'top') ? 'bottom' : 'top';
-  const oppCycles = ownerTurnCount[cyclorOpp] || 0;
+  const oppCycles = (typeof cycles !== 'undefined' && cycles[cyclorOpp]) || 0;
   if (oppCycles > 0) {
     for (let i = 0; i < oppCycles * 3; i++) addMithril(owner);
     updateMithril();
-    pushHistory('mithril', `${cardAnchor('C238')} : ${playerLabel(cyclorOpp)} a déjà joué ${oppCycles} cycle(s) → +${oppCycles * 3} Mithril pour ${playerLabel(owner)}.`);
+    pushHistory('mithril', `${cardAnchor('C238')} : ${playerLabel(cyclorOpp)} a déjà ${oppCycles} marqueur(s) Cycle actif(s) → +${oppCycles * 3} Mithril pour ${playerLabel(owner)}.`);
   } else {
-    pushHistory('info', `${cardAnchor('C238')} : ${playerLabel(cyclorOpp)} n'a encore joué aucun cycle — aucun Mithril gagné.`);
+    pushHistory('info', `${cardAnchor('C238')} : ${playerLabel(cyclorOpp)} n'a encore aucun marqueur Cycle actif — aucun Mithril gagné.`);
   }
 }
 
@@ -18997,6 +19066,34 @@ const surrenderBtn = document.getElementById('surrenderBtn');
 if (surrenderBtn) {
   surrenderBtn.addEventListener('click', () => {
     if (GAME.over) return;
+
+    // CORRECTIF : l'abandon doit être possible à TOUT moment, y compris en
+    // plein milieu de son propre tour pendant qu'une autre fenêtre (menu
+    // Miner/Action, ciblage Anamars/Exdote/rituel de liaison...) est encore
+    // ouverte. Sans ce nettoyage préalable, openButtonsPrompt() ci-dessous
+    // appelait déjà closeActionPrompt() en interne pour SE remplacer, mais
+    // celle-ci referme aussi le rideau (hideHardBlocker()) juste après que
+    // showHardBlocker() venait de l'afficher pour NOTRE confirmation — la
+    // laissant fermée derrière une fenêtre encore techniquement active. On
+    // annule donc systématiquement tout mode de ciblage/prompt en attente
+    // AVANT d'ouvrir la confirmation d'abandon, pour qu'elle s'affiche et
+    // reste cliquable à coup sûr, quelle que soit l'action en cours.
+    if (typeof aiForceCancelAllTargetModes === 'function' && typeof isAnyTargetSelectionActive === 'function' && isAnyTargetSelectionActive()) {
+      const savedPushHistory = window.pushHistory;
+      try {
+        // Le filet de sécurité de l'IA pousse un message d'historique
+        // ("L'IA abandonne une action bloquée...") peu adapté ici : on le
+        // neutralise temporairement, l'abandon volontaire du joueur n'a pas
+        // besoin de cette ligne dans l'historique.
+        window.pushHistory = function(){};
+        aiForceCancelAllTargetModes();
+      } finally {
+        window.pushHistory = savedPushHistory;
+      }
+    } else if (typeof closeActionPrompt === 'function') {
+      closeActionPrompt();
+    }
+
     openButtonsPrompt(
       'Abandonner la partie ?',
       "Voulez-vous vraiment capituler ? La partie sera immédiatement <strong>gagnée par votre adversaire</strong>. En partie classée, un abandon compte comme une défaite pour votre Menace.",
@@ -19004,7 +19101,17 @@ if (surrenderBtn) {
       [
         {
           label: 'Oui, j’abandonne', className: 'cancel', onClick: () => {
-            const myOwnSeat = ONLINE_MODE ? MY_SEAT : currentTurn; // en local, pas de "MY_SEAT" : on prend le siège actif
+            // CORRECTIF : en local face à l'IA (VS_AI_MODE), le seul siège
+            // possible pour un joueur humain qui clique ce bouton est
+            // TOUJOURS MY_SEAT — jamais currentTurn, qui vaut AI_SEAT une
+            // fois sur deux (dès que c'est au tour de l'IA) et aurait alors
+            // fait perdre la partie... à l'IA, donnant la victoire au joueur
+            // au lieu de la lui retirer. En ligne, MY_SEAT reste la bonne
+            // référence comme avant. Seul le vrai hotseat local (deux
+            // humains sur le même écran, sans IA) continue de se fier à
+            // currentTurn : c'est alors le joueur dont c'est le tour qui
+            // abandonne, ce qui reste ambigu autrement.
+            const myOwnSeat = (ONLINE_MODE || (typeof VS_AI_MODE !== 'undefined' && VS_AI_MODE)) ? MY_SEAT : currentTurn;
             const winnerSeat = (myOwnSeat === 'top') ? 'bottom' : 'top';
             if (ONLINE_MODE && window.__socket) {
               // On passe par le canal de synchronisation d'état (déjà utilisé
@@ -19519,7 +19626,17 @@ function aiResolveAnyOpenPrompt(){
     (typeof venusylvaDestroyMode !== 'undefined' && venusylvaDestroyMode.active) ||
     // KRYLLS : Mezamorph (C41) copiant Arakcrabe (T15) — même fenêtre sans
     // bouton que le rituel de liaison Wadoo, même correctif nécessaire.
-    (typeof mezamorphArakcrabeTargetMode !== 'undefined' && mezamorphArakcrabeTargetMode)
+    (typeof mezamorphArakcrabeTargetMode !== 'undefined' && mezamorphArakcrabeTargetMode) ||
+    // SAVAGE : Anamars (C114) — CORRECTIF BOUCLE INFINIE : cette fenêtre
+    // n'affiche qu'un bouton "Annuler" (classe .apBtn.cancel, PAS .confirm)
+    // en attendant un clic sur un combattant du plateau. Sans ce
+    // court-circuit, le repli générique ci-dessous ne trouvait aucun bouton
+    // .confirm et se rabattait sur "n'importe quel bouton" — donc le seul
+    // bouton présent, Annuler — annulant l'action (et remboursant l'épuisement
+    // de la carte) à chaque tentative : l'IA relançait alors indéfiniment la
+    // même capacité au pas suivant, la lançant et l'annulant en boucle sans
+    // jamais faire progresser la partie.
+    (typeof c114TargetMode !== 'undefined' && c114TargetMode)
   );
   if (hasKnownSmartMode) {
     const smart = aiChooseSmartTarget();
@@ -19676,6 +19793,14 @@ function aiChooseSmartTarget(){
   if (typeof mezamorphArakcrabeTargetMode !== 'undefined' && mezamorphArakcrabeTargetMode) {
     const enemyCombatants = entries.filter(e => e.zone === 'lane' && e.owner === oppSeat);
     return pickBest(enemyCombatants);
+  }
+
+  // SAVAGE : Anamars (C114) — inflige 3 dégâts à N'IMPORTE QUEL personnage
+  // (n'importe quel camp) : toujours préférer la cible ADVERSE la plus
+  // dangereuse, comme les autres ciblages punitifs.
+  if (typeof c114TargetMode !== 'undefined' && c114TargetMode) {
+    const persos = entries.filter(e => e.zone === 'lane' && getType(e.card.label) === 'personnage');
+    return pickBest(persos.filter(e => e.owner === oppSeat), persos);
   }
 
   // Générique : la plupart des autres ciblages à effet unique (Tokzik, Kryo,
