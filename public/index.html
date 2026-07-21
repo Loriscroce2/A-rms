@@ -1776,6 +1776,40 @@
     }
     .memoryCloseBtn:hover{ filter:brightness(1.08); }
 
+    /* ---- Récompense de victoire : les DEUX défausses ouvertes au centre,
+       cartes Action éligibles en surbrillance dorée (tout le reste visible
+       mais non cliquable). ---- */
+    .memDiscardWrap{
+      display:flex; gap:22px; justify-content:center; flex-wrap:wrap;
+      max-width:min(760px, 92vw); max-height:46vh; overflow-y:auto; padding:4px 2px;
+    }
+    .memDiscardCol{ display:flex; flex-direction:column; align-items:center; gap:8px; min-width:150px; }
+    .memDiscardTitle{
+      font-family:'Cinzel','Manrope',sans-serif; font-weight:800; font-size:12.5px;
+      letter-spacing:.08em; text-transform:uppercase; color:#c9bfe0;
+    }
+    .memDiscardGrid{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+    .memDiscardEmpty{ color:#7d7196; font-size:12px; font-style:italic; }
+    .memDiscardCard{
+      position:relative; width:64px; height:90px; border-radius:8px;
+      background-size:cover; background-position:center; background-color:#1a1225;
+      border:2px solid rgba(255,255,255,.12); opacity:.4; filter:grayscale(.6);
+      transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+    }
+    .memDiscardCard.eligible{
+      opacity:1; filter:none; cursor:pointer;
+      border-color:#ffd93d; box-shadow:0 0 14px rgba(255,217,61,.75), inset 0 0 8px rgba(255,217,61,.3);
+      animation:memDiscardGoldPulse 1.6s ease-in-out infinite;
+    }
+    .memDiscardCard.eligible:hover{ transform:scale(1.12) translateY(-4px); z-index:2; box-shadow:0 0 22px rgba(255,217,61,.95), inset 0 0 10px rgba(255,217,61,.4); }
+    @keyframes memDiscardGoldPulse{
+      0%,100%{ box-shadow:0 0 14px rgba(255,217,61,.75), inset 0 0 8px rgba(255,217,61,.3); }
+      50%{ box-shadow:0 0 22px rgba(255,217,61,1), inset 0 0 10px rgba(255,217,61,.45); }
+    }
+    .memDiscardCard.chosen{ animation:none; opacity:1; filter:none; border-color:#6bffb0; box-shadow:0 0 20px rgba(107,255,176,.85); }
+    .memDiscardPrompt{ margin:0; color:#ffe9a8; font-size:13px; font-weight:700; }
+    .memDiscardBusy{ color:#c9bfe0; font-size:13px; font-style:italic; }
+
     /* ---- Coach (même personnage/esprit que le didacticiel) : explique les
        règles du Memory avant que la partie ne débute réellement. ---- */
     #memoryRulesBlocker{
@@ -7446,9 +7480,10 @@ function playActionDiviserPourRegner(owner, actionCard) {
 // ===================================================================
 // CHIMERIA (8e lot) : Memory (C195) — mini-jeu de paires plein écran.
 // Le joueur qui joue la carte commence toujours. Le gagnant remporte
-// +1 Mithril et rejoue une carte Action de sa défausse deux fois (parmi
-// un sous-ensemble de cartes Action sûres à rejouer automatiquement,
-// voir MEMORY_REPLAYABLE_ACTIONS).
+// +1 Mithril, puis les DEUX défausses s'ouvrent au centre de l'écran : il
+// choisit n'importe quelle carte Action (hors Memory elle-même, en
+// surbrillance dorée) pour la rejouer deux fois d'affilée, effet complet à
+// chaque fois — voir renderMemoryReplayChoice/replayActionCardFromDiscard.
 // ===================================================================
 let memoryGame = null;
 let memoryAiSeen = {}; // label -> [indices connus par l'IA], remis à zéro à chaque partie
@@ -7581,7 +7616,7 @@ function renderMemoryOverlay(){
     <div class="memoryPanel">
       <div class="memoryHeader">
         <h2>Memory</h2>
-        <div class="memorySub">${cardAnchor('C195')} — ${g.cards.length / 2} paires à retrouver. Le gagnant remporte 1 Mithril et rejoue une carte Action de sa défausse, deux fois.</div>
+        <div class="memorySub">${cardAnchor('C195')} — ${g.cards.length / 2} paires à retrouver. Le gagnant remporte 1 Mithril et choisit une carte Action dans l'une des deux défausses pour la rejouer deux fois.</div>
       </div>
       <div class="memoryScores">
         <div class="memoryScoreChip${g.turn === 'top' ? ' activeTurn' : ''}">${playerLabel('top')} <b>${g.scores.top}</b></div>
@@ -7635,7 +7670,7 @@ function renderMemoryRulesCoach(g){
         • Une paire trouvée = vous rejouez immédiatement.<br>
         • Pas de paire = le tour passe à l'adversaire.<br>
         • <strong>${pairs} paires</strong> à trouver au total (un nombre impair : il ne peut jamais y avoir d'égalité !).<br><br>
-        Le grand gagnant remporte <strong>+1 Mithril</strong> et pourra <strong>rejouer une carte Action</strong> de sa défausse, deux fois d'affilée !
+        Le grand gagnant remporte <strong>+1 Mithril</strong>, puis choisit librement <strong>une carte Action</strong> dans l'une des deux défausses (la sienne ou celle de l'adversaire) pour la <strong>rejouer deux fois d'affilée</strong> !
       </div>
       <button class="memoryCoachBtn" id="memoryCoachBtn">C'est parti !</button>
     </div>
@@ -7751,66 +7786,160 @@ function memorizeAiPick(i){
   if (!memoryAiSeen[card.label].includes(i)) memoryAiSeen[card.label].push(i);
 }
 
-// Sous-ensemble volontairement restreint de cartes Action pouvant être
-// rejouées automatiquement depuis la défausse (effets simples, sans
-// ciblage ni fenêtre supplémentaire, pour garantir un résultat toujours
-// correct quand on les déclenche deux fois de suite par programme).
-const MEMORY_REPLAYABLE_ACTIONS = {
-  'C21': (o, c) => playActionC21(o, c),
-  'C190': (o, c) => playActionExploseRock(o, c),
-  'C196': (o, c) => playActionDiviserPourRegner(o, c),
-  'C243': (o, c) => playActionRollback(o, c),
-  'C250': (o, c) => playActionEtroiteSagesse(o, c),
-};
+// Carte(s) exclue(s) du choix de rejeu — Memory (C195) ne doit jamais
+// pouvoir se rejouer elle-même, comme demandé.
+const MEMORY_REPLAY_EXCLUDED_LABELS = ['C195'];
 
-function replayActionCardFromDiscard(owner, originalSide, sourceCard){
-  const handler = MEMORY_REPLAYABLE_ACTIONS[sourceCard.label];
-  if (typeof handler !== 'function') return;
+// Sécurité anti-blocage : nombre max de pas de résolution automatique
+// (fenêtres/ciblages) tentés pour un rejeu, avant d'abandonner et de
+// continuer quand même plutôt que de figer l'écran de récompense.
+const MEMORY_REPLAY_MAX_STEPS = 60;
 
-  const originalDiscard = (originalSide === 'top') ? topDiscard : botDiscard;
-  const idx0 = originalDiscard.findIndex(c => c.id === sourceCard.id);
-  if (idx0 === -1) return;
-  originalDiscard.splice(idx0, 1);
-  getHandByOwner(owner).push(sourceCard);
-  try { handler(owner, sourceCard); } catch(e){ console.error('[Memory] rejeu 1/2 a échoué :', e); }
-
-  const ownerDiscard = (owner === 'top') ? topDiscard : botDiscard;
-  const idx1 = ownerDiscard.findIndex(c => c.id === sourceCard.id);
-  if (idx1 !== -1) {
-    ownerDiscard.splice(idx1, 1);
-    getHandByOwner(owner).push(sourceCard);
-    try { handler(owner, sourceCard); } catch(e){ console.error('[Memory] rejeu 2/2 a échoué :', e); }
-  }
-  pushHistory('action', `${cardAnchor('C195')} : ${playerLabel(owner)} rejoue ${cardAnchor(sourceCard.label)} deux fois depuis la défausse !`);
-  fullRender();
+// Repris QUASI À L'IDENTIQUE de isAnyTargetSelectionActive(), mais SANS la
+// clause "memoryGame" : celle-ci reste vraie tout du long de l'écran de
+// récompense (l'overlay Memory est toujours affiché à ce moment-là), elle ne
+// peut donc pas servir ici à détecter la fin d'un rejeu de carte.
+function memoryReplayAnyBlockingUiOpen(){
+  const promptOpen = document.querySelectorAll('.actionPrompt').length > 0;
+  const carousel = document.getElementById('familiarCarouselOverlay');
+  const carouselOpen = !!(carousel && carousel.style.display && carousel.style.display !== 'none');
+  const modesActive = !!(
+    (venusylvaDestroyMode && venusylvaDestroyMode.active) ||
+    c112TargetMode || c114TargetMode || c231TargetMode || wadooLinkMode || dollyHealMode ||
+    prismisTargetMode || liensSelectionMode || freedaTargetMode || miroirTargetMode ||
+    hitAndRunMode || peinturlurerMode || explorationMode || chargeboxTargetMode ||
+    c59DestroyMode || c51SelectMode || c58HealingMode ||
+    c9SelectMode || pilateSelectMode || c18SelectMode || artaycSelectMode || remoteChoiceMode ||
+    kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
+    c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
+    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
+    c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
+    varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
+    couveuseStealTargetMode || roiDRoiTargetMode
+  );
+  return promptOpen || carouselOpen || modesActive;
 }
 
+// Résout automatiquement, pas à pas, toute fenêtre/ciblage ouvert(e) par la
+// carte en cours de rejeu — réutilise EXACTEMENT le même résolveur générique
+// que celui de l'IA (aiResolveAnyOpenPrompt/aiChooseSmartTarget), désormais
+// paramétrable par siège (voir plus haut) pour que tout choix de cible reste
+// cohérent du point de vue du VRAI gagnant du Memory (humain ou IA). S'arrête
+// dès que la carte a quitté la main du gagnant ET qu'aucune fenêtre ne reste
+// ouverte, c'est-à-dire dès que son effet est allé jusqu'au bout normalement.
+function memoryReplayResolveStep(owner, sourceCard, onDone, guard){
+  guard = (guard || 0) + 1;
+  const stillInHand = getHandByOwner(owner).some(c => c.id === sourceCard.id);
+  if (!stillInHand && !memoryReplayAnyBlockingUiOpen()) { onDone(); return; }
+  if (guard > MEMORY_REPLAY_MAX_STEPS) {
+    // Filet de sécurité : on force la fermeture de tout ciblage bloqué
+    // plutôt que de figer l'écran de récompense indéfiniment.
+    const savedPushHistory = window.pushHistory;
+    try {
+      window.pushHistory = function(){};
+      if (typeof aiForceCancelAllTargetModes === 'function') aiForceCancelAllTargetModes();
+    } finally { window.pushHistory = savedPushHistory; }
+    onDone();
+    return;
+  }
+  const progressed = (typeof aiResolveAnyOpenPrompt === 'function') && aiResolveAnyOpenPrompt(owner);
+  setTimeout(() => memoryReplayResolveStep(owner, sourceCard, onDone, guard), progressed ? 550 : 300);
+}
+
+// Rejoue une carte Action DEPUIS UNE DÉFAUSSE (n'importe laquelle des deux),
+// DEUX FOIS D'AFFILÉE, en simulant un véritable clic sur la carte en main —
+// exactement le même mécanisme déjà utilisé pour les cartes Action de l'IA
+// (voir aiClickHandCard), ce qui garantit un effet identique à un vrai jeu
+// normal de la carte (fenêtre de confirmation, ciblage éventuel...), quelle
+// que soit la carte choisie — plus aucune liste figée de cartes "sûres".
+// pendingFreePlay lève temporairement toute contrainte de faction active, et
+// currentTurn est temporairement basculé sur le gagnant pour que les
+// gestionnaires de clic (qui vérifient souvent "currentTurn === owner")
+// acceptent bien le clic simulé — restauré à la fin, quel que soit le
+// gagnant réel du tour en cours dans la partie principale.
+function replayActionCardFromDiscard(owner, originalSide, sourceCard, onFullyDone){
+  const savedCurrentTurn = currentTurn;
+  currentTurn = owner;
+
+  const playOnce = (onOnceDone) => {
+    const fromDiscard = topDiscard.some(c => c.id === sourceCard.id) ? topDiscard
+                       : botDiscard.some(c => c.id === sourceCard.id) ? botDiscard : null;
+    if (!fromDiscard) { onOnceDone(); return; } // carte introuvable entretemps : sécurité
+    const idx = fromDiscard.findIndex(c => c.id === sourceCard.id);
+    fromDiscard.splice(idx, 1);
+    getHandByOwner(owner).push(sourceCard);
+    pendingFreePlay = { owner, cardId: sourceCard.id };
+    fullRender();
+    setTimeout(() => {
+      const clicked = (typeof aiClickHandCard === 'function') && aiClickHandCard(owner, sourceCard);
+      if (!clicked) { onOnceDone(); return; }
+      memoryReplayResolveStep(owner, sourceCard, onOnceDone);
+    }, 80);
+  };
+
+  playOnce(() => {
+    playOnce(() => {
+      currentTurn = savedCurrentTurn;
+      pendingFreePlay = { owner: null, cardId: null };
+      pushHistory('action', `${cardAnchor('C195')} : ${playerLabel(owner)} rejoue ${cardAnchor(sourceCard.label)} deux fois depuis la défausse !`);
+      fullRender();
+      if (typeof onFullyDone === 'function') onFullyDone();
+    });
+  });
+}
+
+// Ouvre les DEUX défausses au centre de l'écran de récompense : toutes les
+// cartes y sont visibles, mais seules les cartes de type ACTION (à
+// l'exception de Memory elle-même) sont en surbrillance dorée et cliquables.
 function renderMemoryReplayChoice(winner){
   const zone = document.getElementById('memoryReplayZone');
   if (!zone) return;
-  const pools = [{ side: 'top', arr: topDiscard }, { side: 'bottom', arr: botDiscard }];
-  const candidates = [];
-  pools.forEach(p => { p.arr.forEach(c => { if (MEMORY_REPLAYABLE_ACTIONS[c.label]) candidates.push({ side: p.side, card: c }); }); });
 
-  if (candidates.length === 0) {
-    zone.innerHTML = `<p style="margin:0;color:#c9bfe0;font-size:13px;">Aucune carte Action rejouable dans les défausses actuellement.</p>`;
-    return;
-  }
-  zone.innerHTML = '';
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:440px;';
-  candidates.forEach(({ side, card }) => {
-    const btn = document.createElement('button');
-    btn.className = 'memoryCloseBtn';
-    btn.style.background = 'linear-gradient(90deg,#6bffb0,#5ea9ff)';
-    btn.innerHTML = `${cardName(card.label)} (${playerLabel(side)})`;
-    btn.addEventListener('click', () => {
-      replayActionCardFromDiscard(winner, side, card);
-      zone.innerHTML = `<p style="margin:0;color:#9bffcf;font-size:13px;">${cardName(card.label)} rejouée deux fois !</p>`;
+  const isEligible = (c) => getType(c.label) === 'action' && !MEMORY_REPLAY_EXCLUDED_LABELS.includes(c.label);
+  const pools = [{ side: 'top', arr: topDiscard }, { side: 'bottom', arr: botDiscard }];
+  const anyEligible = pools.some(p => p.arr.some(isEligible));
+
+  const buildCol = (side, arr) => {
+    const cardsHtml = arr.length ? arr.map(c => {
+      const eligible = isEligible(c);
+      return `<div class="memDiscardCard${eligible ? ' eligible' : ''}" data-id="${c.id}" data-side="${side}"
+        style="background-image:url('${CARD_IMAGES[c.label] || ''}')" title="${cardName(c.label)}"></div>`;
+    }).join('') : `<div class="memDiscardEmpty">Défausse vide</div>`;
+    return `<div class="memDiscardCol">
+      <div class="memDiscardTitle">Défausse — ${playerLabel(side)}</div>
+      <div class="memDiscardGrid">${cardsHtml}</div>
+    </div>`;
+  };
+
+  zone.innerHTML = `
+    <p class="memDiscardPrompt">${anyEligible ? 'Choisissez une carte Action (en doré) à rejouer deux fois d’affilée :' : 'Aucune carte Action dans les défausses actuellement.'}</p>
+    <div class="memDiscardWrap">${buildCol('top', topDiscard)}${buildCol('bottom', botDiscard)}</div>
+  `;
+
+  if (!anyEligible) return;
+
+  zone.querySelectorAll('.memDiscardCard.eligible').forEach(el => {
+    el.addEventListener('click', () => {
+      if (zone.dataset.busy === '1') return;
+      const side = el.getAttribute('data-side');
+      const arr = (side === 'top') ? topDiscard : botDiscard;
+      const cardId = el.getAttribute('data-id');
+      const card = arr.find(c => String(c.id) === cardId);
+      if (!card) return;
+
+      zone.dataset.busy = '1';
+      zone.querySelectorAll('.memDiscardCard').forEach(c2 => { if (c2 !== el) c2.style.pointerEvents = 'none'; });
+      zone.querySelectorAll('.memDiscardCard.eligible').forEach(c2 => c2.classList.remove('eligible'));
+      el.classList.add('chosen');
+      const p = zone.querySelector('.memDiscardPrompt');
+      if (p) { p.textContent = `${cardName(card.label)} en cours de rejeu (2 fois)...`; p.classList.add('memDiscardBusy'); }
+
+      replayActionCardFromDiscard(winner, side, card, () => {
+        const p2 = zone.querySelector('.memDiscardPrompt');
+        if (p2) { p2.textContent = `${cardName(card.label)} rejouée deux fois !`; p2.classList.remove('memDiscardBusy'); }
+      });
     });
-    wrap.appendChild(btn);
   });
-  zone.appendChild(wrap);
 }
 
 function finishMemoryGame(){
@@ -7837,7 +7966,7 @@ function finishMemoryGame(){
         <div class="memoryBravo">🎉 Bravo ${playerLabel(winner)} ! 🎉</div>
         <h3>${playerLabel(winner)} remporte le Memory !</h3>
         <p>Score final — ${playerLabel('top')} : ${g.scores.top} &nbsp;|&nbsp; ${playerLabel('bottom')} : ${g.scores.bottom}<br>
-        +1 Mithril pour ${playerLabel(winner)}. Choisissez une carte Action à rejouer deux fois depuis une défausse :</p>
+        +1 Mithril pour ${playerLabel(winner)}. Voici les deux défausses : choisissez une carte Action (en doré) que ${playerLabel(winner)} rejouera deux fois d’affilée !</p>
         <div id="memoryReplayZone"></div>
         <button class="memoryCloseBtn" id="memoryCloseBtn">Continuer la partie</button>
       </div>
@@ -17736,7 +17865,12 @@ function renderPlayerPanels(){
     const nameEl = document.getElementById(seat === 'top' ? 'nameTop' : 'nameBottom');
     if (!avatarEl || !nameEl) return;
     const p = profiles ? profiles[seat] : null;
-    const url = p && p.avatar ? (p.avatar.startsWith('data:') ? p.avatar : `/cartes/${p.avatar}.png`) : '/assets/avatarbase.png';
+    // L'IA a sa propre image dédiée (/assets/IA.png), toujours prioritaire
+    // sur la résolution générique d'avatar (qui suppose sinon un avatar de
+    // type "carte" sous /cartes/, sans rapport avec ce fichier).
+    const url = (typeof VS_AI_MODE !== 'undefined' && VS_AI_MODE && seat === AI_SEAT)
+      ? '/assets/IA.png'
+      : (p && p.avatar ? (p.avatar.startsWith('data:') ? p.avatar : `/cartes/${p.avatar}.png`) : '/assets/avatarbase.png');
     avatarEl.style.backgroundImage = `url('${url}')`;
     nameEl.textContent = p ? p.name : fallbackName;
     if (ONLINE_MODE && seat === MY_SEAT) avatarEl.classList.add('isMe');
@@ -18706,9 +18840,13 @@ function showVictoryOverlay(winner, reason, iWon){
   // Avatar du joueur DEVANT SON PROPRE écran (pas forcément le vainqueur).
   const mySeatForAvatar = (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE) ? MY_SEAT : winner;
   const myProfile = profiles && profiles[mySeatForAvatar];
-  const myAvatarUrl = (myProfile && myProfile.avatar)
-    ? (myProfile.avatar.startsWith('data:') ? myProfile.avatar : `/cartes/${myProfile.avatar}.png`)
-    : '/assets/avatarbase.png';
+  // L'IA a sa propre image dédiée (/assets/IA.png), toujours prioritaire sur
+  // la résolution générique d'avatar "carte" (/cartes/...).
+  const myAvatarUrl = (typeof VS_AI_MODE !== 'undefined' && VS_AI_MODE && mySeatForAvatar === AI_SEAT)
+    ? '/assets/IA.png'
+    : (myProfile && myProfile.avatar)
+      ? (myProfile.avatar.startsWith('data:') ? myProfile.avatar : `/cartes/${myProfile.avatar}.png`)
+      : '/assets/avatarbase.png';
   const myName = myProfile ? myProfile.name : '';
 
   const isOnlineMatch = (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE);
@@ -19577,7 +19715,13 @@ function aiEndTurn(){
 //    mes ciblages personnalisés type Tokzik/Kryo/Kamykaz/Vilunion...)
 // 3) un mode de ciblage actif sans fenêtre visible : clic direct sur une
 //    carte du plateau au hasard, le dispatcher existant fait le reste.
-function aiResolveAnyOpenPrompt(){
+// CORRECTIF (Memory, C195) : accepte désormais un "selfSeat" optionnel
+// (par défaut AI_SEAT, comportement inchangé pour l'IA) — permet de réutiliser
+// EXACTEMENT ce même résolveur générique pour faire rejouer automatiquement
+// une carte Action depuis la défausse, côté MEMORY, quel que soit le
+// siège réel du gagnant (humain ou IA). Voir memoryReplayResolveStep().
+function aiResolveAnyOpenPrompt(selfSeat){
+  if (typeof selfSeat === 'undefined' || !selfSeat) selfSeat = AI_SEAT;
   const carousel = document.getElementById('familiarCarouselOverlay');
   if (carousel && carousel.style.display && carousel.style.display !== 'none') {
     // CORRECTIF BLOCAGE : ce carrousel (ouvert par le bouton "Voir
@@ -19639,7 +19783,7 @@ function aiResolveAnyOpenPrompt(){
     (typeof c114TargetMode !== 'undefined' && c114TargetMode)
   );
   if (hasKnownSmartMode) {
-    const smart = aiChooseSmartTarget();
+    const smart = aiChooseSmartTarget(selfSeat);
     if (smart) { smart.click(); return true; }
   }
 
@@ -19694,10 +19838,17 @@ function aiResolveAnyOpenPrompt(){
 // puis retrouve l'élément correspondant — ne connaît pas chaque carte dans
 // le détail, mais applique par défaut la règle la plus sûre : viser la
 // cible adverse la plus dangereuse (PV + ATK + potentiel économique).
-function aiChooseSmartTarget(){
-  const oppSeat = (AI_SEAT === 'top') ? 'bottom' : 'top';
+// CORRECTIF (Memory, C195) : "selfSeat" optionnel (par défaut AI_SEAT,
+// comportement inchangé pour l'IA) — voir aiResolveAnyOpenPrompt() ci-dessus,
+// qui le propage désormais depuis le rejeu automatique de carte Action du
+// mini-jeu Memory. Toutes les préférences "ma propre carte" / "carte
+// adverse" ci-dessous se recalculent alors du point de vue du VRAI gagnant
+// du Memory (humain ou IA), plutôt que de toujours supposer AI_SEAT.
+function aiChooseSmartTarget(selfSeat){
+  if (typeof selfSeat === 'undefined' || !selfSeat) selfSeat = AI_SEAT;
+  const oppSeat = (selfSeat === 'top') ? 'bottom' : 'top';
   const entries = [];
-  getLineByOwner(AI_SEAT).forEach(card => entries.push({ owner: AI_SEAT, card, zone: 'lane' }));
+  getLineByOwner(selfSeat).forEach(card => entries.push({ owner: selfSeat, card, zone: 'lane' }));
   getLineByOwner(oppSeat).forEach(card => entries.push({ owner: oppSeat, card, zone: 'lane' }));
   // Certains ciblages (Prismis, Chargebox...) peuvent aussi viser un artefact
   // en jeu, pas seulement un combattant — sans ces deux lignes, l'IA ne
@@ -19731,7 +19882,7 @@ function aiChooseSmartTarget(){
   // sur SA PROPRE carte la moins chargée plutôt que d'aider l'adversaire.
   if (typeof chargeboxTargetMode !== 'undefined' && chargeboxTargetMode) {
     const chargeable = entries.filter(e => typeof CHARGEABLE_CARDS !== 'undefined' && CHARGEABLE_CARDS.includes(e.card.label));
-    const ownChargeable = chargeable.filter(e => e.owner === AI_SEAT).sort((a, b) => (a.card.charges || 0) - (b.card.charges || 0));
+    const ownChargeable = chargeable.filter(e => e.owner === selfSeat).sort((a, b) => (a.card.charges || 0) - (b.card.charges || 0));
     if (ownChargeable.length) return elFor(ownChargeable[0]);
     return pickBest(chargeable);
   }
@@ -19742,7 +19893,7 @@ function aiChooseSmartTarget(){
   if (typeof c112TargetMode !== 'undefined' && c112TargetMode) {
     if (c112TargetMode.mode === 'remove') {
       const esprit = entries.filter(e => hasTag(e.card, 'Esprit'));
-      return pickBest(esprit.filter(e => e.owner === AI_SEAT), esprit);
+      return pickBest(esprit.filter(e => e.owner === selfSeat), esprit);
     }
     const nonEsprit = entries.filter(e => !hasTag(e.card, 'Esprit'));
     return pickBest(nonEsprit.filter(e => e.owner === oppSeat), nonEsprit);
@@ -19769,7 +19920,7 @@ function aiChooseSmartTarget(){
       !hasTag(e.card, 'Chimeria') &&
       !alreadyPicked.has(e.card.id)
     );
-    return pickBest(valid.filter(e => e.owner === AI_SEAT), valid);
+    return pickBest(valid.filter(e => e.owner === selfSeat), valid);
   }
   // WADOO : rituel de liaison (Petit Fétiche C202, Doudou Épineux C203,
   // Golgoth C215, Mboria C220...) — ne peut lier qu'un combattant ENNEMI
@@ -23317,8 +23468,10 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
       if (/\.(png|jpe?g|webp|gif)$/i.test(avatar)) return `/assets/Avatar/${encodeURIComponent(avatar)}`;
       return `/cartes/${avatar}.png`; // ancien avatar "carte" (compte existant)
     }
-    const topAvatarUrl = vsAvatarUrl(profiles.top.avatar);
-    const bottomAvatarUrl = vsAvatarUrl(profiles.bottom.avatar);
+    // L'IA a sa propre image dédiée (/assets/IA.png), toujours prioritaire
+    // sur la résolution générique d'avatar ci-dessus.
+    const topAvatarUrl = (typeof AI_SEAT !== 'undefined' && AI_SEAT === 'top') ? '/assets/IA.png' : vsAvatarUrl(profiles.top.avatar);
+    const bottomAvatarUrl = (typeof AI_SEAT !== 'undefined' && AI_SEAT === 'bottom') ? '/assets/IA.png' : vsAvatarUrl(profiles.bottom.avatar);
     // Mon propre profil doit TOUJOURS apparaître en bas (comme le reste du
     // plateau, qui place systématiquement ma zone en bas via flip-view) —
     // peu importe si je suis réellement le siège "top" ou "bottom" côté
