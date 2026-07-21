@@ -628,5 +628,80 @@
     "type": "personnage",
     "hp": 3,
     "shield": 0
+  },
+  "0122": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 1
+  },
+  "0124": {
+    "type": "personnage",
+    "hp": 11,
+    "shield": 0
+  },
+  "0126": {
+    "type": "personnage",
+    "hp": 2,
+    "shield": 0
+  },
+  "0130": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 0
+  },
+  "0131": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 1
+  },
+  "0132": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 1
+  },
+  "0134": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 1
+  },
+  "0137": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 0
+  },
+  "0138": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 0
+  },
+  "0140": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 0
+  },
+  "0141": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 0
+  },
+  "0143": {
+    "type": "personnage",
+    "hp": 3,
+    "shield": 1
+  },
+  "0144": {
+    "type": "personnage",
+    "hp": 4,
+    "shield": 0
+  },
+  "0146": {
+    "type": "personnage",
+    "hp": 6,
+    "shield": 1
+  },
+  "0147": {
+    "type": "personnage",
+    "hp": 5,
+    "shield": 1
   }
 }

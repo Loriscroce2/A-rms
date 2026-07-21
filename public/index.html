@@ -3130,7 +3130,7 @@ function showZoom(label, card=null, side='right'){
   const render = () => {
     const safeCard = card || { label };
     attachHP(zoomCard, safeCard);
-    if (safeCard.label === 'C7' || safeCard.label === 'C58' || safeCard.label === 'C112' || safeCard.label === 'C216' || safeCard.label === 'C227' || safeCard.label === 'C212' || safeCard.label === 'C74' || safeCard.label === 'C191' || safeCard.label === 'C193' || safeCard.label === 'C199' || safeCard.label === 'T24'){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
+    if (safeCard.label === 'C7' || safeCard.label === 'C58' || safeCard.label === 'C112' || safeCard.label === 'C216' || safeCard.label === 'C227' || safeCard.label === 'C212' || safeCard.label === 'C74' || safeCard.label === 'C191' || safeCard.label === 'C193' || safeCard.label === 'C199' || safeCard.label === 'T24' || safeCard.label === 'C133' || safeCard.label === 'C142'){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
     if (safeCard.label === 'C8'){ attachSealedBadge(zoomCard, safeCard); }
     if (safeCard.label === 'C68'){ attachCapturedMithril(zoomCard, safeCard); }
     if (getType(safeCard.label) === 'personnage'){ attachFamiliersZoom(zoomCard, safeCard); }
@@ -3607,6 +3607,18 @@ const CARD_IMAGES = {
   'C114': '../cartes/0114.png',
   'C115': '../cartes/0115.png',
   'C120': '../cartes/0120.png',
+  'C121': '../cartes/0121.png', 'C122': '../cartes/0122.png', 'C123': '../cartes/0123.png',
+  'C124': '../cartes/0124.png', 'C125': '../cartes/0125.png', 'C126': '../cartes/0126.png',
+  'C127': '../cartes/0127.png', 'C128': '../cartes/0128.png', 'C129': '../cartes/0129.png',
+  'C130': '../cartes/0130.png', 'C131': '../cartes/0131.png', 'C132': '../cartes/0132.png',
+  'C133': '../cartes/0133.png', 'C134': '../cartes/0134.png', 'C135': '../cartes/0135.png',
+  'C136': '../cartes/0136.png', 'C137': '../cartes/0137.png', 'C138': '../cartes/0138.png',
+  'C139': '../cartes/0139.png', 'C140': '../cartes/0140.png', 'C141': '../cartes/0141.png',
+  'C142': '../cartes/0142.png', 'C143': '../cartes/0143.png', 'C144': '../cartes/0144.png',
+  'C145': '../cartes/0145.png', 'C146': '../cartes/0146.png', 'C147': '../cartes/0147.png',
+  'C148': '../cartes/0148.png', 'C149': '../cartes/0149.png', 'C150': '../cartes/0150.png',
+  'T09': '../cartes/T25.png', 'T26': '../cartes/T26.png', 'T27': '../cartes/T27.png',
+  'T28': '../cartes/T28.png', 'T29': '../cartes/T29.png',
   'C151': '../cartes/0151.png',
   'T01': '../cartes/T01.png',
   'C152': '../cartes/0152.png',
@@ -3808,6 +3820,13 @@ const CARD_TYPES  = {
   'C118': 'action',
   'C119': 'personnage',
   'C120': 'personnage',
+  'C121': 'artefact', 'C122': 'personnage', 'C123': 'action', 'C124': 'personnage', 'C125': 'artefact',
+  'C126': 'personnage', 'C127': 'action', 'C128': 'familier', 'C129': 'action', 'C130': 'personnage',
+  'C131': 'personnage', 'C132': 'personnage', 'C133': 'artefact', 'C134': 'personnage', 'C135': 'action',
+  'C136': 'artefact', 'C137': 'personnage', 'C138': 'personnage', 'C139': 'familier', 'C140': 'personnage',
+  'C141': 'personnage', 'C142': 'artefact', 'C143': 'personnage', 'C144': 'personnage', 'C145': 'action',
+  'C146': 'personnage', 'C147': 'personnage', 'C148': 'familier', 'C149': 'artefact', 'C150': 'artefact',
+  'T09': 'personnage', 'T26': 'personnage', 'T27': 'personnage', 'T28': 'personnage', 'T29': 'personnage',
   'C151': 'personnage',
   'T01': 'artefact',
   'C152': 'personnage',
@@ -4022,6 +4041,13 @@ const CARD_NAMES = {
   'C118': 'Warzazath',
   'C119': 'Noxroc',
   'C120': 'Salomon II',
+  'C121': 'Sceptrale', 'C122': 'Shivart', 'C123': 'Combo-griffes', 'C124': 'Gargantua', 'C125': 'Harpon Géant',
+  'C126': 'Orion', 'C127': 'Brise bouclier', 'C128': 'Truchøn', 'C129': 'Haine chimérale', 'C130': 'Mère',
+  'C131': 'Blacksun', 'C132': 'Valérien', 'C133': 'Pierre Dragoons', 'C134': 'Toundrä', 'C135': 'Pister sa proie',
+  'C136': 'Arc du néant', 'C137': 'Dragoons B', 'C138': 'Dragoons S', 'C139': 'Oeuf de Dragoons', 'C140': 'Maximilien',
+  'C141': 'Dravalier', 'C142': 'Couveuse Temporelle', 'C143': 'Vitiligø', 'C144': 'Dragoons P', 'C145': 'W pour Wendetta',
+  'C146': 'Dragoons N', 'C147': 'Lanceløt', 'C148': 'Serpentø', 'C149': 'Tarot machina', 'C150': 'Écorcheuse',
+  'T09': 'Dragoons Y', 'T26': 'Dragoons A', 'T27': 'Dragoons Z', 'T28': 'Dragoons T', 'T29': 'Dragoons X',
   'C151': 'Mantyra',
   'T01': 'Eventail',
   'C152': 'Prismis',
@@ -4212,6 +4238,9 @@ const CARD_HP_BASE = {
   'C117': 2,
   'C119': 5,
   'C120': 5,
+  'C122': 4, 'C124': 11, 'C126': 2, 'C130': 4, 'C131': 4, 'C132': 4, 'C134': 4,
+  'C137': 3, 'C138': 3, 'C140': 3, 'C141': 3, 'C143': 3, 'C144': 4, 'C146': 6, 'C147': 5,
+  'T09': 3, 'T26': 3, 'T27': 3, 'T28': 3, 'T29': 3,
   'C151': 3,
   'C152': 5,
   'C154': 7,
@@ -4346,6 +4375,9 @@ const CARD_SHIELD_BASE = {
   'C116': 0,
   'C117': 0,
   'C120': 0,
+  'C122': 1, 'C124': 0, 'C126': 0, 'C130': 0, 'C131': 1, 'C132': 1, 'C134': 1,
+  'C137': 0, 'C138': 0, 'C140': 0, 'C141': 0, 'C143': 1, 'C144': 0, 'C146': 1, 'C147': 1,
+  'T09': 0, 'T26': 1, 'T27': 1, 'T28': 0, 'T29': 0,
   'C151': 2,
   'C154': 1,
   'C155': 3,
@@ -4452,6 +4484,18 @@ const CARD_TAGS = {
   'C118': ['action', 'Savage'],
   'C119': ['guerrier', 'Savage'],
   'C120': ['Diplomate', 'Savage'],
+  'C121': ['artefact', 'Savage'], 'C122': ['guerrier', 'Savage'], 'C123': ['action', 'Savage'],
+  'C124': ['guerrier', 'Savage', 'provocateur'], 'C125': ['artefact', 'Savage'], 'C126': ['citoyen', 'Savage'],
+  'C127': ['action', 'Savage'], 'C128': ['familier', 'Savage'], 'C129': ['action', 'Savage'],
+  'C130': ['Diplomate', 'Savage'], 'C131': ['citoyen', 'Savage'], 'C132': ['medic', 'Savage'],
+  'C133': ['artefact', 'Savage'], 'C134': ['citoyen', 'Savage'], 'C135': ['action', 'Savage'],
+  'C136': ['artefact', 'Savage'], 'C137': ['Dragoons', 'Savage'], 'C138': ['Dragoons', 'Savage', 'Esprit'],
+  'C139': ['familier', 'Savage'], 'C140': ['citoyen', 'Savage'], 'C141': ['citoyen', 'Savage'],
+  'C142': ['artefact', 'Savage'], 'C143': ['citoyen', 'Savage'], 'C144': ['Dragoons', 'Savage', 'provocateur'],
+  'C145': ['action', 'Savage'], 'C146': ['Dragoons', 'Savage'], 'C147': ['guerrier', 'Savage'],
+  'C148': ['familier', 'Savage'], 'C149': ['artefact', 'Savage'], 'C150': ['artefact', 'Savage'],
+  'T09': ['Dragoons', 'Savage', 'rapide', 'poison'], 'T26': ['Dragoons', 'Savage', 'rapide'], 'T27': ['Dragoons', 'Savage'],
+  'T28': ['Dragoons', 'Savage', 'Esprit'], 'T29': ['Dragoons', 'Savage', 'rapide'],
   'C151': ['guerrier', 'Chimeria'],
   'T01': ['artefact', 'Chimeria', 'token'],
   'C152': ['guerrier', 'Chimeria'],
@@ -4662,6 +4706,10 @@ function isCardUndiscardable(cardLabel) {
 
 function applyFreezeToCard(targetCard) {
   if (getType(targetCard.label) !== 'personnage' || isFrozen(targetCard)) return; // Ne pas geler une carte déjà gelée
+  // SAVAGE (2e lot) : Blacksun (C131) ne peut jamais être gelé, quel qu'en
+  // soit l'effet — seul point d'entrée du gel dans tout le jeu, donc unique
+  // garde-fou nécessaire.
+  if (targetCard.label === 'C131') return;
 
   targetCard.isFrozenByEffect = true;
   pushHistory('info', `${cardAnchor(targetCard.label)} est GELÉ par un effet !`);
@@ -5433,6 +5481,15 @@ let copieDesEnfersTargetMode = null; // Copie des Enfers (C90) : cible surveill�
 let exdoteTargetMode = null; // Exdote (C99) : donner poison à un combattant
 let couveuseStealTargetMode = null; // Couveuse (C94) : prendre le contrôle d'un Eggrreur adverse
 let roiDRoiTargetMode = null; // Roi-D-Roi (C100) : détruire un diplomate adverse
+let orionMoveMode = null; // SAVAGE (2e lot) : Orion (C126) : déplacer un familier d'un combattant à un autre — { owner, cardId, phase:'source'|'dest', sourceHostId, familiarId }
+let lanceloTargetMode = null; // SAVAGE (2e lot) : Lanceløt (C147) : détruire un Dragoons adverse
+let comboGriffesTargetMode = null; // SAVAGE (2e lot) : Combo-griffes (C123) : -3PV à un combattant
+let haineChimeraleTargetMode = null; // SAVAGE (2e lot) : Haine chimérale (C129) : détruire une carte Chiméria
+let maximilienThrowMode = null; // SAVAGE (2e lot) : Maximilien (C140) : lancer un voisin sur un ennemi — { owner, cardId, phase:'neighbor'|'enemy', neighborId }
+let serpentoFreezeTargetMode = null; // SAVAGE (2e lot) : Serpentø (C148, via son hôte) : geler un adverse
+let sceptraleTargetMode = null; // SAVAGE (2e lot) : Sceptrale (C121) : un combattant devient ESPRIT
+let harponGeantTargetMode = null; // SAVAGE (2e lot) : Harpon Géant (C125) : détruire un artefact
+let pisterSaProieMode = false; // SAVAGE (2e lot) : Pister sa proie (C135) : carrousel de sélection ouvert (bloque les autres actions)
 const actionBlocked = { top: false, bottom: false };
 
 // NOUVELLE STRUCTURE CUMULATIVE POUR LES MODIFICATEURS DE COÛT DE FORGE
@@ -7816,7 +7873,9 @@ function memoryReplayAnyBlockingUiOpen(){
     arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
     c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
     varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
-    couveuseStealTargetMode || roiDRoiTargetMode
+    couveuseStealTargetMode || roiDRoiTargetMode || orionMoveMode || lanceloTargetMode ||
+    comboGriffesTargetMode || haineChimeraleTargetMode || maximilienThrowMode || serpentoFreezeTargetMode ||
+    sceptraleTargetMode || harponGeantTargetMode || pisterSaProieMode
   );
   return promptOpen || carouselOpen || modesActive;
 }
@@ -9906,6 +9965,56 @@ function openMiningPrompt(owner, card, fromEl){
         const t24Charges = card.charges || 0;
         msg = `Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (+5 PB et 1 charge, ${t24Charges}/3 — à 3 charges : +6 Mithril et retour à Dr.Melvina).`;
         buttons.push(mineButton, { label: `Action (+5 PB, +1 charge — ${t24Charges}/3)`, className: 'confirm', onClick: () => { useDrMelvina2Action(owner, card); } });
+    } else if (card.label === 'C131') {
+        title = 'Blacksun';
+        mineButton.label += ' + Adversaire perd 1 Mithril';
+        mineButton.onClick = () => { performBlacksunMining(owner, card); };
+        buttons.push(mineButton);
+    } else if (card.label === 'C134') {
+        title = 'Toundrä';
+        const t134Max = getMaxCombatantsForOwner(owner);
+        const t134CanSpawn = getLineByOwner(owner).length < t134Max;
+        mineButton.label += t134CanSpawn ? ` + Place ${cardName('T27')}` : ' (zone de combat pleine)';
+        mineButton.onClick = () => { performToundraMining(owner, card); };
+        buttons.push(mineButton);
+    } else if (card.label === 'T27') {
+        title = 'Dragoons Z';
+        mineButton.label += ' + Gèle le(s) combattant(s) au plus PV';
+        mineButton.onClick = () => { performDragoonsZMining(owner, card); };
+        buttons.push(mineButton);
+    } else if (card.label === 'T26') {
+        title = 'Dragoons A';
+        const t26Guerriers = getHandByOwner(owner).filter(c => hasTag(c, 'guerrier'));
+        const canUseT26 = t26Guerriers.length > 0;
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (vos guerriers en main gagnent +2 PV).';
+        buttons.push(mineButton, { label: `Action (Guerriers en main +2PV — ${t26Guerriers.length})`, className: 'confirm' + (canUseT26 ? '' : ' disabled'), disabled: !canUseT26, onClick: () => { if (canUseT26) useDragoonsAAction(owner, card); } });
+    } else if (card.label === 'C138') {
+        title = 'Dragoons S';
+        const c138OtherDragoons = getLineByOwner(owner).filter(c => c.id !== card.id && hasTag(c, 'Dragoons'));
+        const canUseC138 = c138OtherDragoons.length > 0;
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (vos autres Dragoons gagnent +4 PV).';
+        buttons.push(mineButton, { label: `Action (Autres Dragoons +4PV — ${c138OtherDragoons.length})`, className: 'confirm' + (canUseC138 ? '' : ' disabled'), disabled: !canUseC138, onClick: () => { if (canUseC138) useDragoonsSAction(owner, card); } });
+    } else if (card.label === 'C122') {
+        title = 'Shivart';
+        const c122HasFrozen = topLine.concat(botLine).some(c => isFrozen(c));
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (les combattants à côté de combattants gelés subissent -5 PV).';
+        buttons.push(mineButton, { label: 'Action (-5PV aux voisins de gelés)', className: 'confirm' + (c122HasFrozen ? '' : ' disabled'), disabled: !c122HasFrozen, onClick: () => { if (c122HasFrozen) useShivartAction(owner, card); } });
+    } else if (card.label === 'C140') {
+        title = 'Maximilien';
+        const c140Line = getLineByOwner(owner);
+        const c140Idx = c140Line.findIndex(c => c.id === card.id);
+        const c140HasNeighbor = c140Idx !== -1 && (c140Line[c140Idx - 1] || c140Line[c140Idx + 1]);
+        const c140Opp = (owner === 'top') ? 'bottom' : 'top';
+        const c140HasEnemyTarget = getLineByOwner(c140Opp).length > 0;
+        const canUseC140 = !!c140HasNeighbor && c140HasEnemyTarget;
+        msg = 'Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (lancer un voisin sur un ennemi, -10PV aux deux).';
+        buttons.push(mineButton, { label: 'Action (Lancer un voisin, -10PV)', className: 'confirm' + (canUseC140 ? '' : ' disabled'), disabled: !canUseC140, onClick: () => { if (canUseC140) startMaximilienThrowTargeting(owner, card); } });
+    } else if (getFamiliersOnHost(card).some(f => f.label === 'C148')) {
+        title = cardName(card.label);
+        const c148Opp = (owner === 'top') ? 'bottom' : 'top';
+        const c148HasTarget = getLineByOwner(c148Opp).length > 0;
+        msg = `Choisissez : <strong>Miner</strong> ou <strong>Action</strong> (${cardAnchor('C148')} : gèle un combattant adverse).`;
+        buttons.push(mineButton, { label: 'Action (Geler un ennemi, via Serpentø)', className: 'confirm' + (c148HasTarget ? '' : ' disabled'), disabled: !c148HasTarget, onClick: () => { if (c148HasTarget) startSerpentoFreezeTargeting(owner, card); } });
     } else {
       buttons.push(mineButton);
     }
@@ -13065,7 +13174,9 @@ function isAnyTargetSelectionActive(){
     arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
     c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
     varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
-    couveuseStealTargetMode || roiDRoiTargetMode ||
+    couveuseStealTargetMode || roiDRoiTargetMode || orionMoveMode || lanceloTargetMode ||
+    comboGriffesTargetMode || haineChimeraleTargetMode || maximilienThrowMode || serpentoFreezeTargetMode ||
+    sceptraleTargetMode || harponGeantTargetMode || pisterSaProieMode ||
     (typeof memoryGame !== 'undefined' && memoryGame && memoryGame.active !== false)
   );
 }
@@ -13466,6 +13577,36 @@ function attachFamiliarToHost(owner, familiarCard, hostCard){
     fullRender();
     openMezamorphCopyPrompt(owner, familiarCard);
     return;
+  }
+
+  // SAVAGE (2e lot) : Truchøn (C128) — le combattant hôte gagne RAPIDE et
+  // +2 PV dès l'attache, de façon permanente. (Le texte précise aussi que
+  // Truchøn "reste également dans la défausse et dans l'exil" — déjà le
+  // comportement par défaut de detachFamiliarsOnHost, qui envoie toujours
+  // le familier détaché dans la défausse de son propriétaire.)
+  if (familiarCard.label === 'C128') {
+    if (!Array.isArray(hostCard.addedTags)) hostCard.addedTags = [];
+    if (!hostCard.addedTags.includes('rapide')) hostCard.addedTags.push('rapide');
+    if (typeof hostCard.hp === 'number') hostCard.hp += 2;
+    pushHistory('info', `${cardAnchor('C128')} donne <strong>RAPIDE</strong> et +2 PV à ${cardAnchor(hostCard.label)} !`);
+  }
+
+  // SAVAGE (2e lot) : Oeuf de Dragoons (C139) — le combattant hôte gagne
+  // "MORT : Piochez jusqu'à un Dragoons, mettez-le dans la zone de combat,
+  // mélangez les autres cartes piochées dans le deck." (voir discardCard,
+  // qui consomme hostCard._oeufDragoonsMort au moment de la mort).
+  if (familiarCard.label === 'C139') {
+    hostCard._oeufDragoonsMort = true;
+    pushHistory('info', `${cardAnchor('C139')} donne à ${cardAnchor(hostCard.label)} : "MORT : piochez jusqu'à un Dragoons."`);
+  }
+
+  // SAVAGE (2e lot) : Serpentø (C148) — le combattant hôte gagne POISON dès
+  // l'attache, et une capacité ACTION (geler un adverse), câblée dans
+  // openMiningPrompt via getFamiliersOnHost(card).some(f => f.label === 'C148').
+  if (familiarCard.label === 'C148') {
+    if (!Array.isArray(hostCard.addedTags)) hostCard.addedTags = [];
+    if (!hostCard.addedTags.includes('poison')) hostCard.addedTags.push('poison');
+    pushHistory('info', `${cardAnchor('C148')} donne <strong>POISON</strong> à ${cardAnchor(hostCard.label)} !`);
   }
 
   fullRender();
@@ -14466,6 +14607,34 @@ function continueResolveFight(from, to){
     newlyFrozenAttacker: to.card.label === 'C229' && resFrom.hpLost > 0 && getEffectiveHP(from.card) > 0,
   };
 
+  // SAVAGE (2e lot) : Dragoons Y (T09) — COMBAT : gagnez +1 Mithril (à
+  // chaque combat qu'il mène, gagnant ou perdant).
+  if (from.card.label === 'T09') {
+    addMithril(from.owner);
+    pushHistory('mithril', `${cardAnchor('T09')} : +1 Mithril pour ${playerLabel(from.owner)} !`);
+  }
+  // SAVAGE (2e lot) : Dragoons X (T29) — COMBAT : l'adversaire défausse la
+  // carte du dessus de son deck.
+  if (from.card.label === 'T29') {
+    const t29Opp = (from.owner === 'top') ? 'bottom' : 'top';
+    forceDiscardFromDeckTop(t29Opp, 1, 'T29');
+  }
+  // SAVAGE (2e lot) : Valérien (C132) — COMBAT : place un Dragoons A (T26)
+  // dans SA zone de combat, exilé après sa mort.
+  if (from.card.label === 'C132') {
+    const valerienLine = getLineByOwner(from.owner);
+    const valerienMax = getMaxCombatantsForOwner(from.owner);
+    if (valerienLine.length < valerienMax) {
+      const prefix132 = (from.owner === 'top') ? 'T' : 'B';
+      const dragoonA132 = createCard('T26', prefix132);
+      dragoonA132._exileOnDeath = true;
+      valerienLine.push(dragoonA132);
+      pushHistory('jeu', `${cardAnchor('C132')} place ${cardAnchor('T26')} dans votre zone de combat (exilé après sa mort) !`);
+    } else {
+      pushHistory('info', `${cardAnchor('C132')} : zone de combat pleine, aucun Dragoons A créé.`);
+    }
+  }
+
   // IMPY (nouveau lot) : Bugbug (C87) — tant qu'il est en jeu (n'importe
   // quel camp), si un combat se solde par la mort d'UN SEUL des deux
   // combattants (pas les deux, pas aucun), l'issue est INVERSÉE : celui qui
@@ -14874,6 +15043,13 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C196') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC196Prompt(owner, card, el)); }); }
             if (card.label === 'C195') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionMemory(owner, card)); }); }
 
+            // SAVAGE (2e lot) : cartes Action (0121-0150)
+            if (card.label === 'C123') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionComboGriffes(owner, card, el)); }); }
+            if (card.label === 'C127') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionBriseBouclier(owner, card)); }); }
+            if (card.label === 'C129') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionHaineChimerale(owner, card, el)); }); }
+            if (card.label === 'C135') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionPisterSaProie(owner, card)); }); }
+            if (card.label === 'C145') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionWPourWendetta(owner, card)); }); }
+
             // KRYLLS (nouveau lot) : Ozokshi (C34) — clic direct sur un
             // artefact illuminé en main pour le jouer gratuitement.
             if (ozokshiArtifactMode && ozokshiArtifactMode.owner === owner && getType(card.label) === 'artefact') {
@@ -15177,7 +15353,7 @@ function applyCardFace(el, card){
 
   const afterFace = () => {
     attachHP(el, card);
-    if ((lbl === 'C7' || lbl === 'C58' || lbl === 'C112' || lbl === 'C216' || lbl === 'C227' || lbl === 'C212' || lbl === 'C191' || lbl === 'C193' || lbl === 'C199' || lbl === 'T24') && el.classList.contains('placed')) {
+    if ((lbl === 'C7' || lbl === 'C58' || lbl === 'C112' || lbl === 'C216' || lbl === 'C227' || lbl === 'C212' || lbl === 'C191' || lbl === 'C193' || lbl === 'C199' || lbl === 'T24' || lbl === 'C133' || lbl === 'C142') && el.classList.contains('placed')) {
       if (typeof card.charges !== 'number') card.charges = 0;
       attachCharges(el, card);
     }
@@ -15465,6 +15641,13 @@ if (hitAndRunMode) {
     if (exdoteTargetMode) { handleExdoteTargetSelection(card, owner); return; }
     if (couveuseStealTargetMode) { handleCouveuseStealTargetSelection(card, owner); return; }
     if (roiDRoiTargetMode) { handleRoiDRoiTargetSelection(card, owner); return; }
+    if (orionMoveMode) { handleOrionMoveSelection(card, owner); return; }
+    if (lanceloTargetMode) { handleLanceloTTargetSelection(card, owner); return; }
+    if (comboGriffesTargetMode) { handleComboGriffesTargetSelection(card, owner); return; }
+    if (haineChimeraleTargetMode) { handleHaineChimeraleTargetSelection(card, owner); return; }
+    if (maximilienThrowMode) { handleMaximilienThrowSelection(card, owner); return; }
+    if (serpentoFreezeTargetMode) { handleSerpentoFreezeSelection(card, owner); return; }
+    if (sceptraleTargetMode) { handleSceptraleTargetSelection(card, owner); return; }
 
     // Cliquer À TOUT MOMENT sur un combattant ADVERSE portant un ou plusieurs
     // familiers ouvre un aperçu rapide — le même prompt que celui déjà
@@ -15651,7 +15834,7 @@ function makeArtifactCard(card, owner){
   }
 
   applyCardFace(el, card);
-  if(card.label==='C7' || card.label === 'C58' || card.label === 'C112' || card.label === 'C216' || card.label === 'C227' || card.label === 'C212' || card.label === 'C74' || card.label === 'C191' || card.label === 'C193' || card.label === 'C199' || card.label === 'T24') attachCharges(el, card);
+  if(card.label==='C7' || card.label === 'C58' || card.label === 'C112' || card.label === 'C216' || card.label === 'C227' || card.label === 'C212' || card.label === 'C74' || card.label === 'C191' || card.label === 'C193' || card.label === 'C199' || card.label === 'T24' || card.label === 'C133' || card.label === 'C142') attachCharges(el, card);
   if(card.label==='C8') renderRescelleurUnderStack(el, card);
 
   if(artifactExhausted[owner].has(card.id)) el.classList.add('exhausted'); else el.classList.remove('exhausted');
@@ -15700,6 +15883,8 @@ if (chargeboxTargetMode && CHARGEABLE_CARDS.includes(card.label)) {
     if (venusylvaDestroyMode.active) { handleVenusylvaDestroySelection(card, owner); return; }
     if (c33ArtifactMode) { handleC33ArtifactSelection(card, owner); return; }
     if (varyceTargetMode) { handleVaryceTargetSelection(card, owner); return; }
+    if (haineChimeraleTargetMode) { handleHaineChimeraleTargetSelection(card, owner); return; }
+    if (harponGeantTargetMode) { handleHarponGeantTargetSelection(card, owner); return; }
 
     // Logique de clic pour les actions activables des artefacts
     if (card.label === 'C157') { // Miroir Papillon
@@ -15844,6 +16029,60 @@ if (card.label === 'C39') { // KRYLLS : Bibliotempz
   useBibliotempz(owner, card);
 }
 
+if (card.label === 'C121') { // SAVAGE (2e lot) : Sceptrale
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(artifactExhausted[owner].has(card.id)){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C121')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
+  const c121HasTarget = topLine.concat(botLine).length > 0;
+  if (!c121HasTarget) { pushHistory('info', `${cardAnchor('C121')} : aucun combattant en jeu à cibler.`); return; }
+  startSceptraleTargeting(owner, card);
+}
+
+if (card.label === 'C125') { // SAVAGE (2e lot) : Harpon Géant
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(artifactExhausted[owner].has(card.id)){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C125')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
+  const c125HasTarget = topArts.concat(botArts).some(a => a.id !== card.id);
+  if (!c125HasTarget) { pushHistory('info', `${cardAnchor('C125')} : aucun autre artefact en jeu à détruire.`); return; }
+  startHarponGeantTargeting(owner, card);
+}
+
+if (card.label === 'C133') { // SAVAGE (2e lot) : Pierre Dragoons
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C133')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
+  const c133Charges = card.charges || 0;
+  openButtonsPrompt('Pierre Dragoons', `Dépenser une charge (${c133Charges} restante${c133Charges===1?'':'s'}) pour placer un Dragoons aléatoire dans votre main ?`, el, [
+    { label: `Activer (${c133Charges} charge${c133Charges===1?'':'s'})`, className: 'confirm' + (c133Charges > 0 ? '' : ' disabled'), disabled: c133Charges <= 0, onClick: () => { if (c133Charges > 0) usePierreDragoonsAction(owner, card); } },
+    { label: 'Annuler', className: 'cancel', onClick: () => {} },
+  ]);
+}
+
+if (card.label === 'C142') { // SAVAGE (2e lot) : Couveuse Temporelle
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('C142')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
+  const c142Charges = card.charges || 0;
+  openButtonsPrompt('Couveuse Temporelle', `Dépenser une charge (${c142Charges} restante${c142Charges===1?'':'s'}) pour placer ${cardAnchor('T28')} dans votre zone de combat ?`, el, [
+    { label: `Activer (${c142Charges} charge${c142Charges===1?'':'s'})`, className: 'confirm' + (c142Charges > 0 ? '' : ' disabled'), disabled: c142Charges <= 0, onClick: () => { if (c142Charges > 0) useCouveuseTemporelleAction(owner, card); } },
+    { label: 'Annuler', className: 'cancel', onClick: () => {} },
+  ]);
+}
+
 if (card.label === 'C178') { // CHIMERIA (dernier lot) : Grenade Sonore
   if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
   if(!isCardAllowedThisTurn(owner, card)){
@@ -15966,7 +16205,166 @@ function moveArtifactToOtherZone(artifactCard, side) {
   fullRender();
 }
 
+// ===================================================================
+// SAVAGE (2e lot) : Dragoons N (C146) — vœu (voir onCharacterEnterBattlefield_impl
+// pour la condition de déclenchement : 7 Dragoons ou plus dans sa propre
+// zone de combat). Trois vœux possibles, texte fourni par l'utilisatrice.
+// ===================================================================
+function openDragoonsNWishPrompt(owner){
+  const opp146 = (owner === 'top') ? 'bottom' : 'top';
+  const doWish = (n) => {
+    if (n === 1) {
+      forgeTax[opp146].push({ source: 'Dragoons N (C146)', amount: 2, turns: 9999 });
+      updateForgeTaxUI();
+      pushHistory('artefact', `${cardAnchor('C146')} : vœu réalisé — jusqu'à la fin de la partie, les A'rms de ${playerLabel(opp146)} coûtent +2 Mithril !`);
+    } else if (n === 2) {
+      forceDiscardFromDeckTop(opp146, 13, 'C146');
+    } else if (n === 3) {
+      resolveDragoonsNWish3(owner);
+    }
+    fullRender();
+  };
+
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    // Choix automatique pour l'IA : le vœu n°3 (board wipe immédiat) est le
+    // plus fiable à évaluer automatiquement sans jugement de situation fin.
+    doWish(3);
+    return;
+  }
+
+  openButtonsPrompt(
+    'Dragoons N — Vœu',
+    `${cardAnchor('C146')} : vous avez 7 Dragoons ou plus dans votre zone de combat. Réalisez un vœu :`,
+    null,
+    [
+      { label: `Jusqu'à la fin de la partie, les A'rms adverses coûtent +2 Mithril`, className: 'confirm', onClick: () => doWish(1) },
+      { label: `L'adversaire défausse 13 cartes du dessus de son deck`, className: 'confirm', onClick: () => doWish(2) },
+      { label: `Détruisez tout sauf Dragoons N et 2 Dragoons au hasard chez vous`, className: 'confirm', onClick: () => doWish(3) },
+      { label: 'Ne pas faire de vœu', className: 'cancel', onClick: () => { pushHistory('info', `${cardAnchor('C146')} : aucun vœu réalisé.`); } },
+    ]
+  );
+}
+
+// Vœu n°3 : détruit TOUS les combattants et artefacts en jeu (les deux
+// camps), sauf Dragoons N lui-même et 2 autres Dragoons tirés au hasard —
+// uniquement parmi les Dragoons du PROPRIÉTAIRE de Dragoons N (l'adversaire
+// ne conserve jamais aucun de ses Dragoons), conformément au choix confirmé.
+function resolveDragoonsNWish3(owner){
+  const dragoonsNCard = getLineByOwner(owner).find(c => c.label === 'C146');
+  const ownDragoonsPool = getLineByOwner(owner).filter(c => hasTag(c, 'Dragoons') && (!dragoonsNCard || c.id !== dragoonsNCard.id));
+  const spared = shuffle(ownDragoonsPool.slice()).slice(0, 2);
+  const sparedIds = new Set(spared.map(c => c.id));
+  if (dragoonsNCard) sparedIds.add(dragoonsNCard.id);
+
+  let destroyedCount = 0;
+  ['top', 'bottom'].forEach(side => {
+    const line = getLineByOwner(side);
+    const toDestroy = line.filter(c => !sparedIds.has(c.id));
+    const survivors = line.filter(c => sparedIds.has(c.id));
+    line.length = 0;
+    survivors.forEach(c => line.push(c));
+    toDestroy.forEach(c => {
+      detachFamiliarsOnHost(c, side);
+      discardCard(c, side, 'death');
+      destroyedCount++;
+    });
+
+    const arts = (side === 'top') ? topArts : botArts;
+    const artsToDestroy = arts.slice();
+    arts.length = 0;
+    artsToDestroy.forEach(a => {
+      discardCard(a, side, 'destroyed');
+      destroyedCount++;
+    });
+  });
+
+  const sparedNames = spared.map(c => cardAnchor(c.label)).join(', ');
+  pushHistory('jeu', `${cardAnchor('C146')} : vœu réalisé — le plateau est détruit (${destroyedCount} carte${destroyedCount>1?'s':''}) ! Seuls ${cardAnchor('C146')}${sparedNames ? ` et ${sparedNames}` : ''} survivent chez ${playerLabel(owner)}.`);
+  fullRender();
+}
+
 function onCharacterEnterBattlefield_impl(card, owner) {
+  // ===================================================================
+  // SAVAGE (2e lot) : Mère (C130) — JOUER : arrive avec Dragoons X (T29) et
+  // Dragoons Y (T09) directement dans SA zone de combat, marqués pour partir
+  // en Exil (au lieu de la défausse) après leur mort.
+  // ===================================================================
+  if (card.label === 'C130') {
+    const mereLine = getLineByOwner(owner);
+    const mereMax = getMaxCombatantsForOwner(owner);
+    const merePrefix = (owner === 'top') ? 'T' : 'B';
+    const toSpawn130 = ['T29', 'T09'];
+    let spawned130 = 0;
+    toSpawn130.forEach(lbl => {
+      if (mereLine.length < mereMax) {
+        const dragoon = createCard(lbl, merePrefix);
+        dragoon._exileOnDeath = true;
+        mereLine.push(dragoon);
+        spawned130++;
+      }
+    });
+    if (spawned130 > 0) {
+      pushHistory('jeu', `${cardAnchor('C130')} arrive avec ${spawned130 === 2 ? `${cardAnchor('T29')} et ${cardAnchor('T09')}` : cardAnchor(toSpawn130[0])} dans votre zone de combat (exilés après leur mort) !`);
+    } else {
+      pushHistory('info', `${cardAnchor('C130')} : zone de combat pleine, aucun Dragoons n'a pu être créé.`);
+    }
+  }
+
+  // ===================================================================
+  // SAVAGE (2e lot) : Blacksun (C131) — MINER : en plus du gain classique
+  // (-1 PV, +1 Mithril), l'adversaire perd 1 Mithril. Immunité au gel gérée
+  // dans applyFreezeToCard() (point d'entrée unique du gel dans le jeu).
+  // ===================================================================
+  // (voir startC131Targeting/openMiningPrompt pour le déclenchement MINER)
+
+  // ===================================================================
+  // SAVAGE (2e lot) : Dravalier (C141) — JOUER : +1 Mithril par Dragoons
+  // présent dans les deux zones de combat (peu importe le propriétaire).
+  // ===================================================================
+  if (card.label === 'C141') {
+    const dragoonsCount141 = topLine.concat(botLine).filter(c => hasTag(c, 'Dragoons')).length;
+    if (dragoonsCount141 > 0) {
+      for (let i = 0; i < dragoonsCount141; i++) addMithril(owner);
+      updateMithril();
+      pushHistory('mithril', `${cardAnchor('C141')} : ${dragoonsCount141} Dragoons sur le plateau → +${dragoonsCount141} Mithril pour ${playerLabel(owner)} !`);
+    } else {
+      pushHistory('info', `${cardAnchor('C141')} : aucun Dragoons sur le plateau, aucun Mithril gagné.`);
+    }
+  }
+
+  // ===================================================================
+  // SAVAGE (2e lot) : Vitiligø (C143) — JOUER : chaque joueur défausse les 5
+  // premières cartes du dessus de son deck (effet symétrique).
+  // ===================================================================
+  if (card.label === 'C143') {
+    ['top', 'bottom'].forEach(side => { forceDiscardFromDeckTop(side, 5, 'C143'); });
+  }
+
+  // ===================================================================
+  // SAVAGE (2e lot) : Dragoons B (C137) — JOUER : arrive avec des PB égaux
+  // au nombre total d'artefacts en jeu (les deux zones confondues).
+  // ===================================================================
+  if (card.label === 'C137') {
+    const artCount137 = topArts.length + botArts.length;
+    card.shield = artCount137;
+    pushHistory('jeu', `${cardAnchor('C137')} arrive avec ${artCount137} PB (nombre d'artefacts en jeu) !`);
+  }
+
+  // ===================================================================
+  // SAVAGE (2e lot) : Dragoons N (C146) — JOUER : si son propriétaire
+  // possède 7 Dragoons ou plus dans SA zone de combat (elle incluse, déjà en
+  // jeu à ce stade), il peut réaliser un vœu parmi 3 (texte fourni par
+  // l'utilisatrice).
+  // ===================================================================
+  if (card.label === 'C146') {
+    const ownDragoons146 = getLineByOwner(owner).filter(c => hasTag(c, 'Dragoons')).length;
+    if (ownDragoons146 >= 7) {
+      openDragoonsNWishPrompt(owner);
+    } else {
+      pushHistory('info', `${cardAnchor('C146')} : ${ownDragoons146}/7 Dragoons dans votre zone de combat — pas encore assez pour réaliser un vœu.`);
+    }
+  }
+
   // CHIMERIA (8e lot) : Relique irisée (T19) — tant qu'elle est dans la zone
   // d'artefact d'un joueur, elle ne se déclenche QUE quand l'ADVERSAIRE joue
   // une carte lui appartenant à l'origine (ex. une carte qu'il lui aurait
@@ -16848,6 +17246,9 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
       if (card.label === 'C227') {
         card.charges = 1;
       }
+      if (card.label === 'C133' || card.label === 'C142') {
+        card.charges = 2;
+      }
 
       if (drop === dropLeft) arr.unshift(card); else arr.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en zone Artefacts (${playerLabel(who)}).`);
@@ -17362,6 +17763,15 @@ function discardCard(card, owner, reason='other', context = {}){
   if (reason === 'action') {
     try { addTempleAphroditeCharge(owner, true); } catch(e){ console.error("[Temple d'Aphrodite] charge échouée :", e); }
   }
+  // SAVAGE (2e lot) : Arc du néant (C136) — tant qu'il est en jeu (n'importe
+  // quel camp), toute carte Action jouée par n'importe quel joueur part en
+  // EXIL au lieu de la défausse (effet global, confirmé par l'utilisatrice).
+  if (reason === 'action' && !context.toExile) {
+    const arcDuNeantInPlay = topArts.concat(botArts).some(a => a.label === 'C136');
+    if (arcDuNeantInPlay) {
+      context = Object.assign({}, context, { toExile: true, exileReason: '_arcduneant' });
+    }
+  }
   // IMPY (dernier lot) : Negatron (C89) — le combattant hôte part en EXIL
   // au lieu de la défausse normale (drapeau posé par detachFamiliarsOnHost,
   // juste avant que son appelant n'appelle discardCard sur ce même hôte).
@@ -17689,9 +18099,42 @@ if (reason === 'manual') {
     card.shield = getBaseShield(card.label);
     card.isFrozenByEffect = false;
   }
+  // SAVAGE (2e lot) : Tarot machina (C149) — tant qu'au moins un exemplaire
+  // est en jeu (n'importe quel camp), chaque mort de combattant (n'importe
+  // lequel) rapporte +1 Mithril à SON propriétaire.
+  if (reason === 'death' && getType(card.label) === 'personnage') {
+    const tarotMachinaInPlay = topArts.concat(botArts).some(a => a.label === 'C149');
+    if (tarotMachinaInPlay) {
+      addMithril(owner);
+      pushHistory('mithril', `${cardAnchor('C149')} : la mort de ${cardAnchor(card.label)} rapporte +1 Mithril à ${playerLabel(owner)} !`);
+    }
+    // SAVAGE (2e lot) : Dragoons P (C144) — PROVOCATEUR : chaque fois qu'un
+    // combattant meurt (n'importe lequel), Dragoons P gagne +2 PV.
+    const dragoonsPList144 = topLine.concat(botLine).filter(c => c.label === 'C144' && c.id !== card.id);
+    dragoonsPList144.forEach(dp => {
+      if (typeof dp.hp === 'number') dp.hp += 2;
+      playHPHitEffect(dp);
+    });
+    if (dragoonsPList144.length > 0) {
+      pushHistory('info', `${cardAnchor('C144')} gagne +2 PV suite à la mort de ${cardAnchor(card.label)} !`);
+    }
+    // SAVAGE (2e lot) : Oeuf de Dragoons (C139) — MORT de l'hôte : piochez
+    // jusqu'à un Dragoons (voir attachFamiliarToHost pour la pose du drapeau).
+    if (card._oeufDragoonsMort) {
+      resolveOeufDragoonsMort(owner);
+    }
+  }
   triggerWadooDollDeath(card, owner);
   cleanupPrismisLinksOnCardRemoval(card);
   cleanupWadooLinksOnCardRemoval(card);
+  // SAVAGE (2e lot) : les Dragoons créés par Mère (C130), Valérien (C132) et
+  // Toundrä (C134) sont marqués "exilés après leur mort" dès leur création
+  // (card._exileOnDeath) — traité exactement comme une redirection vers
+  // l'Exil (Styx/C52 ci-dessous), uniquement quand la raison est bien 'death'
+  // (une carte simplement défaussée/jouée normalement n'est pas concernée).
+  if (card._exileOnDeath && reason === 'death' && !context.toExile) {
+    context = Object.assign({}, context, { toExile: true, exileReason: '_dragoons' });
+  }
   if (context.toExile) {
     // Redirection finale vers l'Exil (ex : tuée par Styx/C52) — tous les
     // effets de MORT ci-dessus se sont déjà déclenchés normalement, seule la
@@ -18156,6 +18599,40 @@ function addMithril(player, count){
 
   mithril[player] += count;
   updateMithril();
+
+  // SAVAGE (2e lot) : Écorcheuse (C150) — tant qu'elle est en jeu (n'importe
+  // quel camp), chaque fois qu'un joueur gagne 1+ Mithril d'un coup, CHACUN
+  // de ses combattants subit autant de dégâts (effet symétrique et cumulable
+  // avec plusieurs exemplaires, y compris pour le propriétaire de l'artefact
+  // lui-même — décision confirmée par l'utilisateur). Ignoré si le Mithril a
+  // en fait été capturé par Malocux ci-dessus (le joueur ne l'a alors jamais
+  // réellement "gagné").
+  try {
+    const ecorcheuseCount = topArts.concat(botArts).filter(a => a.label === 'C150').length;
+    if (ecorcheuseCount > 0 && count > 0) {
+      const dmg = count * ecorcheuseCount;
+      const victims = getLineByOwner(player).slice();
+      if (victims.length > 0) {
+        pushHistory('pv', `${cardAnchor('C150')} : ${playerLabel(player)} gagne ${count} Mithril — chacun de ses combattants subit ${dmg} dégâts !`);
+        victims.forEach(c => {
+          if (getEffectiveHP(c) <= 0) return; // déjà mort via un effet précédent dans cette même salve
+          const res = applyDamageWithShield(c, dmg);
+          playHPHitEffect(c);
+          onHPDamaged(player, c, res.hpLost, 'artefact');
+          if (getEffectiveHP(c) <= 0) {
+            const l = getLineByOwner(player);
+            const idx = l.findIndex(x => x.id === c.id);
+            if (idx !== -1) {
+              l.splice(idx, 1);
+              detachFamiliarsOnHost(c, player);
+              discardCard(c, player, 'death');
+            }
+          }
+        });
+        fullRender();
+      }
+    }
+  } catch(e) { console.error('[Écorcheuse] effet impossible :', e); }
 }
 
 function checkWin(player) {
@@ -18178,6 +18655,14 @@ function checkWin(player) {
 function computeForgeCost(player) {
   const totalTax = forgeTax[player].reduce((sum, effect) => sum + effect.amount, 0);
   let cost = Math.max(1, 3 + totalTax);
+
+  // SAVAGE (2e lot) : Dragoons T (T28) — tant qu'il est en jeu chez
+  // l'ADVERSAIRE de player, les A'rms de player coûtent +1 Mithril (effet
+  // passif lié à sa présence — flat, pas cumulatif par exemplaire — pas une
+  // taxe à durée limitée comme forgeTax ci-dessus).
+  const oppForT28 = (player === 'top') ? 'bottom' : 'top';
+  const dragoonsTCount = getLineByOwner(oppForT28).filter(c => c.label === 'T28').length;
+  if (dragoonsTCount > 0) cost += 1;
 
   if (gousseDiscountActive[player]) {
     const playerLine = getLineByOwner(player);
@@ -18233,7 +18718,21 @@ function getHandByOwner(owner) { return owner === 'top' ? topHand : botHand; }
 function drawOneFor(player){
   const deck = getDeckByOwner(player);
   const hand = getHandByOwner(player);
-  if(deck.length>0){ hand.push(deck.shift()); return true; }
+  if(deck.length>0){
+    const drawn = deck.shift();
+    // SAVAGE (2e lot) : Pister sa proie (C135) — la carte repérée part
+    // directement dans la main de celui qui l'a repérée dès que son
+    // propriétaire la pioche, au lieu de rejoindre sa main à lui.
+    if (drawn._pisterProieWatcher && drawn._pisterProieWatcher !== player) {
+      const watcher = drawn._pisterProieWatcher;
+      delete drawn._pisterProieWatcher;
+      getHandByOwner(watcher).push(drawn);
+      pushHistory('info', `${cardAnchor('C135')} : ${cardAnchor(drawn.label)}, repérée par ${playerLabel(watcher)}, rejoint sa main au lieu de celle de ${playerLabel(player)} !`);
+      return true;
+    }
+    hand.push(drawn);
+    return true;
+  }
   return false;
 }
 
@@ -20382,7 +20881,13 @@ function aiTryAttack(){
 // ===================================================================
 const AI_COMBATANT_ACTION_LABELS = [
   'C9','C22','C44','C105','C114','C120','C155','C173',
-  'C202','C203','C206','C211','C218','C216','C94','C99','C100','C240','C241','C32','C193','T21','T24','C188'
+  'C202','C203','C206','C211','C218','C216','C94','C99','C100','C240','C241','C32','C193','T21','T24','C188',
+  // SAVAGE (2e lot) : uniquement les capacités 100% automatiques (aucun
+  // ciblage supplémentaire à résoudre) — Orion/Lanceløt/Maximilien/Sceptrale/
+  // Harpon Géant/Serpentø nécessitent un ciblage non encore câblé côté IA et
+  // sont volontairement exclus pour éviter tout blocage (voir le bug Anamars
+  // corrigé plus tôt dans le projet).
+  'T26','C138','C122'
 ];
 
 function aiCombatantActionIsUsable(card){
@@ -20427,6 +20932,9 @@ function aiCombatantActionIsUsable(card){
       const ownLine188 = getLineByOwner(owner);
       return ownLine188.some(c => c.id !== card.id && exhausted[owner] && exhausted[owner].has(c.id));
     }
+    case 'T26': return getHandByOwner(owner).some(c => hasTag(c, 'guerrier')); // Dragoons A : des guerriers en main à renforcer ?
+    case 'C138': return getLineByOwner(owner).some(c => c.id !== card.id && hasTag(c, 'Dragoons')); // Dragoons S : d'autres Dragoons à renforcer ?
+    case 'C122': return topLine.concat(botLine).some(c => isFrozen(c)); // Shivart : un combattant gelé sur le plateau ?
     default: return false;
   }
 }
@@ -21486,6 +21994,768 @@ function handleRoiDRoiTargetSelection(targetCard, targetCardOwner){
     if (casterCard) markAttacked(casterOwner, casterCard);
   }
   fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Orion (C126) — ACTION : déplacer un familier d'un
+// hôte à un autre (n'importe quel camp, source et destination libres).
+// Ciblage en 2 phases : phase 'source' (clic sur un hôte portant au
+// moins un familier, choix du familier si plusieurs), puis phase
+// 'dest' (clic sur un hôte différent qui recevra le familier).
+// ===================================================================
+function renderOrionPromptMsg(text){
+  let promptEl = document.getElementById('orion-prompt');
+  if (!promptEl) {
+    promptEl = document.createElement('div');
+    promptEl.id = 'orion-prompt';
+    promptEl.className = 'actionPrompt';
+    promptEl.style.position = 'fixed';
+    promptEl.style.bottom = '100px';
+    promptEl.style.left = '50%';
+    promptEl.style.transform = 'translateX(-50%)';
+    promptEl.style.zIndex = '8700';
+    promptEl.innerHTML = `<div class="apTitle">Orion</div><div class="apMsg"></div>`;
+    document.body.appendChild(promptEl);
+    actionPromptEl = promptEl;
+  }
+  const msgEl = promptEl.querySelector('.apMsg');
+  if (msgEl) msgEl.textContent = text;
+}
+function startOrionMoveTargeting(casterOwner, casterCard){
+  orionMoveMode = { casterOwner, casterCardId: casterCard ? casterCard.id : null, phase: 'source', familiarId: null, sourceHostId: null };
+  closeActionPrompt();
+  renderOrionPromptMsg("Cliquez sur un combattant portant un familier (n'importe quel camp).");
+  fullRender();
+}
+function handleOrionMoveSelection(targetCard, targetCardOwner){
+  if (!orionMoveMode) return;
+  if (orionMoveMode.phase === 'source') {
+    const familiars = getFamiliersOnHost(targetCard);
+    if (familiars.length === 0) return; // il faut un hôte AVEC familier
+    const proceedWithFamiliar = (familiarId) => {
+      orionMoveMode.phase = 'dest';
+      orionMoveMode.sourceHostId = targetCard.id;
+      orionMoveMode.familiarId = familiarId;
+      renderOrionPromptMsg('Cliquez sur le combattant qui recevra le familier.');
+      fullRender();
+    };
+    if (familiars.length === 1) {
+      proceedWithFamiliar(familiars[0].id);
+    } else {
+      const existingPrompt = document.getElementById('orion-prompt');
+      if (existingPrompt) existingPrompt.remove();
+      openButtonsPrompt('Orion', 'Choisissez le familier à déplacer.', null,
+        familiars.map(f => ({ label: cardName(f.label), className: 'confirm', stayOpen: false, onClick: () => proceedWithFamiliar(f.id) }))
+          .concat([{ label: 'Annuler', className: 'cancel', onClick: () => { orionMoveMode = null; } }])
+      );
+    }
+    return;
+  }
+  if (orionMoveMode.phase === 'dest') {
+    if (targetCard.id === orionMoveMode.sourceHostId) return; // doit être différent
+    const familiar = getAllFamiliers().find(f => f.id === orionMoveMode.familiarId);
+    if (!familiar) { orionMoveMode = null; closeActionPrompt(); fullRender(); return; }
+    const { casterOwner, casterCardId } = orionMoveMode;
+    familiar.attachedTo = targetCard.id;
+    pushHistory('familier', `${cardAnchor('C126')} déplace ${cardAnchor(familiar.label)} vers ${cardAnchor(targetCard.label)} !`);
+    orionMoveMode = null;
+    const promptEl = document.getElementById('orion-prompt');
+    if (promptEl) promptEl.remove();
+    closeActionPrompt();
+    if (casterCardId) {
+      const casterCard = getLineByOwner(casterOwner).find(c => c.id === casterCardId);
+      if (casterCard) markAttacked(casterOwner, casterCard);
+    }
+    fullRender();
+  }
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Lanceløt (C147) — ACTION : détruire un Dragoons
+// ADVERSE et gagner +2 Mithril.
+// ===================================================================
+function startLanceloTTargeting(casterOwner, casterCard){
+  lanceloTargetMode = { casterOwner, casterCardId: casterCard ? casterCard.id : null };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'lancelot-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Lanceløt</div>
+    <div class="apMsg">Cliquez sur un Dragoons ADVERSE à détruire.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleLanceloTTargetSelection(targetCard, targetCardOwner){
+  if (!lanceloTargetMode) return;
+  const { casterOwner, casterCardId } = lanceloTargetMode;
+  if (targetCardOwner === casterOwner) return; // adverse uniquement
+  if (!hasTag(targetCard, 'Dragoons')) return; // uniquement un Dragoons
+  lanceloTargetMode = null;
+  const promptEl = document.getElementById('lancelot-prompt');
+  if (promptEl) promptEl.remove();
+  closeActionPrompt();
+  const line = getLineByOwner(targetCardOwner);
+  const idx = line.findIndex(c => c.id === targetCard.id);
+  if (idx !== -1) {
+    line.splice(idx, 1);
+    detachFamiliarsOnHost(targetCard, targetCardOwner);
+    discardCard(targetCard, targetCardOwner, 'death');
+    pushHistory('action', `${cardAnchor('C147')} détruit ${cardAnchor(targetCard.label)} !`);
+  }
+  if (casterCardId) {
+    const casterCard = getLineByOwner(casterOwner).find(c => c.id === casterCardId);
+    if (casterCard) {
+      addMithril(casterOwner, 2);
+      pushHistory('mithril', `${cardAnchor('C147')} : +2 Mithril.`);
+      markAttacked(casterOwner, casterCard);
+    }
+  }
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : petit utilitaire réutilisé par plusieurs cartes de ce
+// lot — inflige des dégâts à un combattant DÉJÀ en jeu (n'importe quel
+// camp) et gère sa mort (retrait de la ligne, familiers détachés, défausse)
+// si ses PV tombent à 0 ou moins. Renvoie true si la carte est morte.
+// ===================================================================
+function dealDamageToCardAndCheckDeath(targetCard, amount, cause) {
+  if (amount <= 0) return false;
+  const side = topLine.some(c => c.id === targetCard.id) ? 'top' : (botLine.some(c => c.id === targetCard.id) ? 'bottom' : null);
+  if (!side || typeof targetCard.hp !== 'number') return false;
+  targetCard.hp -= amount;
+  onHPDamaged(side, targetCard, amount, cause || 'action');
+  playHPHitEffect(targetCard);
+  if (targetCard.hp <= 0) {
+    const line = getLineByOwner(side);
+    const idx = line.findIndex(c => c.id === targetCard.id);
+    if (idx !== -1) {
+      line.splice(idx, 1);
+      detachFamiliarsOnHost(targetCard, side);
+      discardCard(targetCard, side, 'death');
+    }
+    return true;
+  }
+  return false;
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Blacksun (C131) — MINER : minage classique PUIS
+// l'adversaire perd 1 Mithril.
+// ===================================================================
+function performBlacksunMining(owner, card) {
+  const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
+  const curHP = getEffectiveHP(card);
+  const canMine = card.canMineFreely || curHP > 1 || coqsixCount > 0;
+  if (!canMine) return;
+  markAttacked(owner, card);
+  applyStandardMiningGainAndCost(owner, card);
+  const opp131 = (owner === 'top') ? 'bottom' : 'top';
+  if (mithril[opp131] > 0) {
+    mithril[opp131]--;
+    updateMithril();
+    pushHistory('mithril', `${cardAnchor('C131')} : ${playerLabel(opp131)} perd 1 Mithril !`);
+  } else {
+    pushHistory('info', `${cardAnchor('C131')} : ${playerLabel(opp131)} n'a aucun Mithril à perdre.`);
+  }
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Toundrä (C134) — MINER : minage classique PUIS place
+// un Dragoons Z (T27) dans SA zone de combat, exilé après sa mort.
+// ===================================================================
+function performToundraMining(owner, card) {
+  const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
+  const curHP = getEffectiveHP(card);
+  const canMine = card.canMineFreely || curHP > 1 || coqsixCount > 0;
+  if (!canMine) return;
+  markAttacked(owner, card);
+  applyStandardMiningGainAndCost(owner, card);
+  const line134 = getLineByOwner(owner);
+  const max134 = getMaxCombatantsForOwner(owner);
+  if (line134.length < max134) {
+    const prefix134 = (owner === 'top') ? 'T' : 'B';
+    const dragoonZ = createCard('T27', prefix134);
+    dragoonZ._exileOnDeath = true;
+    line134.push(dragoonZ);
+    pushHistory('jeu', `${cardAnchor('C134')} place ${cardAnchor('T27')} dans votre zone de combat (exilé après sa mort) !`);
+  } else {
+    pushHistory('info', `${cardAnchor('C134')} : zone de combat pleine, aucun Dragoons Z créé.`);
+  }
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Dragoons Z (T27) — MINER : minage classique PUIS gèle
+// le(s) combattant(s) (n'importe quel camp) ayant les PV les plus élevés.
+// ===================================================================
+function performDragoonsZMining(owner, card) {
+  const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
+  const curHP = getEffectiveHP(card);
+  const canMine = card.canMineFreely || curHP > 1 || coqsixCount > 0;
+  if (!canMine) return;
+  markAttacked(owner, card);
+  applyStandardMiningGainAndCost(owner, card);
+  const allCombatants = topLine.concat(botLine).filter(c => getType(c.label) === 'personnage');
+  if (allCombatants.length > 0) {
+    const maxHP = Math.max(...allCombatants.map(c => getEffectiveHP(c)));
+    const targets = allCombatants.filter(c => getEffectiveHP(c) === maxHP);
+    targets.forEach(t => applyFreezeToCard(t));
+    pushHistory('info', `${cardAnchor('T27')} gèle ${targets.map(t => cardAnchor(t.label)).join(', ')} (${maxHP} PV) !`);
+  }
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Dragoons A (T26) — ACTION : les guerriers dans la main
+// de son propriétaire gagnent +2 PV (le combattant qui garde sa valeur .hp
+// en main la conserve telle quelle une fois joué — voir
+// resetStatsToBaseWhenEnteringBattle, qui ne réinitialise jamais .hp).
+// ===================================================================
+function useDragoonsAAction(owner, card) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+  const guerriers = getHandByOwner(owner).filter(c => hasTag(c, 'guerrier'));
+  if (guerriers.length === 0) { closeActionPrompt(); return; }
+  markAttacked(owner, card);
+  guerriers.forEach(c => { if (typeof c.hp === 'number') c.hp += 2; });
+  pushHistory('action', `${cardAnchor('T26')} : les guerriers en main de ${playerLabel(owner)} gagnent +2 PV !`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Dragoons S (C138) — ACTION : vos autres Dragoons
+// gagnent +4 PV.
+// ===================================================================
+function useDragoonsSAction(owner, card) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+  const others = getLineByOwner(owner).filter(c => c.id !== card.id && hasTag(c, 'Dragoons'));
+  if (others.length === 0) { closeActionPrompt(); return; }
+  markAttacked(owner, card);
+  others.forEach(c => { if (typeof c.hp === 'number') c.hp += 4; playHPHitEffect(c); });
+  pushHistory('action', `${cardAnchor('C138')} utilise son Action : vos autres Dragoons gagnent +4 PV !`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Shivart (C122) — ACTION : les combattants à côté de
+// combattants gelés (n'importe quel camp) subissent -5 PV.
+// ===================================================================
+function useShivartAction(owner, card) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+  const frozenList = topLine.concat(botLine).filter(c => isFrozen(c));
+  if (frozenList.length === 0) { closeActionPrompt(); return; }
+  markAttacked(owner, card);
+  const targets = [];
+  const seenIds = new Set();
+  frozenList.forEach(fz => {
+    const side = topLine.some(c => c.id === fz.id) ? 'top' : 'bottom';
+    const line = getLineByOwner(side);
+    const idx = line.findIndex(c => c.id === fz.id);
+    if (idx > 0 && !seenIds.has(line[idx - 1].id)) { seenIds.add(line[idx - 1].id); targets.push(line[idx - 1]); }
+    if (idx !== -1 && idx < line.length - 1 && !seenIds.has(line[idx + 1].id)) { seenIds.add(line[idx + 1].id); targets.push(line[idx + 1]); }
+  });
+  let hitCount = 0;
+  targets.forEach(t => { if (dealDamageToCardAndCheckDeath(t, 5, 'action') || true) hitCount++; });
+  pushHistory('action', `${cardAnchor('C122')} utilise son Action : ${hitCount} combattant${hitCount>1?'s':''} voisin${hitCount>1?'s':''} de combattant${frozenList.length>1?'s':''} gelé${frozenList.length>1?'s':''} subit -5 PV !`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Maximilien (C140) — ACTION : lance le combattant voisin
+// (gauche ou droite) sur un combattant ADVERSE choisi, -10PV aux deux.
+// Ciblage en 2 phases : phase 'neighbor' (choisir un voisin de Maximilien
+// dans SA propre ligne), phase 'enemy' (choisir la cible adverse).
+// ===================================================================
+function startMaximilienThrowTargeting(owner, card) {
+  const line = getLineByOwner(owner);
+  const idx = line.findIndex(c => c.id === card.id);
+  const neighbors = [];
+  if (idx > 0) neighbors.push(line[idx - 1]);
+  if (idx !== -1 && idx < line.length - 1) neighbors.push(line[idx + 1]);
+  if (neighbors.length === 0) return;
+  maximilienThrowMode = { owner, casterCardId: card.id, phase: 'neighbor', neighborId: null };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'maximilien-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `<div class="apTitle">Maximilien</div><div class="apMsg">Étape 1/2 : cliquez sur le combattant à sa gauche ou à sa droite à lancer.</div>`;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleMaximilienThrowSelection(targetCard, targetOwner) {
+  if (!maximilienThrowMode) return;
+  const { owner, casterCardId } = maximilienThrowMode;
+  if (maximilienThrowMode.phase === 'neighbor') {
+    if (targetOwner !== owner) return;
+    const casterCard = getLineByOwner(owner).find(c => c.id === casterCardId);
+    if (!casterCard) { maximilienThrowMode = null; closeActionPrompt(); return; }
+    const line = getLineByOwner(owner);
+    const idx = line.findIndex(c => c.id === casterCard.id);
+    const isNeighbor = (idx > 0 && line[idx - 1].id === targetCard.id) || (idx !== -1 && idx < line.length - 1 && line[idx + 1].id === targetCard.id);
+    if (!isNeighbor) return;
+    maximilienThrowMode.phase = 'enemy';
+    maximilienThrowMode.neighborId = targetCard.id;
+    const promptEl = document.getElementById('maximilien-prompt');
+    if (promptEl) promptEl.querySelector('.apMsg').textContent = 'Étape 2/2 : cliquez sur un combattant ADVERSE.';
+    fullRender();
+    return;
+  }
+  if (maximilienThrowMode.phase === 'enemy') {
+    if (targetOwner === owner) return;
+    const neighbor = topLine.concat(botLine).find(c => c.id === maximilienThrowMode.neighborId);
+    maximilienThrowMode = null;
+    const promptEl = document.getElementById('maximilien-prompt');
+    if (promptEl) promptEl.remove();
+    closeActionPrompt();
+    if (neighbor) dealDamageToCardAndCheckDeath(neighbor, 10, 'action');
+    dealDamageToCardAndCheckDeath(targetCard, 10, 'action');
+    pushHistory('action', `${cardAnchor('C140')} lance ${neighbor ? cardAnchor(neighbor.label) : 'un voisin'} sur ${cardAnchor(targetCard.label)} : -10 PV aux deux !`);
+    const casterCard = getLineByOwner(owner).find(c => c.id === casterCardId);
+    if (casterCard) markAttacked(owner, casterCard);
+    fullRender();
+  }
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Serpentø (C148), via son hôte — ACTION : gèle un
+// combattant adverse.
+// ===================================================================
+function startSerpentoFreezeTargeting(owner, card) {
+  serpentoFreezeTargetMode = { owner, casterCardId: card.id };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'serpento-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `<div class="apTitle">Serpentø</div><div class="apMsg">Cliquez sur un combattant ADVERSE à geler.</div>`;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleSerpentoFreezeSelection(targetCard, targetOwner) {
+  if (!serpentoFreezeTargetMode) return;
+  const { owner, casterCardId } = serpentoFreezeTargetMode;
+  if (targetOwner === owner) return;
+  serpentoFreezeTargetMode = null;
+  const promptEl = document.getElementById('serpento-prompt');
+  if (promptEl) promptEl.remove();
+  closeActionPrompt();
+  applyFreezeToCard(targetCard);
+  pushHistory('action', `${cardAnchor('C148')} gèle ${cardAnchor(targetCard.label)} !`);
+  const casterCard = getLineByOwner(owner).find(c => c.id === casterCardId);
+  if (casterCard) markAttacked(owner, casterCard);
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Sceptrale (C121) — ACTION : un combattant (n'importe
+// quel camp) devient ESPRIT, gagnez +1 Mithril.
+// ===================================================================
+function startSceptraleTargeting(owner, card) {
+  sceptraleTargetMode = { owner, casterCardId: card.id };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'sceptrale-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `<div class="apTitle">Sceptrale</div><div class="apMsg">Cliquez sur un combattant (n'importe quel camp) qui deviendra ESPRIT.</div>`;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleSceptraleTargetSelection(targetCard, targetOwner) {
+  if (!sceptraleTargetMode) return;
+  const { owner, casterCardId } = sceptraleTargetMode;
+  sceptraleTargetMode = null;
+  const promptEl = document.getElementById('sceptrale-prompt');
+  if (promptEl) promptEl.remove();
+  closeActionPrompt();
+  if (!Array.isArray(targetCard.addedTags)) targetCard.addedTags = [];
+  if (!targetCard.addedTags.includes('Esprit')) targetCard.addedTags.push('Esprit');
+  addMithril(owner);
+  pushHistory('action', `${cardAnchor('C121')} : ${cardAnchor(targetCard.label)} devient <strong>ESPRIT</strong>, +1 Mithril pour ${playerLabel(owner)} !`);
+  const artArr = (owner === 'top') ? topArts : botArts;
+  const sceptrale = artArr.find(a => a.id === casterCardId);
+  if (sceptrale && artifactExhausted[owner]) artifactExhausted[owner].add(sceptrale.id);
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Harpon Géant (C125) — ACTION : détruit un artefact
+// (n'importe quel camp, y compris le sien).
+// ===================================================================
+function startHarponGeantTargeting(owner, card) {
+  harponGeantTargetMode = { owner, casterCardId: card.id };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'harpongeant-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `<div class="apTitle">Harpon Géant</div><div class="apMsg">Cliquez sur un artefact (n'importe quel camp) à détruire.</div>`;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleHarponGeantTargetSelection(targetCard, targetOwner) {
+  if (!harponGeantTargetMode) return;
+  const { owner, casterCardId } = harponGeantTargetMode;
+  if (targetCard.id === casterCardId) return; // ne peut pas se cibler lui-même
+  harponGeantTargetMode = null;
+  const promptEl = document.getElementById('harpongeant-prompt');
+  if (promptEl) promptEl.remove();
+  closeActionPrompt();
+  const arr = (targetOwner === 'top') ? topArts : botArts;
+  const idx = arr.findIndex(a => a.id === targetCard.id);
+  if (idx !== -1) {
+    arr.splice(idx, 1);
+    if (artifactExhausted[targetOwner]) artifactExhausted[targetOwner].delete(targetCard.id);
+    discardCard(targetCard, targetOwner, 'destroyed');
+    pushHistory('action', `${cardAnchor('C125')} détruit ${cardAnchor(targetCard.label)} !`);
+  }
+  const artArr = (owner === 'top') ? topArts : botArts;
+  const harpon = artArr.find(a => a.id === casterCardId);
+  if (harpon && artifactExhausted[owner]) artifactExhausted[owner].add(harpon.id);
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Pierre Dragoons (C133) — ACTION : dépense une charge,
+// place un Dragoons aléatoire (parmi toutes les cartes Dragoons existantes,
+// combattants et jetons) dans la main de son propriétaire.
+// ===================================================================
+function usePierreDragoonsAction(owner, card) {
+  if ((card.charges || 0) <= 0) return;
+  card.charges -= 1;
+  const dragoonPool = ['C137', 'C138', 'C144', 'C146', 'T09', 'T26', 'T27', 'T28', 'T29'];
+  const pickLabel = dragoonPool[Math.floor(Math.random() * dragoonPool.length)];
+  const prefix133 = (owner === 'top') ? 'T' : 'B';
+  const newDragoon = createCard(pickLabel, prefix133);
+  getHandByOwner(owner).push(newDragoon);
+  pushHistory('artefact', `${cardAnchor('C133')} : ${cardAnchor(pickLabel)} rejoint la main de ${playerLabel(owner)} (charge dépensée, ${card.charges} restante${card.charges===1?'':'s'}) !`);
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Couveuse Temporelle (C142) — ACTION : dépense une
+// charge, place un Dragoons T (T28) dans SA zone de combat.
+// ===================================================================
+function useCouveuseTemporelleAction(owner, card) {
+  if ((card.charges || 0) <= 0) return;
+  const line142 = getLineByOwner(owner);
+  const max142 = getMaxCombatantsForOwner(owner);
+  if (line142.length >= max142) {
+    pushHistory('info', `${cardAnchor('C142')} : zone de combat pleine, impossible de placer ${cardAnchor('T28')}.`);
+    return;
+  }
+  card.charges -= 1;
+  const prefix142 = (owner === 'top') ? 'T' : 'B';
+  const dragoonT = createCard('T28', prefix142);
+  line142.push(dragoonT);
+  pushHistory('artefact', `${cardAnchor('C142')} place ${cardAnchor('T28')} dans la zone de combat de ${playerLabel(owner)} (charge dépensée, ${card.charges} restante${card.charges===1?'':'s'}) !`);
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Combo-griffes (C123) — Action : -3PV à un combattant
+// (n'importe quel camp) ; s'il meurt, -2PV aux combattants qui étaient ses
+// voisins immédiats dans sa ligne.
+// ===================================================================
+function playActionComboGriffes(owner, actionCard, anchorEl) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  const anyTarget = topLine.concat(botLine).length > 0;
+  if (!anyTarget) { pushHistory('info', `${cardAnchor('C123')} : aucun combattant en jeu à cibler.`); return; }
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  startComboGriffesTargeting(owner);
+}
+function startComboGriffesTargeting(owner) {
+  comboGriffesTargetMode = { owner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'combogriffes-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `<div class="apTitle">Combo-griffes</div><div class="apMsg">Cliquez sur un combattant (n'importe quel camp) à qui infliger -3 PV.</div>`;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleComboGriffesTargetSelection(targetCard, targetOwner) {
+  if (!comboGriffesTargetMode) return;
+  comboGriffesTargetMode = null;
+  const promptEl = document.getElementById('combogriffes-prompt');
+  if (promptEl) promptEl.remove();
+  closeActionPrompt();
+  const line = getLineByOwner(targetOwner);
+  const idx = line.findIndex(c => c.id === targetCard.id);
+  const neighbors = [];
+  if (idx > 0) neighbors.push(line[idx - 1]);
+  if (idx !== -1 && idx < line.length - 1) neighbors.push(line[idx + 1]);
+  const died = dealDamageToCardAndCheckDeath(targetCard, 3, 'action');
+  pushHistory('action', `${cardAnchor('C123')} inflige -3 PV à ${cardAnchor(targetCard.label)}${died ? ' (mort !)' : ''} !`);
+  if (died && neighbors.length > 0) {
+    neighbors.forEach(n => {
+      const stillThere = topLine.concat(botLine).some(c => c.id === n.id);
+      if (stillThere) dealDamageToCardAndCheckDeath(n, 2, 'action');
+    });
+    pushHistory('action', `${cardAnchor('C123')} : la mort de ${cardAnchor(targetCard.label)} inflige -2 PV aux combattants voisins !`);
+  }
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Brise bouclier (C127) — Action : inflige -XPV à chaque
+// combattant ADVERSE, X = son propre Bouclier actuel.
+// ===================================================================
+function playActionBriseBouclier(owner, actionCard) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  const opp127 = (owner === 'top') ? 'bottom' : 'top';
+  const enemyLine = getLineByOwner(opp127).slice();
+  let hitCount = 0;
+  enemyLine.forEach(c => {
+    const x = (c.shield || 0) + (c.tempShield || 0);
+    if (x > 0) { dealDamageToCardAndCheckDeath(c, x, 'action'); hitCount++; }
+  });
+  pushHistory('action', `${cardAnchor('C127')} inflige des dégâts égaux à leur Bouclier à ${hitCount} combattant${hitCount>1?'s':''} adverse${hitCount>1?'s':''} !`);
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Haine chimérale (C129) — Action : détruit une carte
+// Chiméria en jeu (personnage OU artefact, n'importe quel camp) ; si
+// réussi, l'adversaire (du lanceur) défausse 3 cartes du dessus de son
+// deck.
+// ===================================================================
+function playActionHaineChimerale(owner, actionCard, anchorEl) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  const anyChimeria = topLine.concat(botLine, topArts, botArts).some(c => hasTag(c, 'Chimeria'));
+  if (!anyChimeria) { pushHistory('info', `${cardAnchor('C129')} : aucune carte Chiméria en jeu à détruire.`); return; }
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  startHaineChimeraleTargeting(owner);
+}
+function startHaineChimeraleTargeting(owner) {
+  haineChimeraleTargetMode = { owner };
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'hainechimerale-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `<div class="apTitle">Haine chimérale</div><div class="apMsg">Cliquez sur une carte Chiméria en jeu à détruire.</div>`;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  fullRender();
+}
+function handleHaineChimeraleTargetSelection(targetCard, targetOwner) {
+  if (!haineChimeraleTargetMode) return;
+  if (!hasTag(targetCard, 'Chimeria')) return;
+  const casterOwner = haineChimeraleTargetMode.owner;
+  haineChimeraleTargetMode = null;
+  const promptEl = document.getElementById('hainechimerale-prompt');
+  if (promptEl) promptEl.remove();
+  closeActionPrompt();
+  const type = getType(targetCard.label);
+  let destroyed = false;
+  if (type === 'personnage') {
+    const line = getLineByOwner(targetOwner);
+    const idx = line.findIndex(c => c.id === targetCard.id);
+    if (idx !== -1) {
+      line.splice(idx, 1);
+      detachFamiliarsOnHost(targetCard, targetOwner);
+      discardCard(targetCard, targetOwner, 'death');
+      destroyed = true;
+    }
+  } else if (type === 'artefact') {
+    const arr = (targetOwner === 'top') ? topArts : botArts;
+    const idx = arr.findIndex(a => a.id === targetCard.id);
+    if (idx !== -1) {
+      arr.splice(idx, 1);
+      if (artifactExhausted[targetOwner]) artifactExhausted[targetOwner].delete(targetCard.id);
+      discardCard(targetCard, targetOwner, 'destroyed');
+      destroyed = true;
+    }
+  }
+  if (destroyed) {
+    pushHistory('action', `${cardAnchor('C129')} détruit ${cardAnchor(targetCard.label)} !`);
+    const casterOpp = (casterOwner === 'top') ? 'bottom' : 'top';
+    forceDiscardFromDeckTop(casterOpp, 3, 'C129');
+  }
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : W pour Wendetta (C145) — Action : tous vos citoyens en
+// jeu gagnent +4 PV et +1 PB.
+// ===================================================================
+function playActionWPourWendetta(owner, actionCard) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  const citoyens = getLineByOwner(owner).filter(c => hasTag(c, 'citoyen'));
+  citoyens.forEach(c => {
+    if (typeof c.hp === 'number') c.hp += 4;
+    c.shield = (c.shield || 0) + 1;
+    playHPHitEffect(c);
+  });
+  pushHistory('action', `${cardAnchor('C145')} : ${citoyens.length} citoyen${citoyens.length>1?'s':''} de ${playerLabel(owner)} gagne${citoyens.length>1?'nt':''} +4 PV et +1 PB !`);
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Pister sa proie (C135) — Action : dévoile les 5 cartes
+// du dessus du deck adverse, en choisit une à repérer, remélange tout le
+// deck ; la carte repérée rejoindra la main du lanceur au lieu de celle de
+// l'adversaire quand celui-ci la piochera (voir drawOneFor, qui consomme
+// card._pisterProieWatcher).
+// ===================================================================
+function playActionPisterSaProie(owner, actionCard) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  const opp135 = (owner === 'top') ? 'bottom' : 'top';
+  const deck135 = getDeckByOwner(opp135);
+  if (deck135.length === 0) {
+    pushHistory('info', `${cardAnchor('C135')} : le deck de ${playerLabel(opp135)} est vide.`);
+    return;
+  }
+  consumeAllowanceIfNeeded(owner, actionCard);
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+  openPisterSaProiePicker(owner, opp135);
+}
+function openPisterSaProiePicker(owner, opp) {
+  const deck = getDeckByOwner(opp);
+  const revealed = deck.slice(0, 5);
+  if (revealed.length === 0) { fullRender(); return; }
+  const carousel = document.getElementById('familiarCarousel');
+  const title = document.getElementById('fcoTitle');
+  if (!familiarCarouselOverlay || !carousel || !title) { fullRender(); return; }
+  pisterSaProieMode = true;
+  title.textContent = `Pister sa proie — choisissez une carte à repérer dans le deck de ${playerLabel(opp)}`;
+  carousel.innerHTML = '';
+  carousel.classList.add('selecting');
+  revealed.forEach(revealedCard => {
+    const thumb = document.createElement('div');
+    thumb.className = 'dthumb';
+    const url = getCardImage(revealedCard.label);
+    if (url) { thumb.style.backgroundImage = `url(${url})`; } else { thumb.textContent = cardName(revealedCard.label); }
+    thumb.title = cardName(revealedCard.label);
+    thumb.addEventListener('mouseenter', () => showZoom(revealedCard.label, revealedCard));
+    thumb.addEventListener('mouseleave', hideZoom);
+    thumb.addEventListener('click', () => {
+      carousel.classList.remove('selecting');
+      hideFamiliarCarousel();
+      resolvePisterSaProieChoice(owner, opp, revealedCard);
+    });
+    carousel.appendChild(thumb);
+  });
+  familiarCarouselOverlay.style.display = 'flex';
+  fullRender();
+}
+function resolvePisterSaProieChoice(owner, opp, chosenCard) {
+  pisterSaProieMode = false;
+  chosenCard._pisterProieWatcher = owner;
+  const deck = getDeckByOwner(opp);
+  shuffle(deck);
+  pushHistory('action', `${cardAnchor('C135')} : ${playerLabel(owner)} repère ${cardAnchor(chosenCard.label)} dans le deck de ${playerLabel(opp)} — elle rejoindra sa main quand ${playerLabel(opp)} la piochera !`);
+  updateDeckCounters();
+  fullRender();
+}
+
+// ===================================================================
+// SAVAGE (2e lot) : Oeuf de Dragoons (C139) — MORT de l'hôte : pioche
+// jusqu'à un Dragoons, le place directement dans la zone de combat de son
+// propriétaire ; les autres cartes piochées au passage sont remélangées
+// dans le deck (voir attachFamiliarToHost pour la pose du drapeau
+// host._oeufDragoonsMort, et discardCard pour l'appel).
+// ===================================================================
+function resolveOeufDragoonsMort(owner) {
+  const deck = getDeckByOwner(owner);
+  const setAside = [];
+  let foundDragoon = null;
+  let guard = 0;
+  while (deck.length > 0 && guard < 500) {
+    guard++;
+    const drawnCard = deck.shift();
+    if (hasTag(drawnCard, 'Dragoons') && getType(drawnCard.label) === 'personnage') {
+      foundDragoon = drawnCard;
+      break;
+    } else {
+      setAside.push(drawnCard);
+    }
+  }
+  setAside.forEach(c => deck.push(c));
+  shuffle(deck);
+  if (foundDragoon) {
+    const line = getLineByOwner(owner);
+    const max = getMaxCombatantsForOwner(owner);
+    if (line.length < max) {
+      line.push(foundDragoon);
+      pushHistory('jeu', `${cardAnchor('C139')} : ${playerLabel(owner)} pioche jusqu'à trouver ${cardAnchor(foundDragoon.label)}, placé directement dans sa zone de combat !`);
+    } else {
+      deck.push(foundDragoon);
+      shuffle(deck);
+      pushHistory('info', `${cardAnchor('C139')} : ${cardAnchor(foundDragoon.label)} trouvé mais zone de combat pleine — remélangé dans le deck.`);
+    }
+  } else {
+    pushHistory('info', `${cardAnchor('C139')} : aucun Dragoons trouvé dans le deck de ${playerLabel(owner)}.`);
+  }
+  updateDeckCounters();
 }
 
 // ===================================================================
