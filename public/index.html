@@ -7265,6 +7265,7 @@ function playActionRollback(owner, actionCard){
       cleanupWadooLinksOnCardRemoval(c);
       if (typeof c.hp === 'number') c.hp = getBaseHP(c.label);
       c.shield = getBaseShield(c.label);
+      c.isFrozenByEffect = false; // une carte qui retourne en main perd le GEL
       getHandByOwner(side).push(c);
       totalBounced++;
     });
@@ -8931,9 +8932,10 @@ function handleC231TargetSelection(targetCard, targetOwner) {
   cleanupWadooLinksOnCardRemoval(targetCard);
 
   // Remise en main : PV/Bouclier reviennent à leur valeur de base, comme
-  // pour toute carte qui quitte le champ de bataille.
+  // pour toute carte qui quitte le champ de bataille — et elle perd le GEL.
   if (typeof targetCard.hp === 'number') targetCard.hp = getBaseHP(targetCard.label);
   targetCard.shield = getBaseShield(targetCard.label);
+  targetCard.isFrozenByEffect = false;
   const targetHand = getHandByOwner(targetOwner);
   targetHand.push(targetCard);
 
@@ -13733,7 +13735,8 @@ function endMezamorphArakcrabeCleanup() {
 
 // KRYLLS (nouveau lot) : Kyraza (C49) — JOUER : joue n'importe quelle carte
 // Action piochée dans l'une des deux défausses (gratuitement, sans
-// restriction de faction), qui retourne ensuite dans SA défausse d'origine.
+// restriction de faction), qui part ensuite en EXIL au lieu de retourner
+// dans une défausse (quelle qu'elle soit).
 function openKyrazaDiscardPicker(owner){
   const topActions = topDiscard.filter(c => getType(c.label) === 'action').map(c => ({ card: c, pile: 'top' }));
   const botActions = botDiscard.filter(c => getType(c.label) === 'action').map(c => ({ card: c, pile: 'bottom' }));
@@ -13805,30 +13808,27 @@ function resolveKyrazaChoice(owner, chosenCard, originPile){
     });
   });
 
-  // Filet de sécurité : une fois son effet résolu, cette carte doit
-  // retourner dans SA défausse d'origine, pas dans celle du propriétaire de
-  // Kyraza (où la logique normale de défausse l'aurait envoyée). Vérifié à
-  // intervalles réguliers pendant jusqu'à 20 secondes, le temps que
-  // certains effets nécessitant un choix supplémentaire du joueur aient
-  // fini de se résoudre.
-  if (originPile !== owner) {
-    let attempts = 0;
-    const relocateInterval = setInterval(() => {
-      attempts++;
-      const wrongPile = (owner === 'top') ? topDiscard : botDiscard;
-      const wIdx = wrongPile.findIndex(c => c.id === chosenCard.id);
-      if (wIdx !== -1) {
-        const moved = wrongPile.splice(wIdx, 1)[0];
-        const correctPile = (originPile === 'top') ? topDiscard : botDiscard;
-        correctPile.unshift(moved);
-        pushHistory('info', `${cardAnchor(moved.label)} retourne dans sa défausse d'origine.`);
-        fullRender();
-        clearInterval(relocateInterval);
-        return;
-      }
-      if (attempts >= 40) clearInterval(relocateInterval); // abandon après ~20s
-    }, 500);
-  }
+  // Filet de sécurité : une fois son effet résolu, cette carte ne doit PAS
+  // rester dans une défausse (ni celle d'origine, ni celle du propriétaire de
+  // Kyraza où la logique normale de défausse l'aurait envoyée) — elle part en
+  // EXIL. Vérifié à intervalles réguliers pendant jusqu'à 20 secondes, le
+  // temps que certains effets nécessitant un choix supplémentaire du joueur
+  // aient fini de se résoudre.
+  let attempts = 0;
+  const exileInterval = setInterval(() => {
+    attempts++;
+    const landedPile = topDiscard.some(c => c.id === chosenCard.id) ? topDiscard
+                      : botDiscard.some(c => c.id === chosenCard.id) ? botDiscard : null;
+    if (landedPile) {
+      const lIdx = landedPile.findIndex(c => c.id === chosenCard.id);
+      const moved = landedPile.splice(lIdx, 1)[0];
+      addToExile(moved);
+      pushHistory('exil', `${cardAnchor('C49')} : ${cardAnchor(moved.label)} part en EXIL après avoir été rejouée !`);
+      clearInterval(exileInterval);
+      return;
+    }
+    if (attempts >= 40) clearInterval(exileInterval); // abandon après ~20s
+  }, 500);
 }
 
 // IMPY (nouveau lot) : Healard (C77) — JOUER : renvoie un combattant de
@@ -16006,6 +16006,7 @@ function onCharacterEnterBattlefield_impl(card, owner) {
         if (typeof cleanupWadooLinksOnCardRemoval === 'function') cleanupWadooLinksOnCardRemoval(t);
         if (typeof t.hp === 'number') t.hp = getBaseHP(t.label);
         t.shield = getBaseShield(t.label);
+        t.isFrozenByEffect = false; // une carte qui retourne en main perd le GEL
         getHandByOwner(ouraboreasOpp).push(t);
       });
       pushHistory('jeu', `${cardAnchor('C185')} renvoie ${targets.map(t => cardAnchor(t.label)).join(' et ')} dans la main de ${playerLabel(ouraboreasOpp)} !`);
@@ -16961,6 +16962,7 @@ function addToExile(card, context = {}){
     if (getType(card.label) === 'personnage') {
         card.hp = getBaseHP(card.label);
         card.shield = getBaseShield(card.label);
+        card.isFrozenByEffect = false;
     }
     cleanupPrismisLinksOnCardRemoval(card);
     cleanupWadooLinksOnCardRemoval(card);
@@ -17685,6 +17687,7 @@ if (reason === 'manual') {
   if(getType(card.label)==='personnage' && card.label !== 'C62'){
     card.hp = getBaseHP(card.label);
     card.shield = getBaseShield(card.label);
+    card.isFrozenByEffect = false;
   }
   triggerWadooDollDeath(card, owner);
   cleanupPrismisLinksOnCardRemoval(card);
@@ -22639,6 +22642,7 @@ function applyHitAndRunEffect() {
       detachFamiliarsOnHost(cardToHand, owner, false); // retour en main, pas une mort
       cardToHand.hp = getBaseHP(cardToHand.label);
       cardToHand.shield = getBaseShield(cardToHand.label);
+      cardToHand.isFrozenByEffect = false; // une carte qui retourne en main perd le GEL
       delete cardToHand.tempHP;
       delete cardToHand.tempShield;
       // etc. pour tous les effets temporaires
