@@ -1810,6 +1810,70 @@
     .memDiscardPrompt{ margin:0; color:#ffe9a8; font-size:13px; font-weight:700; }
     .memDiscardBusy{ color:#c9bfe0; font-size:13px; font-style:italic; }
 
+    /* ---- SAVAGE (2e lot) : Pister sa proie (C135) — fenêtre dédiée de
+       révélation des 5 cartes du dessus du deck adverse, avec entrée en
+       fondu/zoom au lieu du carrousel générique (peu adapté visuellement à
+       ce moment de jeu). ---- */
+    .pisterProieOverlay{
+      position:fixed; inset:0; z-index:9200;
+      background:rgba(3,4,14,.72); backdrop-filter:blur(5px);
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; animation:pisterProieFadeIn .28s ease forwards;
+    }
+    @keyframes pisterProieFadeIn{ from{ opacity:0; } to{ opacity:1; } }
+    .pisterProieContent{
+      width:min(92vw, 680px);
+      background:linear-gradient(150deg,#0b0f22,#171034);
+      border:2px solid #9b7bff; border-radius:16px;
+      box-shadow:0 0 36px rgba(155,123,255,.5), 0 20px 50px rgba(0,0,0,.55);
+      padding:22px 24px 26px;
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+      transform:scale(.88) translateY(14px); opacity:0;
+      animation:pisterProiePopIn .38s cubic-bezier(.2,.8,.3,1.15) .05s forwards;
+    }
+    @keyframes pisterProiePopIn{ to{ transform:scale(1) translateY(0); opacity:1; } }
+    .pisterProieTitle{
+      font-family:'Cinzel','Manrope',sans-serif; font-weight:900; font-size:19px;
+      letter-spacing:.05em; color:#d9c8ff; text-transform:uppercase;
+      text-shadow:0 0 14px rgba(155,123,255,.65);
+    }
+    .pisterProieSubtitle{
+      color:#b9aee0; font-size:13px; text-align:center; max-width:520px;
+      margin:2px 0 16px; line-height:1.4;
+    }
+    .pisterProieGrid{ display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+    .pisterProieCard{
+      position:relative; width:96px; height:134px; border-radius:10px;
+      background-size:cover; background-position:center; background-color:#1a1530;
+      border:2px solid rgba(255,255,255,.16); cursor:pointer;
+      box-shadow:0 6px 16px rgba(0,0,0,.5);
+      opacity:0; transform:translateY(16px) scale(.85);
+      animation:pisterProieCardIn .32s ease forwards;
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    @keyframes pisterProieCardIn{ to{ opacity:1; transform:translateY(0) scale(1); } }
+    .pisterProieCard:hover{
+      transform:translateY(-6px) scale(1.08); z-index:2;
+      border-color:#c9b6ff; box-shadow:0 0 20px rgba(201,182,255,.85), 0 10px 22px rgba(0,0,0,.5);
+    }
+    .pisterProieCard.chosen{
+      animation:none; opacity:1; transform:translateY(-6px) scale(1.08);
+      border-color:#6bffb0; box-shadow:0 0 24px rgba(107,255,176,.9);
+      pointer-events:none;
+    }
+    .pisterProieCard.dimmed{ opacity:.35; pointer-events:none; filter:grayscale(.5); }
+
+    /* ---- SAVAGE (2e lot) : Maximilien (C140) — petit sursaut sur la cible
+       au moment où le combattant projeté la percute. ---- */
+    @keyframes maximilienShakeInPlace{
+      0%,100%{ transform:translate(0,0); }
+      20%{ transform:translate(-7px,-2px); }
+      40%{ transform:translate(7px,2px); }
+      60%{ transform:translate(-5px,2px); }
+      80%{ transform:translate(5px,-2px); }
+    }
+    .maximilienImpactShake{ animation:maximilienShakeInPlace .14s ease-in-out 2; }
+
     /* ---- Coach (même personnage/esprit que le didacticiel) : explique les
        règles du Memory avant que la partie ne débute réellement. ---- */
     #memoryRulesBlocker{
@@ -22328,13 +22392,63 @@ function handleMaximilienThrowSelection(targetCard, targetOwner) {
     const promptEl = document.getElementById('maximilien-prompt');
     if (promptEl) promptEl.remove();
     closeActionPrompt();
-    if (neighbor) dealDamageToCardAndCheckDeath(neighbor, 10, 'action');
-    dealDamageToCardAndCheckDeath(targetCard, 10, 'action');
-    pushHistory('action', `${cardAnchor('C140')} lance ${neighbor ? cardAnchor(neighbor.label) : 'un voisin'} sur ${cardAnchor(targetCard.label)} : -10 PV aux deux !`);
     const casterCard = getLineByOwner(owner).find(c => c.id === casterCardId);
     if (casterCard) markAttacked(owner, casterCard);
-    fullRender();
+
+    const applyImpact = () => {
+      const neighborDied = neighbor ? dealDamageToCardAndCheckDeath(neighbor, 10, 'action') : false;
+      const targetDied = dealDamageToCardAndCheckDeath(targetCard, 10, 'action');
+      pushHistory('action', `${cardAnchor('C140')} lance ${neighbor ? cardAnchor(neighbor.label) : 'un voisin'} sur ${cardAnchor(targetCard.label)} : -10 PV aux deux !`);
+      if (neighbor && !neighborDied) {
+        const neighborEl = document.querySelector(`.lane .card.placed[data-id="${neighbor.id}"]`);
+        if (neighborEl && neighborEl.isConnected) {
+          neighborEl.style.transition = 'transform .35s cubic-bezier(.3,.6,.35,1)';
+          neighborEl.style.transform = 'translate(0,0) rotate(0deg) scale(1)';
+          setTimeout(() => { fullRender(); }, 370);
+          return;
+        }
+      }
+      fullRender();
+    };
+
+    if (neighbor) {
+      animateMaximilienThrow(neighbor, targetCard, applyImpact);
+    } else {
+      applyImpact();
+    }
   }
+}
+
+// SAVAGE (2e lot) : Maximilien (C140) — anime visuellement le combattant
+// voisin projeté sur la cible adverse (translation + rotation vers sa
+// position réelle à l'écran), puis déclenche onImpact() une fois "l'impact"
+// atteint (les dégâts et la mort éventuelle sont appliqués par l'appelant).
+function animateMaximilienThrow(neighbor, target, onImpact) {
+  const neighborEl = document.querySelector(`.lane .card.placed[data-id="${neighbor.id}"]`);
+  const targetEl = document.querySelector(`.lane .card.placed[data-id="${target.id}"]`);
+  if (!neighborEl || !targetEl) { onImpact(); return; }
+
+  const startRect = neighborEl.getBoundingClientRect();
+  const endRect = targetEl.getBoundingClientRect();
+  const dx = (endRect.left + endRect.width / 2) - (startRect.left + startRect.width / 2);
+  const dy = (endRect.top + endRect.height / 2) - (startRect.top + startRect.height / 2);
+
+  neighborEl.style.position = 'relative';
+  neighborEl.style.zIndex = '4000';
+  neighborEl.style.filter = 'drop-shadow(0 12px 20px rgba(0,0,0,.6))';
+  neighborEl.style.transition = 'transform .46s cubic-bezier(.25,.6,.3,1.15)';
+  void neighborEl.offsetWidth; // force reflow avant de fixer la cible du transform
+  neighborEl.style.transform = `translate(${dx}px, ${dy}px) rotate(320deg) scale(1.1)`;
+
+  setTimeout(() => {
+    // Petit "impact" : léger sursaut sur les deux cartes au moment du choc.
+    neighborEl.style.transform = `translate(${dx}px, ${dy}px) rotate(320deg) scale(1.22)`;
+    targetEl.classList.add('maximilienImpactShake');
+    setTimeout(() => {
+      targetEl.classList.remove('maximilienImpactShake');
+      onImpact();
+    }, 140);
+  }, 460);
 }
 
 // ===================================================================
@@ -22682,29 +22796,54 @@ function openPisterSaProiePicker(owner, opp) {
   const deck = getDeckByOwner(opp);
   const revealed = deck.slice(0, 5);
   if (revealed.length === 0) { fullRender(); return; }
-  const carousel = document.getElementById('familiarCarousel');
-  const title = document.getElementById('fcoTitle');
-  if (!familiarCarouselOverlay || !carousel || !title) { fullRender(); return; }
   pisterSaProieMode = true;
-  title.textContent = `Pister sa proie — choisissez une carte à repérer dans le deck de ${playerLabel(opp)}`;
-  carousel.innerHTML = '';
-  carousel.classList.add('selecting');
-  revealed.forEach(revealedCard => {
+
+  const old = document.getElementById('pisterProieOverlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'pisterProieOverlay';
+  overlay.className = 'pisterProieOverlay';
+
+  const content = document.createElement('div');
+  content.className = 'pisterProieContent';
+
+  const title = document.createElement('div');
+  title.className = 'pisterProieTitle';
+  title.textContent = 'Pister sa proie';
+  content.appendChild(title);
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'pisterProieSubtitle';
+  subtitle.innerHTML = `Voici les 5 cartes du dessus du deck de ${playerLabel(opp)}. Choisissez celle à repérer : elle rejoindra la main de ${playerLabel(owner)} au lieu de celle de ${playerLabel(opp)} quand il/elle la piochera.`;
+  content.appendChild(subtitle);
+
+  const grid = document.createElement('div');
+  grid.className = 'pisterProieGrid';
+  content.appendChild(grid);
+
+  revealed.forEach((revealedCard, i) => {
     const thumb = document.createElement('div');
-    thumb.className = 'dthumb';
+    thumb.className = 'pisterProieCard';
+    thumb.style.animationDelay = `${i * 0.06}s`;
     const url = getCardImage(revealedCard.label);
-    if (url) { thumb.style.backgroundImage = `url(${url})`; } else { thumb.textContent = cardName(revealedCard.label); }
+    if (url) thumb.style.backgroundImage = `url(${url})`;
     thumb.title = cardName(revealedCard.label);
     thumb.addEventListener('mouseenter', () => showZoom(revealedCard.label, revealedCard));
     thumb.addEventListener('mouseleave', hideZoom);
     thumb.addEventListener('click', () => {
-      carousel.classList.remove('selecting');
-      hideFamiliarCarousel();
-      resolvePisterSaProieChoice(owner, opp, revealedCard);
+      grid.querySelectorAll('.pisterProieCard').forEach(el => { if (el !== thumb) el.classList.add('dimmed'); });
+      thumb.classList.add('chosen');
+      setTimeout(() => {
+        overlay.remove();
+        resolvePisterSaProieChoice(owner, opp, revealedCard);
+      }, 380);
     });
-    carousel.appendChild(thumb);
+    grid.appendChild(thumb);
   });
-  familiarCarouselOverlay.style.display = 'flex';
+
+  overlay.appendChild(content);
+  document.body.appendChild(overlay);
   fullRender();
 }
 function resolvePisterSaProieChoice(owner, opp, chosenCard) {
