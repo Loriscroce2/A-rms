@@ -20354,6 +20354,20 @@ let aiRunStepCallCount = 0;
 function runAITurnStep(){
   if (GAME.over) return;
   if (currentTurn !== AI_SEAT) return; // le tour a changé entre-temps
+
+  // CORRIGÉ : l'IA doit se mettre en pause pendant qu'une animation à
+  // résultat différé est en cours (lancer de Maximilien, révélation de
+  // Kyraza, ou toute future animation utilisant ce même verrou) — exactement
+  // comme un joueur humain, qui ne peut plus rien cliquer pendant ce temps.
+  // On incrémente quand même aiRunStepCallCount pour que le filet de
+  // secours "le tour de l'IA n'a jamais démarré" ne se déclenche pas à tort
+  // pendant cette attente.
+  if (typeof gameAnimLockCount !== 'undefined' && gameAnimLockCount > 0) {
+    aiRunStepCallCount++;
+    setTimeout(() => runAITurnStep(), 200);
+    return;
+  }
+
   aiRunStepCallCount++;
 
   try {
