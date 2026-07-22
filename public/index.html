@@ -1827,7 +1827,10 @@
        fondu/zoom au lieu du carrousel générique (peu adapté visuellement à
        ce moment de jeu). ---- */
     .pisterProieOverlay{
-      position:fixed; inset:0; z-index:9200;
+      /* CORRIGÉ : z-index abaissé sous celui de #zoom (2600) — sinon
+         l'aperçu agrandi au survol d'une carte (showZoom) se retrouvait
+         caché DERRIÈRE cette fenêtre au lieu de s'afficher par-dessus. */
+      position:fixed; inset:0; z-index:2000;
       background:rgba(3,4,14,.72); backdrop-filter:blur(5px);
       display:flex; align-items:center; justify-content:center;
       opacity:0; animation:pisterProieFadeIn .28s ease forwards;
@@ -1892,7 +1895,10 @@
        visuel que Pister sa proie ci-dessus (remplace l'ancien recyclage du
        carrousel générique des familiers, peu clair pour ce choix). ---- */
     .kyrazaPickerOverlay{
-      position:fixed; inset:0; z-index:9200;
+      /* CORRIGÉ : même raison que pisterProieOverlay ci-dessus — doit rester
+         SOUS #zoom (2600) pour que l'aperçu au survol s'affiche par-dessus
+         cette fenêtre au lieu de disparaître derrière. */
+      position:fixed; inset:0; z-index:2000;
       background:rgba(3,4,14,.72); backdrop-filter:blur(5px);
       display:flex; align-items:center; justify-content:center;
       opacity:0; animation:pisterProieFadeIn .28s ease forwards;
@@ -8333,8 +8339,25 @@ function updateForgeTaxUI() {
       effect.source !== 'Éventail (T01)' &&
       effect.source !== 'Anomaly (T03)' &&
       effect.source !== 'Desaxe (C81)' &&
-      effect.source !== 'Feufo (C82)'
+      effect.source !== 'Feufo (C82)' &&
+      effect.source !== 'Dragoons T (T28)'
     );
+
+    // SAVAGE (2e lot) : Dragoons T (T28) — CORRIGÉ : cet effet était appliqué
+    // directement dans computeForgeCost() sans jamais passer par forgeTax,
+    // donc le coût final était bien correct mais la boîte de Mithril
+    // n'affichait aucun écart (le +1 restait invisible). Il est désormais
+    // ajouté ici comme les autres modificateurs temporaires (recalculé à
+    // chaque appel), et computeForgeCost() n'a plus besoin de le gérer à part.
+    const oppForT28UI = (player === 'top') ? 'bottom' : 'top';
+    const dragoonsTCountUI = getLineByOwner(oppForT28UI).filter(c => c.label === 'T28').length;
+    if (dragoonsTCountUI > 0) {
+      forgeTax[player].push({
+        source: 'Dragoons T (T28)',
+        amount: 1, // flat, pas cumulatif par exemplaire
+        turns: 1 // Temporaire, recalculé à chaque update
+      });
+    }
 
     // Logique pour l'Éventail
     const playerHand = getHandByOwner(player);
@@ -18892,16 +18915,13 @@ function checkWin(player) {
 // jamais diverger (auparavant, la réduction d'Anomaly était appliquée deux
 // fois côté calcul mais une seule fois côté affichage).
 function computeForgeCost(player) {
+  // CORRIGÉ : Dragoons T (T28) fait maintenant partie de forgeTax[player]
+  // (voir updateForgeTaxUI), donc son +1 est déjà inclus dans totalTax
+  // ci-dessous — plus besoin de l'ajouter séparément ici (et surtout, il est
+  // maintenant bien visible dans la boîte de Mithril, ce qui n'était pas le
+  // cas avant ce correctif).
   const totalTax = forgeTax[player].reduce((sum, effect) => sum + effect.amount, 0);
   let cost = Math.max(1, 3 + totalTax);
-
-  // SAVAGE (2e lot) : Dragoons T (T28) — tant qu'il est en jeu chez
-  // l'ADVERSAIRE de player, les A'rms de player coûtent +1 Mithril (effet
-  // passif lié à sa présence — flat, pas cumulatif par exemplaire — pas une
-  // taxe à durée limitée comme forgeTax ci-dessus).
-  const oppForT28 = (player === 'top') ? 'bottom' : 'top';
-  const dragoonsTCount = getLineByOwner(oppForT28).filter(c => c.label === 'T28').length;
-  if (dragoonsTCount > 0) cost += 1;
 
   if (gousseDiscountActive[player]) {
     const playerLine = getLineByOwner(player);
@@ -25391,7 +25411,11 @@ if (VS_AI_MODE) {
   })();
 } else if (!ONLINE_MODE) { startTurn('bottom'); renderPlayerPanels(); }
 if (TUTORIAL_MODE) { setTimeout(()=> startTutorialCoach(), 900); }
-setTimeout(()=>{ chatPanel.classList.remove('collapsed'); }, 0);
+// CORRIGÉ : le panneau Tchat/Historique doit rester FERMÉ au démarrage de la
+// partie (il ne s'ouvrait auparavant volontairement que pour que l'onglet
+// Historique soit visible d'emblée — l'onglet actif par défaut reste
+// "Historique" dans le HTML, seul l'état ouvert/fermé change ici).
+setTimeout(()=>{ chatPanel.classList.add('collapsed'); }, 0);
 
 document.getElementById('fcoCloseBtn').addEventListener('click', hideFamiliarCarousel);
 familiarCarouselOverlay.addEventListener('click', (e) => {
