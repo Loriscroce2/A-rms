@@ -821,7 +821,8 @@
 
     .mithrilBox{ padding:8px 14px; border-radius:999px; background:linear-gradient(145deg,#0d3e4a,#031619); border:1px solid rgba(125,249,255,.55);
       color:var(--mithril); box-shadow:0 0 16px rgba(125,249,255,.35), inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 10px rgba(125,249,255,.1); font-weight:800; font-size:13px;
-      font-family:'Cinzel','Manrope',sans-serif; letter-spacing:.02em; white-space:nowrap; display: flex; align-items: center; gap: 7px; }
+      font-family:'Cinzel','Manrope',sans-serif; letter-spacing:.02em; white-space:nowrap; display: flex; align-items: center; gap: 7px;
+      position:relative; }
 
     /* Puces de coût de forge : chaque modificateur actif (Éventail, Anomaly,
        Gousset...) affiché clairement, toujours visible — plus besoin de
@@ -867,9 +868,20 @@
     .armForged{ animation:armForgedPulse 1.4s cubic-bezier(.2,.8,.25,1) 2; }
 
 .mithrilCostMod {
-  color: var(--orange); /* --orange est déjà défini, c'est parfait */
-  font-weight: 900;
-  margin-left: 8px; /* Ajoute un petit espace */
+  /* CORRIGÉ : au lieu d'un texte long inséré dans la rangée (qui faisait
+     s'étirer toute la boîte de Mithril horizontalement selon le nombre de
+     chiffres), c'est maintenant une petite puce fixe qui se pose SUR le coin
+     de la boîte, en position absolue — elle n'a donc plus aucun effet sur la
+     largeur de la boîte elle-même, quel que soit l'écart affiché. Le détail
+     complet reste accessible au clic (openForgeCostDetailPopup).
+  */
+  position:absolute; top:-9px; right:-9px;
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:20px; height:19px; padding:0 5px; box-sizing:border-box;
+  border-radius:999px; font-weight:900; font-size:11px; line-height:1;
+  background:#050e12; border:1.5px solid currentColor;
+  box-shadow:0 0 8px currentColor, 0 2px 5px rgba(0,0,0,.5);
+  white-space:nowrap;
 }
 
     /* Cycles HUD */
@@ -1862,6 +1874,61 @@
       pointer-events:none;
     }
     .pisterProieCard.dimmed{ opacity:.35; pointer-events:none; filter:grayscale(.5); }
+
+    /* ---- KRYLLS (nouveau lot) : Kyraza (C49) — fenêtre dédiée pour choisir
+       la carte Action à rejouer depuis une défausse, sur le même principe
+       visuel que Pister sa proie ci-dessus (remplace l'ancien recyclage du
+       carrousel générique des familiers, peu clair pour ce choix). ---- */
+    .kyrazaPickerOverlay{
+      position:fixed; inset:0; z-index:9200;
+      background:rgba(3,4,14,.72); backdrop-filter:blur(5px);
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; animation:pisterProieFadeIn .28s ease forwards;
+    }
+    .kyrazaPickerContent{
+      width:min(92vw, 680px);
+      background:linear-gradient(150deg,#241a08,#332204);
+      border:2px solid #e0b23a; border-radius:16px;
+      box-shadow:0 0 36px rgba(224,178,58,.5), 0 20px 50px rgba(0,0,0,.55);
+      padding:22px 24px 26px;
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+      transform:scale(.88) translateY(14px); opacity:0;
+      animation:pisterProiePopIn .38s cubic-bezier(.2,.8,.3,1.15) .05s forwards;
+    }
+    .kyrazaPickerTitle{
+      font-family:'Cinzel','Manrope',sans-serif; font-weight:900; font-size:19px;
+      letter-spacing:.05em; color:#f5dfa0; text-transform:uppercase;
+      text-shadow:0 0 14px rgba(224,178,58,.65);
+    }
+    .kyrazaPickerSubtitle{
+      color:#e0d0a5; font-size:13px; text-align:center; max-width:520px;
+      margin:2px 0 16px; line-height:1.4;
+    }
+    .kyrazaPickerGrid{ display:flex; gap:16px; justify-content:center; flex-wrap:wrap; max-height:56vh; overflow-y:auto; padding:4px; }
+    .kyrazaPickerCard{
+      position:relative; width:96px; height:134px; border-radius:10px;
+      background-size:cover; background-position:center; background-color:#1a1508;
+      border:2px solid rgba(255,255,255,.16); cursor:pointer;
+      box-shadow:0 6px 16px rgba(0,0,0,.5);
+      opacity:0; transform:translateY(16px) scale(.85);
+      animation:pisterProieCardIn .32s ease forwards;
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .kyrazaPickerCard::after{
+      content:attr(data-pile); position:absolute; left:4px; bottom:4px;
+      background:rgba(0,0,0,.65); color:#f5dfa0; font-size:9px; font-weight:800;
+      padding:2px 5px; border-radius:6px; letter-spacing:.03em; pointer-events:none;
+    }
+    .kyrazaPickerCard:hover{
+      transform:translateY(-6px) scale(1.08); z-index:2;
+      border-color:#ffd876; box-shadow:0 0 20px rgba(255,216,118,.85), 0 10px 22px rgba(0,0,0,.5);
+    }
+    .kyrazaPickerCard.chosen{
+      animation:none; opacity:1; transform:translateY(-6px) scale(1.08);
+      border-color:#6bffb0; box-shadow:0 0 24px rgba(107,255,176,.9);
+      pointer-events:none;
+    }
+    .kyrazaPickerCard.dimmed{ opacity:.35; pointer-events:none; filter:grayscale(.5); }
 
     /* ---- SAVAGE (2e lot) : Maximilien (C140) — petit sursaut sur la cible
        au moment où le combattant projeté la percute. ---- */
@@ -8342,11 +8409,14 @@ function updateForgeTaxUI() {
       const finalCost = computeForgeCost(player);
       const delta = finalCost - 3; // écart réel par rapport au coût de base (3), après tous les plafonds
       const sign = delta > 0 ? '+' : '';
-      modSpan.textContent = `( Coût Forge: ${finalCost}, ${sign}${delta} )`;
+      // CORRIGÉ : puce compacte (juste l'écart, ex. "+2" / "-1") au lieu de la
+      // phrase complète — le coût final détaillé reste dans le titre (survol)
+      // et dans la fenêtre de détail au clic.
+      modSpan.textContent = `${sign}${delta}`;
       // Vert = réduction de coût (bon pour le joueur), Rouge = surcoût (pénalité)
       modSpan.style.color = (delta < 0) ? 'var(--green)' : (delta > 0 ? 'var(--red)' : '');
       modSpan.style.cursor = 'pointer';
-      box.title = 'Cliquez pour voir le détail du coût de forge';
+      box.title = `Coût de forge actuel : ${finalCost} Mithril (${sign}${delta} vs base 3) — cliquez pour le détail`;
       box.style.cursor = 'pointer';
     } else {
       modSpan.textContent = '';
@@ -13945,37 +14015,57 @@ function openKyrazaDiscardPicker(owner){
     return;
   }
 
-  // Réutilise la même fenêtre que "Voir Familiers" (même overlay, mêmes
-  // vignettes .dthumb), rendue cliquable pour le choix.
-  const carousel = document.getElementById('familiarCarousel');
-  const title = document.getElementById('fcoTitle');
-  if (!familiarCarouselOverlay || !carousel || !title) return;
+  // CORRIGÉ : fenêtre dédiée (même principe que Pister sa proie), au lieu de
+  // recycler le carrousel générique des familiers qui n'était pas clair pour
+  // ce choix (pas de titre lisible, pas d'indication d'où vient chaque
+  // carte).
+  const old = document.getElementById('kyrazaPickerOverlay');
+  if (old) old.remove();
 
-  title.textContent = 'Kyraza — choisissez une Action à rejouer depuis une défausse';
-  carousel.innerHTML = '';
-  carousel.classList.add('selecting');
+  const overlay = document.createElement('div');
+  overlay.id = 'kyrazaPickerOverlay';
+  overlay.className = 'kyrazaPickerOverlay';
 
-  allActions.forEach(({ card: actionCard, pile }) => {
+  const content = document.createElement('div');
+  content.className = 'kyrazaPickerContent';
+
+  const title = document.createElement('div');
+  title.className = 'kyrazaPickerTitle';
+  title.textContent = 'Kyraza';
+  content.appendChild(title);
+
+  const subtitle = document.createElement('div');
+  subtitle.className = 'kyrazaPickerSubtitle';
+  subtitle.innerHTML = `Choisissez une carte <strong>Action</strong> à rejouer gratuitement depuis une défausse — elle partira en <strong>Exil</strong> ensuite au lieu d'y retourner.`;
+  content.appendChild(subtitle);
+
+  const grid = document.createElement('div');
+  grid.className = 'kyrazaPickerGrid';
+  content.appendChild(grid);
+
+  allActions.forEach(({ card: actionCard, pile }, i) => {
     const thumb = document.createElement('div');
-    thumb.className = 'dthumb';
+    thumb.className = 'kyrazaPickerCard';
+    thumb.style.animationDelay = `${i * 0.05}s`;
+    thumb.dataset.pile = pile === 'top' ? 'Défausse adverse' : 'Votre défausse';
     const url = getCardImage(actionCard.label);
-    if (url) {
-      thumb.style.backgroundImage = `url(${url})`;
-    } else {
-      thumb.textContent = cardName(actionCard.label);
-    }
-    thumb.title = `${cardName(actionCard.label)} — défausse ${pile === 'top' ? 'adverse/haut' : 'bas'}`;
+    if (url) thumb.style.backgroundImage = `url(${url})`;
+    thumb.title = `${cardName(actionCard.label)} — ${pile === 'top' ? 'défausse adverse' : 'votre défausse'}`;
     thumb.addEventListener('mouseenter', () => showZoom(actionCard.label, actionCard));
     thumb.addEventListener('mouseleave', hideZoom);
     thumb.addEventListener('click', () => {
-      carousel.classList.remove('selecting');
-      hideFamiliarCarousel();
-      resolveKyrazaChoice(owner, actionCard, pile);
+      grid.querySelectorAll('.kyrazaPickerCard').forEach(el => { if (el !== thumb) el.classList.add('dimmed'); });
+      thumb.classList.add('chosen');
+      setTimeout(() => {
+        overlay.remove();
+        resolveKyrazaChoice(owner, actionCard, pile);
+      }, 380);
     });
-    carousel.appendChild(thumb);
+    grid.appendChild(thumb);
   });
 
-  familiarCarouselOverlay.style.display = 'flex';
+  overlay.appendChild(content);
+  document.body.appendChild(overlay);
 }
 
 function resolveKyrazaChoice(owner, chosenCard, originPile){
