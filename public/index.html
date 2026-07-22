@@ -8424,46 +8424,52 @@ let c58HealingMode = null; // { owner, healsRemaining }
 
 function openC51Prompt(owner, card, anchorEl) {
   if (!canPlayThisCardNow(owner, card)) return;
-  const canPay = mithril[owner] >= 2;
   openButtonsPrompt(
     'Violence',
-    'Jouer <strong>Violence</strong> ?<br><small>Coût : <strong>2 Mithril</strong>. Effet : Inflige <strong>-6 PV</strong> à un ou deux combattants adverses de votre choix.</small>',
+    "Jouer <strong>Violence</strong> ?<br><small>Effet : Perdez 1 Mithril. Si vous le faites, exilez 2 cartes de la main de votre adversaire.</small>",
     anchorEl,
     [
-      {
-        label: 'Valider (-2 Mithril)',
-        className: 'confirm' + (canPay ? '' : ' disabled'),
-        disabled: !canPay,
-        onClick: () => playActionC51(owner, card)
-      },
+      { label: 'Valider', className: 'confirm', onClick: () => playActionC51(owner, card) },
       { label: 'Annuler', className: 'cancel', onClick: () => {} },
     ]
   );
 }
 
+// IMPY : Violence (C51) — refonte de l'effet (demandée par l'utilisatrice) :
+// Perdez 1 Mithril. Si vous le faites (donc uniquement si vous en aviez au
+// moins 1 à perdre), exilez 2 cartes AU HASARD de la main de votre
+// adversaire.
 function playActionC51(owner, actionCard) {
-  if (!canPlayThisCardNow(owner, actionCard) || mithril[owner] < 2) return;
-
-  const opp = (owner === 'top') ? 'bottom' : 'top';
-  const oppLine = getLineByOwner(opp);
-  const targets = oppLine.filter(c => getType(c.label) === 'personnage');
-
-  if (targets.length < 1) {
-    alert("Il n'y a aucune cible adverse valide.");
-    return;
-  }
+  if (!canPlayThisCardNow(owner, actionCard)) return;
 
   consumeAllowanceIfNeeded(owner, actionCard);
-  mithril[owner] -= 2;
-  const hand = (owner === 'top') ? topHand : botHand;
+  const hand = getHandByOwner(owner);
   const idx = hand.findIndex(c => c.id === actionCard.id);
   if (idx !== -1) hand.splice(idx, 1);
   discardCard(actionCard, owner, 'action');
 
-  const targetsToPick = Math.min(2, targets.length);
-  pushHistory('action', `${cardAnchor('C51')} est jouée pour 2 Mithril. En attente de ${targetsToPick} cible(s)...`);
-
-  startC51Targeting(owner, targetsToPick);
+  if (mithril[owner] > 0) {
+    mithril[owner] -= 1;
+    updateMithril();
+    const opp = (owner === 'top') ? 'bottom' : 'top';
+    const oppHand = getHandByOwner(opp);
+    const exiledNames = [];
+    const count = Math.min(2, oppHand.length);
+    for (let i = 0; i < count; i++) {
+      const pickIdx = Math.floor(Math.random() * oppHand.length);
+      const exiledCard = oppHand.splice(pickIdx, 1)[0];
+      exiledNames.push(cardAnchor(exiledCard.label));
+      addToExile(exiledCard);
+    }
+    if (count > 0) {
+      pushHistory('exil', `${cardAnchor('C51')} : ${playerLabel(owner)} perd 1 Mithril — ${exiledNames.join(' et ')} ${count > 1 ? 'sont exilées' : 'est exilée'} de la main de ${playerLabel(opp)} !`);
+    } else {
+      pushHistory('info', `${cardAnchor('C51')} : ${playerLabel(owner)} perd 1 Mithril, mais ${playerLabel(opp)} n'a aucune carte en main à exiler.`);
+    }
+  } else {
+    pushHistory('info', `${cardAnchor('C51')} : ${playerLabel(owner)} n'a aucun Mithril à perdre — aucun effet.`);
+  }
+  fullRender();
 }
 
 function startC51Targeting(owner, targetsToPick = 2) {
@@ -10885,7 +10891,11 @@ function animateCardToDiscard(card, owner){
 
 /* --- Dégâts & bouclier --- */
 function applyDamageWithShield(card, incoming, ignoreShield) {
-  if (card.label === 'C62') { return { absorbed: incoming, hpLost: 0, hpBefore: getEffectiveHP(card) }; }
+  // CORRIGÉ : Decebale (C62) n'est plus immunisée aux dégâts — cette
+  // exception n'avait de sens que tant que ses PV étaient recalculés à
+  // chaque rendu (voir recalcDecebaleHP, supprimée) ; désormais ses PV sont
+  // fixés une seule fois à l'entrée en jeu et doivent pouvoir baisser
+  // normalement au combat comme n'importe quel autre combattant.
   if (getType(card.label) !== 'personnage') return { absorbed: 0, hpLost: 0, hpBefore: 0 };
 
   let dmg = Math.max(0, incoming);
@@ -11122,29 +11132,12 @@ function recalcBlusyteBonuses(){
   });
 }
 
-// Decebale (C62) — ses PV sont TOUJOURS égaux au nombre de cartes dans
-// l'Exil, recalculés en direct à chaque rendu. Le combat garde priorité :
-// s'il la fait tomber à 0 PV pendant un échange, elle meurt normalement à
-// ce moment-là (retirée avant que ce recalcul ne s'applique de nouveau) ;
-// sinon, tant qu'elle est en vie, ses PV suivent la taille de l'Exil à la
-// hausse comme à la baisse.
-function recalcDecebaleHP(){
-  const all = topLine.concat(botLine);
-  all.forEach(card => {
-    if (card.label !== 'C62') return;
-    card.hp = exilePile.length;
-    if (card.hp <= 0) {
-      const owner = topLine.includes(card) ? 'top' : 'bottom';
-      const line = getLineByOwner(owner);
-      const idx = line.findIndex(c => c.id === card.id);
-      if (idx !== -1) {
-        line.splice(idx, 1);
-        detachFamiliarsOnHost(card, owner);
-        discardCard(card, owner, 'death', { hpBefore: 1 });
-      }
-    }
-  });
-}
+// Decebale (C62) — CORRIGÉ : ses PV ne sont FIXÉS qu'UNE SEULE FOIS, au
+// moment où elle arrive dans la zone de combat (JOUER), égaux au nombre de
+// cartes alors présentes dans l'Exil. Ensuite elle se comporte comme un
+// combattant tout à fait normal (peut être blessée, soignée, gagner des PV
+// etc. sans que rien ne vienne réécrire sa valeur). Voir l'appel dans
+// onCharacterEnterBattlefield_impl.
 
 // KRYLLS (nouveau lot) : Tentacuz (C24) — tant qu'il est rattaché, son hôte
 // gagne +X Bouclier, X = nombre de combattants dans LES DEUX zones de combat
@@ -16349,6 +16342,17 @@ function resolveDragoonsNWish3(owner){
 
 function onCharacterEnterBattlefield_impl(card, owner) {
   // ===================================================================
+  // IMPY : Decebale (C62) — JOUER : arrive en jeu avec des PV égaux au
+  // nombre de cartes actuellement dans l'Exil (fixé UNE SEULE FOIS ici, plus
+  // jamais recalculé ensuite — voir CORRECTIF sur applyDamageWithShield et
+  // l'ancienne recalcDecebaleHP, supprimée).
+  // ===================================================================
+  if (card.label === 'C62') {
+    card.hp = exilePile.length;
+    pushHistory('jeu', `${cardAnchor('C62')} entre en jeu avec ${card.hp} PV (nombre de cartes dans l'Exil) !`);
+  }
+
+  // ===================================================================
   // SAVAGE (2e lot) : Mère (C130) — JOUER : arrive avec Dragoons X (T29) et
   // Dragoons Y (T09) directement dans SA zone de combat, marqués pour partir
   // en Exil (au lieu de la défausse) après leur mort.
@@ -16983,7 +16987,10 @@ if (card.label === 'C166') {
       if (art.label === 'C58') {
           if (typeof art.charges !== 'number') art.charges = 0;
           art.charges++;
-          if (typeof card.hp === 'number' && card.label !== 'C62') {
+          // CORRIGÉ : Decebale (C62) n'est plus immunisée aux dégâts, cet effet
+          // d'entrée en jeu s'applique donc à elle comme à n'importe quel autre
+          // combattant (voir le correctif sur applyDamageWithShield).
+          if (typeof card.hp === 'number') {
               card.hp--;
           }
           pushHistory('artefact', `${cardAnchor('C58')} gagne 1 charge. ${cardAnchor(card.label)} perd 1 PV en entrant en jeu.`);
@@ -18158,7 +18165,11 @@ if (reason === 'manual') {
   }
   const diedMyzor = (card.label==='C6' && reason==='death');
   if(card.label==='C8'){ returnSealedToOpponentDeck(card, owner); }
-  if(getType(card.label)==='personnage' && card.label !== 'C62'){
+  if(getType(card.label)==='personnage'){
+    // CORRIGÉ : Decebale (C62) suit désormais le même reset générique que les
+    // autres personnages en quittant le jeu (ses PV repartiront de toute façon
+    // à zéro puis seront re-fixés au nombre de cartes dans l'Exil la prochaine
+    // fois qu'elle entrera en jeu, voir onCharacterEnterBattlefield_impl).
     card.hp = getBaseHP(card.label);
     card.shield = getBaseShield(card.label);
     card.isFrozenByEffect = false;
@@ -18429,8 +18440,6 @@ function fullRender(){
   // Bouclier suive le Mithril de son propriétaire en temps réel, à la hausse
   // comme à la baisse — pas seulement à l'attache ou en début de tour.
   recalcBlusyteBonuses();
-  // Decebale (C62) — ses PV suivent en direct la taille de l'Exil.
-  recalcDecebaleHP();
   // KRYLLS (nouveau lot) : Tentacuz (C24) — bonus de Bouclier en direct.
   recalcTentacuzBonuses();
   // KRYLLS (nouveau lot) : Hypnotikaa (C29) — aura Esprit en direct.
