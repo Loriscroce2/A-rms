@@ -1875,6 +1875,18 @@
     }
     .pisterProieCard.dimmed{ opacity:.35; pointer-events:none; filter:grayscale(.5); }
 
+    /* ---- Verrou d'entrées générique pendant les animations : couche
+       invisible plein écran qui absorbe tous les clics/drags tant qu'une
+       animation "à résultat différé" (ex. lancer de Maximilien) est en
+       cours, pour ne jamais laisser une action se produire pendant que
+       l'état du jeu n'est pas encore stabilisé. En dessous des fenêtres
+       modales (qui bloquent déjà par elles-mêmes), au-dessus du plateau. ---- */
+    #gameAnimLockOverlay{
+      position:fixed; inset:0; z-index:9150;
+      background:transparent; cursor:wait; display:none;
+    }
+    #gameAnimLockOverlay.active{ display:block; }
+
     /* ---- KRYLLS (nouveau lot) : Kyraza (C49) — fenêtre dédiée pour choisir
        la carte Action à rejouer depuis une défausse, sur le même principe
        visuel que Pister sa proie ci-dessus (remplace l'ancien recyclage du
@@ -10816,7 +10828,10 @@ function animateVortexTransfer(fromEl, toEl, label){
 // piochée au hasard dans une défausse, et précise explicitement dans
 // quel deck (avec le VRAI pseudo du joueur) elle vient de rejoindre —
 // visible des DEUX joueurs en même temps.
-function playVortexCentralReveal(cardLabel, targetOwner, onDone){
+// CORRIGÉ : accepte désormais un texte personnalisé (messageHtml), pour être
+// réutilisée par d'autres effets de "révélation claire" comme Kyraza (voir
+// playKyrazaCentralReveal) sans dupliquer tout le CSS/l'overlay.
+function playVortexCentralReveal(cardLabel, targetOwner, onDone, messageHtml){
   try{
     const style = document.createElement('style');
     style.textContent = `
@@ -10840,7 +10855,7 @@ function playVortexCentralReveal(cardLabel, targetOwner, onDone){
     overlay.innerHTML = `
       <div class="vortexRevealStage">
         <div class="vortexRevealCard" id="vortexRevealCard" style="background-image:url(${getCardImage(cardLabel)})"></div>
-        <div class="vortexRevealText" id="vortexRevealText">${cardAnchor(cardLabel)} rejoint le deck de <strong>${playerLabel(targetOwner)}</strong> !</div>
+        <div class="vortexRevealText" id="vortexRevealText">${messageHtml || `${cardAnchor(cardLabel)} rejoint le deck de <strong>${playerLabel(targetOwner)}</strong> !`}</div>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -10871,6 +10886,24 @@ function broadcastVortexReveal(cardLabel, targetOwner){
   }
 }
 
+// KRYLLS (nouveau lot) : Kyraza (C49) — même principe de présentation
+// centrale que Vortex, pour que la carte Action rejouée depuis une défausse
+// (et le fait qu'elle va maintenant produire son effet) soit parfaitement
+// claire pour LES DEUX joueurs, y compris celui qui n'a pas fait le choix.
+function playKyrazaCentralReveal(cardLabel, owner, onDone){
+  const msg = `${cardAnchor('C49')} rejoue ${cardAnchor(cardLabel)} depuis la défausse de ${playerLabel(owner)} !`;
+  playVortexCentralReveal(cardLabel, owner, onDone, msg);
+}
+function broadcastKyrazaReveal(cardLabel, owner, onDone){
+  playKyrazaCentralReveal(cardLabel, owner, onDone);
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && window.__socket && window.__socket.connected) {
+    window.__socket.emit('vfx', {
+      matchId: ONLINE_MATCH_ID,
+      payload: { type: 'kyrazaReveal', cardLabel, owner }
+    });
+  }
+}
+
 // ===================================================================
 // NOUVELLES ANIMATIONS — Exil & Défausse. Utilisent le même principe que
 // animateVortexTransfer ci-dessus (clone visuel qui vole vers sa
@@ -10879,6 +10912,30 @@ function broadcastVortexReveal(cardLabel, targetOwner){
 // TOUTE carte du jeu en bénéficie automatiquement, sans exception à gérer
 // carte par carte.
 // ===================================================================
+
+// Verrou d'entrées générique : à appeler au début de toute animation dont le
+// résultat (dégâts, mort, etc.) n'est appliqué qu'APRÈS la fin de
+// l'animation, pour empêcher toute action (clic, glissé-déposé) pendant ce
+// délai. Compteur (et non booléen) pour supporter d'éventuelles animations
+// imbriquées/enchaînées sans se débloquer trop tôt.
+let gameAnimLockCount = 0;
+function lockGameDuringAnimation(){
+  gameAnimLockCount++;
+  let overlay = document.getElementById('gameAnimLockOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'gameAnimLockOverlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.classList.add('active');
+}
+function unlockGameAfterAnimation(){
+  gameAnimLockCount = Math.max(0, gameAnimLockCount - 1);
+  if (gameAnimLockCount === 0) {
+    const overlay = document.getElementById('gameAnimLockOverlay');
+    if (overlay) overlay.classList.remove('active');
+  }
+}
 
 /* Trouve l'élément DOM actuellement affiché pour une carte donnée, quelle
    que soit sa zone (plateau, main, artefacts) — doit être appelé AVANT toute
@@ -14085,14 +14142,24 @@ function resolveKyrazaChoice(owner, chosenCard, originPile){
   pushHistory('action', `${cardAnchor('C49')} permet de rejouer ${cardAnchor(chosenCard.label)} depuis la défausse !`);
   fullRender();
 
-  // Déclenche le VRAI clic sur la carte fraîchement rendue en main, pour
-  // réutiliser exactement la même logique que si le joueur l'avait
-  // cliquée lui-même — quelle que soit la carte Action concernée.
-  requestAnimationFrame(() => {
+  // CORRIGÉ : présentation centrale claire (carte + texte), visible des DEUX
+  // joueurs, montrant précisément quelle carte a été choisie AVANT de
+  // déclencher son effet — l'adversaire n'a plus à deviner via l'historique
+  // seul. Le jeu est mis en pause le temps de cette révélation (déjà géré
+  // par l'overlay plein écran de playVortexCentralReveal), puis le clic
+  // automatique se déclenche une fois qu'elle s'est refermée.
+  lockGameDuringAnimation();
+  broadcastKyrazaReveal(chosenCard.label, owner, () => {
+    unlockGameAfterAnimation();
+    // Déclenche le VRAI clic sur la carte fraîchement rendue en main, pour
+    // réutiliser exactement la même logique que si le joueur l'avait
+    // cliquée lui-même — quelle que soit la carte Action concernée.
     requestAnimationFrame(() => {
-      const el = document.querySelector(`[data-id="${chosenCard.id}"]`);
-      if (el) el.click();
-      else pushHistory('info', `${cardAnchor('C49')} : impossible de déclencher ${cardAnchor(chosenCard.label)} automatiquement.`);
+      requestAnimationFrame(() => {
+        const el = document.querySelector(`[data-id="${chosenCard.id}"]`);
+        if (el) el.click();
+        else pushHistory('info', `${cardAnchor('C49')} : impossible de déclencher ${cardAnchor(chosenCard.label)} automatiquement.`);
+      });
     });
   });
 
@@ -17359,6 +17426,26 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
   });
 }
 
+// CORRIGÉ : initialisation des charges d'un artefact à son entrée en jeu,
+// centralisée ici pour être appelée depuis TOUS les chemins d'entrée
+// possibles (glissé-déposé normal via setupArtifactDrops, mais aussi les
+// effets qui posent un artefact directement depuis la main comme Ozokshi
+// (C34) — voir handleOzokshiHandCardClick). Avant ce correctif, seul le
+// glissé-déposé normal initialisait les charges ; un artefact à charges
+// (ex. Couveuse Temporelle C142) posé via Ozokshi arrivait donc avec 0
+// charge au lieu de sa valeur de départ.
+function initArtifactChargesOnEntry(card){
+  if (card.label === 'C7') {
+    card.charges = 3;
+  } else if (card.label === 'C112') {
+    card.charges = 0;
+  } else if (card.label === 'C227') {
+    card.charges = 1;
+  } else if (card.label === 'C133' || card.label === 'C142') {
+    card.charges = 2;
+  }
+}
+
 /* ---------- Drops ARTEFACTS ---------- */
 function setupArtifactDrops(dropLeft, dropRight, arr, who){
   [dropLeft, dropRight].forEach(drop=>{
@@ -17398,18 +17485,7 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
       const card = takeCardFromSource(fromId, currentDragInfo.id);
       if (!card) return;
 
-      if (card.label === 'C7') {
-        card.charges = 3;
-      }
-      if (card.label === 'C112') {
-        card.charges = 0;
-      }
-      if (card.label === 'C227') {
-        card.charges = 1;
-      }
-      if (card.label === 'C133' || card.label === 'C142') {
-        card.charges = 2;
-      }
+      initArtifactChargesOnEntry(card);
 
       if (drop === dropLeft) arr.unshift(card); else arr.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en zone Artefacts (${playerLabel(who)}).`);
@@ -21472,13 +21548,19 @@ function startTurn(player){
     pushHistory('artefact', `${cardAnchor('C224')} bannit ${cardAnchor(banished.label)} de la défausse de ${oppLabel} vers l'Exil.`);
   });
 
-  // NOUVELLE LOGIQUE : Gestion de la durée de tous les effets de taxe de forge
+  // CORRIGÉ : gestion de la durée des effets de taxe de forge à turns
+  // multiples (ex. Imposytion, turns:2). L'ancienne version décrémentait puis
+  // ne gardait l'effet QUE si turns>0 après décrément — ce qui le retirait
+  // AVANT que le 2e tour visé ait pu en profiter (l'effet ne s'appliquait
+  // donc en pratique qu'à 1 seul tour au lieu des 2 prévus). Désormais : un
+  // effet déjà épuisé (turns<=0, provenant d'un appel précédent) est retiré
+  // sans être gardé ; sinon il est décrémenté ET gardé pour CE tour, même si
+  // turns tombe à 0 (ce tour reste donc bien son dernier tour actif complet).
   const activeEffects = [];
   forgeTax[player].forEach(effect => {
-    effect.turns--; // On décrémente la durée
-    if (effect.turns > 0) {
-      activeEffects.push(effect); // On garde l'effet s'il est encore actif
-    }
+    if (effect.turns <= 0) return; // déjà épuisé lors d'un appel précédent
+    effect.turns--;
+    activeEffects.push(effect); // gardé pour ce tour, même si turns atteint 0
   });
   forgeTax[player] = activeEffects; // On met à jour la liste avec seulement les effets actifs
   updateForgeTaxUI();
@@ -22503,13 +22585,19 @@ function handleMaximilienThrowSelection(targetCard, targetOwner) {
         if (neighborEl && neighborEl.isConnected) {
           neighborEl.style.transition = 'transform .35s cubic-bezier(.3,.6,.35,1)';
           neighborEl.style.transform = 'translate(0,0) rotate(0deg) scale(1)';
-          setTimeout(() => { fullRender(); }, 370);
+          setTimeout(() => { fullRender(); unlockGameAfterAnimation(); }, 370);
           return;
         }
       }
       fullRender();
+      unlockGameAfterAnimation();
     };
 
+    // Verrou : les dégâts/morts ne sont appliqués qu'à la fin de l'animation
+    // (voir applyImpact ci-dessus) — le reste du jeu est mis en pause pendant
+    // tout le vol du combattant projeté, pour ne jamais laisser une autre
+    // action se produire pendant que le résultat n'est pas encore résolu.
+    lockGameDuringAnimation();
     if (neighbor) {
       animateMaximilienThrow(neighbor, targetCard, applyImpact);
     } else {
@@ -23274,6 +23362,7 @@ function handleOzokshiHandCardClick(artifactCard, owner){
     const hand = getHandByOwner(owner);
     const idx = hand.findIndex(c => c.id === artifactCard.id);
     if (idx !== -1) hand.splice(idx, 1);
+    initArtifactChargesOnEntry(artifactCard); // CORRIGÉ : Couveuse Temporelle (et autres artefacts à charges) initialisée correctement même via Ozokshi
     artArray.push(artifactCard);
     pushHistory('artefact', `${cardAnchor('C34')} permet de jouer ${cardAnchor(artifactCard.label)} gratuitement, sans restriction de faction.`);
   }
@@ -25708,6 +25797,11 @@ if (ONLINE_MODE) {
         // centrale, avec le même message précisant dans quel deck la carte
         // vient de rejoindre.
         playVortexCentralReveal(payload.cardLabel, payload.targetOwner);
+      }
+      if (payload.type === 'kyrazaReveal') {
+        // Diffusé par Kyraza (C49) : l'adversaire voit clairement quelle
+        // carte Action a été choisie et va être rejouée.
+        playKyrazaCentralReveal(payload.cardLabel, payload.owner);
       }
       if (payload.type === 'ownerGatedTargeting') {
         // Diffusé par Tokzik/Kryo/Kamykaz à chaque fois que leur effet doit
