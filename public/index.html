@@ -848,9 +848,11 @@
     /* Les 3 factions dont est composé chaque deck, affichées en permanence à
        côté de la pioche (contrairement à .factionBadge ci-dessus, qui montre
        la SEULE faction active du tour en cours). */
-    .deckFactions{ display:flex; gap:5px; justify-content:center; margin-top:6px; }
+    .deckRow{ display:flex; align-items:center; gap:8px; }
+    .deckWrap .deckRow{ order:1; }
+    .deckFactions{ display:flex; flex-direction:column; gap:5px; justify-content:center; }
     .deckFactions img{
-      width:24px; height:24px; object-fit:contain; border-radius:50%;
+      width:22px; height:22px; object-fit:contain; border-radius:50%;
       background:rgba(2,10,13,.75); border:1.5px solid rgba(125,249,255,.45);
       box-shadow:0 0 8px rgba(125,249,255,.35); padding:3px;
       opacity:0; animation:factionBadgeIn .3s cubic-bezier(.2,.9,.3,1.3) forwards;
@@ -3051,8 +3053,10 @@ body.fusion-shake {
           <div class="playerName" id="nameTop">Joueur 2</div>
         </div>
         <div class="slotLabel bottom">DECK</div>
-        <div class="deck" id="deckTop" data-count="30"></div>
-        <div class="deckFactions" id="deckFactionsTop" title="Factions présentes dans ce deck"></div>
+        <div class="deckRow">
+          <div class="deckFactions" id="deckFactionsTop" title="Factions présentes dans ce deck"></div>
+          <div class="deck" id="deckTop" data-count="30"></div>
+        </div>
         <div class="resHUD top">
   <div class="armsRow" id="armsTop"></div>
   <div class="mithrilBox" id="mithrilBoxTop">⟡ Mithril : <span id="mithrilTop">0</span><span class="mithrilCostMod" id="mithrilCostModTop"></span></div>
@@ -3094,8 +3098,10 @@ body.fusion-shake {
           <div class="playerName" id="nameBottom">Joueur 1</div>
         </div>
         <div class="slotLabel top">DECK</div>
-        <div class="deck" id="deckBottom" data-count="30"></div>
-        <div class="deckFactions" id="deckFactionsBottom" title="Factions présentes dans ce deck"></div>
+        <div class="deckRow">
+          <div class="deckFactions" id="deckFactionsBottom" title="Factions présentes dans ce deck"></div>
+          <div class="deck" id="deckBottom" data-count="30"></div>
+        </div>
         <div class="resHUD bottom">
   <div class="mithrilBox" id="mithrilBoxBottom">⟡ Mithril : <span id="mithrilBottom">0</span><span class="mithrilCostMod" id="mithrilCostModBottom"></span></div>
   <div class="forgeChips" id="forgeChipsBottom"></div>
@@ -3827,7 +3833,10 @@ const CARD_IMAGES = {
   'C142': '../cartes/0142.png', 'C143': '../cartes/0143.png', 'C144': '../cartes/0144.png',
   'C145': '../cartes/0145.png', 'C146': '../cartes/0146.png', 'C147': '../cartes/0147.png',
   'C148': '../cartes/0148.png', 'C149': '../cartes/0149.png', 'C150': '../cartes/0150.png',
-  'T09': '../cartes/T25.png', 'T26': '../cartes/T26.png', 'T27': '../cartes/T27.png',
+  // CORRIGÉ : T09 et T25 étaient inversées par rapport aux vraies images
+  // fournies (T09.png = Fléau, T25.png = Dragoons Y) — voir aussi
+  // CARD_NAMES/CARD_TYPES/CARD_TAGS/CARD_HP_BASE/CARD_SHIELD_BASE plus bas.
+  'T09': '../cartes/T09.png', 'T26': '../cartes/T26.png', 'T27': '../cartes/T27.png',
   'T28': '../cartes/T28.png', 'T29': '../cartes/T29.png',
   'C151': '../cartes/0151.png',
   'T01': '../cartes/T01.png',
@@ -3920,12 +3929,11 @@ const CARD_IMAGES = {
  'C248': '../cartes/0248.png',
  'C249': '../cartes/0249.png',
  'C250': '../cartes/0250.png',
- // T25 "Fléau" : carte-token maudite (voir Startare, C244) sans illustration
- // dédiée — réutilise le dos de carte générique, cohérent avec son statut de
- // carte "maudite" qui encombre le deck plutôt qu'une vraie carte jouable.
- // (Anciennement sur le slot T19, libéré depuis pour Relique irisée — voir
- // l'entrée 'T19' juste plus bas.)
- 'T25': '../cartes/Versobasic.png',
+ // CORRIGÉ : T25 est en réalité Dragoons Y (Dragoons - Savage), pas Fléau —
+ // les deux slots T09/T25 avaient été inversés par erreur. Fléau (avec sa
+ // vraie illustration dédiée) est maintenant correctement sur T09, voir plus
+ // haut. Dragoons Y utilise l'image T25.png (déjà présente).
+ 'T25': '../cartes/T25.png',
 
  /* CHIMERIA — 8e lot (0188-0200, sauf 0195 Memory non implémentée) */
  'C188': '../cartes/0188.png',
@@ -4038,7 +4046,7 @@ const CARD_TYPES  = {
   'C136': 'artefact', 'C137': 'personnage', 'C138': 'personnage', 'C139': 'familier', 'C140': 'personnage',
   'C141': 'personnage', 'C142': 'artefact', 'C143': 'personnage', 'C144': 'personnage', 'C145': 'action',
   'C146': 'personnage', 'C147': 'personnage', 'C148': 'familier', 'C149': 'artefact', 'C150': 'artefact',
-  'T09': 'personnage', 'T26': 'personnage', 'T27': 'personnage', 'T28': 'personnage', 'T29': 'personnage',
+  'T09': 'artefact', 'T26': 'personnage', 'T27': 'personnage', 'T28': 'personnage', 'T29': 'personnage', // CORRIGÉ : T09 = Fléau (artefact)
   'C151': 'personnage',
   'T01': 'artefact',
   'C152': 'personnage',
@@ -4166,7 +4174,7 @@ const CARD_TYPES  = {
  'C248': 'personnage', // Mliche
  'C249': 'personnage', // Nomya
  'C250': 'action',     // Étroite Sagesse
- 'T25': 'action',       // Fléau (token maudit, voir Startare C244)
+ 'T25': 'personnage',   // CORRIGÉ : Dragoons Y (Savage) — voir T09 pour Fléau
 
  /* === FACTION KRYLLS — nouveau lot === */
  'C23': 'action',      // Réveillez vous
@@ -4259,7 +4267,7 @@ const CARD_NAMES = {
   'C136': 'Arc du néant', 'C137': 'Dragoons B', 'C138': 'Dragoons S', 'C139': 'Oeuf de Dragoons', 'C140': 'Maximilien',
   'C141': 'Dravalier', 'C142': 'Couveuse Temporelle', 'C143': 'Vitiligø', 'C144': 'Dragoons P', 'C145': 'W pour Wendetta',
   'C146': 'Dragoons N', 'C147': 'Lanceløt', 'C148': 'Serpentø', 'C149': 'Tarot machina', 'C150': 'Écorcheuse',
-  'T09': 'Dragoons Y', 'T26': 'Dragoons A', 'T27': 'Dragoons Z', 'T28': 'Dragoons T', 'T29': 'Dragoons X',
+  'T09': 'Fléau', 'T26': 'Dragoons A', 'T27': 'Dragoons Z', 'T28': 'Dragoons T', 'T29': 'Dragoons X', // CORRIGÉ : T09 = Fléau
   'C151': 'Mantyra',
   'T01': 'Eventail',
   'C152': 'Prismis',
@@ -4387,7 +4395,7 @@ const CARD_NAMES = {
  'C248': 'Mliche',
  'C249': 'Nomya',
  'C250': 'Étroite Sagesse',
- 'T25': 'Fléau',
+ 'T25': 'Dragoons Y', // CORRIGÉ : voir T09 pour Fléau
 
  /* === FACTION KRYLLS — nouveau lot === */
  'C23': 'Réveillez vous',
@@ -4452,7 +4460,7 @@ const CARD_HP_BASE = {
   'C120': 5,
   'C122': 4, 'C124': 11, 'C126': 2, 'C130': 4, 'C131': 4, 'C132': 4, 'C134': 4,
   'C137': 3, 'C138': 3, 'C140': 3, 'C141': 3, 'C143': 3, 'C144': 4, 'C146': 6, 'C147': 5,
-  'T09': 3, 'T26': 3, 'T27': 3, 'T28': 3, 'T29': 3,
+  'T25': 3, 'T26': 3, 'T27': 3, 'T28': 3, 'T29': 3, // CORRIGÉ : PV de Dragoons Y déplacés sur T25 (T09 = Fléau, artefact, pas de PV)
   'C151': 3,
   'C152': 5,
   'C154': 7,
@@ -4589,7 +4597,7 @@ const CARD_SHIELD_BASE = {
   'C120': 0,
   'C122': 1, 'C124': 0, 'C126': 0, 'C130': 0, 'C131': 1, 'C132': 1, 'C134': 1,
   'C137': 0, 'C138': 0, 'C140': 0, 'C141': 0, 'C143': 1, 'C144': 0, 'C146': 1, 'C147': 1,
-  'T09': 0, 'T26': 1, 'T27': 1, 'T28': 0, 'T29': 0,
+  'T25': 0, 'T26': 1, 'T27': 1, 'T28': 0, 'T29': 0, // CORRIGÉ : bouclier de Dragoons Y déplacé sur T25
   'C151': 2,
   'C154': 1,
   'C155': 3,
@@ -4706,7 +4714,7 @@ const CARD_TAGS = {
   'C142': ['artefact', 'Savage'], 'C143': ['citoyen', 'Savage'], 'C144': ['Dragoons', 'Savage', 'provocateur'],
   'C145': ['action', 'Savage'], 'C146': ['Dragoons', 'Savage'], 'C147': ['guerrier', 'Savage'],
   'C148': ['familier', 'Savage'], 'C149': ['artefact', 'Savage'], 'C150': ['artefact', 'Savage'],
-  'T09': ['Dragoons', 'Savage', 'rapide', 'poison'], 'T26': ['Dragoons', 'Savage', 'rapide'], 'T27': ['Dragoons', 'Savage'],
+  'T25': ['Dragoons', 'Savage', 'rapide', 'poison'], 'T26': ['Dragoons', 'Savage', 'rapide'], 'T27': ['Dragoons', 'Savage'], // CORRIGÉ : Dragoons Y déplacé sur T25
   'T28': ['Dragoons', 'Savage', 'Esprit'], 'T29': ['Dragoons', 'Savage', 'rapide'],
   'C151': ['guerrier', 'Chimeria'],
   'T01': ['artefact', 'Chimeria', 'token'],
@@ -4835,15 +4843,18 @@ const CARD_TAGS = {
  'C248': ['citoyen', 'Wadoo'],   // Mliche
  'C249': ['citoyen', 'Wadoo', 'poupée'],   // Nomya
  'C250': ['action', 'Wadoo'],    // Étroite Sagesse
- 'T25': ['action', 'Wadoo', 'fléau', 'token'], // Fléau (Startare, C244)
+ 'T09': ['artefact', 'Wadoo', 'fléau', 'token'], // CORRIGÉ : Fléau déplacé sur T09 (Startare, C244)
 
  // T08 "Ignominie" : Guerrier NEUTRE — appartient aux 5 factions à la fois
  // (toute vérification de faction, quelle qu'elle soit, la considère comme
  // valide), conformément à "de toutes les factions" imprimé sur la carte.
  'T08': ['guerrier', 'Krylls', 'Impy', 'Savage', 'Chimeria', 'Wadoo'],
- 'T05': ['citoyen', 'Wadoo', 'token'],    // Cousu
- 'T06': ['citoyen', 'Wadoo', 'token'],    // Cousu
- 'T07': ['citoyen', 'Wadoo', 'token'],    // Cousu
+ // CORRIGÉ : ajout du tag 'poupée' (sous-type imprimé sur la carte, comme
+ // Nomya C249 qui suit déjà exactement le même principe citoyen+poupée) —
+ // nécessaire pour que Cousu compte pour l'effet de Gousset (C213).
+ 'T05': ['citoyen', 'Wadoo', 'poupée', 'token'],    // Cousu
+ 'T06': ['citoyen', 'Wadoo', 'poupée', 'token'],    // Cousu
+ 'T07': ['citoyen', 'Wadoo', 'poupée', 'token'],    // Cousu
 
  /* === FACTION KRYLLS — nouveau lot === */
  'C23': ['action', 'Krylls'],    // Réveillez vous
@@ -5612,9 +5623,9 @@ function checkFeufoStartingHand(){
 // WADOO 7e lot : Startare (C244) — vérifié UNE SEULE FOIS, à la distribution
 // de la main de départ (même principe que Feufo ci-dessus). Si présent, la
 // carte se révèle à l'adversaire (simple message d'historique, aucune
-// fenêtre à ouvrir) et 2 exemplaires de Fléau (T19, carte-token maudite
-// sans le moindre effet) sont ajoutés puis mélangés dans le deck de son
-// propriétaire, conformément au texte imprimé (aucune compensation prévue).
+// fenêtre à ouvrir) et 2 exemplaires de Fléau (T09, CORRIGÉ — voir
+// resolveFleauDraw pour son véritable effet, déclenché au tirage) sont
+// ajoutés puis mélangés dans le deck de son propriétaire.
 // ===================================================================
 function checkStartareStartingHand(){
   ['top', 'bottom'].forEach(owner => {
@@ -5622,9 +5633,9 @@ function checkStartareStartingHand(){
     if (!hand.some(c => c.label === 'C244')) return;
     const deck = getDeckByOwner(owner);
     const prefix = (owner === 'top') ? 'T' : 'B';
-    deck.push(createCard('T25', prefix), createCard('T25', prefix));
+    deck.push(createCard('T09', prefix), createCard('T09', prefix));
     shuffle(deck);
-    pushHistory('info', `${cardAnchor('C244')} est révélée depuis la main de départ de ${playerLabel(owner)} : 2 ${cardAnchor('T25')} sont mélangés dans son deck !`);
+    pushHistory('info', `${cardAnchor('C244')} est révélée depuis la main de départ de ${playerLabel(owner)} : 2 ${cardAnchor('T09')} sont mélangés dans son deck !`);
   });
 }
 
@@ -7582,23 +7593,31 @@ function playActionEtroiteSagesse(owner, actionCard){
 }
 
 // ===================================================================
-// WADOO 7e lot : Fléau (T19) — carte-token maudite créée par Startare
-// (C244) quand celle-ci se trouve dans la main de départ. Aucun effet
-// mécanique : elle existe uniquement pour encombrer le deck de son
-// propriétaire (un tirage "perdu"), conformément au texte imprimé sur
-// Startare qui ne mentionne aucune compensation.
+// WADOO 7e lot : Fléau (T09) — carte-token maudite créée par Startare
+// (C244) quand celle-ci se trouve dans la main de départ. CORRIGÉ : elle ne
+// se joue JAMAIS manuellement (ce n'était qu'une supposition avant d'avoir
+// l'illustration officielle sous la main) — son véritable effet, imprimé sur
+// la carte, se déclenche automatiquement dès qu'elle est PIOCHÉE : "Lorsque
+// vous piochez un Fléau, révélez-le à votre adversaire, il exile les 3
+// cartes du dessus de son deck avant de s'exiler lui-même." Voir l'appel
+// dans drawOneFor(), seul point d'entrée réel pour toute pioche du jeu.
 // ===================================================================
-function playActionFleau(owner, actionCard){
-  if (!canPlayThisCardNow(owner, actionCard)) return;
-  consumeAllowanceIfNeeded(owner, actionCard);
-
-  const hand = getHandByOwner(owner);
-  const idx = hand.findIndex(c => c.id === actionCard.id);
-  if (idx !== -1) hand.splice(idx, 1);
-  discardCard(actionCard, owner, 'action');
-
-  pushHistory('info', `${cardAnchor('T25')} est une carte maudite sans le moindre effet — elle rejoint simplement la défausse.`);
-  fullRender();
+function resolveFleauDraw(player, fleauCard){
+  const opp = (player === 'top') ? 'bottom' : 'top';
+  const oppDeck = getDeckByOwner(opp);
+  const exiledNames = [];
+  const count = Math.min(3, oppDeck.length);
+  for (let i = 0; i < count; i++) {
+    const exiledCard = oppDeck.shift();
+    exiledNames.push(cardAnchor(exiledCard.label));
+    addToExile(exiledCard);
+  }
+  addToExile(fleauCard);
+  const exileText = count > 0
+    ? `${playerLabel(opp)} exile ${exiledNames.join(', ')} du dessus de son deck`
+    : `${playerLabel(opp)} n'a aucune carte à exiler`;
+  pushHistory('exil', `${playerLabel(player)} pioche ${cardAnchor('T09')} — révélée à ${playerLabel(opp)} ! ${exileText}, puis ${cardAnchor('T09')} part elle-même en Exil.`);
+  updateDeckCounters();
 }
 
 // ===================================================================
@@ -14907,11 +14926,12 @@ function continueResolveFight(from, to){
     newlyFrozenAttacker: to.card.label === 'C229' && resFrom.hpLost > 0 && getEffectiveHP(from.card) > 0,
   };
 
-  // SAVAGE (2e lot) : Dragoons Y (T09) — COMBAT : gagnez +1 Mithril (à
-  // chaque combat qu'il mène, gagnant ou perdant).
-  if (from.card.label === 'T09') {
+  // SAVAGE (2e lot) : Dragoons Y (T25) — COMBAT : gagnez +1 Mithril (à
+  // chaque combat qu'il mène, gagnant ou perdant). CORRIGÉ : déplacé depuis
+  // T09 (qui était en réalité Fléau — les deux slots étaient inversés).
+  if (from.card.label === 'T25') {
     addMithril(from.owner);
-    pushHistory('mithril', `${cardAnchor('T09')} : +1 Mithril pour ${playerLabel(from.owner)} !`);
+    pushHistory('mithril', `${cardAnchor('T25')} : +1 Mithril pour ${playerLabel(from.owner)} !`);
   }
   // SAVAGE (2e lot) : Dragoons X (T29) — COMBAT : l'adversaire défausse la
   // carte du dessus de son deck.
@@ -15333,7 +15353,6 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C237') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionChasseALaiguille(owner, card)); }); }
             if (card.label === 'C243') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionRollback(owner, card)); }); }
             if (card.label === 'C250') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionEtroiteSagesse(owner, card)); }); }
-            if (card.label === 'T25') { el.addEventListener('click', () => { if (currentTurn !== owner) return; playActionFleau(owner, card); }); }
             if (card.label === 'C23') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionReveillezVous(owner, card)); }); }
 
             // CHIMERIA — 8e lot (0188-0200) — C188 Dragoons V est un COMBATTANT
@@ -16608,7 +16627,7 @@ function onCharacterEnterBattlefield_impl(card, owner) {
     const mereLine = getLineByOwner(owner);
     const mereMax = getMaxCombatantsForOwner(owner);
     const merePrefix = (owner === 'top') ? 'T' : 'B';
-    const toSpawn130 = ['T29', 'T09'];
+    const toSpawn130 = ['T29', 'T25']; // CORRIGÉ : Dragoons Y est T25 (T09 = Fléau)
     let spawned130 = 0;
     toSpawn130.forEach(lbl => {
       if (mereLine.length < mereMax) {
@@ -16619,7 +16638,7 @@ function onCharacterEnterBattlefield_impl(card, owner) {
       }
     });
     if (spawned130 > 0) {
-      pushHistory('jeu', `${cardAnchor('C130')} arrive avec ${spawned130 === 2 ? `${cardAnchor('T29')} et ${cardAnchor('T09')}` : cardAnchor(toSpawn130[0])} dans votre zone de combat (exilés après leur mort) !`);
+      pushHistory('jeu', `${cardAnchor('C130')} arrive avec ${spawned130 === 2 ? `${cardAnchor('T29')} et ${cardAnchor('T25')}` : cardAnchor(toSpawn130[0])} dans votre zone de combat (exilés après leur mort) !`);
     } else {
       pushHistory('info', `${cardAnchor('C130')} : zone de combat pleine, aucun Dragoons n'a pu être créé.`);
     }
@@ -18774,11 +18793,11 @@ window.addEventListener('resize', () => {
 
 // Affiche, pour chaque joueur, le logo + le nom de la faction choisie ce tour-ci.
 const FACTION_LOGOS = {
-  Krylls:   '/assets/Logo-Krylls.png',
-  Impy:     '/assets/Logo-Impy.png',
-  Savage:   '/assets/Logo-Savage.png',
-  Chimeria: '/assets/Logo-Chimeria.png',
-  Wadoo:    '/assets/Logo-Wadoo.png',
+  Krylls:   '/assets/logo-krylls.png',
+  Impy:     '/assets/logo-impy.png',
+  Savage:   '/assets/logo-savage.png',
+  Chimeria: '/assets/logo-chimeria.png',
+  Wadoo:    '/assets/logo-wadoo.png',
 };
 const FACTION_CSS_VAR = {
   Krylls: '--fac-krylls', Impy: '--fac-impy', Savage: '--fac-savage',
@@ -19088,6 +19107,13 @@ function drawOneFor(player){
       delete drawn._pisterProieWatcher;
       getHandByOwner(watcher).push(drawn);
       pushHistory('info', `${cardAnchor('C135')} : ${cardAnchor(drawn.label)}, repérée par ${playerLabel(watcher)}, rejoint sa main au lieu de celle de ${playerLabel(player)} !`);
+      return true;
+    }
+    // WADOO 7e lot : Fléau (T09) — se déclenche automatiquement dès qu'elle
+    // est piochée, quel que soit le joueur ou l'effet à l'origine de la
+    // pioche (tour normal, "piochez X cartes"...) — voir resolveFleauDraw.
+    if (drawn.label === 'T09') {
+      resolveFleauDraw(player, drawn);
       return true;
     }
     hand.push(drawn);
@@ -22895,7 +22921,7 @@ function handleHarponGeantTargetSelection(targetCard, targetOwner) {
 function usePierreDragoonsAction(owner, card) {
   if ((card.charges || 0) <= 0) return;
   card.charges -= 1;
-  const dragoonPool = ['C137', 'C138', 'C144', 'C146', 'T09', 'T26', 'T27', 'T28', 'T29'];
+  const dragoonPool = ['C137', 'C138', 'C144', 'C146', 'T25', 'T26', 'T27', 'T28', 'T29']; // CORRIGÉ : T25 = Dragoons Y
   const pickLabel = dragoonPool[Math.floor(Math.random() * dragoonPool.length)];
   const prefix133 = (owner === 'top') ? 'T' : 'B';
   const newDragoon = createCard(pickLabel, prefix133);
