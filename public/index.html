@@ -844,6 +844,17 @@
     .factionBadge img{ width:20px; height:20px; object-fit:contain; filter:drop-shadow(0 0 4px rgba(255,255,255,.5)); }
     .factionBadge span{ font-family:'Cinzel','Manrope',sans-serif; font-weight:800; font-size:12px; color:#fff; letter-spacing:.03em; text-shadow:0 1px 2px rgba(0,0,0,.7); white-space:nowrap; }
     @keyframes factionBadgeIn{ from{ opacity:0; transform:scale(.7) translateY(4px); } to{ opacity:1; transform:none; } }
+
+    /* Les 3 factions dont est composé chaque deck, affichées en permanence à
+       côté de la pioche (contrairement à .factionBadge ci-dessus, qui montre
+       la SEULE faction active du tour en cours). */
+    .deckFactions{ display:flex; gap:5px; justify-content:center; margin-top:6px; }
+    .deckFactions img{
+      width:24px; height:24px; object-fit:contain; border-radius:50%;
+      background:rgba(2,10,13,.75); border:1.5px solid rgba(125,249,255,.45);
+      box-shadow:0 0 8px rgba(125,249,255,.35); padding:3px;
+      opacity:0; animation:factionBadgeIn .3s cubic-bezier(.2,.9,.3,1.3) forwards;
+    }
     .armsRow{ display:flex; gap:var(--armGap); justify-content: center; padding:4px 6px; border-radius:999px; background:rgba(2,10,13,.4); border:1px solid rgba(125,249,255,.12); flex-wrap:nowrap; max-width:100%; }
     .armSlot{ width:var(--armSlotSize); height:var(--armSlotSize); flex:none; border-radius:50%; border:1.5px dashed rgba(125,249,255,.35); background:rgba(0,0,0,.35); box-shadow:inset 0 0 8px rgba(0,230,255,.18); position:relative; }
     .armActive{ border:1.5px solid var(--armColor,#19e27a); background:radial-gradient(circle at 45% 40%, var(--armColor,#19e27a), #021);
@@ -3041,6 +3052,7 @@ body.fusion-shake {
         </div>
         <div class="slotLabel bottom">DECK</div>
         <div class="deck" id="deckTop" data-count="30"></div>
+        <div class="deckFactions" id="deckFactionsTop" title="Factions présentes dans ce deck"></div>
         <div class="resHUD top">
   <div class="armsRow" id="armsTop"></div>
   <div class="mithrilBox" id="mithrilBoxTop">⟡ Mithril : <span id="mithrilTop">0</span><span class="mithrilCostMod" id="mithrilCostModTop"></span></div>
@@ -3083,6 +3095,7 @@ body.fusion-shake {
         </div>
         <div class="slotLabel top">DECK</div>
         <div class="deck" id="deckBottom" data-count="30"></div>
+        <div class="deckFactions" id="deckFactionsBottom" title="Factions présentes dans ce deck"></div>
         <div class="resHUD bottom">
   <div class="mithrilBox" id="mithrilBoxBottom">⟡ Mithril : <span id="mithrilBottom">0</span><span class="mithrilCostMod" id="mithrilCostModBottom"></span></div>
   <div class="forgeChips" id="forgeChipsBottom"></div>
@@ -3907,9 +3920,11 @@ const CARD_IMAGES = {
  'C248': '../cartes/0248.png',
  'C249': '../cartes/0249.png',
  'C250': '../cartes/0250.png',
- // T19 "Fléau" : carte-token maudite (voir Startare, C244) sans illustration
+ // T25 "Fléau" : carte-token maudite (voir Startare, C244) sans illustration
  // dédiée — réutilise le dos de carte générique, cohérent avec son statut de
  // carte "maudite" qui encombre le deck plutôt qu'une vraie carte jouable.
+ // (Anciennement sur le slot T19, libéré depuis pour Relique irisée — voir
+ // l'entrée 'T19' juste plus bas.)
  'T25': '../cartes/Versobasic.png',
 
  /* CHIMERIA — 8e lot (0188-0200, sauf 0195 Memory non implémentée) */
@@ -18593,6 +18608,36 @@ function updateHandsUI(){
 function updateDeckCounters(){
   document.getElementById('deckTop').setAttribute('data-count', topDeck.length);
   document.getElementById('deckBottom').setAttribute('data-count', botDeck.length);
+  renderDeckFactionBadges();
+}
+
+// Affiche, à côté de chaque pioche, les 3 factions dont le deck de ce
+// joueur est composé (déduites des cartes encore dans le deck ET la main —
+// les deux seules zones qui contiennent tout le deck avant qu'aucune carte
+// n'ait pu partir en défausse/exil — pour que ce soit fiable quelle que soit
+// la façon dont le deck a été construit : IA aléatoire, tutoriel, deck
+// personnalisé, partie en ligne...).
+function renderDeckFactionBadges(){
+  ['top','bottom'].forEach(seat => {
+    const container = document.getElementById(seat === 'top' ? 'deckFactionsTop' : 'deckFactionsBottom');
+    if (!container) return;
+    const deck = (seat === 'top') ? topDeck : botDeck;
+    const hand = getHandByOwner(seat);
+    const pool = deck.concat(hand);
+    const present = FACTIONS.filter(fac => pool.some(c => hasTag(c, fac)));
+    // Rien à afficher tant que le deck n'a pas encore été constitué (avant
+    // le tout premier rendu de la partie).
+    if (present.length === 0) { container.innerHTML = ''; return; }
+    container.innerHTML = '';
+    present.forEach((fac, i) => {
+      const img = document.createElement('img');
+      img.src = FACTION_LOGOS[fac] || `/assets/logo-${fac.toLowerCase()}.png`;
+      img.alt = fac;
+      img.title = fac;
+      img.style.animationDelay = `${i * 0.08}s`;
+      container.appendChild(img);
+    });
+  });
 }
 function renderLine(battleInnerEl, lineArray, owner){
   if(!battleInnerEl) return;
