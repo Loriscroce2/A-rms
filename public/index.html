@@ -9992,6 +9992,10 @@ function handleChargeboxTargetSelection(targetCard, targetOwner) {
 
   pushHistory('action', `${cardAnchor('C174')} recharge ${cardAnchor(targetCard.label)} de +2 charges.`);
 
+  // Gazocubateur (C74) : victoire immédiate à 20 charges, peu importe la
+  // provenance — donc aussi via Chargebox.
+  if (targetCard.label === 'C74') checkGazocubateuVictory(targetOwner);
+
   endChargeboxTargetingCleanup();
 }
 
@@ -14891,6 +14895,9 @@ function resolveFight(from, to){
       if (genericCount > 0) {
         pushHistory('jeu', `${cardAnchor('C175')} recharge ${genericCount} carte${genericCount > 1 ? 's' : ''} à charges de +1 !`);
       }
+      // Gazocubateur (C74) : victoire immédiate à 20 charges, peu importe la
+      // provenance — donc aussi via Eevee.
+      if (rechargedCards.some(c => c.label === 'C74')) checkGazocubateuVictory(eeveeOwner);
     }
     // ===================================================================
     // FIN DE LA LOGIQUE POUR EEVEE
@@ -14917,7 +14924,17 @@ function addGazocubateuCharge(owner){
     gazo.charges = (gazo.charges || 0) + 1;
     pushHistory('artefact', `${cardAnchor('C74')} gagne une charge grâce à un kill empoisonné (${gazo.charges}/20).`);
   });
-  const winner = gazos.find(g => g.charges >= 20);
+  checkGazocubateuVictory(owner);
+}
+
+// Vérifie si un Gazocubateur (C74) de owner vient d'atteindre 20 charges —
+// victoire immédiate, PEU IMPORTE LA PROVENANCE des charges (kill empoisonné,
+// Chargebox C174, Eevee C175...). Centralisé ici et appelé depuis TOUTES les
+// fonctions qui incrémentent card.charges sur un C74, pour ne jamais rater
+// le déclenchement de la victoire selon la source du gain.
+function checkGazocubateuVictory(owner){
+  const arts = (owner === 'top') ? topArts : botArts;
+  const winner = arts.find(a => a.label === 'C74' && (a.charges || 0) >= 20);
   if (winner) {
     pushHistory('info', `${cardAnchor('C74')} atteint 20 charges — victoire immédiate !`);
     endGame(owner, 'gazocubateu');
