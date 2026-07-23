@@ -9967,6 +9967,19 @@ function startChargeboxTargeting(owner, card) {
 function handleChargeboxTargetSelection(targetCard, targetOwner) {
   if (!chargeboxTargetMode || !CHARGEABLE_CARDS.includes(targetCard.label)) return;
 
+  // Temple d'Aphrodite (C191) : chaque charge doit passer par
+  // addTempleAphroditeCharge(owner, false) — jamais un incrément direct de
+  // card.charges — pour que le seuil de 7 charges soit vérifié à chaque
+  // pas ET que la charge soit marquée "non classique" (→ Aphrodite
+  // Corrompue au lieu d'Aphrodite normale à 7 charges).
+  if (targetCard.label === 'C191') {
+    pushHistory('action', `${cardAnchor('C174')} recharge ${cardAnchor('C191')} de +2 charges.`);
+    addTempleAphroditeCharge(targetOwner, false);
+    addTempleAphroditeCharge(targetOwner, false); // sans effet si le Temple s'est déjà transformé au 1er incrément
+    endChargeboxTargetingCleanup();
+    return;
+  }
+
   if (typeof targetCard.charges !== 'number') {
     targetCard.charges = 0;
   }
@@ -14858,9 +14871,20 @@ function resolveFight(from, to){
       // pour recharger aussi les cartes à charges qui n'ont pas encore
       // déclenché leur propre effet une première fois (donc encore à 0/N).
       const rechargedCards = eeveeBoard.filter(c => CHARGEABLE_CARDS.includes(c.label));
-      rechargedCards.forEach(c => { c.charges = (c.charges || 0) + 1; });
-      if (rechargedCards.length > 0) {
-        pushHistory('jeu', `${cardAnchor('C175')} recharge ${rechargedCards.length} carte${rechargedCards.length > 1 ? 's' : ''} à charges de +1 !`);
+      let genericCount = 0;
+      rechargedCards.forEach(c => {
+        if (c.label === 'C191') {
+          // Temple d'Aphrodite : doit passer par addTempleAphroditeCharge
+          // (isClassic=false) — jamais un incrément direct — voir la même
+          // remarque sur handleChargeboxTargetSelection ci-dessus.
+          addTempleAphroditeCharge(eeveeOwner, false);
+        } else {
+          c.charges = (c.charges || 0) + 1;
+          genericCount++;
+        }
+      });
+      if (genericCount > 0) {
+        pushHistory('jeu', `${cardAnchor('C175')} recharge ${genericCount} carte${genericCount > 1 ? 's' : ''} à charges de +1 !`);
       }
     }
     // ===================================================================
@@ -18160,27 +18184,31 @@ function getDamniaMultiplier(owner){
 }
 
 // CHIMERIA (8e lot) : Temple d'Aphrodite (C191) — gagne une charge à chaque
-// carte "Action" jouée par son propriétaire ; à 7 charges, il est exilé et
-// une Aphrodite (T21) rejoint la zone de combat de son propriétaire — ou une
-// Aphrodite Corrompue (T22) si AU MOINS UNE des 7 charges provient d'une
-// source AUTRE que le gain classique (paramètre isClassic=false), pour de
-// futures cartes qui ajouteraient des charges autrement.
+// carte "Action" jouée par son propriétaire (gain "classique") ; à 7
+// charges, il est EXILÉ et une Aphrodite (T21) rejoint la zone de combat de
+// son propriétaire — ou une Aphrodite Corrompue (T22) si AU MOINS UNE des 7
+// charges provient d'une source AUTRE que jouer une Action (Chargebox, Eevee
+// — paramètre isClassic=false). Toute source de charge sur C191, quelle
+// qu'elle soit, DOIT passer par cette fonction (et jamais incrémenter
+// card.charges directement) pour que le seuil de 7 et le choix
+// Aphrodite/Aphrodite Corrompue restent corrects — voir
+// handleChargeboxTargetSelection et l'effet de combat d'Eevee (C175).
 function addTempleAphroditeCharge(owner, isClassic){
   const arts = (owner === 'top') ? topArts : botArts;
-  const temple = arts.find(a => a.label === 'C191');
-  if (!temple) return;
+  const idx = arts.findIndex(a => a.label === 'C191');
+  if (idx === -1) return;
+  const temple = arts[idx];
   if (typeof temple.charges !== 'number') temple.charges = 0;
   if (!isClassic) temple.aphroditeCorrupted = true;
   temple.charges++;
   pushHistory('info', `${cardAnchor('C191')} gagne une charge (${temple.charges}/7).`);
   if (temple.charges >= 7) {
-    const idx = arts.findIndex(a => a.id === temple.id);
-    if (idx !== -1) arts.splice(idx, 1);
-    exilePile.push(temple);
+    arts.splice(idx, 1);
+    const spawnLabel = temple.aphroditeCorrupted ? 'T22' : 'T21';
+    addToExile(temple);
     const line = getLineByOwner(owner);
     const prefix = owner === 'top' ? 'T' : 'B';
     if (line.length < getMaxCombatantsForOwner(owner)) {
-      const spawnLabel = temple.aphroditeCorrupted ? 'T22' : 'T21';
       const spawned = createCard(spawnLabel, prefix);
       line.push(spawned);
       pushHistory('jeu', `${cardAnchor('C191')} atteint 7 charges : il est exilé et ${cardAnchor(spawnLabel)} rejoint votre zone de combat !`);
