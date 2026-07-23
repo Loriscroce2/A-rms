@@ -63,6 +63,9 @@
     }
 
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Manrope:wght@400;600;800&display=swap');
+    /* Polices thématiques pour l'infobulle des jetons de faction (Krylls,
+       Impy, Savage, Chimeria, Wadoo) — voir .deckFactions img::after. */
+    @import url('https://fonts.googleapis.com/css2?family=Trade+Winds&family=Pirata+One&family=Bangers&family=Cinzel+Decorative:wght@700&family=Butcherman&display=swap');
     *{box-sizing:border-box}
 
     /* ===================================================================
@@ -868,6 +871,42 @@
     @keyframes deckFactionPulse{
       0%,100%{ box-shadow:0 0 8px rgba(255,217,61,.55); transform:scale(1); }
       50%{ box-shadow:0 0 16px rgba(255,217,61,.95), 0 0 24px rgba(255,217,61,.5); transform:scale(1.14); }
+    }
+    /* Infobulle au survol d'un jeton de faction : nom de la faction, avec
+       une police et une couleur propres à son ambiance (voir les polices
+       importées plus haut : Trade Winds/Pirata One/Bangers/Cinzel
+       Decorative/Butcherman). Tooltip custom (pas l'attribut title natif,
+       non stylable) via ::after + attr(data-faction). */
+    .deckFactions img{ position:relative; }
+    .deckFactions img::after{
+      content:attr(data-faction);
+      position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%) scale(.82);
+      transform-origin:left center;
+      white-space:nowrap; padding:5px 12px; border-radius:8px;
+      background:rgba(4,10,13,.92); border:1px solid currentColor;
+      opacity:0; pointer-events:none; transition:opacity .16s ease, transform .16s ease;
+      z-index:60;
+    }
+    .deckFactions img:hover::after{ opacity:1; transform:translateY(-50%) scale(1); }
+    .deckFactions img[data-faction="Krylls"]::after{
+      font-family:'Trade Winds',cursive; font-size:15px; color:var(--fac-krylls);
+      border-color:var(--fac-krylls); text-shadow:0 0 8px var(--fac-krylls-glow); box-shadow:0 0 14px var(--fac-krylls-glow);
+    }
+    .deckFactions img[data-faction="Impy"]::after{
+      font-family:'Pirata One',serif; font-size:16px; letter-spacing:.03em; color:var(--fac-impy);
+      border-color:var(--fac-impy); text-shadow:0 0 8px var(--fac-impy-glow); box-shadow:0 0 14px var(--fac-impy-glow);
+    }
+    .deckFactions img[data-faction="Savage"]::after{
+      font-family:'Bangers',cursive; font-size:16px; letter-spacing:.05em; color:var(--fac-savage);
+      border-color:var(--fac-savage); text-shadow:0 0 8px var(--fac-savage-glow); box-shadow:0 0 14px var(--fac-savage-glow);
+    }
+    .deckFactions img[data-faction="Chimeria"]::after{
+      font-family:'Cinzel Decorative',serif; font-weight:700; font-size:14px; letter-spacing:.05em; color:var(--fac-chimeria);
+      border-color:var(--fac-chimeria); text-shadow:0 0 8px var(--fac-chimeria-glow); box-shadow:0 0 14px var(--fac-chimeria-glow);
+    }
+    .deckFactions img[data-faction="Wadoo"]::after{
+      font-family:'Butcherman',cursive; font-size:16px; color:var(--fac-wadoo);
+      border-color:var(--fac-wadoo); text-shadow:0 0 8px var(--fac-wadoo-glow); box-shadow:0 0 14px var(--fac-wadoo-glow);
     }
     .armsRow{ display:flex; gap:var(--armGap); justify-content: center; padding:4px 6px; border-radius:999px; background:rgba(2,10,13,.4); border:1px solid rgba(125,249,255,.12); flex-wrap:nowrap; max-width:100%; }
     .armSlot{ width:var(--armSlotSize); height:var(--armSlotSize); flex:none; border-radius:50%; border:1.5px dashed rgba(125,249,255,.35); background:rgba(0,0,0,.35); box-shadow:inset 0 0 8px rgba(0,230,255,.18); position:relative; }
@@ -2216,9 +2255,21 @@
   line-height:1;
 }
 #familiarCarousel{
-  position:relative; /* On annule le 'fixed' de la classe parente */
+  /* CORRIGÉ : la classe partagée .discardCarousel (voir plus haut) est
+     pensée pour un carrousel FLOTTANT indépendant (position:fixed, sa
+     propre largeur, son propre fond et sa propre bordure cyan). Ici,
+     #familiarCarousel est nichée DANS .fco-content (déjà centrée par
+     l'overlay parent) : sans neutraliser explicitement CHAQUE propriété
+     héritée ci-dessous, elle se détachait visuellement en sa propre petite
+     boîte (fond noir, bordure cyan, décalée par top/right/transform),
+     laissant la grande boîte rose de .fco-content vide à côté — d'où le
+     bug d'affichage à deux "boîtes" séparées lors du survol des familiers.
+  */
+  position:relative; top:auto; right:auto; left:auto; transform:none;
   display:block; /* On s'assure qu'il est visible */
-  height:180px; /* Hauteur fixe pour le contenu */
+  width:100%; height:180px; /* Hauteur fixe pour le contenu */
+  z-index:auto;
+  background:transparent; border:none; border-radius:0; padding:0; box-shadow:none;
   overflow-x:auto; overflow-y:hidden; /* défilement si beaucoup de familiers */
 }
     /* ======== TCHAT / HISTORIQUE — bas/gauche ======== */
@@ -6678,6 +6729,9 @@ function handleC33ArtifactSelection(artifactCard, artifactOwner){
 // dorées, glisse de la zone de combat vers la zone d'artefact, puis se
 // recompose en une copie de l'artefact ciblé.
 function playC33TransformAnimation(combatantLabel, artifactLabel, onDone){
+  // Même correctif que pour Kabba/Pudding : animation longue et purement
+  // visuelle (l'état est déjà appliqué) mais l'IA ne doit pas jouer par-dessus.
+  lockGameDuringAnimation();
   try{
     const overlay = document.createElement('div');
     overlay.className = 'c33TransformOverlay';
@@ -6730,9 +6784,9 @@ function playC33TransformAnimation(combatantLabel, artifactLabel, onDone){
 
     setTimeout(()=>{
       overlay.classList.remove('show');
-      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); onDone(); }, 500);
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); unlockGameAfterAnimation(); onDone(); }, 500);
     }, 4600);
-  }catch(e){ onDone(); }
+  }catch(e){ unlockGameAfterAnimation(); onDone(); }
 }
 
 function playActionC16(owner, actionCard, doForge){
@@ -18674,7 +18728,8 @@ function renderDeckFactionBadges(){
       const img = document.createElement('img');
       img.src = FACTION_LOGOS[fac] || `/assets/logo-${fac.toLowerCase()}.png`;
       img.alt = fac;
-      img.title = fac;
+      // Pas d'attribut title natif (non stylable) : le nom s'affiche via une
+      // infobulle CSS thématique sur data-faction, voir .deckFactions img::after.
       img.dataset.faction = fac;
       img.style.animationDelay = `${i * 0.08}s`;
       container.appendChild(img);
@@ -23765,6 +23820,9 @@ function playForgecoeurSoundSequence(){
 }
 
 function playForgecoeurAssemblyAnimation(onDone){
+  // Même correctif que Kabba/Pudding : longue animation purement visuelle,
+  // l'IA ne doit pas continuer à jouer pendant qu'elle tourne.
+  lockGameDuringAnimation();
   try{
     playForgecoeurSoundSequence();
 
@@ -23831,9 +23889,9 @@ function playForgecoeurAssemblyAnimation(onDone){
     // au centre plus de 4s supplémentaires, le temps de bien le lire.
     setTimeout(()=>{
       overlay.classList.remove('show');
-      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); onDone(); }, 500);
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); unlockGameAfterAnimation(); onDone(); }, 500);
     }, 8600);
-  }catch(e){ onDone(); }
+  }catch(e){ unlockGameAfterAnimation(); onDone(); }
 }
 
 // KRYLLS : Kabba le zunt (C28) — transforme le combattant adverse choisi en
@@ -23881,6 +23939,12 @@ function transformIntoPudding(targetOwner, targetCard, casterOwner){
 // alterne en fondu/zoom entre son image d'origine et celle du Pudding,
 // de plus en plus vite, jusqu'à se figer en Pudding.
 function playKabbaTransformAnimation(targetCard, onDone){
+  // L'animation dure 12 secondes : sans verrou, l'IA continuait de jouer
+  // par-dessus (le résultat de la transformation est déjà appliqué à l'état
+  // du jeu, mais visuellement le plateau "avançait" pendant que l'animation
+  // tournait encore, ce qui était très confus). On bloque donc l'IA le temps
+  // de l'animation, comme pour le lancer de Maximilien.
+  lockGameDuringAnimation();
   try{
     const overlay = document.createElement('div');
     overlay.className = 'kabbaTransformOverlay';
@@ -23944,9 +24008,9 @@ function playKabbaTransformAnimation(targetCard, onDone){
     // vrai changement d'état du jeu.
     setTimeout(()=>{
       overlay.classList.remove('show');
-      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); onDone(); }, 400);
+      setTimeout(()=>{ if (overlay.parentNode) overlay.remove(); unlockGameAfterAnimation(); onDone(); }, 400);
     }, 12000);
-  }catch(e){ onDone(); }
+  }catch(e){ unlockGameAfterAnimation(); onDone(); }
 }
 
 // === WADOO : Barbatruk (C211) ===
@@ -24668,6 +24732,9 @@ function checkForLarvaFusion(owner) {
 // INTERACTION — plus aucun clic requis pour continuer, ce qui élimine
 // totalement le risque de double création vu par les deux joueurs.
 function playFusionAnimation(owner, onDone){
+  // Même correctif que Kabba/Pudding : longue animation purement visuelle,
+  // l'IA ne doit pas continuer à jouer pendant qu'elle tourne.
+  lockGameDuringAnimation();
   try{
     const style = document.createElement('style');
     style.textContent = `
@@ -24783,10 +24850,11 @@ function playFusionAnimation(owner, onDone){
       setTimeout(() => {
         overlay.remove();
         style.remove();
+        unlockGameAfterAnimation();
         if (typeof onDone === 'function') onDone();
       }, 550);
     }, 6200);
-  }catch(e){ if (typeof onDone === 'function') onDone(); }
+  }catch(e){ unlockGameAfterAnimation(); if (typeof onDone === 'function') onDone(); }
 }
 // ===================================================================
 // FIN DE LA LOGIQUE (TUNNEL DE LUMIÈRE) POUR REYNA / LARVE / ANOMALY
