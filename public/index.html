@@ -5350,11 +5350,6 @@ if (label === 'C154') {
   if (label === 'C249') {
     c.nomyaLinkedIds = [];
   }
-  // CHIMERIA (8e lot) : Aphrodite (T21) / Aphrodite Corrompue (T22) — ne
-  // perdent jamais de PV en combat NI en minant (minage toujours gratuit).
-  if (label === 'T21' || label === 'T22') {
-    c.canMineFreely = true;
-  }
   if (label === 'C212') {
     // 4 "revenez-en" disponibles au départ, affichées via le système de
     // charges standard (comme C7/C58/C112/C216/C227) — donc visibles sur la
@@ -5367,6 +5362,13 @@ if (label === 'C154') {
   c.removedTags = [];
   c.canMineFreely = false;
   c.permanentShieldBonus = 0;
+  // CHIMERIA (8e lot) : Aphrodite (T21) / Aphrodite Corrompue (T22) — ne
+  // perdent jamais de PV en minant (minage toujours gratuit). CORRIGÉ :
+  // ce réglage doit venir APRÈS le "c.canMineFreely = false;" générique
+  // ci-dessus, qui l'écrasait sinon systématiquement.
+  if (label === 'T21' || label === 'T22') {
+    c.canMineFreely = true;
+  }
   return c;
 }
 // NOUVELLE FONCTION (CORRIGÉE)
@@ -5380,9 +5382,12 @@ function resetStatsToBaseWhenEnteringBattle(card, owner){
   card.shield = getBaseShield(card.label);
   card.addedTags = [];
   card.removedTags = [];
-  card.canMineFreely = false;
+  // CORRIGÉ : Aphrodite (T21) / Aphrodite Corrompue (T22) minent toujours
+  // gratuitement — ce réglage permanent ne doit pas être effacé à chaque
+  // (ré)entrée en zone de combat comme pour les autres combattants.
+  card.canMineFreely = (card.label === 'T21' || card.label === 'T22');
   card.permanentShieldBonus = 0;
-  
+
   if (card.label === 'C152') {
     card.prismisLinks = [];
   }
@@ -15161,7 +15166,9 @@ function continueResolveFight(from, to){
       card.addedTags = [];
       card.removedTags = [];
       card.isFrozenByEffect = false;
-      card.canMineFreely = false;
+      // CORRIGÉ : Aphrodite (T21) / Aphrodite Corrompue (T22) minent toujours
+      // gratuitement, même après un sauvetage par Gluangel.
+      card.canMineFreely = (card.label === 'T21' || card.label === 'T22');
       card.permanentShieldBonus = 0;
 
       // 3. On renvoie la carte sauvée dans la main de son propriétaire
