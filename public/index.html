@@ -3311,6 +3311,8 @@ const POSECARTE_SFX_URL = new URL('/assets/posecarte.mp3', location.href).href;
 const SHUFFLE_SFX_URL = new URL('/assets/shuffle.mp3', location.href).href;
 const DISCARD_SFX_URL = new URL('/assets/Discard.mp3', location.href).href;
 const MOZKYTO_SFX_URL = new URL('/assets/Mozkyto.mp3', location.href).href;
+const SABRE_SFX_URL = new URL('/assets/sabre.mp3', location.href).href;
+const ZYKMU_SFX_URL = new URL('/assets/zykmu.mp3', location.href).href;
 const FLIPCARD_SFX_URL = new URL('/assets/flipcard.mp3', location.href).href;
 const CHARGEMENT_MUSIC_URL = new URL('/assets/chargement.mp3', location.href).href;
 const CHOOSEFACTION_SFX_URL = new URL('/assets/choosefaction.mp3', location.href).href;
@@ -3324,6 +3326,8 @@ let posecarteSfx = null;
 let shuffleSfx = null;
 let discardSfx = null;
 let mozkytoSfx = null;
+let sabreSfx = null;
+let zykmuSfx = null;
 let flipcardSfx = null;
 let chargementMusic = null;
 let chooseFactionSfx = null;
@@ -3370,6 +3374,18 @@ function initGameAudio(){
   mozkytoSfx.src = MOZKYTO_SFX_URL;
   mozkytoSfx.preload = 'auto';
 
+  // IMPY : Zyrka (C1) — se joue juste après posecarte.mp3 quand elle entre
+  // dans la zone de combat.
+  sabreSfx = new Audio();
+  sabreSfx.src = SABRE_SFX_URL;
+  sabreSfx.preload = 'auto';
+
+  // IMPY : Zykmu (C2) — se joue juste après posecarte.mp3 quand elle entre
+  // dans la zone de combat.
+  zykmuSfx = new Audio();
+  zykmuSfx.src = ZYKMU_SFX_URL;
+  zykmuSfx.preload = 'auto';
+
   flipcardSfx = new Audio();
   flipcardSfx.src = FLIPCARD_SFX_URL;
   flipcardSfx.preload = 'auto';
@@ -3394,7 +3410,7 @@ function initGameAudio(){
 async function unlockGameAudio(){
   initGameAudio();
   let atLeastOneOk = false;
-  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx, posecarteSfx, shuffleSfx, discardSfx, mozkytoSfx, flipcardSfx, chargementMusic, chooseFactionSfx]) {
+  for (const a of [matchMusic, victorySfx, defeatSfx, timerSfx, ignominieSfx, posecarteSfx, shuffleSfx, discardSfx, mozkytoSfx, sabreSfx, zykmuSfx, flipcardSfx, chargementMusic, chooseFactionSfx]) {
     // CORRECTIF : si ce son est déjà en train de jouer légitimement (ex.
     // chargementMusic pendant l'écran Versus), on ne le touche surtout pas —
     // le "test silencieux" ci-dessous (muet, jouer, pause, remise à zéro)
@@ -3574,6 +3590,38 @@ async function playMozkytoSfx(){
   }
 }
 
+/* Se joue juste après posecarte.mp3 quand Zyrka (C1) entre dans la zone de combat. */
+async function playSabreSfx(){
+  initGameAudio();
+  if (!sabreSfx) return;
+  try{
+    sabreSfx.currentTime = 0;
+    await sabreSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ sabreSfx.currentTime = 0; await sabreSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
+/* Se joue juste après posecarte.mp3 quand Zykmu (C2) entre dans la zone de combat. */
+async function playZykmuSfx(){
+  initGameAudio();
+  if (!zykmuSfx) return;
+  try{
+    zykmuSfx.currentTime = 0;
+    await zykmuSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ zykmuSfx.currentTime = 0; await zykmuSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
 /* Se joue chaque fois qu'une carte se retourne (écran Versus). */
 async function playFlipcardSfx(){
   initGameAudio();
@@ -3682,7 +3730,7 @@ function playShuffleSfxLocalWithFade(){
 // Joue un petit bruitage LOCALEMENT, et le diffuse aussi à l'adversaire en
 // ligne (canal vfx déjà utilisé pour les animations), pour que les deux
 // joueurs entendent toujours la même chose au même moment.
-const SFX_BY_NAME = { posecarte: playPosecarteSfx, discard: playDiscardSfx, shuffle: playShuffleSfx, mozkyto: playMozkytoSfx };
+const SFX_BY_NAME = { posecarte: playPosecarteSfx, discard: playDiscardSfx, shuffle: playShuffleSfx, mozkyto: playMozkytoSfx, sabre: playSabreSfx, zykmu: playZykmuSfx };
 function broadcastAndPlaySfx(name){
   const fn = SFX_BY_NAME[name];
   if (fn) fn();
@@ -15464,6 +15512,8 @@ function handleLongVoyageChoice(owner, cardToPlay, otherCards) {
       onCharacterEnterBattlefield(cardToPlay, owner);
       pushHistory('jeu', `${cardAnchor('C104')} : ${cardAnchor(cardToPlay.label)} entre directement dans votre zone de combat !`);
       broadcastAndPlaySfx('posecarte');
+      if (cardToPlay.label === 'C1') broadcastAndPlaySfx('sabre');
+      if (cardToPlay.label === 'C2') broadcastAndPlaySfx('zykmu');
       fullRender();
     });
     return;
@@ -15970,6 +16020,8 @@ if (hitAndRunMode) {
       onCharacterEnterBattlefield(playedCard, owner);
       pushHistory('jeu', `${cardAnchor(playedCard.label)} est joué sur le ${cardAnchor('T10')} : +2 PV et trait RAPIDE !${playedCard.capturedMithril ? ` Il conserve aussi ${playedCard.capturedMithril} Mithril capturé.` : ''}`);
       broadcastAndPlaySfx('posecarte');
+      if (playedCard.label === 'C1') broadcastAndPlaySfx('sabre');
+      if (playedCard.label === 'C2') broadcastAndPlaySfx('zykmu');
       fullRender();
       return;
     }
@@ -17322,6 +17374,10 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       if (drop === dropLeft) lineArray.unshift(card); else lineArray.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en combat (${playerLabel(who)}).`);
       broadcastAndPlaySfx('posecarte');
+      // IMPY : Zyrka (C1) / Zykmu (C2) — bruitage dédié juste après posecarte.mp3
+      // quand l'une ou l'autre entre dans la zone de combat.
+      if (card.label === 'C1') broadcastAndPlaySfx('sabre');
+      if (card.label === 'C2') broadcastAndPlaySfx('zykmu');
 
       if (card.label === 'C119') {
         handleNoxrocEffect(who);
