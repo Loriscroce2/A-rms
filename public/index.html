@@ -3363,7 +3363,7 @@ function showZoom(label, card=null, side='right'){
   const render = () => {
     const safeCard = card || { label };
     attachHP(zoomCard, safeCard);
-    if (safeCard.label === 'C7' || safeCard.label === 'C58' || safeCard.label === 'C112' || safeCard.label === 'C216' || safeCard.label === 'C227' || safeCard.label === 'C212' || safeCard.label === 'C74' || safeCard.label === 'C191' || safeCard.label === 'C193' || safeCard.label === 'C199' || safeCard.label === 'T24' || safeCard.label === 'C133' || safeCard.label === 'C142'){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
+    if (CHARGEABLE_CARDS.includes(safeCard.label)){ if (typeof safeCard.charges !== 'number') safeCard.charges = 0; attachCharges(zoomCard, safeCard); }
     if (safeCard.label === 'C8'){ attachSealedBadge(zoomCard, safeCard); }
     if (safeCard.label === 'C68'){ attachCapturedMithril(zoomCard, safeCard); }
     if (getType(safeCard.label) === 'personnage'){ attachFamiliersZoom(zoomCard, safeCard); }
@@ -4961,6 +4961,16 @@ const CARD_TAGS = {
 };
 const FACTIONS = ["Krylls","Impy","Savage","Chimeria","Wadoo"];
 
+// Liste CANONIQUE de toutes les cartes utilisant un système de charges —
+// source unique de vérité, utilisée pour : l'affichage de la chargeBox
+// (attachCharges), les cibles valides de Chargebox (C174), et le rechargement
+// d'Eevee (C175). CORRIGÉ : ne contenait avant que 6 des 13 cartes réelles à
+// charges (Chargebox/Eevee ne pouvaient donc pas agir sur Gazocubateur C74,
+// Temple d'Aphrodite C191, Talhim C193, Dr.Melvina C199/T24, Pierre Dragoons
+// C133 et Couveuse Temporelle C142). Toute nouvelle carte à charges doit être
+// ajoutée UNIQUEMENT ici pour être automatiquement prise en charge partout.
+const CHARGEABLE_CARDS = ['C7', 'C58', 'C112', 'C216', 'C227', 'C212', 'C74', 'C191', 'C193', 'C199', 'T24', 'C133', 'C142'];
+
 // NOUVELLE FONCTION (C107) : Vérifie si l'effet d'un familier est annulé par Zero
 function isFamiliarEffectSuppressed(hostCard, familiarLabel) {
   const familiars = getFamiliersOnHost(hostCard);
@@ -5309,6 +5319,13 @@ function createCard(label, ownerPrefix){
   if (getType(label) === 'personnage'){
     c.hp     = getBaseHP(label);
     c.shield = getBaseShield(label);
+  }
+  // CORRIGÉ : toute carte à charges démarre à 0 charge dès sa création (et
+  // pas seulement au premier déclenchement naturel de son propre effet) —
+  // sinon Chargebox/Eevee ne pouvaient pas la recharger avant ce premier
+  // déclenchement, puisque card.charges valait encore "undefined".
+  if (CHARGEABLE_CARDS.includes(label)) {
+    c.charges = 0;
   }
 if (label === 'C154') {
     c.goals = 0;
@@ -9883,8 +9900,9 @@ function useFreydAbility(owner, card) {
 // DÉBUT DE LA LOGIQUE POUR CHARGEBOX (C174)
 // ===================================================================
 
-// Liste des cartes qui peuvent être rechargées
-const CHARGEABLE_CARDS = ['C7', 'C58', 'C112', 'C216', 'C227', 'C212'];
+// (Liste CHARGEABLE_CARDS déplacée plus haut dans le fichier, avec les
+// autres constantes de cartes — voir juste après FACTIONS — pour servir de
+// source unique à la fois à Chargebox et à Eevee.)
 
 /**
  * Ouvre la fenêtre de confirmation pour l'action de Chargebox.
@@ -14835,8 +14853,12 @@ function resolveFight(from, to){
     if (from.card.label === 'C175') {
       const eeveeOwner = from.owner;
       const eeveeBoard = getLineByOwner(eeveeOwner).concat((eeveeOwner === 'top') ? topArts : botArts);
-      const rechargedCards = eeveeBoard.filter(c => typeof c.charges === 'number');
-      rechargedCards.forEach(c => { c.charges += 1; });
+      // CORRIGÉ : on se base désormais sur la liste CANONIQUE CHARGEABLE_CARDS
+      // (et plus seulement sur "a-t-elle déjà une valeur charges numérique ?"),
+      // pour recharger aussi les cartes à charges qui n'ont pas encore
+      // déclenché leur propre effet une première fois (donc encore à 0/N).
+      const rechargedCards = eeveeBoard.filter(c => CHARGEABLE_CARDS.includes(c.label));
+      rechargedCards.forEach(c => { c.charges = (c.charges || 0) + 1; });
       if (rechargedCards.length > 0) {
         pushHistory('jeu', `${cardAnchor('C175')} recharge ${rechargedCards.length} carte${rechargedCards.length > 1 ? 's' : ''} à charges de +1 !`);
       }
@@ -16225,7 +16247,7 @@ function makeArtifactCard(card, owner){
   }
 
   applyCardFace(el, card);
-  if(card.label==='C7' || card.label === 'C58' || card.label === 'C112' || card.label === 'C216' || card.label === 'C227' || card.label === 'C212' || card.label === 'C74' || card.label === 'C191' || card.label === 'C193' || card.label === 'C199' || card.label === 'T24' || card.label === 'C133' || card.label === 'C142') attachCharges(el, card);
+  if(CHARGEABLE_CARDS.includes(card.label)) attachCharges(el, card);
   if(card.label==='C8') renderRescelleurUnderStack(el, card);
 
   if(artifactExhausted[owner].has(card.id)) el.classList.add('exhausted'); else el.classList.remove('exhausted');
