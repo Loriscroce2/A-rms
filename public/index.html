@@ -3119,7 +3119,7 @@ body.fusion-shake {
         </div>
         <div class="slotLabel bottom">DECK</div>
         <div class="deckRow">
-          <div class="deckFactions" id="deckFactionsTop" title="Factions présentes dans ce deck"></div>
+          <div class="deckFactions" id="deckFactionsTop"></div>
           <div class="deck" id="deckTop" data-count="30"></div>
         </div>
         <div class="resHUD top">
@@ -3164,7 +3164,7 @@ body.fusion-shake {
         </div>
         <div class="slotLabel top">DECK</div>
         <div class="deckRow">
-          <div class="deckFactions" id="deckFactionsBottom" title="Factions présentes dans ce deck"></div>
+          <div class="deckFactions" id="deckFactionsBottom"></div>
           <div class="deck" id="deckBottom" data-count="30"></div>
         </div>
         <div class="resHUD bottom">
@@ -15440,6 +15440,11 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
                 e.dataTransfer.setData('from', container.id);
                 currentDragInfo = { id: card.id, fromId: container.id, owner, label: card.label, card: card };
                 highlightEligibleZones(card, owner);
+                // IMPY : Zyrka (C1) / Zykmu (C2) — bruitage dédié dès qu'on ATTRAPE
+                // la carte avec la souris (et non plus quand elle entre en zone de
+                // combat) — déplacé ici sur demande explicite.
+                if (card.label === 'C1') broadcastAndPlaySfx('sabre');
+                if (card.label === 'C2') broadcastAndPlaySfx('zykmu');
             });
             el.addEventListener('dragend', () => { currentDragInfo = null; clearEligibleZones(); });
         } else {
@@ -16192,8 +16197,8 @@ if (hitAndRunMode) {
       onCharacterEnterBattlefield(playedCard, owner);
       pushHistory('jeu', `${cardAnchor(playedCard.label)} est joué sur le ${cardAnchor('T10')} : +2 PV et trait RAPIDE !${playedCard.capturedMithril ? ` Il conserve aussi ${playedCard.capturedMithril} Mithril capturé.` : ''}`);
       broadcastAndPlaySfx('posecarte');
-      if (playedCard.label === 'C1') broadcastAndPlaySfx('sabre');
-      if (playedCard.label === 'C2') broadcastAndPlaySfx('zykmu');
+      // (Le bruitage Zyrka/Zykmu se déclenche désormais à la prise en main
+      // de la carte — voir le dragstart plus haut — pas ici à l'entrée.)
       fullRender();
       return;
     }
@@ -17556,10 +17561,8 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       if (drop === dropLeft) lineArray.unshift(card); else lineArray.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en combat (${playerLabel(who)}).`);
       broadcastAndPlaySfx('posecarte');
-      // IMPY : Zyrka (C1) / Zykmu (C2) — bruitage dédié juste après posecarte.mp3
-      // quand l'une ou l'autre entre dans la zone de combat.
-      if (card.label === 'C1') broadcastAndPlaySfx('sabre');
-      if (card.label === 'C2') broadcastAndPlaySfx('zykmu');
+      // (Le bruitage Zyrka/Zykmu se déclenche désormais à la prise en main
+      // de la carte — voir le dragstart plus haut — pas ici à l'entrée.)
 
       if (card.label === 'C119') {
         handleNoxrocEffect(who);
