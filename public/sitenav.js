@@ -20,24 +20,32 @@
     isAdmin = !!(isLoggedIn && data.user.isAdmin);
   }catch(e){}
 
-  const fullLinks = [
+  // Deux lignes VOULUES (pas un simple retour à la ligne automatique) :
+  // "Accueil / Jouer / Boutique / Astrocomptoir" en haut, puis
+  // "Classement / Règles / Didacticiel [/ Administrateur]" en dessous.
+  const topRow = [
     { href: '/accueil.html',  label: 'Accueil',  match: ['/accueil.html', '/', '/index.html'] },
     { href: '/play.html',     label: 'Jouer',     match: ['/play.html'] },
     { href: '/boutique.html', label: 'Boutique',  match: ['/boutique.html'] },
     { href: '/astrocomptoir.html', label: 'Astrocomptoir', match: ['/astrocomptoir.html'] },
+  ];
+  const bottomRow = [
     { href: '/classement.html', label: 'Classement', match: ['/classement.html'] },
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
     { href: '/tutorial.html', label: 'Didacticiel', match: ['/tutorial.html'] },
   ];
   if (isAdmin) {
-    fullLinks.push({ href: '/admin.html', label: '⚙ Administrateur', match: ['/admin.html'] });
+    bottomRow.push({ href: '/admin.html', label: '⚙ Administrateur', match: ['/admin.html'] });
   }
-  const loggedOutLinks = [
+  const loggedOutTopRow = [
     { href: '/accueil.html',  label: 'Accueil',  match: ['/accueil.html', '/', '/index.html'] },
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
   ];
-  const links = isLoggedIn ? fullLinks : loggedOutLinks;
+  const rows = isLoggedIn ? [topRow, bottomRow] : [loggedOutTopRow];
   const path = window.location.pathname;
+  const renderRow = (row) => `<div class="navLinksRow">${row.map(l =>
+    `<a href="${l.href}"${l.match.includes(path) ? ' class="active"' : ''}>${l.label}</a>`
+  ).join('')}</div>`;
 
   root.innerHTML = `
     <header class="siteHeader">
@@ -47,7 +55,7 @@
         </a>
         <button class="navToggle" id="navToggleBtn" aria-label="Ouvrir le menu">☰</button>
         <nav class="siteNav" id="siteNavLinks">
-          ${links.map(l => `<a href="${l.href}"${l.match.includes(path) ? ' class="active"' : ''}>${l.label}</a>`).join('')}
+          ${rows.map(renderRow).join('')}
         </nav>
         <div class="navRight" id="nav-menu"></div>
       </div>

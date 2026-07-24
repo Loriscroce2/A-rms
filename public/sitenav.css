@@ -29,9 +29,14 @@
 .siteHeader .brand:hover img{ filter: drop-shadow(0 0 16px rgba(0,230,255,.65)); }
 
 .siteNav{
-  display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px;
+  display:flex; flex-direction:column; gap:4px;
   flex:1 1 100%; order:3; width:100%;
 }
+/* Chaque groupe de liens forme sa propre ligne (ex : Accueil/Jouer/Boutique/
+   Astrocomptoir sur une ligne, Classement/Règles/Didacticiel/Administrateur
+   sur la suivante) — un regroupement voulu plutôt qu'un retour à la ligne
+   automatique selon la largeur disponible. */
+.navLinksRow{ display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px; }
 .siteNav a{
   position:relative; display:inline-flex; align-items:center; gap:6px;
   padding:9px 16px; border-radius:10px; text-decoration:none;
@@ -73,6 +78,8 @@
     box-shadow:0 14px 24px rgba(0,0,0,.45);
   }
   .siteNav.open{ display:flex; }
+  .navLinksRow{ flex-direction:column; gap:2px; }
+  .navLinksRow:not(:first-child){ border-top:1px solid rgba(125,249,255,.12); margin-top:6px; padding-top:6px; }
   .siteNav a{ width:100%; padding:12px 14px; }
   .navToggle{ display:flex; }
   .navRight{ margin-left:auto; }
