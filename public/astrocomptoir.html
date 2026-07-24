@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>A’rms — Astrocomptoir</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/sitenav.css" />
+  <style>
+    :root{
+      --bg1:#06131a; --bg2:#031017; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff;
+      --accent:#00e6ff; --ok:#19e27a; --warn:#ffb84d; --err:#ff5252; --gold:#ffd93d;
+      --shadow: 0 10px 20px rgba(0,0,0,.35); --border: 1px solid rgba(125,249,255,.18);
+      --fac-krylls:#3ddc84; --fac-impy:#ff5a5f; --fac-savage:#ff9d3d; --fac-chimeria:#b06bff; --fac-wadoo:#ffd93d;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap');
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
+      background:radial-gradient(1200px 420px at 60% -180px, rgba(0,230,255,.14), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
+    a{color:var(--cy)} .container{max-width:1400px;margin:0 auto;padding:0 16px}
+    .btn{background:linear-gradient(180deg,var(--ok),#11985b);color:#052319;border:1px solid #4df7a8;border-radius:10px;padding:9px 14px;font-weight:900;cursor:pointer;box-shadow:0 0 12px rgba(25,226,122,.35),inset 0 0 10px rgba(255,255,255,.08);text-decoration:none;display:inline-block;font-size:13.5px;}
+    .btn[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(.3)}
+    .btn-gold{background:linear-gradient(180deg,#ffe98a,#e0a800);color:#2a1c00;border:1px solid rgba(255,255,255,.5);}
+    .btn-secondary{background:linear-gradient(180deg,#0e2e39,#0a222a);color:#dffbff;border:1px solid rgba(125,249,255,.3);border-radius:10px;padding:9px 14px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-block;font-size:13.5px;}
+    .btn-danger{background:linear-gradient(180deg,#a02323,#5a0f0f);color:#ffdada;border:1px solid #ff6b6b;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer;font-size:12.5px;}
+
+    /* En-tête illustré (astrocomptoir.png), demandé pour habiller la page */
+    .astroHero{position:relative;border-radius:22px;overflow:hidden;margin:22px 0 26px;box-shadow:var(--shadow), 0 0 40px rgba(0,230,255,.12);border:1px solid rgba(125,249,255,.25);}
+    .astroHero img{display:block;width:100%;max-height:320px;object-fit:cover;}
+    .astroHero::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg, rgba(3,16,23,.15) 0%, rgba(3,16,23,.55) 65%, rgba(3,16,23,.92) 100%);}
+    .astroHeroText{position:absolute;left:0;right:0;bottom:0;padding:22px 28px;z-index:2;}
+    .astroHeroText h1{font-family:'Cinzel',sans-serif;font-size:clamp(24px,4vw,36px);margin:0 0 6px;
+      background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px rgba(0,230,255,.3)}
+    .astroHeroText p{margin:0;color:var(--muted);max-width:640px;font-size:14px;opacity:.95}
+
+    .walletBar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+      background:linear-gradient(145deg,#08222b,#0a2d38);border:var(--border);border-radius:16px;padding:16px 20px;margin-bottom:22px;box-shadow:var(--shadow);}
+    .walletBalance{display:flex;align-items:center;gap:10px;font-weight:900;font-size:24px;color:var(--gold);}
+    .walletBalance small{font-size:12px;font-weight:700;color:var(--muted);opacity:.8;display:block;}
+    .walletActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+    .paypalField{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .paypalField input{padding:8px 12px;border-radius:8px;border:1.5px solid rgba(125,249,255,.3);background:#051820;color:var(--ink);font-size:13px;min-width:220px;}
+    .agreementStatus{font-size:12px;color:var(--muted);opacity:.85;}
+    .agreementStatus.pending{color:var(--warn);}
+    .agreementStatus.ok{color:var(--ok);}
+
+    .section{padding:14px 0}
+    .section h2{font-family:'Cinzel',sans-serif;font-size:20px;color:#aefaff;text-shadow:0 0 12px rgba(0,230,255,.25);display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    .sectionHint{font-size:12.5px;color:var(--muted);opacity:.75;margin:-8px 0 14px;}
+
+    .marketGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:20px}
+    .marketSlot{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#08222b,#0a2d38);box-shadow:var(--shadow), inset 0 0 14px rgba(125,249,255,.06);
+      padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;transition:transform .18s ease;}
+    .marketSlot:hover{transform:translateY(-6px)}
+    .marketSlot.mine{outline:1.5px solid rgba(255,217,61,.55);outline-offset:-1px;}
+    .marketSlot .cardImg{width:150px;height:207px;border-radius:10px;background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;box-shadow:0 10px 20px rgba(0,0,0,.45);cursor:pointer;position:relative;}
+    .marketSlot[data-faction="Krylls"] .cardImg{box-shadow:0 0 16px rgba(61,220,132,.7)}
+    .marketSlot[data-faction="Impy"] .cardImg{box-shadow:0 0 16px rgba(255,90,95,.7)}
+    .marketSlot[data-faction="Savage"] .cardImg{box-shadow:0 0 16px rgba(255,157,61,.7)}
+    .marketSlot[data-faction="Chimeria"] .cardImg{box-shadow:0 0 16px rgba(176,107,255,.7)}
+    .marketSlot[data-faction="Wadoo"] .cardImg{box-shadow:0 0 16px rgba(255,217,61,.75)}
+    .stat{position:absolute;right:-8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;pointer-events:none;width:29px;height:29px;font-size:13px;z-index:5;font-family:'Manrope',system-ui,sans-serif;}
+    .stat.hp{top:36%;border-radius:50%;background:radial-gradient(circle at 30% 24%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #ff5c5c 55%, #8a0000);border:2px solid rgba(255,190,190,.95);box-shadow:0 0 12px rgba(255,40,40,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.35), inset 0 2px 3px rgba(255,255,255,.4);text-shadow:0 1px 2px rgba(0,0,0,.9);}
+    .stat.shield{top:64%;border-radius:50% 50% 22% 22% / 64% 64% 30% 30%;background:radial-gradient(circle at 30% 22%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #55d6ff 55%, #0a4f8a);border:2px solid rgba(195,238,255,.95);box-shadow:0 0 12px rgba(70,195,255,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.3), inset 0 2px 3px rgba(255,255,255,.4);color:#eafcff;font-size:12px;text-shadow:0 1px 2px rgba(0,0,0,.9);}
+    .marketPrice{font-weight:900;color:var(--gold);font-size:16px;}
+    .marketSeller{font-size:11.5px;color:var(--muted);opacity:.75;}
+    .buyBtn{width:100%;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:10px;padding:7px 10px;font-weight:900;cursor:pointer}
+    .buyBtn:disabled{opacity:.4;cursor:not-allowed}
+    .emptyMsg{color:var(--muted);opacity:.75;padding:20px;text-align:center}
+
+    .sellGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+    .sellCard{border:var(--border);border-radius:14px;background:linear-gradient(145deg,#08222b,#0a2d38);padding:10px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+    .sellCard .cardImg{width:90px;height:124px;border-radius:8px;background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;position:relative;}
+    .sellCard .count{font-size:11.5px;color:var(--muted);opacity:.8}
+    .sellCard input{width:100%;padding:6px 8px;border-radius:8px;border:1.5px solid rgba(125,249,255,.3);background:#051820;color:var(--ink);font-size:12.5px;text-align:center;}
+    .sellCard .sellBtn{background:linear-gradient(180deg,#ff9a5a,#c85f1c);color:#2a1000;border:none;border-radius:8px;padding:6px 10px;font-weight:900;cursor:pointer;font-size:12px;width:100%}
+
+    .historyTable{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:13px;}
+    .historyTable th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);opacity:.7;padding:0 10px 4px;}
+    .historyTable td{padding:9px 10px;background:linear-gradient(145deg,#08222b,#0a2d38);border-top:1px solid rgba(125,249,255,.1);border-bottom:1px solid rgba(125,249,255,.1);}
+    .historyTable tr td:first-child{border-left:1px solid rgba(125,249,255,.1);border-radius:10px 0 0 10px;}
+    .historyTable tr td:last-child{border-right:1px solid rgba(125,249,255,.1);border-radius:0 10px 10px 0;}
+    .tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:800;}
+    .tag.sale{background:rgba(25,226,122,.15);color:#7dffc0;border:1px solid rgba(25,226,122,.4);}
+    .tag.purchase{background:rgba(0,230,255,.15);color:#7df9ff;border:1px solid rgba(0,230,255,.4);}
+    .tag.pending{background:rgba(255,184,77,.15);color:#ffd394;border:1px solid rgba(255,184,77,.4);}
+    .tag.paid{background:rgba(25,226,122,.15);color:#7dffc0;border:1px solid rgba(25,226,122,.4);}
+    .tag.rejected{background:rgba(255,82,82,.15);color:#ffb0b0;border:1px solid rgba(255,82,82,.4);}
+
+    .revealZoom{position:fixed;z-index:6500;pointer-events:none;display:none;width:min(340px,34vw);height:min(530px,60vh);
+      border-radius:16px;background-size:contain;background-repeat:no-repeat;background-position:center;background-color:#04141a;box-shadow:0 26px 50px rgba(0,0,0,.6), 0 0 34px rgba(0,230,255,.35);
+      border:2px solid rgba(125,249,255,.5);transform:scale(.92);opacity:0;transition:opacity .12s ease, transform .12s ease;}
+    .revealZoom.show{display:block;opacity:1;transform:scale(1);}
+
+    .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2000;background:linear-gradient(180deg,#0e2e39,#0a222a);color:#dffbff;border:1px solid rgba(125,249,255,.35);padding:10px 12px;border-radius:10px;font-weight:800;box-shadow:0 10px 20px rgba(0,0,0,.45);display:none;max-width:90vw;}
+    .toast.show{display:block;animation:fadein .15s ease,fadeout .25s ease 3.2s forwards}
+    @keyframes fadein{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+    @keyframes fadeout{to{opacity:0;transform:translate(-50%,8px)}}
+
+    /* Modal accord légal — bloquant tant qu'il n'est pas accepté */
+    .armsModalOverlay2{position:fixed;inset:0;z-index:9000;display:none;align-items:center;justify-content:center;background:rgba(2,8,11,.8);backdrop-filter:blur(5px);padding:20px;}
+    .armsModalOverlay2.show{display:flex;}
+    .legalModal{width:min(640px,95vw);max-height:88vh;overflow:auto;border-radius:20px;border:1px solid rgba(125,249,255,.3);
+      background:linear-gradient(160deg,#051821,#072d38);box-shadow:0 30px 70px rgba(0,0,0,.6), 0 0 40px rgba(0,230,255,.15);padding:28px;color:#e8fdff;position:relative;}
+    .legalModal h2{font-family:'Cinzel',sans-serif;font-size:20px;margin-top:0;color:#aefaff;}
+    .legalModal h3{font-size:13.5px;color:#7df9ff;margin:18px 0 6px;}
+    .legalModal p, .legalModal li{font-size:13px;line-height:1.6;color:var(--muted);}
+    .legalModal ul{padding-left:20px;margin:6px 0;}
+    .legalCheckRow{display:flex;align-items:flex-start;gap:10px;margin-top:18px;padding:12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(125,249,255,.2);}
+    .legalCheckRow input{margin-top:3px;width:18px;height:18px;flex:none;}
+    .legalCheckRow label{font-size:12.5px;color:var(--ink);line-height:1.5;}
+    .legalModalActions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+    .legalModalClose{position:absolute;top:16px;right:16px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#fff;font-size:15px;cursor:pointer;}
+  </style>
+</head>
+<body>
+  <div id="site-header-root"></div>
+
+  <main class="container">
+    <div class="astroHero">
+      <img src="/assets/astrocomptoir.png" alt="Astrocomptoir" />
+      <div class="astroHeroText">
+        <h1>🪐 Astrocomptoir</h1>
+        <p>L'hôtel de vente entre joueurs. Achetez et vendez vos cartes contre de l'argent réel, reversé directement sur votre PayPal — A'rms prélève une commission de 10% sur chaque vente.</p>
+      </div>
+    </div>
+
+    <div class="walletBar">
+      <div>
+        <div class="walletBalance">💶 <span id="walletAmount">0,00 €</span></div>
+        <small id="agreementStatusLine" class="agreementStatus">Vérification…</small>
+      </div>
+      <div class="walletActions">
+        <div class="paypalField">
+          <input type="email" id="paypalEmailInput" placeholder="votre-email@paypal.com" />
+          <button class="btn-secondary" id="savePaypalBtn">Enregistrer mon PayPal</button>
+        </div>
+        <button class="btn-gold btn" id="topupBtn">➕ Recharger</button>
+        <button class="btn-secondary" id="withdrawBtn">⬆ Retirer vers PayPal</button>
+        <button class="btn-secondary" id="reopenLegalBtn">📜 Voir l'accord</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🛒 Annonces en cours</h2>
+      <div class="sectionHint">Le vendeur reçoit 90% du prix affiché (10% de commission A'rms). Une carte mise en vente n'est plus utilisable en deck tant que l'annonce est active.</div>
+      <div class="marketGrid" id="marketGrid"></div>
+    </div>
+
+    <div class="section">
+      <h2>💰 Mettre une carte en vente</h2>
+      <div class="sectionHint">Choisissez un prix en euros (0,50 € minimum) pour chaque exemplaire à vendre.</div>
+      <div class="sellGrid" id="sellGrid"></div>
+    </div>
+
+    <div class="section">
+      <h2>📜 Historique</h2>
+      <div id="historyZone"></div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <div id="revealZoom" class="revealZoom"></div>
+
+  <div class="armsModalOverlay2" id="legalOverlay">
+    <div class="legalModal">
+      <button class="legalModalClose" id="legalCloseBtn">✕</button>
+      <h2>📜 Accord Astrocomptoir</h2>
+      <p>Merci de lire attentivement avant d'utiliser l'Astrocomptoir. En cochant la case ci-dessous, vous acceptez les conditions suivantes.</p>
+
+      <h3>Fonctionnement</h3>
+      <ul>
+        <li>L'Astrocomptoir permet d'acheter et de vendre des cartes A'rms individuelles entre joueurs, contre de l'argent réel.</li>
+        <li>Vous rechargez un portefeuille interne via PayPal, vous achetez/vendez avec ce solde, puis vous pouvez retirer votre solde vers votre compte PayPal à tout moment.</li>
+        <li>Le prix de chaque annonce est fixé librement par le vendeur — A'rms ne garantit aucune valeur de revente.</li>
+      </ul>
+
+      <h3>Commission</h3>
+      <ul>
+        <li>A'rms prélève une commission de <strong>10%</strong> sur le prix de chaque vente conclue. Le vendeur reçoit les 90% restants sur son solde.</li>
+      </ul>
+
+      <h3>Retraits</h3>
+      <ul>
+        <li>Les retraits sont envoyés au compte PayPal que vous avez enregistré. Vous êtes seul responsable de l'exactitude de cette adresse.</li>
+        <li>Un retrait demandé peut faire l'objet d'une vérification avant l'envoi effectif des fonds.</li>
+      </ul>
+
+      <h3>Responsabilités</h3>
+      <ul>
+        <li>Une vente conclue est définitive : la carte change de propriétaire immédiatement et n'est pas remboursable, sauf erreur avérée du site.</li>
+        <li>Vous devez avoir la capacité juridique de conclure ce type de transaction (majorité, ou autorisation d'un représentant légal selon la loi applicable dans votre pays).</li>
+        <li>Vous restez seul responsable de déclarer, le cas échéant, les revenus tirés de vos ventes auprès de votre administration fiscale.</li>
+        <li>A'rms se réserve le droit de suspendre l'accès à l'Astrocomptoir en cas de fraude, d'abus ou d'usage frauduleux d'un moyen de paiement.</li>
+      </ul>
+
+      <div class="legalCheckRow">
+        <input type="checkbox" id="legalCheckbox" />
+        <label for="legalCheckbox">J'ai lu et j'accepte les conditions ci-dessus régissant l'utilisation de l'Astrocomptoir.</label>
+      </div>
+      <div class="legalModalActions">
+        <button class="btn-secondary" id="legalLaterBtn">Plus tard</button>
+        <button class="btn" id="legalAcceptBtn" disabled>J'accepte</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/auth.js"></script>
+  <script src="/sitenav.js"></script>
+  <script>
+    const toast = document.getElementById('toast');
+    function showToast(msg){
+      toast.textContent = msg;
+      toast.classList.remove('show');
+      void toast.offsetWidth;
+      toast.classList.add('show');
+    }
+    function euros(cents){ return (cents/100).toLocaleString('fr-FR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €'; }
+
+    let CARD_STATS = {};
+    const statsReady = fetch('/data/card-stats.json', { cache: 'no-store' })
+      .then(r => r.json()).then(obj => { CARD_STATS = obj || {}; }).catch(() => {});
+
+    function applyStatBadges(holderEl, code){
+      holderEl.querySelectorAll('.stat').forEach(n => n.remove());
+      const st = CARD_STATS[code];
+      if (!st || st.type !== 'personnage') return;
+      const hp = document.createElement('div');
+      hp.className = 'stat hp'; hp.textContent = st.hp ?? 0;
+      holderEl.appendChild(hp);
+      if (st.shield > 0) {
+        const sh = document.createElement('div');
+        sh.className = 'stat shield'; sh.textContent = st.shield;
+        holderEl.appendChild(sh);
+      }
+    }
+    function factionOf(num){
+      if(num<=50) return "Krylls";
+      if(num<=100) return "Impy";
+      if(num<=150) return "Savage";
+      if(num<=200) return "Chimeria";
+      return "Wadoo";
+    }
+    const revealZoomEl = document.getElementById('revealZoom');
+    function attachRevealZoom(cardEl, code){
+      cardEl.addEventListener('mousemove', (e) => {
+        revealZoomEl.style.backgroundImage = `url('/cartes/${code}.png')`;
+        let x = e.clientX + 26, y = e.clientY - 60;
+        if (x + 300 > window.innerWidth) x = e.clientX - 326;
+        if (y < 10) y = 10;
+        revealZoomEl.style.left = x + 'px'; revealZoomEl.style.top = y + 'px';
+        revealZoomEl.classList.add('show');
+      });
+      cardEl.addEventListener('mouseleave', () => revealZoomEl.classList.remove('show'));
+    }
+
+    // ===================================================================
+    // Portefeuille + accord légal
+    // ===================================================================
+    let WALLET = { balanceCents:0, paypalEmail:'', agreementAccepted:false, paypalConfigured:false };
+
+    async function loadWallet(){
+      try{
+        const res = await fetch('/api/astrocomptoir/status');
+        const data = await res.json();
+        if (!data.ok) return;
+        WALLET = data;
+        document.getElementById('walletAmount').textContent = euros(data.balanceCents);
+        document.getElementById('paypalEmailInput').value = data.paypalEmail || '';
+        const line = document.getElementById('agreementStatusLine');
+        if (data.agreementAccepted) {
+          line.textContent = '✓ Accord Astrocomptoir accepté';
+          line.className = 'agreementStatus ok';
+        } else {
+          line.textContent = '⚠ Accord non accepté — requis pour acheter, vendre ou retirer';
+          line.className = 'agreementStatus pending';
+          openLegalModal();
+        }
+      }catch(e){ console.error(e); }
+    }
+
+    function openLegalModal(){
+      document.getElementById('legalOverlay').classList.add('show');
+    }
+    function closeLegalModal(){
+      document.getElementById('legalOverlay').classList.remove('show');
+    }
+    document.getElementById('legalCheckbox').addEventListener('change', (e) => {
+      document.getElementById('legalAcceptBtn').disabled = !e.target.checked;
+    });
+    document.getElementById('legalAcceptBtn').addEventListener('click', async () => {
+      try{
+        const res = await fetch('/api/astrocomptoir/agreement/accept', { method:'POST' });
+        const data = await res.json();
+        if (data.ok) { showToast('Accord accepté.'); closeLegalModal(); loadWallet(); }
+      }catch(e){ showToast('Erreur réseau.'); }
+    });
+    document.getElementById('legalLaterBtn').addEventListener('click', closeLegalModal);
+    document.getElementById('legalCloseBtn').addEventListener('click', closeLegalModal);
+    document.getElementById('reopenLegalBtn').addEventListener('click', openLegalModal);
+
+    document.getElementById('savePaypalBtn').addEventListener('click', async () => {
+      const email = document.getElementById('paypalEmailInput').value.trim();
+      try{
+        const res = await fetch('/api/astrocomptoir/paypal-email', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (data.ok) showToast('Adresse PayPal enregistrée.');
+        else showToast(data.error === 'email_invalid' ? 'Adresse e-mail invalide.' : 'Erreur.');
+      }catch(e){ showToast('Erreur réseau.'); }
+    });
+
+    document.getElementById('topupBtn').addEventListener('click', async () => {
+      const raw = prompt('Montant à recharger, en euros (entre 2 € et 500 €) :', '10');
+      if (raw === null) return;
+      const amount = parseFloat(raw.replace(',', '.'));
+      if (!Number.isFinite(amount) || amount < 2 || amount > 500) { showToast('Montant invalide (entre 2 € et 500 €).'); return; }
+      try{
+        const res = await fetch('/api/astrocomptoir/topup/create-order', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amountCents: Math.round(amount*100) })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'paypal_not_configured'
+            ? "Les paiements PayPal réels ne sont pas encore activés par l'administrateur."
+            : 'Erreur PayPal.');
+          return;
+        }
+        if (data.approveUrl) window.location.href = data.approveUrl;
+      }catch(e){ showToast('Erreur réseau.'); }
+    });
+
+    document.getElementById('withdrawBtn').addEventListener('click', async () => {
+      if (!WALLET.agreementAccepted) { openLegalModal(); return; }
+      if (!WALLET.paypalEmail) { showToast("Enregistrez d'abord votre adresse PayPal."); return; }
+      const raw = prompt(`Montant à retirer, en euros (5 € minimum). Solde disponible : ${euros(WALLET.balanceCents)}`, '');
+      if (raw === null) return;
+      const amount = parseFloat(raw.replace(',', '.'));
+      if (!Number.isFinite(amount) || amount < 5) { showToast('Montant invalide (5 € minimum).'); return; }
+      try{
+        const res = await fetch('/api/astrocomptoir/withdraw', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amountCents: Math.round(amount*100) })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'insufficient_balance' ? 'Solde insuffisant.'
+            : data.error === 'agreement_required' ? "Vous devez d'abord accepter l'accord." : 'Erreur.');
+          return;
+        }
+        showToast('Demande de retrait envoyée — traitée sous peu par un administrateur.');
+        loadWallet(); loadHistory();
+      }catch(e){ showToast('Erreur réseau.'); }
+    });
+
+    // Retour PayPal après une recharge (Orders v2 renvoie ?token=ORDER_ID)
+    (async function handlePaypalReturn(){
+      const params = new URLSearchParams(window.location.search);
+      const orderId = params.get('token');
+      if (params.get('topup') === 'return' && orderId) {
+        try{
+          const res = await fetch('/api/astrocomptoir/topup/capture', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orderId })
+          });
+          const data = await res.json();
+          if (data.ok) showToast(data.alreadyCompleted ? 'Recharge déjà traitée.' : 'Recharge effectuée !');
+          else showToast('La recharge PayPal a échoué.');
+        }catch(e){}
+        window.history.replaceState({}, '', '/astrocomptoir.html');
+      } else if (params.get('topup') === 'cancel') {
+        showToast('Recharge annulée.');
+        window.history.replaceState({}, '', '/astrocomptoir.html');
+      }
+    })();
+
+    // ===================================================================
+    // Marché — annonces
+    // ===================================================================
+    async function loadListings(){
+      try{
+        await statsReady;
+        const res = await fetch('/api/astrocomptoir/listings');
+        const data = await res.json();
+        if (!data.ok) return;
+        renderListings(data.listings);
+      }catch(e){ console.error(e); }
+    }
+
+    function renderListings(listings){
+      const grid = document.getElementById('marketGrid');
+      grid.innerHTML = '';
+      if (listings.length === 0) {
+        grid.innerHTML = `<div class="emptyMsg" style="grid-column:1/-1;">Aucune annonce en ce moment. Soyez le premier à vendre une carte !</div>`;
+        return;
+      }
+      listings.forEach(l => {
+        const num = parseInt(l.code, 10);
+        const fac = factionOf(num);
+        const el = document.createElement('div');
+        el.className = 'marketSlot' + (l.mine ? ' mine' : '');
+        el.dataset.faction = fac;
+        el.innerHTML = `
+          <div class="cardImg" style="background-image:url('/cartes/${l.code}.png')"></div>
+          <div class="marketPrice">💶 ${euros(l.priceCents)}</div>
+          <div class="marketSeller">${l.mine ? 'Votre annonce' : 'Vendu par ' + l.sellerName}</div>
+          ${l.mine
+            ? `<button class="btn-danger" style="width:100%;">Retirer de la vente</button>`
+            : `<button class="buyBtn">Acheter</button>`}
+        `;
+        applyStatBadges(el.querySelector('.cardImg'), l.code);
+        attachRevealZoom(el.querySelector('.cardImg'), l.code);
+        if (l.mine) {
+          el.querySelector('.btn-danger').addEventListener('click', () => cancelListing(l.id));
+        } else {
+          el.querySelector('.buyBtn').addEventListener('click', () => buyListing(l.id, l.priceCents));
+        }
+        grid.appendChild(el);
+      });
+    }
+
+    async function buyListing(id, priceCents){
+      if (!WALLET.agreementAccepted) { openLegalModal(); return; }
+      if (!confirm(`Acheter cette carte pour ${euros(priceCents)} ?`)) return;
+      try{
+        const res = await fetch(`/api/astrocomptoir/listings/${id}/buy`, { method:'POST' });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'insufficient_balance' ? 'Solde insuffisant — rechargez votre portefeuille.'
+            : data.error === 'already_sold' ? 'Cette carte vient d’être vendue à quelqu’un d’autre.'
+            : data.error === 'cannot_buy_own_listing' ? 'Vous ne pouvez pas acheter votre propre annonce.'
+            : 'Erreur lors de l’achat.');
+          loadListings();
+          return;
+        }
+        showToast('Achat réussi !');
+        loadWallet(); loadListings(); loadSellGrid(); loadHistory();
+      }catch(e){ showToast('Erreur réseau.'); }
+    }
+
+    async function cancelListing(id){
+      if (!confirm('Retirer cette annonce et récupérer la carte dans votre collection ?')) return;
+      try{
+        const res = await fetch(`/api/astrocomptoir/listings/${id}`, { method:'DELETE' });
+        const data = await res.json();
+        if (data.ok) { showToast('Annonce retirée.'); loadListings(); loadSellGrid(); }
+        else showToast('Erreur.');
+      }catch(e){ showToast('Erreur réseau.'); }
+    }
+
+    // ===================================================================
+    // Vendre une carte de sa collection
+    // ===================================================================
+    async function loadSellGrid(){
+      try{
+        await statsReady;
+        const res = await fetch('/api/collection');
+        const data = await res.json();
+        if (!data.ok) return;
+        const grid = document.getElementById('sellGrid');
+        grid.innerHTML = '';
+        const sellable = data.cards.filter(c => c.count > 0);
+        if (sellable.length === 0) {
+          grid.innerHTML = `<div class="emptyMsg">Aucune carte disponible à la vente pour l'instant.</div>`;
+          return;
+        }
+        sellable.forEach(c => {
+          const el = document.createElement('div');
+          el.className = 'sellCard';
+          el.innerHTML = `
+            <div class="cardImg" style="background-image:url('/cartes/${c.code}.png')"></div>
+            <div class="count">${c.count} en collection</div>
+            <input type="number" min="0.5" step="0.5" placeholder="Prix en €" />
+            <button class="sellBtn">Mettre en vente</button>
+          `;
+          applyStatBadges(el.querySelector('.cardImg'), c.code);
+          el.querySelector('.sellBtn').addEventListener('click', () => createListing(c.code, el.querySelector('input')));
+          grid.appendChild(el);
+        });
+      }catch(e){ console.error(e); }
+    }
+
+    async function createListing(code, inputEl){
+      if (!WALLET.agreementAccepted) { openLegalModal(); return; }
+      const amount = parseFloat((inputEl.value || '').replace(',', '.'));
+      if (!Number.isFinite(amount) || amount < 0.5) { showToast('Prix invalide (0,50 € minimum).'); return; }
+      try{
+        const res = await fetch('/api/astrocomptoir/listings', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ code, priceCents: Math.round(amount*100) })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'card_not_owned' ? 'Vous ne possédez plus cette carte.' : 'Erreur lors de la mise en vente.');
+          return;
+        }
+        showToast('Carte mise en vente !');
+        loadListings(); loadSellGrid();
+      }catch(e){ showToast('Erreur réseau.'); }
+    }
+
+    // ===================================================================
+    // Historique
+    // ===================================================================
+    async function loadHistory(){
+      try{
+        const [txRes, wdRes] = await Promise.all([
+          fetch('/api/astrocomptoir/transactions'),
+          fetch('/api/astrocomptoir/withdrawals'),
+        ]);
+        const txData = await txRes.json();
+        const wdData = await wdRes.json();
+        const zone = document.getElementById('historyZone');
+        const rows = [];
+        if (txData.ok) {
+          txData.transactions.forEach(t => {
+            rows.push(`<tr>
+              <td>${new Date(t.createdAt).toLocaleString('fr-FR')}</td>
+              <td><span class="tag ${t.role}">${t.role === 'sale' ? 'Vente' : 'Achat'}</span></td>
+              <td>${t.code}</td>
+              <td>${t.role === 'sale' ? 'Acheteur' : 'Vendeur'} : ${t.counterparty}</td>
+              <td>${euros(t.priceCents)}${t.role === 'sale' ? ` <span style="opacity:.6">(comm. ${euros(t.commissionCents)})</span>` : ''}</td>
+            </tr>`);
+          });
+        }
+        if (wdData.ok) {
+          wdData.withdrawals.forEach(w => {
+            const label = w.status === 'pending' ? 'En attente' : w.status === 'paid' ? 'Payé' : 'Refusé';
+            rows.push(`<tr>
+              <td>${new Date(w.requestedAt).toLocaleString('fr-FR')}</td>
+              <td><span class="tag ${w.status}">Retrait — ${label}</span></td>
+              <td>—</td>
+              <td>Vers PayPal</td>
+              <td>${euros(w.amountCents)}</td>
+            </tr>`);
+          });
+        }
+        if (rows.length === 0) {
+          zone.innerHTML = `<div class="emptyMsg">Aucune activité pour l'instant.</div>`;
+          return;
+        }
+        rows.sort().reverse();
+        zone.innerHTML = `<table class="historyTable">
+          <thead><tr><th>Date</th><th>Type</th><th>Carte</th><th>Détail</th><th>Montant</th></tr></thead>
+          <tbody>${rows.join('')}</tbody>
+        </table>`;
+      }catch(e){ console.error(e); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadWallet();
+      loadListings();
+      loadSellGrid();
+      loadHistory();
+    });
+  </script>
+</body>
+</html>

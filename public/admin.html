@@ -89,6 +89,12 @@
     </div>
 
     <div id="adminZone" class="loadingState">Vérification des droits d'accès…</div>
+
+    <div class="hero" style="margin-top:46px;">
+      <h1>🪐 Retraits Astrocomptoir</h1>
+      <p>Demandes de retrait en attente — l'approbation déclenche l'envoi réel de l'argent via PayPal.</p>
+    </div>
+    <div id="withdrawalsZone" class="loadingState">Chargement…</div>
   </main>
 
   <div class="toast" id="toast"></div>
@@ -259,10 +265,80 @@
         }
         MY_ID = data.user.id;
         loadUsers();
+        loadWithdrawals();
       }catch(e){
         zone.innerHTML = `<div class="emptyState">Impossible de vérifier vos droits d'accès.</div>`;
       }
     })();
+
+    // ===================================================================
+    // Astrocomptoir — retraits en attente
+    // ===================================================================
+    function euros(cents){ return (cents/100).toLocaleString('fr-FR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €'; }
+
+    async function loadWithdrawals(){
+      const zone = document.getElementById('withdrawalsZone');
+      zone.innerHTML = `<div class="loadingState">Chargement…</div>`;
+      try{
+        const res = await fetch('/api/admin/astrocomptoir/withdrawals');
+        const data = await res.json();
+        if (!res.ok || !data.ok) { zone.innerHTML = `<div class="emptyState">Impossible de charger les retraits.</div>`; return; }
+        if (data.withdrawals.length === 0) {
+          zone.innerHTML = `<div class="emptyState">Aucun retrait en attente.</div>`;
+          return;
+        }
+        zone.innerHTML = `
+          <table class="userTable">
+            <thead><tr><th>Joueur</th><th>PayPal</th><th>Montant</th><th>Demandé le</th><th>Actions</th></tr></thead>
+            <tbody>${data.withdrawals.map(w => `
+              <tr class="userRow" data-wid="${w.id}">
+                <td><div class="userName">${w.userName}</div><div class="userEmail">${w.userEmail}</div></td>
+                <td>${w.paypalEmail}</td>
+                <td class="userName">${euros(w.amountCents)}</td>
+                <td class="userEmail">${new Date(w.requestedAt).toLocaleString('fr-FR')}</td>
+                <td>
+                  <div class="rowActions">
+                    <button class="miniBtn save" data-action="approve" data-id="${w.id}">✔ Approuver et payer</button>
+                    <button class="miniBtn delete" data-action="reject" data-id="${w.id}">✕ Refuser</button>
+                  </div>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        `;
+        zone.querySelectorAll('[data-action="approve"]').forEach(btn => {
+          btn.addEventListener('click', () => approveWithdrawal(parseInt(btn.dataset.id, 10)));
+        });
+        zone.querySelectorAll('[data-action="reject"]').forEach(btn => {
+          btn.addEventListener('click', () => rejectWithdrawal(parseInt(btn.dataset.id, 10)));
+        });
+      }catch(e){
+        zone.innerHTML = `<div class="emptyState">Erreur réseau.</div>`;
+      }
+    }
+
+    async function approveWithdrawal(id){
+      if (!confirm(`Approuver ce retrait ? L'argent sera envoyé RÉELLEMENT via PayPal, immédiatement.`)) return;
+      try{
+        const res = await fetch(`/api/admin/astrocomptoir/withdrawals/${id}/approve`, { method:'POST' });
+        const data = await res.json();
+        if (data.ok) { showToast('Retrait payé.'); loadWithdrawals(); }
+        else showToast(data.error === 'paypal_not_configured' ? "PayPal n'est pas configuré côté serveur (.env)." : 'Erreur lors du paiement.', true);
+      }catch(e){ showToast('Erreur réseau.', true); }
+    }
+
+    async function rejectWithdrawal(id){
+      const reason = prompt('Raison du refus (facultatif) — le solde du joueur sera remboursé intégralement :', '');
+      if (reason === null) return;
+      try{
+        const res = await fetch(`/api/admin/astrocomptoir/withdrawals/${id}/reject`, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason })
+        });
+        const data = await res.json();
+        if (data.ok) { showToast('Retrait refusé, joueur remboursé.'); loadWithdrawals(); }
+        else showToast('Erreur.', true);
+      }catch(e){ showToast('Erreur réseau.', true); }
+    }
   </script>
 </body>
 </html>

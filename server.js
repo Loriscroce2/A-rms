@@ -260,6 +260,53 @@ const qGetUserShopPurchases = db.prepare('SELECT slot_index FROM shop_purchases 
 const qGetUserShopPurchaseOne = db.prepare('SELECT 1 FROM shop_purchases WHERE user_id = ? AND hour_bucket = ? AND slot_index = ?');
 const qInsertShopPurchase = db.prepare('INSERT OR IGNORE INTO shop_purchases (user_id, hour_bucket, slot_index) VALUES (?, ?, ?)');
 
+// --- Requêtes SQL préparées (Astrocomptoir — hôtel de vente argent réel) ---
+const qGetWallet = db.prepare('SELECT real_balance_cents, paypal_email, astro_agreement_accepted_at, astro_agreement_version FROM users WHERE id = ?');
+const qSetPaypalEmail = db.prepare('UPDATE users SET paypal_email = ? WHERE id = ?');
+const qAcceptAgreement = db.prepare("UPDATE users SET astro_agreement_accepted_at = datetime('now'), astro_agreement_version = ? WHERE id = ?");
+const qAddRealBalance = db.prepare('UPDATE users SET real_balance_cents = real_balance_cents + ? WHERE id = ?');
+const qSpendRealBalance = db.prepare('UPDATE users SET real_balance_cents = real_balance_cents - ? WHERE id = ? AND real_balance_cents >= ?');
+
+const qInsertListing = db.prepare('INSERT INTO market_listings (seller_id, code, price_cents) VALUES (?, ?, ?)');
+const qListingById = db.prepare('SELECT * FROM market_listings WHERE id = ?');
+const qActiveListings = db.prepare(`
+  SELECT ml.*, u.name AS seller_name FROM market_listings ml
+  JOIN users u ON u.id = ml.seller_id
+  WHERE ml.status = 'active'
+  ORDER BY ml.created_at DESC
+`);
+const qMyListings = db.prepare(`
+  SELECT * FROM market_listings WHERE seller_id = ? AND status = 'active' ORDER BY created_at DESC
+`);
+const qCancelListing = db.prepare("UPDATE market_listings SET status = 'cancelled' WHERE id = ? AND seller_id = ? AND status = 'active'");
+const qMarkListingSold = db.prepare("UPDATE market_listings SET status = 'sold', sold_at = datetime('now'), buyer_id = ? WHERE id = ? AND status = 'active'");
+const qInsertTransaction = db.prepare(`
+  INSERT INTO market_transactions (listing_id, seller_id, buyer_id, code, price_cents, commission_cents)
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+const qMyTransactions = db.prepare(`
+  SELECT t.*, su.name AS seller_name, bu.name AS buyer_name FROM market_transactions t
+  JOIN users su ON su.id = t.seller_id
+  JOIN users bu ON bu.id = t.buyer_id
+  WHERE t.seller_id = ? OR t.buyer_id = ?
+  ORDER BY t.created_at DESC LIMIT 100
+`);
+
+const qInsertTopup = db.prepare('INSERT INTO wallet_topups (user_id, amount_cents, paypal_order_id, status) VALUES (?, ?, ?, ?)');
+const qTopupByOrderId = db.prepare('SELECT * FROM wallet_topups WHERE paypal_order_id = ?');
+const qCompleteTopup = db.prepare("UPDATE wallet_topups SET status = 'completed', completed_at = datetime('now') WHERE id = ?");
+
+const qInsertWithdrawal = db.prepare('INSERT INTO withdrawal_requests (user_id, amount_cents, paypal_email) VALUES (?, ?, ?)');
+const qMyWithdrawals = db.prepare('SELECT * FROM withdrawal_requests WHERE user_id = ? ORDER BY requested_at DESC');
+const qWithdrawalById = db.prepare('SELECT * FROM withdrawal_requests WHERE id = ?');
+const qPendingWithdrawals = db.prepare(`
+  SELECT w.*, u.name AS user_name, u.email AS user_email FROM withdrawal_requests w
+  JOIN users u ON u.id = w.user_id
+  WHERE w.status = 'pending' ORDER BY w.requested_at ASC
+`);
+const qMarkWithdrawalPaid = db.prepare("UPDATE withdrawal_requests SET status = 'paid', processed_at = datetime('now'), paypal_payout_batch_id = ? WHERE id = ?");
+const qMarkWithdrawalRejected = db.prepare("UPDATE withdrawal_requests SET status = 'rejected', processed_at = datetime('now'), admin_note = ? WHERE id = ?");
+
 // --- Helper : accorde des cartes à un joueur (upsert additif) ---
 function grantCards(userId, codes) {
   const tally = {};
@@ -1063,6 +1110,400 @@ app.post('/api/matchmaking/cancel', authMiddleware, (req, res) => {
   if (i !== -1) mmQueue.splice(i, 1);
   mmTickets.delete(ticket);
   return res.json({ ok: true });
+});
+
+// ===================================================================
+// ASTROCOMPTOIR — hôtel de vente entre joueurs, argent réel via PayPal.
+// Modèle "portefeuille interne" : on recharge son solde via PayPal
+// Checkout, on achète/vend des cartes avec ce solde (10% de commission
+// prélevée sur chaque vente), et on retire son solde vers son PayPal
+// quand on veut (validé manuellement par un administrateur avant l'envoi
+// réel — voir /api/admin/astrocomptoir/withdrawals/:id/approve).
+// ===================================================================
+
+// --- PayPal : appels réels à l'API REST (Orders v2 pour les recharges,
+// Payouts v1 pour les retraits). Ne fonctionnent QUE si PAYPAL_CLIENT_ID
+// et PAYPAL_CLIENT_SECRET sont renseignés dans .env (voir .env.example) —
+// sans ça, les routes concernées renvoient 'paypal_not_configured' plutôt
+// que de planter. Pour activer les vrais paiements : créer une App sur
+// developer.paypal.com avec un compte PayPal Business, copier son Client
+// ID / Secret dans .env, régler PAYPAL_MODE sur "sandbox" pour tester ou
+// "live" pour du vrai argent.
+const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
+const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
+const PAYPAL_API_BASE = (process.env.PAYPAL_MODE === 'live')
+  ? 'https://api-m.paypal.com'
+  : 'https://api-m.sandbox.paypal.com';
+function isPaypalConfigured() { return !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET); }
+
+async function paypalGetAccessToken() {
+  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
+  const res = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=client_credentials',
+  });
+  if (!res.ok) throw new Error(`paypal_oauth_failed_${res.status}`);
+  const data = await res.json();
+  return data.access_token;
+}
+
+async function paypalCreateOrder(amountEuros, returnUrl, cancelUrl) {
+  const token = await paypalGetAccessToken();
+  const res = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      intent: 'CAPTURE',
+      purchase_units: [{
+        description: "Recharge du portefeuille Astrocomptoir — A'rms",
+        amount: { currency_code: 'EUR', value: amountEuros.toFixed(2) },
+      }],
+      application_context: {
+        brand_name: "A'rms — Astrocomptoir",
+        user_action: 'PAY_NOW',
+        return_url: returnUrl,
+        cancel_url: cancelUrl,
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`paypal_create_order_failed_${res.status}`);
+  return res.json();
+}
+
+async function paypalCaptureOrder(orderId) {
+  const token = await paypalGetAccessToken();
+  const res = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders/${orderId}/capture`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error(`paypal_capture_failed_${res.status}`);
+  return res.json();
+}
+
+async function paypalSendPayout(email, amountEuros, note, senderBatchId) {
+  const token = await paypalGetAccessToken();
+  const res = await fetch(`${PAYPAL_API_BASE}/v1/payments/payouts`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sender_batch_header: {
+        sender_batch_id: senderBatchId,
+        email_subject: "Votre retrait Astrocomptoir — A'rms",
+        email_message: note,
+      },
+      items: [{
+        recipient_type: 'EMAIL',
+        amount: { value: amountEuros.toFixed(2), currency: 'EUR' },
+        receiver: email,
+        note,
+        sender_item_id: senderBatchId,
+      }],
+    }),
+  });
+  if (!res.ok) throw new Error(`paypal_payout_failed_${res.status}`);
+  return res.json();
+}
+
+// Version de l'accord légal Astrocomptoir : si son texte change un jour, on
+// incrémente cette valeur (ex. 'v2') — chaque joueur devra alors le
+// réaccepter avant de pouvoir de nouveau acheter/vendre/retirer, même s'il
+// avait déjà coché la version précédente.
+const ASTRO_AGREEMENT_VERSION = 'v1';
+function hasAcceptedAgreement(userId) {
+  const row = qGetWallet.get(userId);
+  return !!row && row.astro_agreement_version === ASTRO_AGREEMENT_VERSION;
+}
+
+const ASTRO_COMMISSION_RATE = 0.10;
+const ASTRO_MIN_LISTING_CENTS = 50;      // 0,50 €
+const ASTRO_MAX_LISTING_CENTS = 100000;  // 1000 €
+const ASTRO_MIN_TOPUP_CENTS = 200;       // 2 €
+const ASTRO_MAX_TOPUP_CENTS = 50000;     // 500 €
+const ASTRO_MIN_WITHDRAWAL_CENTS = 500;  // 5 €
+
+// --- Portefeuille / accord légal ---
+app.get('/api/astrocomptoir/status', authMiddleware, (req, res) => {
+  try {
+    const row = qGetWallet.get(req.user.id);
+    res.json({
+      ok: true,
+      balanceCents: row.real_balance_cents,
+      paypalEmail: row.paypal_email || '',
+      agreementAccepted: row.astro_agreement_version === ASTRO_AGREEMENT_VERSION,
+      agreementVersion: ASTRO_AGREEMENT_VERSION,
+      paypalConfigured: isPaypalConfigured(),
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/astrocomptoir/agreement/accept', authMiddleware, (req, res) => {
+  try {
+    qAcceptAgreement.run(ASTRO_AGREEMENT_VERSION, req.user.id);
+    res.json({ ok: true, agreementVersion: ASTRO_AGREEMENT_VERSION });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/astrocomptoir/paypal-email', authMiddleware, (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ ok: false, error: 'email_invalid' });
+    }
+    qSetPaypalEmail.run(email, req.user.id);
+    res.json({ ok: true, paypalEmail: email });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Annonces (mise en vente / achat) ---
+app.get('/api/astrocomptoir/listings', authMiddleware, (req, res) => {
+  try {
+    const rows = qActiveListings.all();
+    const listings = rows.map(r => ({
+      id: r.id, code: r.code, priceCents: r.price_cents, sellerName: r.seller_name,
+      mine: r.seller_id === req.user.id, createdAt: r.created_at,
+    }));
+    res.json({ ok: true, listings });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/astrocomptoir/listings', authMiddleware, (req, res) => {
+  try {
+    if (!hasAcceptedAgreement(req.user.id)) {
+      return res.status(403).json({ ok: false, error: 'agreement_required' });
+    }
+    const code = String(req.body?.code || '');
+    const priceCents = Math.round(Number(req.body?.priceCents));
+    if (!/^\d{4}$/.test(code)) return res.status(400).json({ ok: false, error: 'invalid_code' });
+    if (!Number.isFinite(priceCents) || priceCents < ASTRO_MIN_LISTING_CENTS || priceCents > ASTRO_MAX_LISTING_CENTS) {
+      return res.status(400).json({ ok: false, error: 'invalid_price' });
+    }
+    const row = qCardCount.get(req.user.id, code);
+    const owned = row ? row.count : 0;
+    if (owned < 1) return res.status(400).json({ ok: false, error: 'card_not_owned' });
+    // La carte quitte immédiatement la collection utilisable (deckbuilding
+    // compris) tant que l'annonce est active — rendue si annulée.
+    qSetCardCount.run(owned - 1, req.user.id, code);
+    const info = qInsertListing.run(req.user.id, code, priceCents);
+    res.status(201).json({ ok: true, listingId: info.lastInsertRowid });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.delete('/api/astrocomptoir/listings/:id', authMiddleware, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const listing = qListingById.get(id);
+    if (!listing || listing.seller_id !== req.user.id || listing.status !== 'active') {
+      return res.status(404).json({ ok: false, error: 'listing_not_found' });
+    }
+    const info = qCancelListing.run(id, req.user.id);
+    if (info.changes === 0) return res.status(409).json({ ok: false, error: 'already_resolved' });
+    qUpsertCard.run(req.user.id, listing.code, 1);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/astrocomptoir/listings/:id/buy', authMiddleware, (req, res) => {
+  try {
+    if (!hasAcceptedAgreement(req.user.id)) {
+      return res.status(403).json({ ok: false, error: 'agreement_required' });
+    }
+    const id = parseInt(req.params.id, 10);
+    const listing = qListingById.get(id);
+    if (!listing || listing.status !== 'active') {
+      return res.status(404).json({ ok: false, error: 'listing_not_found' });
+    }
+    if (listing.seller_id === req.user.id) {
+      return res.status(400).json({ ok: false, error: 'cannot_buy_own_listing' });
+    }
+    const spent = qSpendRealBalance.run(listing.price_cents, req.user.id, listing.price_cents);
+    if (spent.changes === 0) {
+      return res.status(402).json({ ok: false, error: 'insufficient_balance' });
+    }
+    const marked = qMarkListingSold.run(req.user.id, id);
+    if (marked.changes === 0) {
+      // Vendue entre-temps (cas extrêmement rare) : remboursement immédiat.
+      qAddRealBalance.run(listing.price_cents, req.user.id);
+      return res.status(409).json({ ok: false, error: 'already_sold' });
+    }
+    const commission = Math.round(listing.price_cents * ASTRO_COMMISSION_RATE);
+    const sellerGain = listing.price_cents - commission;
+    qAddRealBalance.run(sellerGain, listing.seller_id);
+    qUpsertCard.run(req.user.id, listing.code, 1);
+    qInsertTransaction.run(id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission);
+    const wallet = qGetWallet.get(req.user.id);
+    res.json({ ok: true, balanceCents: wallet.real_balance_cents, code: listing.code });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/astrocomptoir/transactions', authMiddleware, (req, res) => {
+  try {
+    const rows = qMyTransactions.all(req.user.id, req.user.id);
+    const transactions = rows.map(r => ({
+      id: r.id, code: r.code, priceCents: r.price_cents, commissionCents: r.commission_cents,
+      role: r.seller_id === req.user.id ? 'sale' : 'purchase',
+      counterparty: r.seller_id === req.user.id ? r.buyer_name : r.seller_name,
+      createdAt: r.created_at,
+    }));
+    res.json({ ok: true, transactions });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Recharge du portefeuille via PayPal Checkout (Orders API v2) ---
+app.post('/api/astrocomptoir/topup/create-order', authMiddleware, async (req, res) => {
+  try {
+    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
+    const amountCents = Math.round(Number(req.body?.amountCents));
+    if (!Number.isFinite(amountCents) || amountCents < ASTRO_MIN_TOPUP_CENTS || amountCents > ASTRO_MAX_TOPUP_CENTS) {
+      return res.status(400).json({ ok: false, error: 'invalid_amount' });
+    }
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const order = await paypalCreateOrder(
+      amountCents / 100,
+      `${origin}/astrocomptoir.html?topup=return`,
+      `${origin}/astrocomptoir.html?topup=cancel`
+    );
+    qInsertTopup.run(req.user.id, amountCents, order.id, 'pending');
+    const approveLink = (order.links || []).find(l => l.rel === 'approve');
+    res.json({ ok: true, orderId: order.id, approveUrl: approveLink ? approveLink.href : null });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'paypal_error' });
+  }
+});
+
+app.post('/api/astrocomptoir/topup/capture', authMiddleware, async (req, res) => {
+  try {
+    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
+    const orderId = String(req.body?.orderId || '');
+    const topup = qTopupByOrderId.get(orderId);
+    if (!topup || topup.user_id !== req.user.id) {
+      return res.status(404).json({ ok: false, error: 'topup_not_found' });
+    }
+    if (topup.status === 'completed') {
+      const wallet = qGetWallet.get(req.user.id);
+      return res.json({ ok: true, balanceCents: wallet.real_balance_cents, alreadyCompleted: true });
+    }
+    const capture = await paypalCaptureOrder(orderId);
+    if (capture.status !== 'COMPLETED') {
+      return res.status(402).json({ ok: false, error: 'capture_not_completed' });
+    }
+    qCompleteTopup.run(topup.id);
+    qAddRealBalance.run(topup.amount_cents, req.user.id);
+    const wallet = qGetWallet.get(req.user.id);
+    res.json({ ok: true, balanceCents: wallet.real_balance_cents });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'paypal_error' });
+  }
+});
+
+// --- Retrait vers PayPal (débité immédiatement, validé par un admin) ---
+app.post('/api/astrocomptoir/withdraw', authMiddleware, (req, res) => {
+  try {
+    if (!hasAcceptedAgreement(req.user.id)) {
+      return res.status(403).json({ ok: false, error: 'agreement_required' });
+    }
+    const amountCents = Math.round(Number(req.body?.amountCents));
+    const wallet = qGetWallet.get(req.user.id);
+    if (!wallet.paypal_email) return res.status(400).json({ ok: false, error: 'paypal_email_missing' });
+    if (!Number.isFinite(amountCents) || amountCents < ASTRO_MIN_WITHDRAWAL_CENTS) {
+      return res.status(400).json({ ok: false, error: 'invalid_amount' });
+    }
+    const spent = qSpendRealBalance.run(amountCents, req.user.id, amountCents);
+    if (spent.changes === 0) return res.status(402).json({ ok: false, error: 'insufficient_balance' });
+    const info = qInsertWithdrawal.run(req.user.id, amountCents, wallet.paypal_email);
+    res.status(201).json({ ok: true, withdrawalId: info.lastInsertRowid });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/astrocomptoir/withdrawals', authMiddleware, (req, res) => {
+  try {
+    const rows = qMyWithdrawals.all(req.user.id);
+    res.json({
+      ok: true,
+      withdrawals: rows.map(r => ({
+        id: r.id, amountCents: r.amount_cents, status: r.status, requestedAt: r.requested_at, processedAt: r.processed_at,
+      })),
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Administration des retraits (envoi réel via PayPal Payouts API) ---
+app.get('/api/admin/astrocomptoir/withdrawals', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const rows = qPendingWithdrawals.all();
+    res.json({
+      ok: true,
+      withdrawals: rows.map(r => ({
+        id: r.id, amountCents: r.amount_cents, paypalEmail: r.paypal_email,
+        userName: r.user_name, userEmail: r.user_email, requestedAt: r.requested_at,
+      })),
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/admin/astrocomptoir/withdrawals/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
+    const id = parseInt(req.params.id, 10);
+    const w = qWithdrawalById.get(id);
+    if (!w || w.status !== 'pending') return res.status(404).json({ ok: false, error: 'withdrawal_not_found' });
+    const batchId = `arms-withdraw-${id}-${Date.now()}`;
+    const payout = await paypalSendPayout(w.paypal_email, w.amount_cents / 100, `A'rms Astrocomptoir — retrait #${id}`, batchId);
+    qMarkWithdrawalPaid.run(payout.batch_header?.payout_batch_id || batchId, id);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'paypal_error' });
+  }
+});
+
+app.post('/api/admin/astrocomptoir/withdrawals/:id/reject', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const w = qWithdrawalById.get(id);
+    if (!w || w.status !== 'pending') return res.status(404).json({ ok: false, error: 'withdrawal_not_found' });
+    qAddRealBalance.run(w.amount_cents, w.user_id); // remboursement intégral
+    qMarkWithdrawalRejected.run(String(req.body?.reason || ''), id);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
 });
 
 // ===================================================================

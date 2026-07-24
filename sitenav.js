@@ -2,8 +2,8 @@
 // sitenav.js — Construit la barre de navigation partagée. Injectée dans
 // n'importe quelle page qui contient un élément #site-header-root.
 // Le menu s'adapte à l'état de connexion : non connecté, seuls "Accueil" et
-// "Règles" sont visibles (le reste — Jouer, Boutique, Classement,
-// Didacticiel — nécessite un compte).
+// "Règles" sont visibles (le reste — Jouer, Boutique, Astrocomptoir,
+// Classement, Didacticiel — nécessite un compte).
 // Le bloc de droite (#nav-menu) reste géré par auth.js (pièces, rang, avatar,
 // bouton Se connecter/Créer un compte selon l'état de connexion).
 // ===================================================================
@@ -24,6 +24,7 @@
     { href: '/accueil.html',  label: 'Accueil',  match: ['/accueil.html', '/', '/index.html'] },
     { href: '/play.html',     label: 'Jouer',     match: ['/play.html'] },
     { href: '/boutique.html', label: 'Boutique',  match: ['/boutique.html'] },
+    { href: '/astrocomptoir.html', label: 'Astrocomptoir', match: ['/astrocomptoir.html'] },
     { href: '/classement.html', label: 'Classement', match: ['/classement.html'] },
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
     { href: '/tutorial.html', label: 'Didacticiel', match: ['/tutorial.html'] },

@@ -87,6 +87,74 @@ db.exec(`
     PRIMARY KEY (user_id, hour_bucket, slot_index),
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
   );
+
+  -- ===================================================================
+  -- ASTROCOMPTOIR — hôtel de vente entre joueurs, contre argent réel.
+  -- Le "portefeuille réel" (real_balance_cents, sur la table users, voir
+  -- migration douce plus bas) est totalement séparé des "coins" (monnaie
+  -- de jeu gratuite) : c'est de l'argent véritable, rechargé via PayPal et
+  -- retirable vers PayPal, jamais gagnable en jouant.
+  -- ===================================================================
+
+  -- Une annonce = une carte mise en vente par un joueur, à un prix fixe
+  -- (en centimes d'euro). La carte est retirée de sa collection dès la
+  -- mise en vente (et lui est rendue si l'annonce est annulée), pour
+  -- qu'il ne puisse jamais vendre deux fois le même exemplaire ni s'en
+  -- servir en deck tant qu'il est en vente.
+  CREATE TABLE IF NOT EXISTS market_listings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    seller_id INTEGER NOT NULL,
+    code TEXT NOT NULL,
+    price_cents INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active', -- active | sold | cancelled
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    sold_at TEXT,
+    buyer_id INTEGER,
+    FOREIGN KEY (seller_id) REFERENCES users (id) ON DELETE CASCADE
+  );
+
+  -- Historique immuable de chaque vente conclue (même si l'annonce ou les
+  -- comptes sont ensuite supprimés) — sert de preuve/ledger pour la
+  -- commission de 10% prélevée sur chaque transaction.
+  CREATE TABLE IF NOT EXISTS market_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    listing_id INTEGER NOT NULL,
+    seller_id INTEGER NOT NULL,
+    buyer_id INTEGER NOT NULL,
+    code TEXT NOT NULL,
+    price_cents INTEGER NOT NULL,
+    commission_cents INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Recharges du portefeuille réel via PayPal Checkout (Orders API v2).
+  CREATE TABLE IF NOT EXISTS wallet_topups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    paypal_order_id TEXT,
+    status TEXT NOT NULL DEFAULT 'pending', -- pending | completed | failed
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  );
+
+  -- Demandes de retrait vers PayPal : débitées du solde dès la demande
+  -- (pour ne jamais permettre un double retrait), puis validées
+  -- manuellement par un administrateur avant l'envoi réel via PayPal
+  -- Payouts (voir /api/admin/astrocomptoir/withdrawals/:id/approve).
+  CREATE TABLE IF NOT EXISTS withdrawal_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    paypal_email TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', -- pending | paid | rejected
+    requested_at TEXT NOT NULL DEFAULT (datetime('now')),
+    processed_at TEXT,
+    paypal_payout_batch_id TEXT,
+    admin_note TEXT,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  );
 `);
 
 // Migration douce : si la base existait déjà avant l'ajout de "coins" (anciennes
@@ -113,6 +181,21 @@ if (!userCols.includes('ranked_losses')) {
 // première connexion), 1 = déjà vu au moins une fois.
 if (!userCols.includes('has_seen_tutorial')) {
   db.exec('ALTER TABLE users ADD COLUMN has_seen_tutorial INTEGER NOT NULL DEFAULT 0');
+}
+// ASTROCOMPTOIR : solde réel en centimes d'euro (argent véritable, distinct
+// des "coins"), email PayPal enregistré pour les retraits, et trace de
+// l'acceptation de l'accord légal (obligatoire avant tout achat/vente/retrait).
+if (!userCols.includes('real_balance_cents')) {
+  db.exec('ALTER TABLE users ADD COLUMN real_balance_cents INTEGER NOT NULL DEFAULT 0');
+}
+if (!userCols.includes('paypal_email')) {
+  db.exec("ALTER TABLE users ADD COLUMN paypal_email TEXT NOT NULL DEFAULT ''");
+}
+if (!userCols.includes('astro_agreement_accepted_at')) {
+  db.exec('ALTER TABLE users ADD COLUMN astro_agreement_accepted_at TEXT');
+}
+if (!userCols.includes('astro_agreement_version')) {
+  db.exec('ALTER TABLE users ADD COLUMN astro_agreement_version TEXT');
 }
 
 module.exports = db;
