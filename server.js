@@ -1683,6 +1683,7 @@ function regenerateCardStats() {
     const cardTypes = extractTable('CARD_TYPES');
     const cardHp = extractTable('CARD_HP_BASE');
     const cardShield = extractTable('CARD_SHIELD_BASE');
+    const cardNames = extractTable('CARD_NAMES');
 
     const result = {};
     catalog.ALL_CARDS.forEach(({ num, code }) => {
@@ -1699,6 +1700,26 @@ function regenerateCardStats() {
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, JSON.stringify(result), 'utf-8');
     console.log(`[card-stats] Régénéré automatiquement au démarrage : ${Object.keys(result).length} cartes personnage.`);
+
+    // --- Catalogue nom/type/faction pour TOUTES les cartes (Astrocomptoir) ---
+    // Fichier volontairement SÉPARÉ de card-stats.json : ce dernier alimente
+    // directement le moteur de jeu (CARD_STATS côté client, voir
+    // getStatsForLabel dans index.html) — y ajouter des champs ou des entrées
+    // pour les cartes non-personnage risquerait d'interférer avec la partie
+    // en cours. card-catalog.json, lui, ne sert QUE à l'affichage (recherche/
+    // filtres de l'Astrocomptoir) et ne touche jamais au gameplay.
+    const catalogResult = {};
+    catalog.ALL_CARDS.forEach(({ num, code }) => {
+      const label = `C${num}`;
+      catalogResult[code] = {
+        name: cardNames[label] || `Carte ${code}`,
+        type: cardTypes[label] || 'inconnu',
+        faction: catalog.factionOf(num),
+      };
+    });
+    const catalogOutPath = path.join(__dirname, 'public', 'data', 'card-catalog.json');
+    fs.writeFileSync(catalogOutPath, JSON.stringify(catalogResult), 'utf-8');
+    console.log(`[card-catalog] Régénéré automatiquement au démarrage : ${Object.keys(catalogResult).length} cartes.`);
   } catch (err) {
     // En cas d'échec (fichier index.html introuvable, format inattendu...),
     // on ne bloque JAMAIS le démarrage du serveur pour autant — le fichier
