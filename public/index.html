@@ -549,8 +549,9 @@
        varier selon la taille d'écran) : garantit que la main adverse reste
        toujours en haut de l'écran, et la sienne toujours en bas — y compris
        avec le retournement de siège, qui inverse alors ces deux ancrages.
-       (Ne s'applique qu'à la main ADVERSE : la vôtre vit désormais dans sa
-       propre box déplaçable, voir .myHandPanel plus bas.) */
+       S'applique aux DEUX mains désormais (la vôtre n'est plus dans une box
+       à part, voir setupHandGrips : ça passait par-dessus la zone de combat
+       adverse, donc retour à un ancrage fixe classique comme la main adverse). */
     .hand.top{ position:fixed; top:66px; bottom:auto; left:0; right:0; }
     .hand.bottom{ position:fixed; bottom:54px; top:auto; left:0; right:0; }
     body.flip-view .hand.top{ top:auto; bottom:54px; }
@@ -570,9 +571,8 @@
     .handGrip{ touch-action:none; }
     .hand.grabbing{ transition:none !important; }
 
-    /* AJOUT : Style de la main zoomée pendant le choix de faction — pour la
-       main ADVERSE uniquement désormais (la vôtre est gérée dans sa box, voir
-       expandMyHandPanel appelé au moment du choix de faction). */
+    /* AJOUT : Style de la main zoomée pendant le choix de faction — s'applique
+       aux deux mains désormais (plus de box à part pour la vôtre). */
     .hand.bottom.faction-select-zoom {
       bottom: 90px; top:auto;
       transform: translate(var(--handDragX), var(--handDragY)) scale(1.25);
@@ -13117,10 +13117,14 @@ function makeOneHandDraggable(handId, gripId){
   window.__resetHandPositions = function(){};
 
   // ===================================================================
-  // VOTRE MAIN — désormais dans sa propre box, déplaçable par son en-tête et
-  // repliable via un bouton. Fini les calculs de position/échelle : vous
-  // décidez vous-même où la mettre, elle ne peut donc plus jamais gêner.
+  // VOTRE MAIN — redevenue fixe et sans box, ancrée en bas au centre de
+  // l'écran (exactement comme la main adverse), pour ne plus jamais
+  // recouvrir la zone de combat. L'ancienne box déplaçable/repliable a été
+  // retirée à la demande explicite : elle passait par-dessus les cartes
+  // adverses en zone de combat.
   // ===================================================================
+  return;
+  // eslint-disable-next-line no-unreachable
   const myHandId = (MY_SEAT === 'top') ? 'handTop' : 'handBottom';
   const myHandEl = document.getElementById(myHandId);
   if (!myHandEl) return;
