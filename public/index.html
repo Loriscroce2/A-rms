@@ -16633,7 +16633,9 @@ function renderArtifacts(zoneEl, arr, owner){
   }
   lane.innerHTML = '';
   const cardEls = arr.map(card => makeArtifactCard(card, owner));
-  applyOverlapLayout(lane, cardEls, MAX_ARTIFACTS_PER_ZONE, inner.clientWidth || zoneEl.clientWidth, '8px');
+  // CORRIGÉ : chevauchement dès 5 artefacts (voir ARTIFACT_OVERLAP_THRESHOLD),
+  // pas seulement à l'approche du maximum de la zone.
+  applyOverlapLayout(lane, cardEls, ARTIFACT_OVERLAP_THRESHOLD, inner.clientWidth || zoneEl.clientWidth, '8px');
   cardEls.forEach(el => lane.appendChild(el));
 }
 /* ---------- Drops zones plateau ---------- */
@@ -17471,6 +17473,14 @@ askLeftRightPlacement('Noxroc', `Où placer ${cardAnchor(reanimatedCard.label)} 
 // Limites de zone : au maximum 10 combattants ET 10 artefacts par joueur.
 const MAX_COMBATANTS_PER_ZONE_BASE = 10;
 const MAX_ARTIFACTS_PER_ZONE = 10;
+
+// Seuils de RAPPROCHEMENT visuel (chevauchement des cartes pour faire de la
+// place — voir applyOverlapLayout) : distincts des limites dures ci-dessus.
+// Les cartes commencent à se serrer AVANT d'atteindre le maximum de la zone,
+// dès qu'il y a 5 artefacts ou 7 combattants (threshold = dernier effectif
+// SANS chevauchement, donc 4 et 6).
+const ARTIFACT_OVERLAP_THRESHOLD = 4;
+const COMBATANT_OVERLAP_THRESHOLD = 6;
 
 // KRYLLS (nouveau lot) : Etendardz (C43) — tant qu'il est dans la zone
 // d'artefact d'un joueur, sa limite de combattants augmente de +2.
@@ -18839,17 +18849,18 @@ function renderLine(battleInnerEl, lineArray, owner){
     battleInnerEl.insertBefore(lane, battleInnerEl.children[1] || null);
   }
 
-  // Zone de combat surchargée (au-delà de 10 combattants, ex. via
-  // Etendardz qui peut porter la capacité au-delà de 10) : les cartes se
-  // chevauchent légèrement pour tenir dans la zone plutôt que de rétrécir
-  // jusqu'à l'illisible — voir applyOverlapLayout ci-dessus (partagée avec
-  // la zone d'Artefacts). Purement visuel, aucun impact sur les règles.
+  // Zone de combat surchargée (CORRIGÉ : dès 7 combattants, et pas
+  // seulement au-delà de 10 — voir COMBATANT_OVERLAP_THRESHOLD) : les cartes
+  // se chevauchent légèrement pour faire de la place, plutôt que de
+  // rétrécir jusqu'à l'illisible — voir applyOverlapLayout ci-dessus
+  // (partagée avec la zone d'Artefacts). Purement visuel, aucun impact sur
+  // les règles.
   lane.style.removeProperty('--cardW');
   lane.style.removeProperty('--cardH');
 
   lane.innerHTML = '';
   const cardEls = lineArray.map(c => makePlacedCard(c, owner));
-  applyOverlapLayout(lane, cardEls, MAX_COMBATANTS_PER_ZONE_BASE, battleInnerEl.clientWidth, '10px');
+  applyOverlapLayout(lane, cardEls, COMBATANT_OVERLAP_THRESHOLD, battleInnerEl.clientWidth, '10px');
   cardEls.forEach(el => lane.appendChild(el));
 }
 
