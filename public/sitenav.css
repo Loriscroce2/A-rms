@@ -20,9 +20,9 @@
   max-width:1680px; margin:0 auto; padding:12px 20px;
   display:grid; grid-template-columns:auto 1fr auto;
   grid-template-areas:
-    "brand toplinks right"
-    ".     bottomlinks .";
-  column-gap:16px 22px; row-gap:8px; align-items:center; min-height:74px;
+    "brand navlinks right"
+    ".     navlinks .";
+  column-gap:22px; row-gap:6px; align-items:center; min-height:74px;
 }
 .siteHeader .brand{ grid-area:brand; display:flex; align-items:center; flex:0 0 auto; text-decoration:none; }
 .siteHeader .brand img{
@@ -32,13 +32,16 @@
 }
 .siteHeader .brand:hover img{ filter: drop-shadow(0 0 16px rgba(0,230,255,.65)); }
 
-/* .siteNav n'a plus de boîte propre en desktop (display:contents) : ce sont
-   directement ses deux enfants .navLinksRow qui deviennent les items de la
-   grille ci-dessus, chacun dans sa zone nommée. */
-.siteNav{ display:contents; }
+/* .siteNav occupe une seule zone de grille (qui couvre les 2 lignes de la
+   colonne du milieu) et empile lui-même ses deux rangées en interne, en
+   simple flexbox — ainsi la 1ère rangée démarre bien à côté du logo, et la
+   2e s'aligne juste dessous, sans dépendre d'un nom de classe particulier
+   posé par le JS (plus robuste qu'un placement par zones nommées séparées). */
+.siteNav{
+  grid-area:navlinks; align-self:center;
+  display:flex; flex-direction:column; gap:6px; width:100%;
+}
 .navLinksRow{ display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px; }
-.navLinksRow-top{ grid-area:toplinks; }
-.navLinksRow-bottom{ grid-area:bottomlinks; }
 .siteNav a{
   position:relative; display:inline-flex; align-items:center; gap:6px;
   padding:9px 16px; border-radius:10px; text-decoration:none;
