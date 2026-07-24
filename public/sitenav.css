@@ -11,16 +11,20 @@
   border-bottom:1px solid rgba(125,249,255,.18);
   max-width:100vw; overflow-x:hidden;
 }
+/* Grille à 3 colonnes (logo | liens | compte) x 2 lignes :
+   Ligne 1 = logo, PUIS juste à côté la première rangée de liens
+   (Accueil/Jouer/Boutique/Astrocomptoir), puis le bloc compte à droite.
+   Ligne 2 = la seconde rangée (Classement/Règles/Didacticiel/Admin),
+   alignée avec "Accueil" — donc sous les liens, pas sous le logo. */
 .siteHeader .navRow{
-  max-width:1680px; margin:0 auto; padding:10px 20px;
-  display:flex; align-items:center; gap:14px 22px; min-height:74px; height:auto;
-  flex-wrap:wrap;
+  max-width:1680px; margin:0 auto; padding:12px 20px;
+  display:grid; grid-template-columns:auto 1fr auto;
+  grid-template-areas:
+    "brand toplinks right"
+    ".     bottomlinks .";
+  column-gap:16px 22px; row-gap:8px; align-items:center; min-height:74px;
 }
-/* Ligne 1 : logo à gauche, compte/pièces/rang à droite.
-   Ligne 2 (pleine largeur) : tous les liens de navigation — évite tout
-   scroll horizontal quand la liste s'allonge (Astrocomptoir, etc.) plutôt
-   que de laisser la barre déborder du viewport. */
-.siteHeader .brand{ display:flex; align-items:center; flex:0 0 auto; text-decoration:none; order:1; }
+.siteHeader .brand{ grid-area:brand; display:flex; align-items:center; flex:0 0 auto; text-decoration:none; }
 .siteHeader .brand img{
   height:56px; width:auto; border-radius:12px;
   filter: drop-shadow(0 0 10px rgba(0,230,255,.4));
@@ -28,15 +32,13 @@
 }
 .siteHeader .brand:hover img{ filter: drop-shadow(0 0 16px rgba(0,230,255,.65)); }
 
-.siteNav{
-  display:flex; flex-direction:column; gap:4px;
-  flex:1 1 100%; order:3; width:100%;
-}
-/* Chaque groupe de liens forme sa propre ligne (ex : Accueil/Jouer/Boutique/
-   Astrocomptoir sur une ligne, Classement/Règles/Didacticiel/Administrateur
-   sur la suivante) — un regroupement voulu plutôt qu'un retour à la ligne
-   automatique selon la largeur disponible. */
+/* .siteNav n'a plus de boîte propre en desktop (display:contents) : ce sont
+   directement ses deux enfants .navLinksRow qui deviennent les items de la
+   grille ci-dessus, chacun dans sa zone nommée. */
+.siteNav{ display:contents; }
 .navLinksRow{ display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px; }
+.navLinksRow-top{ grid-area:toplinks; }
+.navLinksRow-bottom{ grid-area:bottomlinks; }
 .siteNav a{
   position:relative; display:inline-flex; align-items:center; gap:6px;
   padding:9px 16px; border-radius:10px; text-decoration:none;
@@ -51,7 +53,7 @@
   border-radius:2px;
 }
 
-.navRight{ display:flex; align-items:center; gap:10px; flex:0 0 auto; order:2; margin-left:auto; }
+.navRight{ grid-area:right; display:flex; align-items:center; gap:10px; flex:0 0 auto; justify-self:end; }
 /* Le bouton Boutique de la nav dépendait du CSS local de chaque page
    (incohérent selon la page visitée, d'où un désalignement vertical visible
    à côté du badge de rang et du bouton de compte). Style dédié et partagé,
@@ -69,7 +71,14 @@
 }
 
 @media (max-width: 900px){
-  .siteHeader .navRow{ height:64px; gap:12px; flex-wrap:wrap; }
+  /* En dessous de 900px, on abandonne complètement la grille "logo + 2
+     rangées alignées" (pas assez de place) au profit du menu hamburger
+     classique : logo à gauche, compte + bouton ☰ à droite, liens dans un
+     tiroir déroulant en dessous. */
+  .siteHeader .navRow{ display:flex; height:64px; gap:12px; flex-wrap:wrap; }
+  .siteHeader .brand{ order:1; }
+  .navRight{ order:2; }
+  .navToggle{ order:3; }
   .siteHeader .brand img{ height:44px; }
   .siteNav{
     display:none; position:absolute; top:64px; left:0; right:0; flex-direction:column;
