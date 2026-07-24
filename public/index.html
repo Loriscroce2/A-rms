@@ -593,23 +593,23 @@
     /* ===================================================================
        VOTRE MAIN — box à part, déplaçable et repliable
        =================================================================== */
-    /* Box rendue semi-transparente (dernier lot) : seules les CARTES à
-       l'intérieur (.handRow .card, déjà opaques via leur propre image de
-       fond) restent pleinement visibles — le fond de la box lui-même laisse
-       deviner le plateau derrière. */
+    /* Box rendue très transparente : seules les CARTES à l'intérieur
+       (.handRow .card, déjà opaques via leur propre image de fond) restent
+       pleinement visibles — le fond de la box lui-même laisse largement
+       deviner le plateau derrière, y compris la zone de combat. */
     .myHandPanel{
       position:fixed; z-index:1700;
-      /* Aligné avec le bord gauche RÉEL de la zone de combat : padding du
-         plateau (28px) + largeur de la colonne deck/Mithril (--sidebarW) +
-         l'espacement entre les deux (22px) — voir .board / .row / .deckWrap. */
-      left:calc(28px + var(--sidebarW) + 22px); bottom:8px; top:auto; transform:none;
+      /* Ancrée en bas AU CENTRE de l'écran par défaut : accessible d'un
+         coup d'œil sans jamais s'imposer au milieu du plateau. Reste
+         déplaçable à tout moment via son en-tête (voir setupHandGrips). */
+      left:50%; bottom:6px; top:auto; transform:translateX(-50%);
       width:min(90vw, 420px);
       display:flex; flex-direction:column;
-      background:linear-gradient(180deg, rgba(9,22,28,.45), rgba(4,10,14,.5));
-      backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);
-      border:1.5px solid rgba(125,249,255,.45);
+      background:linear-gradient(180deg, rgba(9,22,28,.20), rgba(4,10,14,.24));
+      backdrop-filter:blur(2.5px); -webkit-backdrop-filter:blur(2.5px);
+      border:1.5px solid rgba(125,249,255,.32);
       border-radius:14px;
-      box-shadow:0 14px 36px rgba(0,0,0,.4), 0 0 24px rgba(0,230,255,.12);
+      box-shadow:0 14px 36px rgba(0,0,0,.28), 0 0 24px rgba(0,230,255,.08);
     }
     .myHandPanel.attention{ animation: myHandPulse 1s ease-in-out 2; }
     @keyframes myHandPulse{ 0%,100%{ box-shadow:0 14px 36px rgba(0,0,0,.4), 0 0 24px rgba(0,230,255,.12);} 50%{ box-shadow:0 14px 36px rgba(0,0,0,.4), 0 0 46px rgba(0,230,255,.6);} }
@@ -13117,14 +13117,13 @@ function makeOneHandDraggable(handId, gripId){
   window.__resetHandPositions = function(){};
 
   // ===================================================================
-  // VOTRE MAIN — redevenue fixe et sans box, ancrée en bas au centre de
-  // l'écran (exactement comme la main adverse), pour ne plus jamais
-  // recouvrir la zone de combat. L'ancienne box déplaçable/repliable a été
-  // retirée à la demande explicite : elle passait par-dessus les cartes
-  // adverses en zone de combat.
+  // VOTRE MAIN — dans sa propre box, déplaçable par son en-tête et
+  // repliable via un bouton. Ancrée par défaut en BAS AU CENTRE (et non
+  // plus collée à la colonne deck) pour rester accessible sans jamais
+  // s'imposer au milieu de l'écran ; elle reste transparente pour laisser
+  // deviner le plateau derrière, et vous pouvez toujours la faire glisser
+  // ou la replier via son en-tête si elle vous gêne.
   // ===================================================================
-  return;
-  // eslint-disable-next-line no-unreachable
   const myHandId = (MY_SEAT === 'top') ? 'handTop' : 'handBottom';
   const myHandEl = document.getElementById(myHandId);
   if (!myHandEl) return;
