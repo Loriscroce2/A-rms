@@ -269,14 +269,8 @@ const qSpendRealBalance = db.prepare('UPDATE users SET real_balance_cents = real
 
 const qInsertListing = db.prepare('INSERT INTO market_listings (seller_id, code, price_cents) VALUES (?, ?, ?)');
 const qListingById = db.prepare('SELECT * FROM market_listings WHERE id = ?');
-const qActiveListings = db.prepare(`
-  SELECT ml.*, u.name AS seller_name FROM market_listings ml
-  JOIN users u ON u.id = ml.seller_id
-  WHERE ml.status = 'active'
-  ORDER BY ml.created_at DESC
-`);
 const qMyListings = db.prepare(`
-  SELECT * FROM market_listings WHERE seller_id = ? AND status = 'active' ORDER BY created_at DESC
+  SELECT * FROM market_listings WHERE seller_id = ? AND status = 'active' ORDER BY id DESC
 `);
 const qCancelListing = db.prepare("UPDATE market_listings SET status = 'cancelled' WHERE id = ? AND seller_id = ? AND status = 'active'");
 const qMarkListingSold = db.prepare("UPDATE market_listings SET status = 'sold', sold_at = datetime('now'), buyer_id = ? WHERE id = ? AND status = 'active'");
@@ -289,6 +283,35 @@ const qMyTransactions = db.prepare(`
   JOIN users su ON su.id = t.seller_id
   JOIN users bu ON bu.id = t.buyer_id
   WHERE t.seller_id = ? OR t.buyer_id = ?
+  ORDER BY t.created_at DESC LIMIT 100
+`);
+
+// Marché groupé par carte, pour la zone "à acheter" : jamais ses propres
+// annonces (elles vivent dans la zone "mes annonces" via qMyListings).
+const qMarketGrouped = db.prepare(`
+  SELECT code, MIN(price_cents) AS best_price_cents, COUNT(*) AS active_count
+  FROM market_listings
+  WHERE status = 'active' AND seller_id != ?
+  GROUP BY code
+  ORDER BY code ASC
+`);
+// Priorité prix (le moins cher gagne), puis ancienneté à prix égal — "id"
+// est un meilleur tie-break que created_at (résolution à la seconde près,
+// deux annonces à la même seconde auraient le même created_at).
+const qBestListingForCode = db.prepare(`
+  SELECT * FROM market_listings
+  WHERE code = ? AND status = 'active' AND seller_id != ?
+  ORDER BY price_cents ASC, id ASC
+  LIMIT 1
+`);
+const qCardBestPrice = db.prepare(`SELECT MIN(price_cents) AS best FROM market_listings WHERE code = ? AND status = 'active'`);
+const qCardActiveListings = db.prepare(`
+  SELECT price_cents, created_at FROM market_listings WHERE code = ? AND status = 'active' ORDER BY price_cents ASC, id ASC
+`);
+const qCardSoldStats = db.prepare(`SELECT AVG(price_cents) AS avg_price, COUNT(*) AS sold_count FROM market_transactions WHERE code = ?`);
+const qMarketHistory = db.prepare(`
+  SELECT t.*, su.name AS seller_name FROM market_transactions t
+  JOIN users su ON su.id = t.seller_id
   ORDER BY t.created_at DESC LIMIT 100
 `);
 
@@ -1264,15 +1287,65 @@ app.post('/api/astrocomptoir/paypal-email', authMiddleware, (req, res) => {
   }
 });
 
-// --- Annonces (mise en vente / achat) ---
+// --- Zone 1 : cartes que CE joueur peut acheter (groupées par carte, prix
+// le plus bas en avant) — on ne compte jamais ses propres annonces ici,
+// elles vivent dans la zone 2 (voir /listings juste après). ---
+app.get('/api/astrocomptoir/market', authMiddleware, (req, res) => {
+  try {
+    const rows = qMarketGrouped.all(req.user.id);
+    const market = rows.map(r => ({ code: r.code, bestPriceCents: r.best_price_cents, activeCount: r.active_count }));
+    res.json({ ok: true, market });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Zone 2 : MES annonces actives (mise en vente / annulation) ---
 app.get('/api/astrocomptoir/listings', authMiddleware, (req, res) => {
   try {
-    const rows = qActiveListings.all();
-    const listings = rows.map(r => ({
-      id: r.id, code: r.code, priceCents: r.price_cents, sellerName: r.seller_name,
-      mine: r.seller_id === req.user.id, createdAt: r.created_at,
-    }));
+    const rows = qMyListings.all(req.user.id);
+    const listings = rows.map(r => ({ id: r.id, code: r.code, priceCents: r.price_cents, createdAt: r.created_at }));
     res.json({ ok: true, listings });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Stats d'une carte : meilleur prix actuel, prix moyen des ventes
+// réussies, et détail des annonces actives (sert à la fois à l'encart
+// affiché au clic sur une carte, ET au pop-up de file d'attente affiché
+// avant de mettre en vente au même tarif qu'une annonce existante). ---
+app.get('/api/astrocomptoir/cards/:code/stats', authMiddleware, (req, res) => {
+  try {
+    const code = String(req.params.code || '');
+    const best = qCardBestPrice.get(code);
+    const sold = qCardSoldStats.get(code);
+    const active = qCardActiveListings.all(code);
+    res.json({
+      ok: true,
+      code,
+      bestPriceCents: (best && best.best !== null) ? best.best : null,
+      avgSoldPriceCents: (sold && sold.avg_price !== null) ? Math.round(sold.avg_price) : null,
+      soldCount: sold ? sold.sold_count : 0,
+      activeListings: active.map(a => ({ priceCents: a.price_cents, createdAt: a.created_at })),
+      activeCount: active.length,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Historique général du marché : les ventes conclues par TOUS les
+// joueurs (nom du vendeur uniquement — jamais l'acheteur, par discrétion).
+// Distinct de /transactions ci-dessous, qui lui ne montre QUE les vôtres. ---
+app.get('/api/astrocomptoir/market-history', authMiddleware, (req, res) => {
+  try {
+    const rows = qMarketHistory.all();
+    const sales = rows.map(r => ({ code: r.code, priceCents: r.price_cents, sellerName: r.seller_name, createdAt: r.created_at }));
+    res.json({ ok: true, sales });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -1321,24 +1394,25 @@ app.delete('/api/astrocomptoir/listings/:id', authMiddleware, (req, res) => {
   }
 });
 
-app.post('/api/astrocomptoir/listings/:id/buy', authMiddleware, (req, res) => {
+// Achat par CARTE (et non plus par annonce précise) : le serveur choisit
+// toujours automatiquement la meilleure annonce active — la moins chère,
+// et à prix égal la plus ANCIENNE (priorité prix puis ancienneté, comme un
+// vrai carnet d'ordres). Le joueur n'a jamais à choisir "chez qui" acheter.
+app.post('/api/astrocomptoir/cards/:code/buy', authMiddleware, (req, res) => {
   try {
     if (!hasAcceptedAgreement(req.user.id)) {
       return res.status(403).json({ ok: false, error: 'agreement_required' });
     }
-    const id = parseInt(req.params.id, 10);
-    const listing = qListingById.get(id);
-    if (!listing || listing.status !== 'active') {
-      return res.status(404).json({ ok: false, error: 'listing_not_found' });
-    }
-    if (listing.seller_id === req.user.id) {
-      return res.status(400).json({ ok: false, error: 'cannot_buy_own_listing' });
+    const code = String(req.params.code || '');
+    const listing = qBestListingForCode.get(code, req.user.id);
+    if (!listing) {
+      return res.status(404).json({ ok: false, error: 'no_listing_available' });
     }
     const spent = qSpendRealBalance.run(listing.price_cents, req.user.id, listing.price_cents);
     if (spent.changes === 0) {
       return res.status(402).json({ ok: false, error: 'insufficient_balance' });
     }
-    const marked = qMarkListingSold.run(req.user.id, id);
+    const marked = qMarkListingSold.run(req.user.id, listing.id);
     if (marked.changes === 0) {
       // Vendue entre-temps (cas extrêmement rare) : remboursement immédiat.
       qAddRealBalance.run(listing.price_cents, req.user.id);
@@ -1348,9 +1422,9 @@ app.post('/api/astrocomptoir/listings/:id/buy', authMiddleware, (req, res) => {
     const sellerGain = listing.price_cents - commission;
     qAddRealBalance.run(sellerGain, listing.seller_id);
     qUpsertCard.run(req.user.id, listing.code, 1);
-    qInsertTransaction.run(id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission);
+    qInsertTransaction.run(listing.id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission);
     const wallet = qGetWallet.get(req.user.id);
-    res.json({ ok: true, balanceCents: wallet.real_balance_cents, code: listing.code });
+    res.json({ ok: true, balanceCents: wallet.real_balance_cents, code: listing.code, priceCents: listing.price_cents });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });

@@ -9,12 +9,18 @@
   background:linear-gradient(180deg, rgba(3,16,23,.92), rgba(3,16,23,.78));
   backdrop-filter:blur(10px);
   border-bottom:1px solid rgba(125,249,255,.18);
+  max-width:100vw; overflow-x:hidden;
 }
 .siteHeader .navRow{
-  max-width:1680px; margin:0 auto; padding:0 20px;
-  display:flex; align-items:center; gap:22px; height:74px;
+  max-width:1680px; margin:0 auto; padding:10px 20px;
+  display:flex; align-items:center; gap:14px 22px; min-height:74px; height:auto;
+  flex-wrap:wrap;
 }
-.siteHeader .brand{ display:flex; align-items:center; flex:0 0 auto; text-decoration:none; }
+/* Ligne 1 : logo à gauche, compte/pièces/rang à droite.
+   Ligne 2 (pleine largeur) : tous les liens de navigation — évite tout
+   scroll horizontal quand la liste s'allonge (Astrocomptoir, etc.) plutôt
+   que de laisser la barre déborder du viewport. */
+.siteHeader .brand{ display:flex; align-items:center; flex:0 0 auto; text-decoration:none; order:1; }
 .siteHeader .brand img{
   height:56px; width:auto; border-radius:12px;
   filter: drop-shadow(0 0 10px rgba(0,230,255,.4));
@@ -22,7 +28,10 @@
 }
 .siteHeader .brand:hover img{ filter: drop-shadow(0 0 16px rgba(0,230,255,.65)); }
 
-.siteNav{ display:flex; align-items:center; gap:4px; flex:1 1 auto; }
+.siteNav{
+  display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px;
+  flex:1 1 100%; order:3; width:100%;
+}
 .siteNav a{
   position:relative; display:inline-flex; align-items:center; gap:6px;
   padding:9px 16px; border-radius:10px; text-decoration:none;
@@ -37,7 +46,7 @@
   border-radius:2px;
 }
 
-.navRight{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+.navRight{ display:flex; align-items:center; gap:10px; flex:0 0 auto; order:2; margin-left:auto; }
 /* Le bouton Boutique de la nav dépendait du CSS local de chaque page
    (incohérent selon la page visitée, d'où un désalignement vertical visible
    à côté du badge de rang et du bouton de compte). Style dédié et partagé,

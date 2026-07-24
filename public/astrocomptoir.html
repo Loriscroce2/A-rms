@@ -13,7 +13,7 @@
       --fac-krylls:#3ddc84; --fac-impy:#ff5a5f; --fac-savage:#ff9d3d; --fac-chimeria:#b06bff; --fac-wadoo:#ffd93d;
     }
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Manrope:wght@500;700;800&display=swap');
-    *{box-sizing:border-box} html,body{height:100%}
+    *{box-sizing:border-box} html,body{height:100%; overflow-x:hidden;}
     body{margin:0;font-family:'Manrope',system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
       background:radial-gradient(1200px 460px at 60% -180px, rgba(0,230,255,.16), transparent 60%),
                  radial-gradient(900px 400px at 10% 30%, rgba(176,107,255,.08), transparent 60%),
@@ -34,19 +34,19 @@
 
     /* ============================= HERO ============================= */
     .astroHero{position:relative;border-radius:24px;overflow:hidden;margin:22px 0 24px;box-shadow:0 20px 50px rgba(0,0,0,.5), 0 0 60px rgba(0,230,255,.16);border:1px solid rgba(125,249,255,.3);}
-    .astroHero img{display:block;width:100%;height:min(60vh,460px);min-height:280px;object-fit:cover;transform:scale(1.02);}
-    .astroHero::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg, rgba(3,16,23,.05) 0%, rgba(3,16,23,.35) 55%, rgba(3,16,23,.95) 100%);}
-    .astroHero::before{content:'';position:absolute;inset:0;box-shadow:inset 0 0 90px rgba(0,230,255,.18);pointer-events:none;z-index:3;}
-    .astroHeroText{position:absolute;left:0;right:0;bottom:0;padding:34px 36px;z-index:2;}
+    .astroHero img{display:block;width:100%;height:min(62vh,480px);min-height:300px;object-fit:cover;transform:scale(1.02);}
+    .astroHero::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg, rgba(3,16,23,.05) 0%, rgba(3,16,23,.3) 50%, rgba(3,16,23,.96) 100%);}
+    .astroHero::before{content:'';position:absolute;inset:0;box-shadow:inset 0 0 100px rgba(0,230,255,.2);pointer-events:none;z-index:3;}
+    .astroHeroText{position:absolute;left:0;right:0;bottom:0;padding:38px 40px;z-index:2;}
     .astroKicker{display:inline-block;font-family:'Cinzel',serif;font-size:11.5px;letter-spacing:.18em;text-transform:uppercase;color:#aefaff;
-      background:rgba(0,230,255,.12);border:1px solid rgba(125,249,255,.4);padding:5px 14px;border-radius:999px;margin-bottom:12px;}
-    .astroHeroText h1{font-family:'Cinzel',sans-serif;font-size:clamp(30px,5vw,50px);margin:0 0 10px;
+      background:rgba(0,230,255,.12);border:1px solid rgba(125,249,255,.4);padding:5px 14px;border-radius:999px;margin-bottom:14px;}
+    .astroHeroText h1{font-family:'Cinzel',sans-serif;font-size:clamp(32px,5.5vw,54px);margin:0 0 10px;
       background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 40px rgba(0,230,255,.4);letter-spacing:.01em;}
     .astroHeroText p{margin:0;color:var(--muted);max-width:620px;font-size:15px;opacity:.95;line-height:1.55;}
 
     /* ============================= WALLET BAR ============================= */
     .walletBar{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;
-      background:linear-gradient(145deg,rgba(10,32,42,.85),rgba(6,20,28,.85));border:var(--border);border-radius:18px;padding:18px 22px;margin-bottom:26px;box-shadow:var(--shadow);backdrop-filter:blur(6px);}
+      background:linear-gradient(145deg,rgba(10,32,42,.85),rgba(6,20,28,.85));border:var(--border);border-radius:18px;padding:18px 22px;margin-bottom:22px;box-shadow:var(--shadow);backdrop-filter:blur(6px);}
     .walletLeft{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
     .walletBalance{display:flex;align-items:center;gap:10px;font-weight:900;font-size:26px;color:var(--gold);
       background:linear-gradient(180deg,rgba(74,60,13,.5),rgba(42,34,8,.5));border:1.5px solid rgba(255,217,61,.5);border-radius:14px;padding:10px 20px;box-shadow:inset 0 1px 0 rgba(255,255,255,.1);}
@@ -59,11 +59,13 @@
     .paypalField input{padding:9px 13px;border-radius:9px;border:1.5px solid rgba(125,249,255,.3);background:#051820;color:var(--ink);font-size:13px;min-width:210px;}
     .paypalField input:focus{outline:none;border-color:rgba(125,249,255,.7);}
 
-    /* ============================= STATS STRIP ============================= */
-    .statsStrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:26px;}
-    .statCard{background:linear-gradient(145deg,#08222b,#0a2d38);border:var(--border);border-radius:14px;padding:14px 16px;text-align:center;}
-    .statCard .num{font-family:'Cinzel',sans-serif;font-size:22px;font-weight:800;color:#aefaff;text-shadow:0 0 14px rgba(0,230,255,.3);}
-    .statCard .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);opacity:.75;margin-top:2px;}
+    /* ============================= DÉTAIL CARTE (remplace les 3 encarts) ============================= */
+    .cardDetailStrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px;}
+    .cardDetailStrip .statCard{background:linear-gradient(145deg,#08222b,#0a2d38);border:var(--border);border-radius:14px;padding:14px 16px;text-align:center;transition:border-color .2s ease;}
+    .cardDetailStrip.hasSelection .statCard{border-color:rgba(0,230,255,.4);}
+    .cardDetailStrip .num{font-family:'Cinzel',sans-serif;font-size:19px;font-weight:800;color:#aefaff;text-shadow:0 0 14px rgba(0,230,255,.3);}
+    .cardDetailStrip .lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);opacity:.75;margin-top:2px;}
+    .cardDetailStrip .num.placeholder{opacity:.4;font-size:14px;font-weight:600;font-family:inherit;}
 
     .section{padding:14px 0}
     .sectionHead{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-bottom:16px;}
@@ -94,11 +96,12 @@
 
     .marketGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:20px}
     .marketSlot{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#08222b,#0a2d38);box-shadow:var(--shadow), inset 0 0 14px rgba(125,249,255,.06);
-      padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;transition:transform .18s ease, box-shadow .18s ease;animation:cardIn .3s ease backwards;}
+      padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;animation:cardIn .3s ease backwards;cursor:pointer;}
     @keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
     .marketSlot:hover{transform:translateY(-6px)}
+    .marketSlot.selected{border-color:rgba(0,230,255,.7);box-shadow:0 0 0 2px rgba(0,230,255,.35), var(--shadow);}
     .marketSlot.mine{outline:1.5px solid rgba(255,217,61,.55);outline-offset:-1px;}
-    .marketSlot .cardImg{width:150px;height:207px;border-radius:10px;background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;box-shadow:0 10px 20px rgba(0,0,0,.45);cursor:pointer;position:relative;}
+    .marketSlot .cardImg{width:150px;height:207px;border-radius:10px;background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;box-shadow:0 10px 20px rgba(0,0,0,.45);position:relative;}
     .marketSlot[data-faction="Krylls"] .cardImg{box-shadow:0 0 16px rgba(61,220,132,.7)}
     .marketSlot[data-faction="Impy"] .cardImg{box-shadow:0 0 16px rgba(255,90,95,.7)}
     .marketSlot[data-faction="Savage"] .cardImg{box-shadow:0 0 16px rgba(255,157,61,.7)}
@@ -108,15 +111,19 @@
     .stat.hp{top:36%;border-radius:50%;background:radial-gradient(circle at 30% 24%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #ff5c5c 55%, #8a0000);border:2px solid rgba(255,190,190,.95);box-shadow:0 0 12px rgba(255,40,40,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.35), inset 0 2px 3px rgba(255,255,255,.4);text-shadow:0 1px 2px rgba(0,0,0,.9);}
     .stat.shield{top:64%;border-radius:50% 50% 22% 22% / 64% 64% 30% 30%;background:radial-gradient(circle at 30% 22%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #55d6ff 55%, #0a4f8a);border:2px solid rgba(195,238,255,.95);box-shadow:0 0 12px rgba(70,195,255,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.3), inset 0 2px 3px rgba(255,255,255,.4);color:#eafcff;font-size:12px;text-shadow:0 1px 2px rgba(0,0,0,.9);}
     .marketCardName{font-weight:800;font-size:13px;color:var(--ink);}
-    .marketTypeTag{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);opacity:.7;}
     .marketPrice{font-weight:900;color:var(--gold);font-size:17px;}
     .marketSeller{font-size:11.5px;color:var(--muted);opacity:.75;}
     .buyBtn{width:100%;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:10px;padding:8px 10px;font-weight:900;cursor:pointer;transition:transform .12s ease;}
     .buyBtn:hover{transform:translateY(-1px);}
     .buyBtn:disabled{opacity:.4;cursor:not-allowed}
-    .emptyMsg{color:var(--muted);opacity:.75;padding:34px 20px;text-align:center;font-size:13.5px;}
+    .emptyMsg{color:var(--muted);opacity:.75;padding:34px 20px;text-align:center;font-size:13.5px;grid-column:1/-1;}
 
     /* ============================= HISTORIQUE ============================= */
+    .historyTabs{display:flex;gap:8px;margin-bottom:16px;}
+    .historyTabBtn{border:1.5px solid rgba(125,249,255,.3);background:rgba(255,255,255,.03);color:var(--muted);border-radius:11px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s ease;}
+    .historyTabBtn.active{background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border-color:#7df9ff;}
+    .historyPane{display:none;}
+    .historyPane.active{display:block;}
     .historyTable{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:13px;}
     .historyTable th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);opacity:.7;padding:0 10px 4px;}
     .historyTable td{padding:10px 10px;background:linear-gradient(145deg,#08222b,#0a2d38);border-top:1px solid rgba(125,249,255,.1);border-bottom:1px solid rgba(125,249,255,.1);}
@@ -139,7 +146,7 @@
     @keyframes fadein{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
     @keyframes fadeout{to{opacity:0;transform:translate(-50%,8px)}}
 
-    /* ============================= MODAL accord légal ============================= */
+    /* ============================= MODALS (accord légal + file d'attente) ============================= */
     .armsModalOverlay2{position:fixed;inset:0;z-index:9000;display:none;align-items:center;justify-content:center;background:rgba(2,8,11,.8);backdrop-filter:blur(5px);padding:20px;}
     .armsModalOverlay2.show{display:flex;}
     .legalModal{width:min(640px,95vw);max-height:88vh;overflow:auto;border-radius:20px;border:1px solid rgba(125,249,255,.3);
@@ -153,6 +160,13 @@
     .legalCheckRow label{font-size:12.5px;color:var(--ink);line-height:1.5;}
     .legalModalActions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
     .legalModalClose{position:absolute;top:16px;right:16px;width:34px;height:34px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#fff;font-size:15px;cursor:pointer;}
+
+    .queueModal{width:min(440px,92vw);border-radius:18px;border:1px solid rgba(255,217,61,.4);
+      background:linear-gradient(160deg,#1a1406,#0a0803);box-shadow:0 30px 70px rgba(0,0,0,.6), 0 0 40px rgba(255,217,61,.15);padding:24px;color:#e8fdff;text-align:center;}
+    .queueModal .queueIcon{font-size:34px;margin-bottom:8px;}
+    .queueModal h3{font-family:'Cinzel',sans-serif;font-size:17px;margin:0 0 10px;color:#ffe98a;}
+    .queueModal p{font-size:13.5px;line-height:1.6;color:var(--muted);margin:0 0 8px;}
+    .queueModal .queueActions{display:flex;gap:10px;justify-content:center;margin-top:18px;}
 
     /* ============================= DRAWER "Vendre une carte" (style hamburger) ============================= */
     .sellDrawerOverlay{position:fixed;inset:0;z-index:8500;display:none;background:rgba(2,8,11,.6);backdrop-filter:blur(3px);}
@@ -217,11 +231,11 @@
       </div>
     </div>
 
-    <div class="statsStrip" id="statsStrip"></div>
+    <div class="cardDetailStrip" id="cardDetailStrip"></div>
 
     <div class="section">
       <div class="sectionHead">
-        <h2>🛒 Hôtel de vente</h2>
+        <h2>🛒 Cartes à acheter</h2>
       </div>
 
       <div class="marketToolbar">
@@ -241,8 +255,21 @@
     </div>
 
     <div class="section">
+      <div class="sectionHead">
+        <h2>🏷️ Mes cartes en vente</h2>
+      </div>
+      <div class="sectionHint">Vos annonces actives — cliquez sur une carte pour voir ses statistiques, ou retirez-la de la vente à tout moment.</div>
+      <div class="marketGrid" id="myListingsGrid"></div>
+    </div>
+
+    <div class="section">
       <h2>📜 Historique</h2>
-      <div id="historyZone"></div>
+      <div class="historyTabs">
+        <button class="historyTabBtn active" id="tabGeneralBtn">Marché général</button>
+        <button class="historyTabBtn" id="tabMineBtn">Mon historique</button>
+      </div>
+      <div class="historyPane active" id="historyGeneralPane"></div>
+      <div class="historyPane" id="historyMinePane"></div>
     </div>
   </main>
 
@@ -260,7 +287,7 @@
       <ul>
         <li>L'Astrocomptoir permet d'acheter et de vendre des cartes A'rms individuelles entre joueurs, contre de l'argent réel.</li>
         <li>Vous rechargez un portefeuille interne via PayPal, vous achetez/vendez avec ce solde, puis vous pouvez retirer votre solde vers votre compte PayPal à tout moment.</li>
-        <li>Le prix de chaque annonce est fixé librement par le vendeur — A'rms ne garantit aucune valeur de revente.</li>
+        <li>Le prix de chaque annonce est fixé librement par le vendeur — A'rms ne garantit aucune valeur de revente. Quand plusieurs annonces existent pour une même carte, la moins chère se vend en premier ; à prix égal, la plus ancienne se vend en premier.</li>
       </ul>
 
       <h3>Commission</h3>
@@ -289,6 +316,19 @@
       <div class="legalModalActions">
         <button class="btn-secondary" id="legalLaterBtn">Plus tard</button>
         <button class="btn" id="legalAcceptBtn" disabled>J'accepte</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- File d'attente à prix égal/inférieur -->
+  <div class="armsModalOverlay2" id="queueOverlay">
+    <div class="queueModal">
+      <div class="queueIcon">⏳</div>
+      <h3>Votre place dans la file</h3>
+      <p id="queueMessage"></p>
+      <div class="queueActions">
+        <button class="btn-secondary" id="queueChangeBtn">Changer le prix</button>
+        <button class="btn" id="queueConfirmBtn">Confirmer à ce prix</button>
       </div>
     </div>
   </div>
@@ -430,6 +470,45 @@
     }
 
     // ===================================================================
+    // Encart de détail carte — remplace les anciennes statistiques globales.
+    // Se met à jour au clic sur n'importe quelle carte (à acheter ou en vente).
+    // ===================================================================
+    let SELECTED_CODE = null;
+    function renderCardDetailStrip(){
+      const strip = document.getElementById('cardDetailStrip');
+      if (!SELECTED_CODE) {
+        strip.classList.remove('hasSelection');
+        strip.innerHTML = `
+          <div class="statCard"><div class="num placeholder">Cliquez sur une carte</div><div class="lbl">Nom de la carte</div></div>
+          <div class="statCard"><div class="num placeholder">—</div><div class="lbl">Meilleur prix actuel</div></div>
+          <div class="statCard"><div class="num placeholder">—</div><div class="lbl">Prix moyen des ventes réussies</div></div>
+        `;
+        return;
+      }
+      strip.classList.add('hasSelection');
+      const info = cardInfo(SELECTED_CODE);
+      strip.innerHTML = `
+        <div class="statCard"><div class="num">${info.name}</div><div class="lbl">Carte sélectionnée</div></div>
+        <div class="statCard"><div class="num" id="cdsBest">…</div><div class="lbl">Meilleur prix actuel</div></div>
+        <div class="statCard"><div class="num" id="cdsAvg">…</div><div class="lbl">Prix moyen des ventes réussies</div></div>
+      `;
+      fetch(`/api/astrocomptoir/cards/${SELECTED_CODE}/stats`).then(r=>r.json()).then(data => {
+        if (!data.ok || SELECTED_CODE !== data.code) return;
+        const bestEl = document.getElementById('cdsBest');
+        const avgEl = document.getElementById('cdsAvg');
+        if (bestEl) bestEl.textContent = data.bestPriceCents !== null ? euros(data.bestPriceCents) : 'Aucune annonce';
+        if (avgEl) avgEl.textContent = data.avgSoldPriceCents !== null ? euros(data.avgSoldPriceCents) + (data.soldCount ? ` (${data.soldCount})` : '') : 'Jamais vendue';
+      }).catch(()=>{});
+    }
+    function selectCard(code){
+      SELECTED_CODE = code;
+      renderCardDetailStrip();
+      document.querySelectorAll('.marketSlot').forEach(el => el.classList.toggle('selected', el.dataset.code === code));
+      document.getElementById('cardDetailStrip').scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }
+    renderCardDetailStrip();
+
+    // ===================================================================
     // Portefeuille + accord légal
     // ===================================================================
     let WALLET = { balanceCents:0, paypalEmail:'', agreementAccepted:false, paypalConfigured:false };
@@ -545,93 +624,119 @@
     })();
 
     // ===================================================================
-    // Marché — annonces (recherche + filtres faction/type)
+    // Zone 1 — Cartes à acheter (groupées par carte, meilleur prix en avant)
     // ===================================================================
-    let ALL_LISTINGS = [];
+    let ALL_MARKET = [];
     const marketFilterState = setupFilterBar({
       factionContainer: document.getElementById('marketFactionChips'),
       typeContainer: document.getElementById('marketTypeChips'),
       searchInput: document.getElementById('marketSearch'),
       clearBtn: document.getElementById('marketClearBtn'),
-      onChange: () => renderListings(),
+      onChange: () => renderMarket(),
     });
 
-    async function loadListings(){
+    async function loadMarket(){
+      try{
+        await catalogReady;
+        const res = await fetch('/api/astrocomptoir/market');
+        const data = await res.json();
+        if (!data.ok) return;
+        ALL_MARKET = data.market;
+        renderMarket();
+      }catch(e){ console.error(e); }
+    }
+
+    function renderMarket(){
+      const grid = document.getElementById('marketGrid');
+      const filtered = ALL_MARKET.filter(m => matchesFilter(m.code, marketFilterState));
+      document.getElementById('marketResultCount').textContent = `${filtered.length} résultat${filtered.length>1?'s':''}`;
+      grid.innerHTML = '';
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="emptyMsg">${ALL_MARKET.length === 0 ? "Aucune carte disponible à l'achat pour l'instant. Revenez plus tard, ou mettez la vôtre en vente !" : "Aucune carte ne correspond à votre recherche."}</div>`;
+        return;
+      }
+      filtered.forEach((m, idx) => {
+        const info = cardInfo(m.code);
+        const el = document.createElement('div');
+        el.className = 'marketSlot';
+        el.dataset.faction = info.faction;
+        el.dataset.code = m.code;
+        el.style.animationDelay = `${Math.min(idx,12) * 0.03}s`;
+        el.innerHTML = `
+          <div class="cardImg" style="background-image:url('/cartes/${m.code}.png')"></div>
+          <div class="marketCardName">${info.name}</div>
+          <div class="marketPrice">💶 ${euros(m.bestPriceCents)}</div>
+          <div class="marketSeller">${m.activeCount} en vente</div>
+          <button class="buyBtn">Acheter</button>
+        `;
+        applyStatBadges(el.querySelector('.cardImg'), m.code);
+        attachRevealZoom(el.querySelector('.cardImg'), m.code);
+        el.addEventListener('click', (e) => { if (!e.target.closest('.buyBtn')) selectCard(m.code); });
+        el.querySelector('.buyBtn').addEventListener('click', (e) => { e.stopPropagation(); buyCard(m.code, m.bestPriceCents); });
+        grid.appendChild(el);
+      });
+    }
+
+    async function buyCard(code, priceCents){
+      if (!WALLET.agreementAccepted) { openLegalModal(); return; }
+      if (!confirm(`Acheter cette carte pour ${euros(priceCents)} ?`)) return;
+      try{
+        const res = await fetch(`/api/astrocomptoir/cards/${code}/buy`, { method:'POST' });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'insufficient_balance' ? 'Solde insuffisant — rechargez votre portefeuille.'
+            : data.error === 'no_listing_available' ? 'Cette carte vient d’être vendue à quelqu’un d’autre.'
+            : 'Erreur lors de l’achat.');
+          loadMarket();
+          return;
+        }
+        showToast(`Achat réussi — ${euros(data.priceCents)} !`);
+        loadWallet(); loadMarket(); loadMyListings(); loadSellGrid(); loadHistory();
+        if (SELECTED_CODE === code) renderCardDetailStrip();
+      }catch(e){ showToast('Erreur réseau.'); }
+    }
+
+    // ===================================================================
+    // Zone 2 — Mes cartes en vente
+    // ===================================================================
+    let MY_LISTINGS = [];
+    async function loadMyListings(){
       try{
         await catalogReady;
         const res = await fetch('/api/astrocomptoir/listings');
         const data = await res.json();
         if (!data.ok) return;
-        ALL_LISTINGS = data.listings;
-        renderListings();
-        renderStats();
+        MY_LISTINGS = data.listings;
+        renderMyListings();
       }catch(e){ console.error(e); }
     }
-
-    function renderStats(){
-      const strip = document.getElementById('statsStrip');
-      const active = ALL_LISTINGS.length;
-      const cheapest = active ? Math.min(...ALL_LISTINGS.map(l => l.priceCents)) : null;
-      const factionsInPlay = new Set(ALL_LISTINGS.map(l => cardInfo(l.code).faction)).size;
-      strip.innerHTML = `
-        <div class="statCard"><div class="num">${active}</div><div class="lbl">Annonces actives</div></div>
-        <div class="statCard"><div class="num">${cheapest !== null ? euros(cheapest) : '—'}</div><div class="lbl">Meilleur prix</div></div>
-        <div class="statCard"><div class="num">${factionsInPlay}</div><div class="lbl">Factions représentées</div></div>
-      `;
-    }
-
-    function renderListings(){
-      const grid = document.getElementById('marketGrid');
-      const filtered = ALL_LISTINGS.filter(l => matchesFilter(l.code, marketFilterState));
-      document.getElementById('marketResultCount').textContent = `${filtered.length} résultat${filtered.length>1?'s':''}`;
+    function renderMyListings(){
+      const grid = document.getElementById('myListingsGrid');
       grid.innerHTML = '';
-      if (filtered.length === 0) {
-        grid.innerHTML = `<div class="emptyMsg" style="grid-column:1/-1;">${ALL_LISTINGS.length === 0 ? "Aucune annonce en ce moment. Soyez le premier à vendre une carte !" : "Aucune carte ne correspond à votre recherche."}</div>`;
+      if (MY_LISTINGS.length === 0) {
+        grid.innerHTML = `<div class="emptyMsg">Vous n'avez aucune carte en vente pour l'instant.</div>`;
         return;
       }
-      filtered.forEach((l, idx) => {
+      MY_LISTINGS.forEach((l, idx) => {
         const info = cardInfo(l.code);
         const el = document.createElement('div');
-        el.className = 'marketSlot' + (l.mine ? ' mine' : '');
+        el.className = 'marketSlot mine';
         el.dataset.faction = info.faction;
+        el.dataset.code = l.code;
         el.style.animationDelay = `${Math.min(idx,12) * 0.03}s`;
         el.innerHTML = `
           <div class="cardImg" style="background-image:url('/cartes/${l.code}.png')"></div>
           <div class="marketCardName">${info.name}</div>
           <div class="marketPrice">💶 ${euros(l.priceCents)}</div>
-          <div class="marketSeller">${l.mine ? 'Votre annonce' : 'Vendu par ' + l.sellerName}</div>
-          ${l.mine
-            ? `<button class="btn-danger" style="width:100%;">Retirer de la vente</button>`
-            : `<button class="buyBtn">Acheter</button>`}
+          <div class="marketSeller">Votre annonce</div>
+          <button class="btn-danger" style="width:100%;">Retirer de la vente</button>
         `;
         applyStatBadges(el.querySelector('.cardImg'), l.code);
         attachRevealZoom(el.querySelector('.cardImg'), l.code);
-        if (l.mine) {
-          el.querySelector('.btn-danger').addEventListener('click', () => cancelListing(l.id));
-        } else {
-          el.querySelector('.buyBtn').addEventListener('click', () => buyListing(l.id, l.priceCents));
-        }
+        el.addEventListener('click', (e) => { if (!e.target.closest('.btn-danger')) selectCard(l.code); });
+        el.querySelector('.btn-danger').addEventListener('click', (e) => { e.stopPropagation(); cancelListing(l.id); });
         grid.appendChild(el);
       });
-    }
-
-    async function buyListing(id, priceCents){
-      if (!WALLET.agreementAccepted) { openLegalModal(); return; }
-      if (!confirm(`Acheter cette carte pour ${euros(priceCents)} ?`)) return;
-      try{
-        const res = await fetch(`/api/astrocomptoir/listings/${id}/buy`, { method:'POST' });
-        const data = await res.json();
-        if (!data.ok) {
-          showToast(data.error === 'insufficient_balance' ? 'Solde insuffisant — rechargez votre portefeuille.'
-            : data.error === 'already_sold' ? 'Cette carte vient d’être vendue à quelqu’un d’autre.'
-            : data.error === 'cannot_buy_own_listing' ? 'Vous ne pouvez pas acheter votre propre annonce.'
-            : 'Erreur lors de l’achat.');
-          loadListings();
-          return;
-        }
-        showToast('Achat réussi !');
-        loadWallet(); loadListings(); loadSellGrid(); loadHistory();
-      }catch(e){ showToast('Erreur réseau.'); }
     }
 
     async function cancelListing(id){
@@ -639,7 +744,7 @@
       try{
         const res = await fetch(`/api/astrocomptoir/listings/${id}`, { method:'DELETE' });
         const data = await res.json();
-        if (data.ok) { showToast('Annonce retirée.'); loadListings(); loadSellGrid(); }
+        if (data.ok) { showToast('Annonce retirée.'); loadMyListings(); loadMarket(); loadSellGrid(); }
         else showToast('Erreur.');
       }catch(e){ showToast('Erreur réseau.'); }
     }
@@ -699,19 +804,56 @@
           <button class="sellBtn">Mettre en vente</button>
         `;
         applyStatBadges(el.querySelector('.cardImg'), c.code);
-        el.querySelector('.sellBtn').addEventListener('click', () => createListing(c.code, el.querySelector('input')));
+        el.querySelector('.sellBtn').addEventListener('click', () => attemptCreateListing(c.code, el.querySelector('input')));
         grid.appendChild(el);
       });
     }
 
-    async function createListing(code, inputEl){
+    // --- File d'attente : si des annonces existent déjà pour cette carte à
+    // un prix identique (ou plus bas), on prévient AVANT de créer l'annonce.
+    const queueOverlay = document.getElementById('queueOverlay');
+    function closeQueueModal(){ queueOverlay.classList.remove('show'); }
+
+    async function attemptCreateListing(code, inputEl){
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
       const amount = parseFloat((inputEl.value || '').replace(',', '.'));
       if (!Number.isFinite(amount) || amount < 0.5) { showToast('Prix invalide (0,50 € minimum).'); return; }
+      const priceCents = Math.round(amount*100);
+      try{
+        const res = await fetch(`/api/astrocomptoir/cards/${code}/stats`);
+        const data = await res.json();
+        if (data.ok && data.activeListings && data.activeListings.length > 0) {
+          const cheaper = data.activeListings.filter(l => l.priceCents < priceCents).length;
+          const samePrice = data.activeListings.filter(l => l.priceCents === priceCents).length;
+          if (cheaper > 0 || samePrice > 0) {
+            const info = cardInfo(code);
+            let msg = '';
+            if (samePrice > 0) {
+              msg += `Il y a déjà <strong>${samePrice}</strong> annonce${samePrice>1?'s':''} de <strong>${info.name}</strong> à ${euros(priceCents)}. La vôtre se vendrait après ${samePrice > 1 ? 'elles' : 'elle'} à ce tarif (n°${samePrice+1}).`;
+            }
+            if (cheaper > 0) {
+              msg += `${msg ? '<br><br>' : ''}${cheaper} annonce${cheaper>1?'s'  :''} moins chère${cheaper>1?'s':''} existe${cheaper>1?'nt':''} déjà et se vendra${cheaper>1?'':''} avant, quel que soit l'ordre.`;
+            }
+            document.getElementById('queueMessage').innerHTML = msg;
+            queueOverlay.classList.add('show');
+            const confirmBtn = document.getElementById('queueConfirmBtn');
+            const changeBtn = document.getElementById('queueChangeBtn');
+            const newConfirmBtn = confirmBtn.cloneNode(true); confirmBtn.replaceWith(newConfirmBtn);
+            const newChangeBtn = changeBtn.cloneNode(true); changeBtn.replaceWith(newChangeBtn);
+            newConfirmBtn.addEventListener('click', () => { closeQueueModal(); createListing(code, priceCents); });
+            newChangeBtn.addEventListener('click', () => { closeQueueModal(); inputEl.focus(); inputEl.select(); });
+            return;
+          }
+        }
+      }catch(e){ /* si la vérification échoue, on n'empêche pas la mise en vente */ }
+      createListing(code, priceCents);
+    }
+
+    async function createListing(code, priceCents){
       try{
         const res = await fetch('/api/astrocomptoir/listings', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ code, priceCents: Math.round(amount*100) })
+          body: JSON.stringify({ code, priceCents })
         });
         const data = await res.json();
         if (!data.ok) {
@@ -719,23 +861,65 @@
           return;
         }
         showToast('Carte mise en vente !');
-        loadListings(); loadSellGrid();
+        loadMarket(); loadMyListings(); loadSellGrid();
+        if (SELECTED_CODE === code) renderCardDetailStrip();
       }catch(e){ showToast('Erreur réseau.'); }
     }
 
     // ===================================================================
-    // Historique — jamais de mention de commission ici, uniquement les
-    // montants réellement perçus/payés (voir l'accord légal pour le détail).
+    // Historique — deux onglets distincts : marché général (toutes les
+    // ventes conclues) et le vôtre (achats/ventes/retraits personnels).
+    // Jamais de mention de commission ici, uniquement les montants
+    // réellement perçus/payés (voir l'accord légal pour le détail).
     // ===================================================================
+    document.getElementById('tabGeneralBtn').addEventListener('click', () => switchHistoryTab('general'));
+    document.getElementById('tabMineBtn').addEventListener('click', () => switchHistoryTab('mine'));
+    function switchHistoryTab(which){
+      document.getElementById('tabGeneralBtn').classList.toggle('active', which==='general');
+      document.getElementById('tabMineBtn').classList.toggle('active', which==='mine');
+      document.getElementById('historyGeneralPane').classList.toggle('active', which==='general');
+      document.getElementById('historyMinePane').classList.toggle('active', which==='mine');
+    }
+
     async function loadHistory(){
+      loadGeneralHistory();
+      loadMyHistory();
+    }
+
+    async function loadGeneralHistory(){
       try{
+        await catalogReady;
+        const res = await fetch('/api/astrocomptoir/market-history');
+        const data = await res.json();
+        const pane = document.getElementById('historyGeneralPane');
+        if (!data.ok || data.sales.length === 0) {
+          pane.innerHTML = `<div class="emptyMsg">Aucune vente conclue sur le marché pour l'instant.</div>`;
+          return;
+        }
+        pane.innerHTML = `<table class="historyTable">
+          <thead><tr><th>Date</th><th>Carte</th><th>Vendeur</th><th>Prix</th></tr></thead>
+          <tbody>${data.sales.map(s => `
+            <tr>
+              <td>${new Date(s.createdAt).toLocaleString('fr-FR')}</td>
+              <td>${cardInfo(s.code).name}</td>
+              <td>${s.sellerName}</td>
+              <td>${euros(s.priceCents)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+      }catch(e){ console.error(e); }
+    }
+
+    async function loadMyHistory(){
+      try{
+        await catalogReady;
         const [txRes, wdRes] = await Promise.all([
           fetch('/api/astrocomptoir/transactions'),
           fetch('/api/astrocomptoir/withdrawals'),
         ]);
         const txData = await txRes.json();
         const wdData = await wdRes.json();
-        const zone = document.getElementById('historyZone');
+        const pane = document.getElementById('historyMinePane');
         const rows = [];
         if (txData.ok) {
           txData.transactions.forEach(t => {
@@ -768,11 +952,11 @@
           });
         }
         if (rows.length === 0) {
-          zone.innerHTML = `<div class="emptyMsg">Aucune activité pour l'instant.</div>`;
+          pane.innerHTML = `<div class="emptyMsg">Aucune activité pour l'instant.</div>`;
           return;
         }
         rows.sort((a,b) => new Date(b.date) - new Date(a.date));
-        zone.innerHTML = `<table class="historyTable">
+        pane.innerHTML = `<table class="historyTable">
           <thead><tr><th>Date</th><th>Type</th><th>Carte</th><th>Détail</th><th>Montant</th></tr></thead>
           <tbody>${rows.map(r=>r.html).join('')}</tbody>
         </table>`;
@@ -781,7 +965,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       loadWallet();
-      loadListings();
+      loadMarket();
+      loadMyListings();
       loadSellGrid();
       loadHistory();
     });
