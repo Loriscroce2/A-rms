@@ -64,7 +64,7 @@
 
     @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Manrope:wght@400;600;800&display=swap');
     /* Polices thématiques pour l'infobulle des jetons de faction (Krylls,
-       Impy, Savage, Chimeria, Wadoo) — voir .deckFactions img::after. */
+       Impy, Savage, Chimeria, Wadoo) — voir .deckFactionIcon::after. */
     @import url('https://fonts.googleapis.com/css2?family=Trade+Winds&family=Pirata+One&family=Bangers&family=Cinzel+Decorative:wght@700&family=Butcherman&display=swap');
     *{box-sizing:border-box}
 
@@ -876,35 +876,39 @@
        une police et une couleur propres à son ambiance (voir les polices
        importées plus haut : Trade Winds/Pirata One/Bangers/Cinzel
        Decorative/Butcherman). Tooltip custom (pas l'attribut title natif,
-       non stylable) via ::after + attr(data-faction). */
-    .deckFactions img{ position:relative; }
-    .deckFactions img::after{
+       non stylable) via ::after + attr(data-faction).
+       CORRIGÉ : ::after ne se rend jamais sur un élément remplacé comme
+       <img> (limitation CSS standard, l'infobulle ne s'affichait donc
+       jamais) — le pseudo-élément est maintenant porté par le <span>
+       wrapper .deckFactionIcon autour de chaque image. */
+    .deckFactionIcon{ position:relative; display:inline-block; line-height:0; }
+    .deckFactionIcon::after{
       content:attr(data-faction);
       position:absolute; left:calc(100% + 10px); top:50%; transform:translateY(-50%) scale(.82);
       transform-origin:left center;
       white-space:nowrap; padding:5px 12px; border-radius:8px;
       background:rgba(4,10,13,.92); border:1px solid currentColor;
       opacity:0; pointer-events:none; transition:opacity .16s ease, transform .16s ease;
-      z-index:60;
+      z-index:60; line-height:normal;
     }
-    .deckFactions img:hover::after{ opacity:1; transform:translateY(-50%) scale(1); }
-    .deckFactions img[data-faction="Krylls"]::after{
+    .deckFactionIcon:hover::after{ opacity:1; transform:translateY(-50%) scale(1); }
+    .deckFactionIcon[data-faction="Krylls"]::after{
       font-family:'Trade Winds',cursive; font-size:15px; color:var(--fac-krylls);
       border-color:var(--fac-krylls); text-shadow:0 0 8px var(--fac-krylls-glow); box-shadow:0 0 14px var(--fac-krylls-glow);
     }
-    .deckFactions img[data-faction="Impy"]::after{
+    .deckFactionIcon[data-faction="Impy"]::after{
       font-family:'Pirata One',serif; font-size:16px; letter-spacing:.03em; color:var(--fac-impy);
       border-color:var(--fac-impy); text-shadow:0 0 8px var(--fac-impy-glow); box-shadow:0 0 14px var(--fac-impy-glow);
     }
-    .deckFactions img[data-faction="Savage"]::after{
+    .deckFactionIcon[data-faction="Savage"]::after{
       font-family:'Bangers',cursive; font-size:16px; letter-spacing:.05em; color:var(--fac-savage);
       border-color:var(--fac-savage); text-shadow:0 0 8px var(--fac-savage-glow); box-shadow:0 0 14px var(--fac-savage-glow);
     }
-    .deckFactions img[data-faction="Chimeria"]::after{
+    .deckFactionIcon[data-faction="Chimeria"]::after{
       font-family:'Cinzel Decorative',serif; font-weight:700; font-size:14px; letter-spacing:.05em; color:var(--fac-chimeria);
       border-color:var(--fac-chimeria); text-shadow:0 0 8px var(--fac-chimeria-glow); box-shadow:0 0 14px var(--fac-chimeria-glow);
     }
-    .deckFactions img[data-faction="Wadoo"]::after{
+    .deckFactionIcon[data-faction="Wadoo"]::after{
       font-family:'Butcherman',cursive; font-size:16px; color:var(--fac-wadoo);
       border-color:var(--fac-wadoo); text-shadow:0 0 8px var(--fac-wadoo-glow); box-shadow:0 0 14px var(--fac-wadoo-glow);
     }
@@ -1025,6 +1029,15 @@
     .card.ozokshiEligibleHint{
       outline:3px solid #ffd93d !important; outline-offset:-4px;
       box-shadow:0 0 20px rgba(255,217,61,.75) !important;
+      animation:poisonTargetPulse 1.1s ease-in-out infinite;
+      cursor:pointer;
+    }
+
+    /* CHIMERIA : Boy's band (C192) — surbrillance violette pulsante sur les
+       cartes de la main éligibles à la duplication. */
+    .card.boysBandEligibleHint{
+      outline:3px solid #b06bff !important; outline-offset:-4px;
+      box-shadow:0 0 20px rgba(176,107,255,.75) !important;
       animation:poisonTargetPulse 1.1s ease-in-out infinite;
       cursor:pointer;
     }
@@ -5771,6 +5784,10 @@ let arakcubeTargetMode = null;
 // son nom d'affichage (voir applyMezamorphCopy/startMezamorphArakcrabeTargeting).
 let mezamorphArakcrabeTargetMode = null;
 let ozokshiArtifactMode = null;
+// CHIMERIA : Boy's band (C192) — même principe que ozokshiArtifactMode :
+// une fois activée, les cartes éligibles de la main (tout sauf elle-même)
+// s'illuminent et sont cliquables directement pour choisir la cible.
+let boysBandTargetMode = null;
 let kryoTargetMode = null;
 let zyzyHostTargetMode = null;
 let c42TargetMode = null;
@@ -7797,7 +7814,10 @@ function playActionExploseRock(owner, actionCard) {
 /* ---- Boy's band (C192) : duplique une carte de la main, +2 Mithril si 3 exemplaires ----
    Exclusion TOTALE de "Boy's band" elle-même : aucun exemplaire de cette
    carte (peu importe lequel) ne peut être choisi comme cible, pas seulement
-   l'exemplaire précis en train d'être joué. */
+   l'exemplaire précis en train d'être joué.
+   CORRIGÉ : au lieu d'une liste de boutons texte, on illumine directement
+   toutes les cartes éligibles dans la main (même principe que Ozokshi/C34)
+   — le joueur clique la carte elle-même pour la choisir. */
 function openC192Prompt(owner, card, anchorEl) {
   if (!canPlayThisCardNow(owner, card)) return;
   const hand = getHandByOwner(owner).filter(c => c.label !== 'C192');
@@ -7805,13 +7825,40 @@ function openC192Prompt(owner, card, anchorEl) {
     pushHistory('info', `${cardAnchor('C192')} : aucune autre carte à dupliquer dans votre main.`);
     return;
   }
-  const buttons = hand.map(c => ({
-    label: cardAnchor(c.label),
-    className: 'confirm',
-    onClick: () => playActionBoysBand(owner, card, c.label)
-  }));
-  buttons.push({ label: 'Annuler', className: 'cancel', onClick: () => {} });
-  openButtonsPrompt("Boy's band", 'Choisissez la carte à dupliquer dans votre main.', anchorEl, buttons);
+  boysBandTargetMode = { owner, cardId: card.id };
+  closeActionPrompt();
+
+  const promptEl = document.createElement('div');
+  promptEl.id = 'boysband-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Boy's band</div>
+    <div class="apMsg">Cliquez sur la carte illuminée de votre main à dupliquer.</div>
+    <div class="apRow"><button id="boysband-cancel" class="apBtn cancel">Annuler</button></div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+  promptEl.querySelector('#boysband-cancel').addEventListener('click', () => {
+    boysBandTargetMode = null;
+    closeActionPrompt();
+    fullRender();
+  });
+  fullRender();
+}
+
+function handleBoysBandHandCardClick(targetCard, owner) {
+  if (!boysBandTargetMode || boysBandTargetMode.owner !== owner || targetCard.label === 'C192') return;
+  const hand = getHandByOwner(owner);
+  const actionCard = hand.find(c => c.id === boysBandTargetMode.cardId);
+  boysBandTargetMode = null;
+  closeActionPrompt();
+  if (!actionCard) { fullRender(); return; }
+  playActionBoysBand(owner, actionCard, targetCard.label);
 }
 function playActionBoysBand(owner, actionCard, targetLabel) {
   if (!canPlayThisCardNow(owner, actionCard)) return;
@@ -8191,7 +8238,7 @@ function memoryReplayAnyBlockingUiOpen(){
     c9SelectMode || pilateSelectMode || c18SelectMode || artaycSelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
-    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
+    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || boysBandTargetMode || kryoTargetMode || zyzyHostTargetMode ||
     c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
     varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
     couveuseStealTargetMode || roiDRoiTargetMode || orionMoveMode || lanceloTargetMode ||
@@ -13568,7 +13615,7 @@ function isAnyTargetSelectionActive(){
     c9SelectMode || pilateSelectMode || c18SelectMode || artaycSelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
-    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || kryoTargetMode || zyzyHostTargetMode ||
+    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || boysBandTargetMode || kryoTargetMode || zyzyHostTargetMode ||
     c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
     varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
     couveuseStealTargetMode || roiDRoiTargetMode || orionMoveMode || lanceloTargetMode ||
@@ -15404,6 +15451,12 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
           el.classList.add('ozokshiEligibleHint');
         }
 
+        // CHIMERIA : Boy's band (C192) — cartes de la main éligibles à la
+        // duplication (tout sauf elle-même) illuminées et cliquables.
+        if (boysBandTargetMode && boysBandTargetMode.owner === owner && card.label !== 'C192' && !isFaceDown) {
+          el.classList.add('boysBandEligibleHint');
+        }
+
         if (isFaceDown) {
             el.classList.add('back');
         } else {
@@ -15447,6 +15500,18 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
                 if (card.label === 'C2') broadcastAndPlaySfx('zykmu');
             });
             el.addEventListener('dragend', () => { currentDragInfo = null; clearEligibleZones(); });
+
+            // CHIMERIA : Boy's band (C192) — enregistré EN PREMIER (avant tous
+            // les gestionnaires de clic par carte ci-dessous) et stoppe la
+            // propagation : sinon, cliquer une carte Action éligible (qui a
+            // elle-même son propre clic pour se jouer normalement) aurait
+            // déclenché les DEUX à la fois.
+            if (boysBandTargetMode && boysBandTargetMode.owner === owner && card.label !== 'C192') {
+              el.addEventListener('click', (e) => {
+                e.stopImmediatePropagation();
+                handleBoysBandHandCardClick(card, owner);
+              });
+            }
         } else {
             el.draggable = false;
             el.style.cursor = 'default';
@@ -15517,6 +15582,8 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (ozokshiArtifactMode && ozokshiArtifactMode.owner === owner && getType(card.label) === 'artefact') {
               el.addEventListener('click', () => handleOzokshiHandCardClick(card, owner));
             }
+            // (Le clic Boy's band est déjà géré plus haut, EN PREMIER, avec
+            // stopImmediatePropagation — voir juste après le dragstart/dragend.)
         }
 
         rowEl.appendChild(el);
@@ -18812,14 +18879,20 @@ function renderDeckFactionBadges(){
     if (present.length === 0) { container.innerHTML = ''; return; }
     container.innerHTML = '';
     present.forEach((fac, i) => {
+      // CORRIGÉ : ::after ne se rend JAMAIS sur un élément remplacé comme
+      // <img> (limitation CSS standard) — l'infobulle ne s'affichait donc
+      // jamais, quoi qu'on écrive dans la feuille de style. On enveloppe
+      // l'image dans un <span> normal et c'est LUI qui porte data-faction
+      // et le pseudo-élément ::after.
+      const wrap = document.createElement('span');
+      wrap.className = 'deckFactionIcon';
+      wrap.dataset.faction = fac;
       const img = document.createElement('img');
       img.src = FACTION_LOGOS[fac] || `/assets/logo-${fac.toLowerCase()}.png`;
       img.alt = fac;
-      // Pas d'attribut title natif (non stylable) : le nom s'affiche via une
-      // infobulle CSS thématique sur data-faction, voir .deckFactions img::after.
-      img.dataset.faction = fac;
       img.style.animationDelay = `${i * 0.08}s`;
-      container.appendChild(img);
+      wrap.appendChild(img);
+      container.appendChild(wrap);
     });
   });
   updateDeckFactionHighlight();
@@ -18832,8 +18905,11 @@ function updateDeckFactionHighlight(){
     const container = document.getElementById(seat === 'top' ? 'deckFactionsTop' : 'deckFactionsBottom');
     if (!container) return;
     const fac = activeFaction[seat];
-    container.querySelectorAll('img').forEach(img => {
-      img.classList.toggle('active', !!fac && img.dataset.faction === fac);
+    // CORRIGÉ : data-faction est désormais porté par le <span> wrapper
+    // (.deckFactionIcon), pas par l'<img> lui-même — voir renderDeckFactionBadges.
+    container.querySelectorAll('.deckFactionIcon').forEach(wrap => {
+      const img = wrap.querySelector('img');
+      if (img) img.classList.toggle('active', !!fac && wrap.dataset.faction === fac);
     });
   });
 }
@@ -20629,7 +20705,7 @@ function aiForceCancelAllTargetModes(){
     pilateSelectMode = null; c18SelectMode = null; artaycSelectMode = null; remoteChoiceMode = null;
     kabbaTargetMode = null; krouzpierTargetMode = null; vakxzinTargetMode = null;
     c33CombatantMode = null; c33ArtifactMode = null; tokzikTargetMode = null;
-    longVoyageFamiliarMode = null; arakcubeTargetMode = null; mezamorphArakcrabeTargetMode = null; ozokshiArtifactMode = null;
+    longVoyageFamiliarMode = null; arakcubeTargetMode = null; mezamorphArakcrabeTargetMode = null; ozokshiArtifactMode = null; boysBandTargetMode = null;
     kryoTargetMode = null; zyzyHostTargetMode = null; c42TargetMode = null;
     kamykazTargetMode = null; c69TargetMode = null; vilunionTargetMode = null;
     varyceTargetMode = null; copieDesEnfersTargetMode = null; exdoteTargetMode = null;
