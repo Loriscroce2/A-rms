@@ -55,6 +55,7 @@ function armsInjectAccountStyles() {
   style.id = 'armsAccountStyles';
   style.textContent = `
     .coinsPill{display:inline-flex;align-items:center;gap:6px;}
+    .coinIcon{height:1.1em;width:auto;vertical-align:-0.15em;filter:drop-shadow(0 0 4px rgba(255,217,61,.5));}
     .rankPill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;font-weight:900;font-family:'Manrope',sans-serif;letter-spacing:.02em;white-space:nowrap;}
     .accountGroup{display:inline-flex;align-items:center;gap:6px;}
     .accountBtn{display:inline-flex;align-items:center;gap:10px;padding:5px 14px 5px 5px;border-radius:999px;
@@ -124,7 +125,7 @@ function armsBuildAccountModal(user) {
           <div class="profileAvatarBig" id="profileAvatarBig"></div>
           <div class="profileName">${user.name}</div>
           <div class="profileEmail">${user.email}</div>
-          <div class="profileCoins">🪙 ${user.coins ?? 0} pièces</div>
+          <div class="profileCoins"><img class="coinIcon" src="/assets/monnaie.png" alt="Pièces"> ${user.coins ?? 0} pièces</div>
           ${user.rank ? `<div style="margin-top:8px;">${armsRankBadgeHtml(user.rank, { large:true })}</div>` : ''}
         </div>
 
@@ -263,7 +264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // --- L'UTILISATEUR EST CONNECTÉ ---
       const user = data.user;
       navMenu.innerHTML = `
-        <span class="coinsPill" id="coinsPill" title="Vos pièces">🪙 <strong id="coinsAmount">${user.coins ?? 0}</strong></span>
+        <span class="coinsPill" id="coinsPill" title="Vos pièces"><img class="coinIcon" src="/assets/monnaie.png" alt="Pièces"> <strong id="coinsAmount">${user.coins ?? 0}</strong></span>
         <div class="accountGroup">
           ${user.rank ? `<a href="/classement.html" id="navRankPill" style="text-decoration:none;" title="Votre rang de Menace — cliquez pour voir le classement">${armsRankBadgeHtml(user.rank, { small:true })}</a>` : ''}
           <button class="accountBtn" id="accountMenuBtn">

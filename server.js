@@ -319,6 +319,12 @@ const qInsertTopup = db.prepare('INSERT INTO wallet_topups (user_id, amount_cent
 const qTopupByOrderId = db.prepare('SELECT * FROM wallet_topups WHERE paypal_order_id = ?');
 const qCompleteTopup = db.prepare("UPDATE wallet_topups SET status = 'completed', completed_at = datetime('now') WHERE id = ?");
 
+// BOUTIQUE : achat de lots de pièces contre argent réel (voir COIN_PACKS
+// et les routes /api/shop/coins/* plus bas).
+const qInsertCoinPurchase = db.prepare('INSERT INTO coin_purchases (user_id, pack_id, coins, amount_cents, paypal_order_id, status) VALUES (?, ?, ?, ?, ?, ?)');
+const qCoinPurchaseByOrderId = db.prepare('SELECT * FROM coin_purchases WHERE paypal_order_id = ?');
+const qCompleteCoinPurchase = db.prepare("UPDATE coin_purchases SET status = 'completed', completed_at = datetime('now') WHERE id = ?");
+
 const qInsertWithdrawal = db.prepare('INSERT INTO withdrawal_requests (user_id, amount_cents, paypal_email) VALUES (?, ?, ?)');
 const qMyWithdrawals = db.prepare('SELECT * FROM withdrawal_requests WHERE user_id = ? ORDER BY requested_at DESC');
 const qWithdrawalById = db.prepare('SELECT * FROM withdrawal_requests WHERE id = ?');
@@ -1159,6 +1165,24 @@ const PAYPAL_API_BASE = (process.env.PAYPAL_MODE === 'live')
   : 'https://api-m.sandbox.paypal.com';
 function isPaypalConfigured() { return !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET); }
 
+// ===================================================================
+// BOUTIQUE — 5 lots de pièces à acheter contre argent réel (PayPal).
+// Calibrés sur les prix déjà en place dans le jeu : un Booster coûte 350
+// pièces, une carte garantie de la boutique horaire coûte 200 à 500
+// pièces. Le plus petit lot (300 pièces) vaut donc à peu près un Booster
+// pour 1,99€ ; le taux (pièces par euro) s'améliore ensuite à chaque palier
+// pour récompenser les gros achats (pratique standard des boutiques de
+// jeux), jusqu'à +55% de pièces au meilleur tarif sur le plus gros lot.
+// ===================================================================
+const COIN_PACKS = [
+  { id: 'petit',   coins: 300,  amountCents: 199,  label: 'Petit sachet',  bonusPct: 0  },
+  { id: 'sachet',  coins: 700,  amountCents: 399,  label: 'Sachet',        bonusPct: 15 },
+  { id: 'bourse',  coins: 1500, amountCents: 799,  label: 'Bourse',        bonusPct: 25 },
+  { id: 'coffre',  coins: 3200, amountCents: 1499, label: 'Coffre',        bonusPct: 40 },
+  { id: 'tresor',  coins: 7000, amountCents: 2999, label: 'Trésor',        bonusPct: 55 },
+];
+function getCoinPack(id) { return COIN_PACKS.find(p => p.id === id) || null; }
+
 async function paypalGetAccessToken() {
   const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
   const res = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
@@ -1490,6 +1514,67 @@ app.post('/api/astrocomptoir/topup/capture', authMiddleware, async (req, res) =>
     qAddRealBalance.run(topup.amount_cents, req.user.id);
     const wallet = qGetWallet.get(req.user.id);
     res.json({ ok: true, balanceCents: wallet.real_balance_cents });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'paypal_error' });
+  }
+});
+
+// ===================================================================
+// BOUTIQUE — achat de lots de pièces contre argent réel (PayPal Checkout,
+// même mécanique que la recharge du portefeuille Astrocomptoir ci-dessus :
+// create-order ouvre une commande PayPal pour le prix exact du lot,
+// capture la valide et crédite les pièces UNE SEULE FOIS — jamais deux
+// fois pour la même commande PayPal, voir le statut 'completed').
+// ===================================================================
+app.get('/api/shop/coin-packs', authMiddleware, (req, res) => {
+  res.json({
+    ok: true,
+    paypalConfigured: isPaypalConfigured(),
+    packs: COIN_PACKS.map(p => ({ id: p.id, coins: p.coins, amountCents: p.amountCents, label: p.label, bonusPct: p.bonusPct })),
+  });
+});
+
+app.post('/api/shop/coins/create-order', authMiddleware, async (req, res) => {
+  try {
+    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
+    const pack = getCoinPack(String(req.body?.packId || ''));
+    if (!pack) return res.status(400).json({ ok: false, error: 'invalid_pack' });
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const order = await paypalCreateOrder(
+      pack.amountCents / 100,
+      `${origin}/boutique.html?coins=return`,
+      `${origin}/boutique.html?coins=cancel`
+    );
+    qInsertCoinPurchase.run(req.user.id, pack.id, pack.coins, pack.amountCents, order.id, 'pending');
+    const approveLink = (order.links || []).find(l => l.rel === 'approve');
+    res.json({ ok: true, orderId: order.id, approveUrl: approveLink ? approveLink.href : null });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'paypal_error' });
+  }
+});
+
+app.post('/api/shop/coins/capture', authMiddleware, async (req, res) => {
+  try {
+    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
+    const orderId = String(req.body?.orderId || '');
+    const purchase = qCoinPurchaseByOrderId.get(orderId);
+    if (!purchase || purchase.user_id !== req.user.id) {
+      return res.status(404).json({ ok: false, error: 'purchase_not_found' });
+    }
+    if (purchase.status === 'completed') {
+      const coins = coinsForResponse(req);
+      return res.json({ ok: true, coins, coinsGained: purchase.coins, alreadyCompleted: true });
+    }
+    const capture = await paypalCaptureOrder(orderId);
+    if (capture.status !== 'COMPLETED') {
+      return res.status(402).json({ ok: false, error: 'capture_not_completed' });
+    }
+    qCompleteCoinPurchase.run(purchase.id);
+    qAddCoins.run(purchase.coins, req.user.id);
+    const coins = coinsForResponse(req);
+    res.json({ ok: true, coins, coinsGained: purchase.coins });
   } catch (e) {
     console.error(e);
     res.status(502).json({ ok: false, error: 'paypal_error' });

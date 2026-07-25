@@ -155,6 +155,28 @@ db.exec(`
     admin_note TEXT,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
   );
+
+  -- ===================================================================
+  -- BOUTIQUE — achat de LOTS DE PIÈCES (coins, monnaie de jeu) contre de
+  -- l'argent réel via PayPal. Totalement distinct de l'Astrocomptoir
+  -- (real_balance_cents) : ici l'argent réel est définitivement encaissé
+  -- par l'éditeur du jeu en échange d'une quantité fixe de coins créditée
+  -- sur le compte (pas de portefeuille revendable, pas de retrait). Même
+  -- schéma "pending → completed" que wallet_topups, pour la même raison
+  -- (ne jamais créditer deux fois le même paiement PayPal).
+  -- ===================================================================
+  CREATE TABLE IF NOT EXISTS coin_purchases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    pack_id TEXT NOT NULL,
+    coins INTEGER NOT NULL,
+    amount_cents INTEGER NOT NULL,
+    paypal_order_id TEXT,
+    status TEXT NOT NULL DEFAULT 'pending', -- pending | completed | failed
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  );
 `);
 
 // Migration douce : si la base existait déjà avant l'ajout de "coins" (anciennes

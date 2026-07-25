@@ -38,6 +38,26 @@
     .section{padding:22px 0}
     .section h2{font-family:'Cinzel',sans-serif;font-size:20px;color:#aefaff;text-shadow:0 0 12px rgba(0,230,255,.25);display:flex;align-items:center;gap:10px;margin-bottom:14px}
 
+    .coinIcon{height:1.1em;width:auto;vertical-align:-0.15em;filter:drop-shadow(0 0 4px rgba(255,217,61,.5))}
+    .heroCoinsDisplay .coinIcon{height:24px}
+
+    .coinPacksIntro{color:var(--muted);opacity:.9;margin:0 0 14px;font-size:14px}
+    .coinPacksNote{color:var(--warn);font-size:13px;margin-top:10px}
+    .coinPackGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:20px}
+    .coinPackCard{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#08222b,#0a2d38);box-shadow:var(--shadow), inset 0 0 14px rgba(125,249,255,.06);
+      padding:20px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;overflow:hidden;transition:transform .18s ease, box-shadow .18s ease;}
+    .coinPackCard:hover{transform:translateY(-6px)}
+    .coinPackCard.best{border-color:rgba(255,217,61,.6);box-shadow:var(--shadow), 0 0 22px rgba(255,217,61,.25), inset 0 0 14px rgba(255,217,61,.08);}
+    .coinPackRibbon{position:absolute;top:14px;right:-34px;transform:rotate(40deg);background:linear-gradient(180deg,#ffe98a,#e0a800);color:#2a1c00;
+      font-family:'Cinzel',sans-serif;font-weight:800;font-size:10px;letter-spacing:.06em;padding:4px 40px;box-shadow:0 4px 10px rgba(0,0,0,.35);}
+    .coinPackIcon{height:64px;width:auto;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5)) drop-shadow(0 0 10px rgba(255,217,61,.35));}
+    .coinPackCoins{font-weight:900;font-size:20px;color:var(--gold);display:flex;align-items:center;gap:6px}
+    .coinPackBonus{font-size:12px;font-weight:800;color:#9dffbb;background:rgba(25,226,122,.12);border:1px solid rgba(25,226,122,.4);border-radius:999px;padding:2px 10px;}
+    .coinPackLabel{font-family:'Cinzel',sans-serif;font-size:15px;color:#dff;margin-top:2px}
+    .coinPackPrice{font-weight:900;font-size:17px;color:#fff;margin-top:4px}
+    .coinPackBtn{width:100%;margin-top:8px;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:10px;padding:9px 10px;font-weight:900;cursor:pointer}
+    .coinPackBtn:disabled{opacity:.4;cursor:not-allowed}
+
     .shopGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:20px}
     .shopSlot{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#08222b,#0a2d38);box-shadow:var(--shadow), inset 0 0 14px rgba(125,249,255,.06);
       padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;transition:transform .18s ease, box-shadow .18s ease;}
@@ -126,8 +146,15 @@
     <div class="hero">
       <h1>🏪 Boutique</h1>
       <p>De nouvelles cartes arrivent chaque heure. Dépensez vos pièces, gagnées en jouant.</p>
-      <div class="heroCoinsDisplay">🪙 <span class="js-coins-amount">0</span> pièces</div>
+      <div class="heroCoinsDisplay"><img class="coinIcon" src="/assets/monnaie.png" alt="Pièces"> <span class="js-coins-amount">0</span> pièces</div>
       <div class="countdown">⏳ Prochain arrivage dans <strong id="countdownText">--:--</strong></div>
+    </div>
+
+    <div class="section">
+      <h2><img class="coinIcon" src="/assets/monnaie.png" alt="Pièces"> Acheter des pièces</h2>
+      <p class="coinPacksIntro">Rechargez votre solde de pièces contre de l'argent réel, via PayPal.</p>
+      <div class="coinPackGrid" id="coinPackGrid"></div>
+      <p class="coinPacksNote" id="coinPacksNote" style="display:none;">Les paiements réels ne sont pas encore activés par l'administrateur.</p>
     </div>
 
     <div class="section">
@@ -147,14 +174,14 @@
         <div class="boosterInfo">
           <h3>Booster Saison 1 — 7 cartes aléatoires</h3>
           <p>Contient 7 cartes tirées au hasard dans tout le jeu, toutes factions confondues. Chance rare d'en recevoir 8 !</p>
-          <button class="btn" id="buyBoosterBtn">Acheter — 350 🪙</button>
+          <button class="btn" id="buyBoosterBtn">Acheter — 350 <img class="coinIcon" src="/assets/monnaie.png" alt="pièces"></button>
         </div>
       </div>
       <div class="revealGrid" id="boosterReveal"></div>
     </div>
 
     <div class="section">
-      <h2>💰 Revendre vos cartes en surplus <span style="font-size:12px;font-weight:400;opacity:.7;">— 20 🪙/unité</span></h2>
+      <h2>💰 Revendre vos cartes en surplus <span style="font-size:12px;font-weight:400;opacity:.7;display:inline-flex;align-items:center;gap:3px;">— 20 <img class="coinIcon" src="/assets/monnaie.png" alt="pièces">/unité</span></h2>
       <div class="surplusGrid" id="surplusGrid"></div>
     </div>
   </main>
@@ -225,6 +252,88 @@
       countdownTimer = setInterval(tick, 1000);
     }
 
+    // ===================================================================
+    // Achat de lots de pièces contre argent réel (PayPal Checkout) — même
+    // flux que la recharge Astrocomptoir : create-order ouvre une commande
+    // PayPal pour le prix exact du lot et redirige vers PayPal ; au retour
+    // (?coins=return&token=ORDER_ID), on capture pour créditer les pièces.
+    // ===================================================================
+    let COIN_PACKS_CACHE = [];
+    async function loadCoinPacks(){
+      try{
+        const res = await fetch('/api/shop/coin-packs');
+        const data = await res.json();
+        if (!data.ok) return;
+        COIN_PACKS_CACHE = data.packs;
+        renderCoinPacks(data.packs, data.paypalConfigured);
+      }catch(e){ console.error(e); }
+    }
+
+    function renderCoinPacks(packs, paypalConfigured){
+      const grid = document.getElementById('coinPackGrid');
+      const note = document.getElementById('coinPacksNote');
+      note.style.display = paypalConfigured ? 'none' : 'block';
+      grid.innerHTML = '';
+      const bestId = packs.reduce((best, p) => (!best || p.bonusPct > best.bonusPct) ? p : best, null)?.id;
+      packs.forEach(pack => {
+        const el = document.createElement('div');
+        el.className = 'coinPackCard' + (pack.id === bestId ? ' best' : '');
+        el.innerHTML = `
+          ${pack.id === bestId ? `<div class="coinPackRibbon">Meilleure offre</div>` : ''}
+          <img class="coinPackIcon" src="/assets/monnaie.png" alt="Pièces">
+          <div class="coinPackCoins"><img class="coinIcon" src="/assets/monnaie.png" alt="pièces"> ${pack.coins.toLocaleString('fr-FR')}</div>
+          ${pack.bonusPct > 0 ? `<div class="coinPackBonus">+${pack.bonusPct}% de valeur</div>` : ''}
+          <div class="coinPackLabel">${pack.label}</div>
+          <div class="coinPackPrice">${(pack.amountCents/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</div>
+          <button class="coinPackBtn" ${paypalConfigured ? '' : 'disabled'}>Acheter</button>
+        `;
+        el.querySelector('.coinPackBtn').addEventListener('click', () => buyCoinPack(pack.id, el.querySelector('.coinPackBtn')));
+        grid.appendChild(el);
+      });
+    }
+
+    async function buyCoinPack(packId, btn){
+      if (btn) btn.disabled = true;
+      try{
+        const res = await fetch('/api/shop/coins/create-order', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ packId })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'paypal_not_configured'
+            ? "Les paiements PayPal réels ne sont pas encore activés par l'administrateur."
+            : 'Erreur PayPal.');
+          if (btn) btn.disabled = false;
+          return;
+        }
+        if (data.approveUrl) window.location.href = data.approveUrl;
+      }catch(e){ showToast('Erreur réseau.'); if (btn) btn.disabled = false; }
+    }
+
+    // Retour PayPal après un achat de pièces (Orders v2 renvoie ?token=ORDER_ID)
+    (async function handleCoinsPaypalReturn(){
+      const params = new URLSearchParams(window.location.search);
+      const orderId = params.get('token');
+      if (params.get('coins') === 'return' && orderId) {
+        try{
+          const res = await fetch('/api/shop/coins/capture', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orderId })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            updateCoinsPill(data.coins);
+            showToast(data.alreadyCompleted ? 'Achat déjà traité.' : `+${data.coinsGained} pièces créditées !`);
+          } else {
+            showToast("L'achat de pièces a échoué.");
+          }
+        }catch(e){}
+        window.history.replaceState({}, '', '/boutique.html');
+      } else if (params.get('coins') === 'cancel') {
+        showToast('Achat annulé.');
+        window.history.replaceState({}, '', '/boutique.html');
+      }
+    })();
+
     async function loadShop(){
       try{
         await statsReady;
@@ -248,7 +357,7 @@
         el.dataset.faction = fac;
         el.innerHTML = `
           <div class="cardImg" style="background-image:url('/cartes/${slot.code}.png')"></div>
-          <div class="price">🪙 ${slot.price}</div>
+          <div class="price"><img class="coinIcon" src="/assets/monnaie.png" alt="pièces"> ${slot.price}</div>
           ${slot.sold ? `<div class="soldLabel">Vendu</div>` : `<button class="buyBtn" ${coins < slot.price ? 'disabled' : ''}>Acheter</button>`}
         `;
         if (!slot.sold) {
@@ -333,7 +442,7 @@
           el.innerHTML = `
             <div class="cardImg" style="background-image:url('/cartes/${c.code}.png')"></div>
             <div class="count">${surplus} en trop</div>
-            <button class="sellBtn">Vendre ${surplus} — ${surplus * 20} 🪙</button>
+            <button class="sellBtn">Vendre ${surplus} — ${surplus * 20} <img class="coinIcon" src="/assets/monnaie.png" alt="pièces"></button>
           `;
           el.querySelector('.sellBtn').addEventListener('click', () => sellSurplus(c.code, surplus));
           applyStatBadges(el.querySelector('.cardImg'), c.code);
@@ -351,12 +460,13 @@
         const data = await res.json();
         if (!data.ok) { showToast('Erreur lors de la vente.'); return; }
         updateCoinsPill(data.coins);
-        showToast(`+${data.gained} 🪙`);
+        showToast(`+${data.gained} pièces`);
         loadSurplus();
       }catch(e){ showToast('Erreur de connexion.'); }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      loadCoinPacks();
       loadShop();
       loadSurplus();
     });
