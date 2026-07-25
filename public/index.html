@@ -599,10 +599,12 @@
        deviner le plateau derrière, y compris la zone de combat. */
     .myHandPanel{
       position:fixed; z-index:1700;
-      /* Ancrée en bas AU CENTRE de l'écran par défaut : accessible d'un
-         coup d'œil sans jamais s'imposer au milieu du plateau. Reste
-         déplaçable à tout moment via son en-tête (voir setupHandGrips). */
-      left:50%; bottom:6px; top:auto; transform:translateX(-50%);
+      /* CORRIGÉ (position de départ redemandée) : ancrée en bas À GAUCHE,
+         juste à côté de la colonne Deck/Mithril du joueur du bas (au lieu du
+         centrage précédent) — accessible d'un coup d'œil sans s'imposer au
+         milieu du plateau. Reste déplaçable à tout moment via son en-tête
+         (voir setupHandGrips). */
+      left:calc(var(--sidebarW) + 24px); bottom:6px; top:auto; transform:none;
       width:min(90vw, 420px);
       display:flex; flex-direction:column;
       background:linear-gradient(180deg, rgba(9,22,28,.20), rgba(4,10,14,.24));
@@ -689,6 +691,14 @@
       color:#111; font-weight:800; display:flex; align-items:center; justify-content:center;
       position:absolute; left:50%; bottom:0; transform-origin:bottom center; box-shadow:0 0 12px #00e6ffcc, 0 6px 14px rgba(0,0,0,.45); cursor:grab; transition:transform .15s ease, box-shadow .2s ease;
       pointer-events:auto; user-select:none; background-size:cover; background-position:center; overflow:visible;
+      /* CORRIGÉ : z-index:0 explicite pour que CHAQUE carte devienne son
+         propre contexte d'empilement local. Sans ça, un z-index interne
+         (badge, halo Poison, voile de Gel...) posé sur un enfant/pseudo-
+         élément de la carte pouvait "s'échapper" et s'afficher par-dessus
+         TOUTES les autres cartes de la main/zone de combat, au lieu de
+         rester confiné à sa propre carte (bug constaté sur le halo pulsant
+         du Poison, qui recouvrait les cartes voisines de la main). */
+      z-index:0;
     }
     .card:hover{ transform:scale(1.15) translateY(-8px); z-index:50; box-shadow:0 0 20px #00e6ffdd, 0 14px 22px rgba(0,0,0,.5); }
     /* Rotation de l'éventail de la main via variable CSS (au lieu d'un transform
@@ -2120,7 +2130,16 @@
        attachPoisonEffect) : posé/retiré à chaque rendu selon hasTag(card,
        'poison'), sans toucher à la logique de jeu du Poison elle-même.
        =================================================================== */
-    .poisonFx{ position:absolute; inset:0; border-radius:12px; overflow:visible; z-index:9; pointer-events:none; }
+    /* CORRIGÉ : un z-index explicite ici échappait au contexte d'empilement
+       de SA PROPRE carte, car .card/.placed n'ont pas de z-index propre en
+       dehors de la surcharge JS (applyOverlapLayout, seulement au-delà du
+       seuil de chevauchement) — résultat, le halo pulsant du Poison
+       s'affichait par-dessus TOUTES les autres cartes de la main/zone de
+       combat (peu importe leur position), au lieu de rester confiné à sa
+       propre carte. Sans z-index (auto), .poisonFx reste dans l'ordre DOM
+       normal de sa carte (ajouté en DERNIER, donc déjà au-dessus de l'image
+       de la carte elle-même) sans jamais dépasser les cartes voisines. */
+    .poisonFx{ position:absolute; inset:0; border-radius:12px; overflow:visible; pointer-events:none; }
     .poisonFx .poisonGlow{
       position:absolute; inset:0; border-radius:12px;
       border:2px solid rgba(90,255,140,.8);
@@ -2676,14 +2695,15 @@
 }
 .card.placed.is-frozen .gelLayer1{
   background-image: url('/assets/gel1.png');
-  opacity: .55;
+  opacity: .85;
 }
 .card.placed.is-frozen .gelLayer2{
-  /* Le "coeur" de gel : recentré et plus petit, et surtout plus transparent
-     que gelLayer1 comme demandé. */
+  /* Le "coeur" de gel : recentré et plus petit, et toujours plus
+     transparent que gelLayer1 comme demandé — mais moins effacé
+     qu'auparavant pour rester bien visible. */
   background-image: url('/assets/gel2.png');
   background-size: 65%;
-  opacity: .3;
+  opacity: .55;
 }
 
 /* Empêche les effets de survol (zoom, etc.) sur une carte gelée */
@@ -3510,6 +3530,7 @@ const DISCARD_SFX_URL = new URL('/assets/Discard.mp3', location.href).href;
 const MOZKYTO_SFX_URL = new URL('/assets/Mozkyto.mp3', location.href).href;
 const SABRE_SFX_URL = new URL('/assets/sabre.mp3', location.href).href;
 const ZYKMU_SFX_URL = new URL('/assets/zykmu.mp3', location.href).href;
+const SHMILBLIX_SFX_URL = new URL('/assets/shmilblix.mp3', location.href).href;
 const FLIPCARD_SFX_URL = new URL('/assets/flipcard.mp3', location.href).href;
 const CHARGEMENT_MUSIC_URL = new URL('/assets/chargement.mp3', location.href).href;
 const CHOOSEFACTION_SFX_URL = new URL('/assets/choosefaction.mp3', location.href).href;
@@ -3525,6 +3546,7 @@ let discardSfx = null;
 let mozkytoSfx = null;
 let sabreSfx = null;
 let zykmuSfx = null;
+let shmilblixSfx = null;
 let flipcardSfx = null;
 let chargementMusic = null;
 let chooseFactionSfx = null;
@@ -3582,6 +3604,12 @@ function initGameAudio(){
   zykmuSfx = new Audio();
   zykmuSfx.src = ZYKMU_SFX_URL;
   zykmuSfx.preload = 'auto';
+
+  // IMPY : Shmilblix (C84) — se joue au moment où le nuage de fumée
+  // recouvre les combattants transformés (voir animateShmilblixSmoke).
+  shmilblixSfx = new Audio();
+  shmilblixSfx.src = SHMILBLIX_SFX_URL;
+  shmilblixSfx.preload = 'auto';
 
   flipcardSfx = new Audio();
   flipcardSfx.src = FLIPCARD_SFX_URL;
@@ -3819,6 +3847,23 @@ async function playZykmuSfx(){
   }
 }
 
+/* IMPY : Shmilblix (C84) — se joue quand le nuage de fumée recouvre les
+   combattants transformés (voir animateShmilblixSmoke). */
+async function playShmilblixSfx(){
+  initGameAudio();
+  if (!shmilblixSfx) return;
+  try{
+    shmilblixSfx.currentTime = 0;
+    await shmilblixSfx.play();
+  }catch(err){
+    const retry = async () => {
+      ['pointerdown','click','keydown','touchstart'].forEach(evt => window.removeEventListener(evt, retry, true));
+      try{ shmilblixSfx.currentTime = 0; await shmilblixSfx.play(); }catch(e){}
+    };
+    ['pointerdown','click','keydown','touchstart'].forEach(evt => window.addEventListener(evt, retry, true));
+  }
+}
+
 /* Se joue chaque fois qu'une carte se retourne (écran Versus). */
 async function playFlipcardSfx(){
   initGameAudio();
@@ -3927,7 +3972,7 @@ function playShuffleSfxLocalWithFade(){
 // Joue un petit bruitage LOCALEMENT, et le diffuse aussi à l'adversaire en
 // ligne (canal vfx déjà utilisé pour les animations), pour que les deux
 // joueurs entendent toujours la même chose au même moment.
-const SFX_BY_NAME = { posecarte: playPosecarteSfx, discard: playDiscardSfx, shuffle: playShuffleSfx, mozkyto: playMozkytoSfx, sabre: playSabreSfx, zykmu: playZykmuSfx };
+const SFX_BY_NAME = { posecarte: playPosecarteSfx, discard: playDiscardSfx, shuffle: playShuffleSfx, mozkyto: playMozkytoSfx, sabre: playSabreSfx, zykmu: playZykmuSfx, shmilblix: playShmilblixSfx };
 function broadcastAndPlaySfx(name){
   const fn = SFX_BY_NAME[name];
   if (fn) fn();
@@ -12455,6 +12500,7 @@ function animateShmilblixSmoke(targetCards, onDone){
   });
 
   // Phase 1 : la fumée recouvre entièrement la carte.
+  broadcastAndPlaySfx('shmilblix');
   requestAnimationFrame(() => {
     clouds.forEach(c => c.classList.add('cover'));
   });
@@ -25259,7 +25305,10 @@ function startPeinturlurerTargeting(owner) {
 
   const promptEl = document.createElement('div');
   promptEl.className = 'actionPrompt';
-  promptEl.style.bottom = '100px';
+  // CORRIGÉ : redescendue (100px → 40px) — à 100px du bas, cette fenêtre
+  // empiétait sur la zone de combat et bloquait le clic sur nos propres
+  // combattants (pointer-events:auto sur .actionPrompt).
+  promptEl.style.bottom = '40px';
   promptEl.style.left = '50%';
   promptEl.style.transform = 'translateX(-50%)';
   promptEl.innerHTML = `
