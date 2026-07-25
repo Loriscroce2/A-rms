@@ -20713,6 +20713,17 @@ function aiForceCancelAllTargetModes(){
     kamykazTargetMode = null; c69TargetMode = null; vilunionTargetMode = null;
     varyceTargetMode = null; copieDesEnfersTargetMode = null; exdoteTargetMode = null;
     couveuseStealTargetMode = null; roiDRoiTargetMode = null;
+    // CORRECTIF (audit blocage IA) : ces 9 modes, tous ajoutés avec le 2e lot
+    // Savage (C121-C148), étaient bien vérifiés par isAnyTargetSelectionActive()
+    // mais jamais réinitialisés ici — si l'un d'eux restait actif sans être
+    // résolu par l'IA, ni le filet à 20 tentatives ni le plafond dur à 90s
+    // (aiForceEndStuckTurn, qui appelle cette même fonction) ne pouvaient plus
+    // jamais débloquer la partie, car performEndTurn() refuse de terminer le
+    // tour tant qu'isAnyTargetSelectionActive() renvoie true. Partie figée
+    // sans aucune issue possible avant un rechargement complet de la page.
+    orionMoveMode = null; lanceloTargetMode = null; comboGriffesTargetMode = null;
+    haineChimeraleTargetMode = null; maximilienThrowMode = null; serpentoFreezeTargetMode = null;
+    sceptraleTargetMode = null; harponGeantTargetMode = null; pisterSaProieMode = false;
     if (typeof closeActionPrompt === 'function') closeActionPrompt();
     if (typeof clearPoisonedTargetHighlight === 'function') clearPoisonedTargetHighlight();
     pushHistory('info', `L'IA abandonne une action bloquée pour ne pas figer la partie.`);
