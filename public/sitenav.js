@@ -33,6 +33,7 @@
     { href: '/classement.html', label: 'Classement', match: ['/classement.html'] },
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
     { href: '/tutorial.html', label: 'Didacticiel', match: ['/tutorial.html'] },
+    { href: '/telecharger.html', label: 'Télécharger', match: ['/telecharger.html'] },
   ];
   if (isAdmin) {
     bottomRow.push({ href: '/admin.html', label: '⚙ Administrateur', match: ['/admin.html'] });
@@ -40,6 +41,7 @@
   const loggedOutTopRow = [
     { href: '/accueil.html',  label: 'Accueil',  match: ['/accueil.html', '/', '/index.html'] },
     { href: '/regles.html',   label: 'Règles',    match: ['/regles.html'] },
+    { href: '/telecharger.html', label: 'Télécharger', match: ['/telecharger.html'] },
   ];
   // .siteNav empile lui-même ses rangées (voir sitenav.css : une seule zone
   // de grille pour tout le bloc de liens, remplie en interne par un simple
