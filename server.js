@@ -1167,19 +1167,18 @@ function isPaypalConfigured() { return !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECR
 
 // ===================================================================
 // BOUTIQUE — 5 lots de pièces à acheter contre argent réel (PayPal).
-// Calibrés sur les prix déjà en place dans le jeu : un Booster coûte 350
-// pièces, une carte garantie de la boutique horaire coûte 200 à 500
-// pièces. Le plus petit lot (300 pièces) vaut donc à peu près un Booster
-// pour 1,99€ ; le taux (pièces par euro) s'améliore ensuite à chaque palier
-// pour récompenser les gros achats (pratique standard des boutiques de
-// jeux), jusqu'à +55% de pièces au meilleur tarif sur le plus gros lot.
+// Base redemandée explicitement : 700 pièces pour 2,99€ (palier 1), puis
+// tarifs et quantités de pièces croissants avec un taux dégressif (de
+// plus en plus de pièces par euro à mesure qu'on monte en gamme), pour
+// récompenser les gros achats — jusqu'à +71% de pièces au meilleur tarif
+// sur le plus gros lot par rapport au taux du premier palier.
 // ===================================================================
 const COIN_PACKS = [
-  { id: 'petit',   coins: 300,  amountCents: 199,  label: 'Petit sachet',  bonusPct: 0  },
-  { id: 'sachet',  coins: 700,  amountCents: 399,  label: 'Sachet',        bonusPct: 15 },
-  { id: 'bourse',  coins: 1500, amountCents: 799,  label: 'Bourse',        bonusPct: 25 },
-  { id: 'coffre',  coins: 3200, amountCents: 1499, label: 'Coffre',        bonusPct: 40 },
-  { id: 'tresor',  coins: 7000, amountCents: 2999, label: 'Trésor',        bonusPct: 55 },
+  { id: 'petite-bourse', coins: 700,   amountCents: 299,  label: 'Petite bourse', icon: 'bourse1.png', bonusPct: 0  },
+  { id: 'grande-bourse', coins: 1500,  amountCents: 599,  label: 'Grande bourse', icon: 'bourse2.png', bonusPct: 7  },
+  { id: 'maxi-bourses',  coins: 3200,  amountCents: 1099, label: 'Maxi bourses',  icon: 'bourse3.png', bonusPct: 24 },
+  { id: 'coffre',        coins: 7000,  amountCents: 1999, label: 'Coffre',        icon: 'coffre.png',  bonusPct: 50 },
+  { id: 'tresor',        coins: 16000, amountCents: 3999, label: 'Trésor',        icon: 'tresor.png',  bonusPct: 71 },
 ];
 function getCoinPack(id) { return COIN_PACKS.find(p => p.id === id) || null; }
 
@@ -1531,7 +1530,7 @@ app.get('/api/shop/coin-packs', authMiddleware, (req, res) => {
   res.json({
     ok: true,
     paypalConfigured: isPaypalConfigured(),
-    packs: COIN_PACKS.map(p => ({ id: p.id, coins: p.coins, amountCents: p.amountCents, label: p.label, bonusPct: p.bonusPct })),
+    packs: COIN_PACKS.map(p => ({ id: p.id, coins: p.coins, amountCents: p.amountCents, label: p.label, icon: p.icon, bonusPct: p.bonusPct })),
   });
 });
 

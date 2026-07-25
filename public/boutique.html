@@ -39,7 +39,7 @@
     .section h2{font-family:'Cinzel',sans-serif;font-size:20px;color:#aefaff;text-shadow:0 0 12px rgba(0,230,255,.25);display:flex;align-items:center;gap:10px;margin-bottom:14px}
 
     .coinIcon{height:1.1em;width:auto;vertical-align:-0.15em;filter:drop-shadow(0 0 4px rgba(255,217,61,.5))}
-    .heroCoinsDisplay .coinIcon{height:24px}
+    .heroCoinsDisplay .coinIcon{height:48px}
 
     .coinPacksIntro{color:var(--muted);opacity:.9;margin:0 0 14px;font-size:14px}
     .coinPacksNote{color:var(--warn);font-size:13px;margin-top:10px}
@@ -280,7 +280,7 @@
         el.className = 'coinPackCard' + (pack.id === bestId ? ' best' : '');
         el.innerHTML = `
           ${pack.id === bestId ? `<div class="coinPackRibbon">Meilleure offre</div>` : ''}
-          <img class="coinPackIcon" src="/assets/monnaie.png" alt="Pièces">
+          <img class="coinPackIcon" src="/assets/${pack.icon || 'monnaie.png'}" alt="${pack.label}">
           <div class="coinPackCoins"><img class="coinIcon" src="/assets/monnaie.png" alt="pièces"> ${pack.coins.toLocaleString('fr-FR')}</div>
           ${pack.bonusPct > 0 ? `<div class="coinPackBonus">+${pack.bonusPct}% de valeur</div>` : ''}
           <div class="coinPackLabel">${pack.label}</div>
