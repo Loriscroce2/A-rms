@@ -2046,6 +2046,32 @@
     }
     .maximilienImpactShake{ animation:maximilienShakeInPlace .14s ease-in-out 2; }
 
+    /* ---- IMPY : Shmilblix (C84) — nuage de fumée qui recouvre un
+       combattant, se dissipe, et révèle la transformation en dessous (voir
+       animateShmilblixSmoke). Élément FIXED indépendant du rendu de la zone
+       de combat, positionné en JS via getBoundingClientRect. ---- */
+    .shmilblixSmoke{
+      position:fixed; pointer-events:none; z-index:6000;
+      opacity:0; transform:scale(.4);
+      transition:opacity .5s ease, transform .5s cubic-bezier(.2,.7,.3,1.3);
+    }
+    .shmilblixSmoke.cover{ opacity:1; transform:scale(1.08); }
+    .shmilblixSmoke.dissipate{
+      opacity:0; transform:scale(1.65) translateY(-16px);
+      transition:opacity .65s ease, transform .65s ease;
+    }
+    .shmilblixSmoke .puff{
+      position:absolute; border-radius:50%;
+      background:radial-gradient(circle at 35% 35%, rgba(255,255,255,.95), rgba(180,190,200,.75) 45%, rgba(90,100,110,0) 75%);
+      filter:blur(2px);
+      mix-blend-mode:screen;
+      animation:shmilblixPuffDrift 1.4s ease-in-out infinite alternate;
+    }
+    @keyframes shmilblixPuffDrift{
+      0%{ transform:translate(0,0) scale(1); }
+      100%{ transform:translate(4px,-6px) scale(1.08); }
+    }
+
     /* ---- Coach (même personnage/esprit que le didacticiel) : explique les
        règles du Memory avant que la partie ne débute réellement. ---- */
     #memoryRulesBlocker{
@@ -2593,6 +2619,25 @@
   left: 50%;
   transform: translate(-50%, -50%) rotate(-15deg); /* Centré et incliné */
 
+  /* Style du texte */
+  color: #e0f8ff; /* Couleur bleu très clair, presque blanc */
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+
+  /* Effet de lueur pour le texte, qui le rend lisible et stylé */
+  text-shadow: 0 0 4px #fff, 0 0 10px var(--cy), 0 0 18px var(--cyA);
+
+  pointer-events: none; /* N'interfère pas avec la souris */
+  z-index: 9;
+}
+
+/* CORRIGÉ : ce bloc contenait par erreur les règles ".is-mirrored-copy"
+   imbriquées AU MILIEU des déclarations de ".is-frozen::after" (accolade de
+   fermeture manquante) — du CSS invalide qui empêchait ces deux jeux de
+   règles de s'appliquer correctement. Séparées proprement ci-dessous. */
+
 /* NOUVEAU : Style pour les copies créées par Miroir Papillon */
 .card.is-mirrored-copy {
   /* Ajoute une lueur prismatique distinctive */
@@ -2613,19 +2658,32 @@
   text-shadow: 0 0 4px #000;
   z-index: 10;
 }
-  
-  /* Style du texte */
-  color: #e0f8ff; /* Couleur bleu très clair, presque blanc */
-  font-size: 28px;
-  font-weight: 900;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  
-  /* Effet de lueur pour le texte, qui le rend lisible et stylé */
-  text-shadow: 0 0 4px #fff, 0 0 10px var(--cy), 0 0 18px var(--cyA);
-  
-  pointer-events: none; /* N'interfère pas avec la souris */
-  z-index: 9;
+
+/* Superposition des deux textures de Gel (gel1.png/gel2.png) demandées pour
+   renforcer visuellement l'effet de GEL : gel1 = voile de givre couvrant
+   toute la carte, gel2 = "coeur" de gel centré, volontairement plus
+   transparent que gel1. Ajoutées comme vrais éléments enfants (pas des
+   pseudo-éléments, déjà pris par le voile bleu et le texte "GELÉ" ci-dessus)
+   dans makePlacedCard(). */
+.card.placed.is-frozen .gelLayer{
+  position: absolute; inset: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  pointer-events: none;
+  z-index: 7; /* sous le voile (::before, z:8) et le texte GELÉ (::after, z:9) */
+  mix-blend-mode: screen;
+}
+.card.placed.is-frozen .gelLayer1{
+  background-image: url('/assets/gel1.png');
+  opacity: .55;
+}
+.card.placed.is-frozen .gelLayer2{
+  /* Le "coeur" de gel : recentré et plus petit, et surtout plus transparent
+     que gelLayer1 comme demandé. */
+  background-image: url('/assets/gel2.png');
+  background-size: 65%;
+  opacity: .3;
 }
 
 /* Empêche les effets de survol (zoom, etc.) sur une carte gelée */
@@ -12318,25 +12376,103 @@ function playActionC84(owner, actionCard){
 
   const opp = (owner === 'top') ? 'bottom' : 'top';
   const oppLine = getLineByOwner(opp);
-  const transformations = [];
 
+  // Les transformations sont tirées au sort MAINTENANT mais appliquées
+  // seulement une fois que la fumée a fini de recouvrir chaque combattant
+  // (voir animateShmilblixSmoke) — l'effet de surprise/révélation est ainsi
+  // synchronisé avec l'animation au lieu d'un changement instantané.
+  const plannedChanges = [];
   oppLine.forEach(c => {
     const faction = (CARD_TAGS[c.label] || []).find(t => ['Krylls','Impy','Savage','Chimeria','Wadoo'].includes(t));
     if (!faction) return; // sécurité : carte sans faction identifiable, on la laisse telle quelle
     const candidates = getAllPersonnageLabelsOfFaction(faction).filter(l => l !== c.label);
     if (candidates.length === 0) return; // aucune autre carte de cette faction disponible
     const newLabel = candidates[Math.floor(Math.random() * candidates.length)];
-    const oldLabel = c.label;
-    c.label = newLabel;
-    c.hp = getBaseHP(newLabel);
-    c.shield = getBaseShield(newLabel);
-    c.addedTags = [];
-    c.removedTags = [];
-    transformations.push(`${cardAnchor(oldLabel)} → ${cardAnchor(newLabel)}`);
+    plannedChanges.push({ card: c, oldLabel: c.label, newLabel });
   });
 
-  pushHistory('action', `${cardAnchor('C84')} transforme les combattants adverses : ${transformations.join(', ')} !`);
   fullRender();
+
+  if (plannedChanges.length === 0) {
+    pushHistory('action', `${cardAnchor('C84')} : aucun combattant adverse transformable.`);
+    return;
+  }
+
+  animateShmilblixSmoke(plannedChanges.map(p => p.card), () => {
+    const transformations = [];
+    plannedChanges.forEach(({ card: c, oldLabel, newLabel }) => {
+      c.label = newLabel;
+      c.hp = getBaseHP(newLabel);
+      c.shield = getBaseShield(newLabel);
+      c.addedTags = [];
+      c.removedTags = [];
+      transformations.push(`${cardAnchor(oldLabel)} → ${cardAnchor(newLabel)}`);
+    });
+    pushHistory('action', `${cardAnchor('C84')} transforme les combattants adverses : ${transformations.join(', ')} !`);
+    fullRender();
+  });
+}
+
+// IMPY : Shmilblix (C84) — nuage de fumée qui recouvre chaque combattant
+// ciblé, se dissipe, et révèle le nouveau combattant tiré au sort en
+// dessous. Les nuages sont des éléments FIXED indépendants du rendu de la
+// zone de combat (ajoutés à document.body, positionnés via
+// getBoundingClientRect) : ils survivent donc au fullRender() qui a lieu
+// entre le moment où la fumée recouvre totalement la carte et celui où elle
+// se dissipe pour révéler la transformation déjà appliquée en dessous.
+function animateShmilblixSmoke(targetCards, onDone){
+  lockGameDuringAnimation();
+  const clouds = [];
+
+  targetCards.forEach(card => {
+    const el = document.querySelector(`.lane .card.placed[data-id="${card.id}"]`);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+
+    const cloud = document.createElement('div');
+    cloud.className = 'shmilblixSmoke';
+    cloud.style.left = `${rect.left}px`;
+    cloud.style.top = `${rect.top}px`;
+    cloud.style.width = `${rect.width}px`;
+    cloud.style.height = `${rect.height}px`;
+
+    // 5 à 6 volutes de tailles/positions/délais variés pour un rendu organique.
+    const puffCount = 5 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < puffCount; i++) {
+      const puff = document.createElement('div');
+      puff.className = 'puff';
+      const size = rect.width * (0.55 + Math.random() * 0.55);
+      puff.style.width = `${size}px`;
+      puff.style.height = `${size}px`;
+      puff.style.left = `${Math.random() * rect.width - size * 0.25}px`;
+      puff.style.top = `${Math.random() * rect.height - size * 0.25}px`;
+      puff.style.animationDelay = `${(Math.random() * 0.3).toFixed(2)}s`;
+      cloud.appendChild(puff);
+    }
+
+    document.body.appendChild(cloud);
+    clouds.push(cloud);
+  });
+
+  // Phase 1 : la fumée recouvre entièrement la carte.
+  requestAnimationFrame(() => {
+    clouds.forEach(c => c.classList.add('cover'));
+  });
+
+  setTimeout(() => {
+    // La transformation réelle a lieu PENDANT que la fumée masque encore
+    // tout (donc invisible), juste avant la dissipation.
+    onDone();
+
+    setTimeout(() => {
+      // Phase 2 : dissipation — révèle le nouveau combattant en dessous.
+      clouds.forEach(c => c.classList.add('dissipate'));
+      setTimeout(() => {
+        clouds.forEach(c => c.remove());
+        unlockGameAfterAnimation();
+      }, 650);
+    }, 120);
+  }, 650);
 }
 
 // IMPY (nouveau lot) : Rencontre inattendue (C85) — l'adversaire défausse
@@ -16283,6 +16419,15 @@ function makePlacedCard(card, owner){
 
   if (isFrozen(card)) {
     el.classList.add('is-frozen');
+    // Renforce visuellement le GEL avec gel1.png (voile givré plein cadre)
+    // + gel2.png (coeur de gel centré, plus transparent) — voir CSS
+    // .gelLayer/.gelLayer1/.gelLayer2 ci-dessus.
+    const gel1 = document.createElement('div');
+    gel1.className = 'gelLayer gelLayer1';
+    el.appendChild(gel1);
+    const gel2 = document.createElement('div');
+    gel2.className = 'gelLayer gelLayer2';
+    el.appendChild(gel2);
   }
 
   if (hasTag(card, 'Esprit')) {
