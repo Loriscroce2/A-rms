@@ -7,57 +7,132 @@
   <link rel="stylesheet" href="/sitenav.css" />
   <style>
     :root{
-      --bg1:#06131a; --bg2:#031017; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff;
-      --accent:#00e6ff; --ok:#19e27a; --warn:#ffb84d; --err:#ff5252; --gold:#ffd93d;
-      --shadow: 0 10px 20px rgba(0,0,0,.35); --border: 1px solid rgba(125,249,255,.18);
+      --bg1:#050f15; --bg2:#020a0e; --ink:#e8fdff; --muted:#bfefff; --cy:#7df9ff;
+      --accent:#00e6ff; --ok:#19e27a; --warn:#ffb84d; --err:#ff5252; --gold:#ffd93d; --gold2:#ffb545;
+      --shadow: 0 10px 24px rgba(0,0,0,.4); --border: 1px solid rgba(125,249,255,.18);
       --fac-krylls:#3ddc84; --fac-impy:#ff5a5f; --fac-savage:#ff9d3d; --fac-chimeria:#b06bff; --fac-wadoo:#ffd93d;
     }
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&display=swap');
     *{box-sizing:border-box} html,body{height:100%}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
-      background:radial-gradient(1200px 420px at 60% -180px, rgba(0,230,255,.14), transparent 60%), linear-gradient(180deg, var(--bg1), var(--bg2) 60%);}
+    body{
+      margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--ink);
+      background:
+        radial-gradient(1200px 460px at 60% -200px, rgba(0,230,255,.16), transparent 60%),
+        radial-gradient(900px 500px at 8% 30%, rgba(176,107,255,.08), transparent 55%),
+        radial-gradient(900px 500px at 100% 60%, rgba(255,217,61,.06), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg2) 60%);
+      background-attachment:fixed;
+      overflow-x:hidden;
+    }
     a{color:var(--cy)} .container{max-width:1400px;margin:0 auto;padding:0 16px}
-    header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(3,16,23,.9),rgba(3,16,23,.65));backdrop-filter:blur(8px);border-bottom:1px solid rgba(125,249,255,.18)}
-    .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0}
-    .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:900;letter-spacing:.02em}
-    .logo{height:48px;width:auto;filter:drop-shadow(0 0 10px rgba(0,230,255,.45))}
-    .btn{background:linear-gradient(180deg,var(--ok),#11985b);color:#052319;border:1px solid #4df7a8;border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer;box-shadow:0 0 12px rgba(25,226,122,.35),inset 0 0 10px rgba(255,255,255,.08);text-decoration:none;display:inline-block}
-    .btn[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(.3)}
-    .btn-secondary{background:linear-gradient(180deg,#0e2e39,#0a222a);color:#dffbff;border:1px solid rgba(125,249,255,.3);border-radius:10px;padding:8px 12px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-block}
+    .btn{background:linear-gradient(180deg,var(--ok),#11985b);color:#052319;border:1px solid #4df7a8;border-radius:10px;padding:9px 14px;font-weight:900;cursor:pointer;box-shadow:0 0 12px rgba(25,226,122,.35),inset 0 0 10px rgba(255,255,255,.08);text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:transform .15s ease, filter .15s ease;}
+    .btn:hover{transform:translateY(-2px);filter:brightness(1.06);}
+    .btn[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(.3);transform:none;}
 
-    .hero{padding:28px 0 10px;text-align:center}
-    .hero h1{font-family:'Cinzel',sans-serif;font-size:clamp(26px,4vw,38px);margin:0 0 6px;
-      background:linear-gradient(180deg,#fff,#9beeff);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 30px rgba(0,230,255,.3)}
-    .hero p{color:var(--muted);opacity:.9;margin:0}
-    .countdown{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:8px 16px;border-radius:999px;
+    /* ---------- Reveal-on-scroll (contenu statique : intros de section) ---------- */
+    .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease, transform .6s ease;}
+    .reveal.in{opacity:1;transform:translateY(0);}
+
+    /* ---------- Pop-in échelonné (grilles construites dynamiquement en JS) ---------- */
+    @keyframes cardPopIn{from{opacity:0;transform:translateY(16px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+    .popIn{animation:cardPopIn .5s cubic-bezier(.2,.8,.3,1.1) backwards;}
+
+    /* ================= HERO ================= */
+    .hero{padding:44px 0 26px;text-align:center;position:relative}
+    .kicker{display:inline-block;font-family:'Cinzel',sans-serif;font-size:12px;font-weight:800;letter-spacing:.22em;
+      text-transform:uppercase;color:#9beeff;opacity:.8;margin-bottom:10px;}
+    .hero h1{font-family:'Cinzel',sans-serif;font-size:clamp(30px,5vw,46px);margin:0 0 8px;font-weight:900;
+      background:linear-gradient(100deg,#fff,#9beeff,#c9a0ff,#9beeff,#fff);background-size:300% auto;
+      -webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 40px rgba(0,230,255,.25);
+      animation:titleSheen 7s linear infinite;}
+    @keyframes titleSheen{to{background-position:300% center;}}
+    .hero p{color:var(--muted);opacity:.9;margin:0;font-size:15px}
+
+    .heroCoinsDisplay{display:inline-flex;align-items:center;gap:10px;margin-top:22px;padding:14px 30px;border-radius:999px;
+      background:linear-gradient(180deg,#4a3c0d,#241d07);border:1.5px solid rgba(255,217,61,.55);font-weight:900;font-size:24px;color:#ffe98a;
+      box-shadow:0 0 0 1px rgba(255,217,61,.08), 0 0 28px rgba(255,217,61,.3), inset 0 1px 0 rgba(255,255,255,.15);
+      animation:coinsGlow 3.2s ease-in-out infinite;}
+    @keyframes coinsGlow{0%,100%{box-shadow:0 0 0 1px rgba(255,217,61,.08), 0 0 22px rgba(255,217,61,.22), inset 0 1px 0 rgba(255,255,255,.15);}
+      50%{box-shadow:0 0 0 1px rgba(255,217,61,.14), 0 0 38px rgba(255,217,61,.4), inset 0 1px 0 rgba(255,255,255,.2);}}
+
+    .countdown{display:inline-flex;align-items:center;gap:9px;margin-top:16px;padding:9px 18px;border-radius:999px;
       background:linear-gradient(180deg,#0d2530,#061820);border:1px solid rgba(125,249,255,.25);font-weight:800;font-size:13px;color:#aefaff}
-    .heroCoinsDisplay{display:inline-flex;align-items:center;gap:8px;margin-top:16px;padding:12px 26px;border-radius:999px;
-      background:linear-gradient(180deg,#4a3c0d,#2a2208);border:1.5px solid rgba(255,217,61,.6);font-weight:900;font-size:22px;color:#ffd93d;
-      box-shadow:0 0 20px rgba(255,217,61,.35), inset 0 1px 0 rgba(255,255,255,.15);}
+    .countdown .dot{width:8px;height:8px;border-radius:50%;background:#7df9ff;box-shadow:0 0 8px rgba(125,249,255,.9);animation:dotPulse 1.4s ease-in-out infinite;}
+    @keyframes dotPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.7);}}
+    #countdownText{font-family:'Manrope',monospace;letter-spacing:.03em;}
 
-    .section{padding:22px 0}
-    .section h2{font-family:'Cinzel',sans-serif;font-size:20px;color:#aefaff;text-shadow:0 0 12px rgba(0,230,255,.25);display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    /* ================= SECTIONS ================= */
+    .section{padding:30px 0;position:relative}
+    .sectionHead{margin-bottom:20px;text-align:center}
+    .sectionHead .kicker{margin-bottom:4px}
+    .sectionHead h2{font-family:'Cinzel',sans-serif;font-size:24px;font-weight:800;color:#e9fdff;margin:0 0 6px;
+      text-shadow:0 0 16px rgba(0,230,255,.25);display:flex;align-items:center;justify-content:center;gap:10px}
+    .sectionHead p{color:var(--muted);opacity:.85;margin:0;font-size:14px;max-width:560px;margin:0 auto}
 
     .coinIcon{height:1.1em;width:auto;vertical-align:-0.15em;filter:drop-shadow(0 0 4px rgba(255,217,61,.5))}
     .heroCoinsDisplay .coinIcon{height:48px}
 
-    .coinPacksIntro{color:var(--muted);opacity:.9;margin:0 0 14px;font-size:14px}
-    .coinPacksNote{color:var(--warn);font-size:13px;margin-top:10px}
-    .coinPackGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:20px}
-    .coinPackCard{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#08222b,#0a2d38);box-shadow:var(--shadow), inset 0 0 14px rgba(125,249,255,.06);
-      padding:20px 16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;overflow:hidden;transition:transform .18s ease, box-shadow .18s ease;}
-    .coinPackCard:hover{transform:translateY(-6px)}
-    .coinPackCard.best{border-color:rgba(255,217,61,.6);box-shadow:var(--shadow), 0 0 22px rgba(255,217,61,.25), inset 0 0 14px rgba(255,217,61,.08);}
-    .coinPackRibbon{position:absolute;top:14px;right:-34px;transform:rotate(40deg);background:linear-gradient(180deg,#ffe98a,#e0a800);color:#2a1c00;
-      font-family:'Cinzel',sans-serif;font-weight:800;font-size:10px;letter-spacing:.06em;padding:4px 40px;box-shadow:0 4px 10px rgba(0,0,0,.35);}
-    .coinPackIcon{height:64px;width:auto;filter:drop-shadow(0 6px 10px rgba(0,0,0,.5)) drop-shadow(0 0 10px rgba(255,217,61,.35));}
-    .coinPackCoins{font-weight:900;font-size:20px;color:var(--gold);display:flex;align-items:center;gap:6px}
-    .coinPackBonus{font-size:12px;font-weight:800;color:#9dffbb;background:rgba(25,226,122,.12);border:1px solid rgba(25,226,122,.4);border-radius:999px;padding:2px 10px;}
-    .coinPackLabel{font-family:'Cinzel',sans-serif;font-size:15px;color:#dff;margin-top:2px}
-    .coinPackPrice{font-weight:900;font-size:17px;color:#fff;margin-top:4px}
-    .coinPackBtn{width:100%;margin-top:8px;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:10px;padding:9px 10px;font-weight:900;cursor:pointer}
-    .coinPackBtn:disabled{opacity:.4;cursor:not-allowed}
+    /* ---------- Achat de pièces : section premium ---------- */
+    .premiumZone{position:relative;border-radius:28px;padding:34px 22px 30px;overflow:hidden;
+      background:linear-gradient(160deg, rgba(20,26,10,.55), rgba(10,14,6,.4));
+      border:1px solid rgba(255,217,61,.16);}
+    .premiumZone::before, .premiumZone::after{
+      content:'';position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;opacity:.5;
+      background:radial-gradient(circle, rgba(255,217,61,.35), transparent 70%);
+    }
+    .premiumZone::before{width:340px;height:340px;top:-120px;left:-80px;animation:blobDrift1 14s ease-in-out infinite;}
+    .premiumZone::after{width:300px;height:300px;bottom:-140px;right:-60px;
+      background:radial-gradient(circle, rgba(0,230,255,.28), transparent 70%);animation:blobDrift2 16s ease-in-out infinite;}
+    @keyframes blobDrift1{0%,100%{transform:translate(0,0);}50%{transform:translate(40px,30px);}}
+    @keyframes blobDrift2{0%,100%{transform:translate(0,0);}50%{transform:translate(-30px,-24px);}}
 
+    .coinPackGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:22px;position:relative;z-index:1}
+    .coinPackCard{
+      border:1px solid rgba(125,249,255,.16);border-radius:20px;
+      background:linear-gradient(160deg,#0a232c,#081b22);
+      box-shadow:var(--shadow), inset 0 0 16px rgba(125,249,255,.05);
+      padding:24px 18px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px;
+      position:relative;overflow:hidden;cursor:default;
+      transition:transform .22s cubic-bezier(.2,.8,.3,1.2), box-shadow .22s ease, border-color .22s ease;
+    }
+    .coinPackCard::before{
+      content:'';position:absolute;top:0;left:-60%;width:40%;height:100%;
+      background:linear-gradient(100deg, transparent, rgba(255,255,255,.16), transparent);
+      transform:skewX(-18deg);transition:left .65s ease;pointer-events:none;
+    }
+    .coinPackCard:hover{transform:translateY(-8px) scale(1.02);box-shadow:0 18px 34px rgba(0,0,0,.45), 0 0 26px rgba(125,249,255,.15);
+      border-color:rgba(125,249,255,.4);}
+    .coinPackCard:hover::before{left:130%;}
+    .coinPackCard.best{
+      border-color:rgba(255,217,61,.55);transform:scale(1.035);
+      animation:bestGlow 2.6s ease-in-out infinite;
+    }
+    .coinPackCard.best:hover{transform:scale(1.035) translateY(-8px);}
+    @keyframes bestGlow{
+      0%,100%{box-shadow:var(--shadow), 0 0 18px rgba(255,217,61,.25), inset 0 0 14px rgba(255,217,61,.06);}
+      50%{box-shadow:var(--shadow), 0 0 34px rgba(255,217,61,.5), inset 0 0 18px rgba(255,217,61,.12);}
+    }
+    .coinPackRibbon{position:absolute;top:16px;right:-36px;transform:rotate(40deg);background:linear-gradient(180deg,#ffe98a,#e0a800);color:#2a1c00;
+      font-family:'Cinzel',sans-serif;font-weight:800;font-size:10.5px;letter-spacing:.06em;padding:4px 42px;box-shadow:0 4px 10px rgba(0,0,0,.35);z-index:2}
+    .coinPackIcon{height:72px;width:auto;margin-bottom:4px;
+      filter:drop-shadow(0 8px 12px rgba(0,0,0,.5)) drop-shadow(0 0 12px rgba(255,217,61,.3));
+      animation:iconBob 3.2s ease-in-out infinite;}
+    .coinPackCard:nth-child(2) .coinPackIcon{animation-delay:.2s}
+    .coinPackCard:nth-child(3) .coinPackIcon{animation-delay:.4s}
+    .coinPackCard:nth-child(4) .coinPackIcon{animation-delay:.6s}
+    .coinPackCard:nth-child(5) .coinPackIcon{animation-delay:.8s}
+    @keyframes iconBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-7px);}}
+    .coinPackCoins{font-weight:900;font-size:21px;color:var(--gold);display:flex;align-items:center;gap:6px}
+    .coinPackBonus{font-size:11.5px;font-weight:800;color:#9dffbb;background:rgba(25,226,122,.12);border:1px solid rgba(25,226,122,.4);border-radius:999px;padding:2px 10px;}
+    .coinPackLabel{font-family:'Cinzel',sans-serif;font-size:16px;font-weight:700;color:#dff;margin-top:2px}
+    .coinPackPrice{font-weight:900;font-size:19px;color:#fff;margin-top:2px;letter-spacing:.02em}
+    .coinPackBtn{width:100%;margin-top:10px;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:12px;padding:10px 10px;font-weight:900;cursor:pointer;
+      transition:filter .15s ease, transform .15s ease;}
+    .coinPackBtn:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px);}
+    .coinPackBtn:disabled{opacity:.4;cursor:not-allowed}
+    .coinPacksNote{color:var(--warn);font-size:13px;margin-top:16px;text-align:center;position:relative;z-index:1}
+
+    /* ---------- Arrivage de l'heure ---------- */
     .shopGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:20px}
     .shopSlot{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#08222b,#0a2d38);box-shadow:var(--shadow), inset 0 0 14px rgba(125,249,255,.06);
       padding:16px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;transition:transform .18s ease, box-shadow .18s ease;}
@@ -73,30 +148,42 @@
     .stat{position:absolute;right:-8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;pointer-events:none;width:29px;height:29px;font-size:13px;z-index:5;font-family:'Manrope',system-ui,sans-serif;}
     .stat.hp{top:36%;border-radius:50%;background:radial-gradient(circle at 30% 24%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #ff5c5c 55%, #8a0000);border:2px solid rgba(255,190,190,.95);box-shadow:0 0 12px rgba(255,40,40,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.35), inset 0 2px 3px rgba(255,255,255,.4);text-shadow:0 1px 2px rgba(0,0,0,.9);}
     .stat.shield{top:64%;border-radius:50% 50% 22% 22% / 64% 64% 30% 30%;background:radial-gradient(circle at 30% 22%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #55d6ff 55%, #0a4f8a);border:2px solid rgba(195,238,255,.95);box-shadow:0 0 12px rgba(70,195,255,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.3), inset 0 2px 3px rgba(255,255,255,.4);color:#eafcff;font-size:12px;text-shadow:0 1px 2px rgba(0,0,0,.9);}
-    .price{font-weight:900;color:var(--gold);font-size:15px;display:flex;align-items:center;gap:4px}
-    .buyBtn{width:100%;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:10px;padding:7px 10px;font-weight:900;cursor:pointer}
+    .price{font-weight:900;color:var(--gold);font-size:15px;display:flex;align-items:center;justify-content:center;gap:4px}
+    .buyBtn{width:100%;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:10px;padding:7px 10px;font-weight:900;cursor:pointer;transition:filter .15s ease;}
+    .buyBtn:hover:not(:disabled){filter:brightness(1.08);}
     .buyBtn:disabled{opacity:.4;cursor:not-allowed}
     .soldLabel{font-weight:800;color:#ff8080;font-size:13px}
 
-    .boosterCard{border:var(--border);border-radius:18px;background:linear-gradient(145deg,#0e2e39,#04141a);box-shadow:var(--shadow), inset 0 0 20px rgba(0,230,255,.1);
-      padding:30px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;justify-content:center;text-align:left;position:relative;overflow:hidden}
-    .boosterVisual{width:130px;height:180px;flex:none;position:relative;}
+    /* ---------- Booster ---------- */
+    .boosterCard{border:var(--border);border-radius:22px;background:linear-gradient(145deg,#0e2e39,#04141a);box-shadow:var(--shadow), inset 0 0 20px rgba(0,230,255,.1);
+      padding:32px;display:flex;align-items:center;gap:30px;flex-wrap:wrap;justify-content:center;text-align:left;position:relative;overflow:hidden}
+    .boosterCard::before{
+      content:'';position:absolute;top:0;left:-70%;width:35%;height:100%;
+      background:linear-gradient(100deg, transparent, rgba(255,255,255,.08), transparent);
+      transform:skewX(-18deg);transition:left .8s ease;pointer-events:none;
+    }
+    .boosterCard:hover::before{left:140%;}
+    .boosterVisual{width:130px;height:180px;flex:none;position:relative;cursor:pointer;transition:transform .2s ease;}
+    .boosterVisual:hover{transform:translateY(-5px) scale(1.04) rotate(-1deg);}
     .boosterVisual .stackLayer{position:absolute;inset:0;border-radius:14px;background-image:url('/cartes/Versobasic.png');background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;
       box-shadow:0 10px 24px rgba(0,0,0,.5);border:2px solid rgba(125,249,255,.45);}
     .boosterVisual .stackLayer:nth-child(1){transform:translate(5px,7px) rotate(3deg);filter:brightness(.6);}
     .boosterVisual .stackLayer:nth-child(2){transform:translate(2px,3px) rotate(-1.5deg);filter:brightness(.8);}
     .boosterVisual .stackLayer:nth-child(3){transform:none;box-shadow:0 14px 30px rgba(0,0,0,.55), 0 0 20px rgba(0,230,255,.2);}
     .seasonTag{position:absolute;top:16px;right:-38px;transform:rotate(40deg);background:linear-gradient(180deg,#ffe98a,#e0a800);color:#2a1c00;
-      font-family:'Cinzel',sans-serif;font-weight:800;font-size:11px;letter-spacing:.08em;padding:5px 46px;box-shadow:0 4px 10px rgba(0,0,0,.35);}
-    .boosterInfo{flex:1;min-width:220px}
+      font-family:'Cinzel',sans-serif;font-weight:800;font-size:11px;letter-spacing:.08em;padding:5px 46px;box-shadow:0 4px 10px rgba(0,0,0,.35);z-index:2}
+    .boosterInfo{flex:1;min-width:220px;position:relative;z-index:1}
     .boosterInfo h3{margin:0 0 6px;font-family:'Cinzel',sans-serif;color:#dff;font-size:19px}
     .boosterInfo p{margin:0 0 14px;color:var(--muted);opacity:.9;font-size:14px}
 
+    /* ---------- Revente surplus ---------- */
     .surplusGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
-    .surplusCard{border:var(--border);border-radius:14px;background:linear-gradient(145deg,#08222b,#0a2d38);padding:10px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center}
+    .surplusCard{border:var(--border);border-radius:14px;background:linear-gradient(145deg,#08222b,#0a2d38);padding:10px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;transition:transform .18s ease;}
+    .surplusCard:hover{transform:translateY(-4px);}
     .surplusCard .cardImg{width:90px;height:124px;border-radius:8px;background-size:contain;background-repeat:no-repeat;background-color:#04141a;background-position:center;position:relative;}
     .surplusCard .count{font-size:12px;color:var(--muted)}
-    .sellBtn{background:linear-gradient(180deg,#ff9a5a,#c85f1c);color:#2a1000;border:none;border-radius:8px;padding:6px 10px;font-weight:900;cursor:pointer;font-size:12px;width:100%}
+    .sellBtn{background:linear-gradient(180deg,#ff9a5a,#c85f1c);color:#2a1000;border:none;border-radius:8px;padding:6px 10px;font-weight:900;cursor:pointer;font-size:12px;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:4px;transition:filter .15s ease;}
+    .sellBtn:hover{filter:brightness(1.08);}
     .emptyMsg{color:var(--muted);opacity:.75;padding:20px;text-align:center}
 
     .revealGrid{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:18px 0;min-height:130px}
@@ -130,13 +217,16 @@
     .luckyFlashScreen{position:fixed;inset:0;z-index:6260;pointer-events:none;background:radial-gradient(circle at 50% 50%, rgba(255,233,138,.85), transparent 65%);
       opacity:0;animation:luckyScreenFlash .8s ease-out forwards;}
     @keyframes luckyScreenFlash{0%{opacity:0;}15%{opacity:1;}100%{opacity:0;}}
-    .boosterVisual{cursor:pointer;transition:transform .15s ease;}
-    .boosterVisual:hover{transform:translateY(-4px) scale(1.03);}
 
-    .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2000;background:linear-gradient(180deg,#0e2e39,#0a222a);color:#dffbff;border:1px solid rgba(125,249,255,.35);padding:10px 12px;border-radius:10px;font-weight:800;box-shadow:0 10px 20px rgba(0,0,0,.45);display:none}
+    .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2000;background:linear-gradient(180deg,#0e2e39,#0a222a);color:#dffbff;border:1px solid rgba(125,249,255,.35);padding:11px 16px;border-radius:12px;font-weight:800;box-shadow:0 10px 24px rgba(0,0,0,.5);display:none}
     .toast.show{display:block;animation:fadein .15s ease,fadeout .25s ease 2.2s forwards}
     @keyframes fadein{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
     @keyframes fadeout{to{opacity:0;transform:translate(-50%,8px)}}
+
+    @media (prefers-reduced-motion: reduce){
+      .hero h1, .heroCoinsDisplay, .coinPackCard.best, .coinPackIcon, .countdown .dot{animation:none !important;}
+      .coinPackCard::before, .boosterCard::before{display:none;}
+    }
   </style>
 </head>
 <body>
@@ -144,26 +234,40 @@
 
   <main class="container">
     <div class="hero">
+      <span class="kicker">A'rms — Comptoir du joueur</span>
       <h1>🏪 Boutique</h1>
-      <p>De nouvelles cartes arrivent chaque heure. Dépensez vos pièces, gagnées en jouant.</p>
+      <p>De nouvelles cartes arrivent chaque heure. Ouvrez des boosters, recyclez votre surplus, et rechargez vos pièces.</p>
       <div class="heroCoinsDisplay"><img class="coinIcon" src="/assets/monnaie.png" alt="Pièces"> <span class="js-coins-amount">0</span> pièces</div>
-      <div class="countdown">⏳ Prochain arrivage dans <strong id="countdownText">--:--</strong></div>
+      <div class="countdown"><span class="dot"></span> Prochain arrivage dans <strong id="countdownText">--:--</strong></div>
     </div>
 
     <div class="section">
-      <h2><img class="coinIcon" src="/assets/monnaie.png" alt="Pièces"> Acheter des pièces</h2>
-      <p class="coinPacksIntro">Rechargez votre solde de pièces contre de l'argent réel, via PayPal.</p>
-      <div class="coinPackGrid" id="coinPackGrid"></div>
-      <p class="coinPacksNote" id="coinPacksNote" style="display:none;">Les paiements réels ne sont pas encore activés par l'administrateur.</p>
+      <div class="premiumZone">
+        <div class="sectionHead">
+          <span class="kicker">Recharge instantanée</span>
+          <h2><img class="coinIcon" src="/assets/monnaie.png" alt="Pièces"> Recharger vos pièces</h2>
+          <p>Choisissez un lot ci-dessous : vos pièces sont créditées immédiatement sur votre compte.</p>
+        </div>
+        <div class="coinPackGrid" id="coinPackGrid"></div>
+        <p class="coinPacksNote" id="coinPacksNote" style="display:none;">Les achats de pièces ne sont pas encore disponibles pour le moment.</p>
+      </div>
     </div>
 
     <div class="section">
-      <h2>✨ Arrivage de l'heure — 1 exemplaire chacune</h2>
+      <div class="sectionHead">
+        <span class="kicker">Chaque heure, tout change</span>
+        <h2>✨ Arrivage de l'heure</h2>
+        <p>Six cartes tirées au sort, disponibles à l'unité — une seule fois chacune avant le prochain arrivage.</p>
+      </div>
       <div class="shopGrid" id="shopGrid"></div>
     </div>
 
     <div class="section">
-      <h2>📦 Booster de cartes</h2>
+      <div class="sectionHead">
+        <span class="kicker">Le classique</span>
+        <h2>📦 Booster de cartes</h2>
+        <p>7 cartes aléatoires, toutes factions confondues — une chance rare d'en recevoir une 8ᵉ.</p>
+      </div>
       <div class="boosterCard">
         <div class="seasonTag">Saison 1</div>
         <div class="boosterVisual">
@@ -181,7 +285,11 @@
     </div>
 
     <div class="section">
-      <h2>💰 Revendre vos cartes en surplus <span style="font-size:12px;font-weight:400;opacity:.7;display:inline-flex;align-items:center;gap:3px;">— 20 <img class="coinIcon" src="/assets/monnaie.png" alt="pièces">/unité</span></h2>
+      <div class="sectionHead">
+        <span class="kicker">Ne rien laisser dormir</span>
+        <h2>💰 Revendre vos cartes en surplus <span style="font-size:13px;font-weight:400;opacity:.75;display:inline-flex;align-items:center;gap:3px;">— 20 <img class="coinIcon" src="/assets/monnaie.png" alt="pièces">/unité</span></h2>
+        <p>Au-delà de 2 exemplaires d'une même carte (12 pour les jetons), le surplus peut être converti en pièces.</p>
+      </div>
       <div class="surplusGrid" id="surplusGrid"></div>
     </div>
   </main>
@@ -253,10 +361,10 @@
     }
 
     // ===================================================================
-    // Achat de lots de pièces contre argent réel (PayPal Checkout) — même
-    // flux que la recharge Astrocomptoir : create-order ouvre une commande
-    // PayPal pour le prix exact du lot et redirige vers PayPal ; au retour
-    // (?coins=return&token=ORDER_ID), on capture pour créditer les pièces.
+    // Achat de lots de pièces contre argent réel : create-order ouvre une
+    // commande de paiement pour le prix exact du lot et redirige vers la
+    // page de paiement ; au retour (?coins=return&token=ORDER_ID), on
+    // capture pour créditer les pièces.
     // ===================================================================
     let COIN_PACKS_CACHE = [];
     async function loadCoinPacks(){
@@ -275,9 +383,10 @@
       note.style.display = paypalConfigured ? 'none' : 'block';
       grid.innerHTML = '';
       const bestId = packs.reduce((best, p) => (!best || p.bonusPct > best.bonusPct) ? p : best, null)?.id;
-      packs.forEach(pack => {
+      packs.forEach((pack, i) => {
         const el = document.createElement('div');
-        el.className = 'coinPackCard' + (pack.id === bestId ? ' best' : '');
+        el.className = 'coinPackCard popIn' + (pack.id === bestId ? ' best' : '');
+        el.style.animationDelay = `${i * 0.08}s`;
         el.innerHTML = `
           ${pack.id === bestId ? `<div class="coinPackRibbon">Meilleure offre</div>` : ''}
           <img class="coinPackIcon" src="/assets/${pack.icon || 'monnaie.png'}" alt="${pack.label}">
@@ -301,8 +410,8 @@
         const data = await res.json();
         if (!data.ok) {
           showToast(data.error === 'paypal_not_configured'
-            ? "Les paiements PayPal réels ne sont pas encore activés par l'administrateur."
-            : 'Erreur PayPal.');
+            ? "Les achats de pièces ne sont pas encore disponibles pour le moment."
+            : 'Erreur de paiement.');
           if (btn) btn.disabled = false;
           return;
         }
@@ -310,8 +419,8 @@
       }catch(e){ showToast('Erreur réseau.'); if (btn) btn.disabled = false; }
     }
 
-    // Retour PayPal après un achat de pièces (Orders v2 renvoie ?token=ORDER_ID)
-    (async function handleCoinsPaypalReturn(){
+    // Retour après un achat de pièces (Orders v2 renvoie ?token=ORDER_ID)
+    (async function handleCoinsReturn(){
       const params = new URLSearchParams(window.location.search);
       const orderId = params.get('token');
       if (params.get('coins') === 'return' && orderId) {
@@ -353,7 +462,8 @@
         const num = parseInt(slot.code, 10);
         const fac = factionOf(num);
         const el = document.createElement('div');
-        el.className = 'shopSlot' + (slot.sold ? ' sold' : '');
+        el.className = 'shopSlot popIn' + (slot.sold ? ' sold' : '');
+        el.style.animationDelay = `${i * 0.06}s`;
         el.dataset.faction = fac;
         el.innerHTML = `
           <div class="cardImg" style="background-image:url('/cartes/${slot.code}.png')"></div>
@@ -435,10 +545,11 @@
           grid.innerHTML = `<div class="emptyMsg">Aucune carte en surplus revendable pour l'instant.</div>`;
           return;
         }
-        surplusCards.forEach(c => {
+        surplusCards.forEach((c, i) => {
           const surplus = c.count - keepThresholdFor(c.code);
           const el = document.createElement('div');
-          el.className = 'surplusCard';
+          el.className = 'surplusCard popIn';
+          el.style.animationDelay = `${i * 0.05}s`;
           el.innerHTML = `
             <div class="cardImg" style="background-image:url('/cartes/${c.code}.png')"></div>
             <div class="count">${surplus} en trop</div>
@@ -465,10 +576,27 @@
       }catch(e){ showToast('Erreur de connexion.'); }
     }
 
+    // ---------- Reveal-on-scroll pour les intros de section (contenu statique) ----------
+    (function initReveal(){
+      const revealEls = document.querySelectorAll('.reveal');
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries) => {
+          entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+        }, { threshold:.12, rootMargin:'0px 0px -40px 0px' });
+        revealEls.forEach(el => io.observe(el));
+      } else {
+        revealEls.forEach(el => el.classList.add('in'));
+      }
+    })();
+
     document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.sectionHead, .hero > *').forEach(el => el.classList.add('reveal'));
       loadCoinPacks();
       loadShop();
       loadSurplus();
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
+      });
     });
   </script>
 </body>
