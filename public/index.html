@@ -357,7 +357,7 @@
        MÊME endroit — entre les deux piles de défausse, au milieu à droite de
        l'écran — plutôt que chacun près de sa propre pile. */
     .discardCarousel{
-      position:fixed; top:50%; right:20px; left:auto; transform:translateY(-50%); width:min(380px, 86vw); height:200px; z-index:1100; display:none;
+      position:fixed; top:50%; right:20px; left:auto; transform:translateY(-50%); width:min(380px, 86vw); height:200px; z-index:2050; display:none;
       background:rgba(0,0,0,.82); border:2px solid #00e6ff55; border-radius:12px; padding:12px; overflow:visible; white-space:nowrap;
       box-shadow:0 0 20px #00e6ff66;
       perspective:900px;
@@ -2346,6 +2346,26 @@
       box-shadow:0 0 12px rgba(125,249,255,.65), inset 0 0 10px rgba(255,255,255,.2);
     }
 
+    /* ---- Onglet "Signaler un bug" ---- */
+    .bugReportBody{ display:flex; flex-direction:column; gap:8px; padding:10px; overflow-y:auto; flex:1 1 auto; }
+    .bugReportHint{ margin:0; font-size:11.5px; color:#9adfef; opacity:.85; line-height:1.4; }
+    #bugReportText{
+      background:#07212a; color:#dffcff; border:1px solid rgba(0,230,255,.3); border-radius:8px; padding:8px; outline:none;
+      font-weight:600; font-family:inherit; font-size:12.5px; resize:vertical; box-shadow:inset 0 0 10px rgba(0,230,255,.08);
+    }
+    .bugReportFileLabel{ font-size:11.5px; font-weight:800; color:#aefaff; cursor:pointer; }
+    #bugReportFiles{ font-size:11.5px; color:#cfeaf0; }
+    #bugReportFileList{ display:flex; flex-wrap:wrap; gap:6px; }
+    .bugReportThumb{ width:52px; height:52px; border-radius:8px; background-size:cover; background-position:center; border:1px solid rgba(0,230,255,.35); }
+    #bugReportSend{
+      background:linear-gradient(180deg,#1de2ff,#07a7bf); color:#002027; border:1px solid #7df9ff; border-radius:10px; padding:9px 10px;
+      font-weight:900; cursor:pointer; box-shadow:0 0 12px rgba(125,249,255,.65), inset 0 0 10px rgba(255,255,255,.2);
+    }
+    #bugReportSend:disabled{ opacity:.55; cursor:not-allowed; }
+    #bugReportStatus{ font-size:11.5px; font-weight:700; min-height:14px; }
+    #bugReportStatus.ok{ color:#7dffc0; }
+    #bugReportStatus.err{ color:#ff9a9a; }
+
     /* Liens de cartes (Historique/Tchat) */
     .cardLink{ font-weight:900; text-decoration:underline; text-decoration-style:dashed; cursor:pointer; }
     .cardLink.type-personnage{ color:var(--type-personnage); }
@@ -3217,6 +3237,7 @@ body.fusion-shake {
       <div class="chatTabs">
         <button class="tabBtn" data-tab="chat">Tchat</button>
         <button class="tabBtn active" data-tab="history">Historique</button>
+        <button class="tabBtn" data-tab="bugreport">🐛 Signaler un bug</button>
       </div>
       <button id="chatClose" title="Réduire">▾</button>
     </div>
@@ -3234,6 +3255,17 @@ body.fusion-shake {
       </div>
       <div id="historyView" class="tab active">
         <div id="historyLog"></div>
+      </div>
+      <div id="bugReportView" class="tab">
+        <div class="bugReportBody">
+          <p class="bugReportHint">Décrivez le problème rencontré, et joignez si possible une ou plusieurs captures d'écran de la partie. Le rapport est envoyé directement à l'équipe.</p>
+          <textarea id="bugReportText" placeholder="Ce qui s'est passé, ce que vous attendiez à la place…" rows="5"></textarea>
+          <label class="bugReportFileLabel" for="bugReportFiles">📎 Joindre des captures d'écran (optionnel, 5 max)</label>
+          <input id="bugReportFiles" type="file" accept="image/*" multiple />
+          <div id="bugReportFileList"></div>
+          <button id="bugReportSend">Envoyer le signalement</button>
+          <div id="bugReportStatus"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -5982,6 +6014,14 @@ function openFactionPrompt(player, onChosen){
   });
   fpTitle.textContent = (player===MY_SEAT ? 'Choix de faction — Joueur 1 (vous)' : 'Choix de faction — Joueur 2 (adversaire)');
   factionOverlay.style.display='flex';
+  // Ferme automatiquement les défausses restées ouvertes par un clic manuel
+  // (discardTopClickOpen/discardBottomClickOpen) dès que la box de choix de
+  // faction s'affiche — ne touche pas à un éventuel affichage FORCÉ
+  // (forceOpenDiscards, ex. capacité de Zcyvenger en cours de résolution),
+  // qui doit lui rester ouvert malgré tout.
+  if (typeof discardTopClickOpen !== 'undefined') discardTopClickOpen = false;
+  if (typeof discardBottomClickOpen !== 'undefined') discardBottomClickOpen = false;
+  if (typeof refreshDiscardPanels === 'function') refreshDiscardPanels();
   // Rappel sonore + pulsation dorée périodique du contour, pour que le
   // joueur ne manque pas ce choix obligatoire. Le son ne doit se déclencher
   // QUE sur NOTRE propre tour (celui de MY_SEAT — le joueur du bas en local/
@@ -13492,7 +13532,87 @@ tabBtns.forEach(b=>b.addEventListener('click', ()=>{
   const tab = b.dataset.tab;
   chatView.classList.toggle('active', tab==='chat');
   histView.classList.toggle('active', tab==='history');
+  const brView = document.getElementById('bugReportView');
+  if (brView) brView.classList.toggle('active', tab==='bugreport');
 }));
+
+/* ---------- Signaler un bug : texte + captures d'écran envoyés par e-mail ---------- */
+(function(){
+  const textEl = document.getElementById('bugReportText');
+  const filesEl = document.getElementById('bugReportFiles');
+  const fileListEl = document.getElementById('bugReportFileList');
+  const sendBtn = document.getElementById('bugReportSend');
+  const statusEl = document.getElementById('bugReportStatus');
+  if (!textEl || !filesEl || !sendBtn) return;
+
+  const MAX_FILES = 5;
+  let selectedFiles = [];
+
+  function renderFileList(){
+    fileListEl.innerHTML = '';
+    selectedFiles.forEach((f, i) => {
+      const thumb = document.createElement('div');
+      thumb.className = 'bugReportThumb';
+      thumb.title = f.name + ' (cliquer pour retirer)';
+      const url = URL.createObjectURL(f);
+      thumb.style.backgroundImage = `url('${url}')`;
+      thumb.addEventListener('click', () => {
+        selectedFiles.splice(i, 1);
+        renderFileList();
+      });
+      fileListEl.appendChild(thumb);
+    });
+  }
+
+  filesEl.addEventListener('change', () => {
+    const incoming = Array.from(filesEl.files || []);
+    selectedFiles = selectedFiles.concat(incoming).slice(0, MAX_FILES);
+    filesEl.value = ''; // permet de resélectionner le même fichier plus tard
+    renderFileList();
+  });
+
+  sendBtn.addEventListener('click', async () => {
+    const message = textEl.value.trim();
+    statusEl.classList.remove('ok', 'err');
+    if (!message) {
+      statusEl.textContent = 'Merci de décrire le problème avant d\'envoyer.';
+      statusEl.classList.add('err');
+      return;
+    }
+    sendBtn.disabled = true;
+    statusEl.textContent = 'Envoi en cours…';
+
+    try {
+      const fd = new FormData();
+      fd.append('message', message);
+      fd.append('pageUrl', window.location.href);
+      fd.append('userAgent', navigator.userAgent);
+      selectedFiles.forEach(f => fd.append('screenshots', f));
+
+      const res = await fetch('/api/report-bug', { method:'POST', body:fd });
+      const data = await res.json().catch(()=>({}));
+
+      if (res.ok && data.ok) {
+        statusEl.textContent = 'Merci ! Votre signalement a bien été envoyé.';
+        statusEl.classList.add('ok');
+        textEl.value = '';
+        selectedFiles = [];
+        renderFileList();
+      } else if (data.error === 'mail_not_configured') {
+        statusEl.textContent = 'Le service de signalement n\'est pas encore activé — réessayez plus tard.';
+        statusEl.classList.add('err');
+      } else {
+        statusEl.textContent = 'Échec de l\'envoi. Réessayez dans un instant.';
+        statusEl.classList.add('err');
+      }
+    } catch (e) {
+      statusEl.textContent = 'Échec de l\'envoi (connexion). Réessayez dans un instant.';
+      statusEl.classList.add('err');
+    } finally {
+      sendBtn.disabled = false;
+    }
+  });
+})();
 chatSend.addEventListener('click', ()=>{
   const msg = chatText.value.trim(); if(!msg) return;
   const who = chatAsSel.value; postChat(who, msg); chatText.value=''; chatText.focus();
@@ -25472,9 +25592,9 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
       .vsDrawCardFlipper{ position:relative; width:100%; height:100%; transform-style:preserve-3d; transition:transform .85s cubic-bezier(.4,.15,.2,1); }
       .vsDrawCardFlipper.flipped{ transform:rotateY(180deg); }
       .vsDrawCardFace{ position:absolute; inset:0; border-radius:16px; backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:hidden; }
-      .vsDrawCardBack{ background:linear-gradient(150deg,#123039,#071418 65%); border:3px solid rgba(125,249,255,.5);
+      .vsDrawCardBack{ background-color:#071418; background-image:url('../cartes/Versobasic.png'); background-size:cover; background-position:center; background-repeat:no-repeat;
+        border:3px solid rgba(125,249,255,.5);
         display:flex; align-items:center; justify-content:center; box-shadow:0 20px 46px rgba(0,0,0,.6), inset 0 0 40px rgba(125,249,255,.08); }
-      .vsDrawCardBack::after{ content:'✦'; font-size:clamp(38px,4.5vw,56px); color:rgba(125,249,255,.4); text-shadow:0 0 20px rgba(125,249,255,.4); }
       .vsDrawCardFront{ transform:rotateY(180deg); border:3px solid rgba(255,217,61,.55); background:#0a161a;
         box-shadow:0 20px 46px rgba(0,0,0,.6); transition:border-color .35s ease, box-shadow .35s ease; }
       .vsDrawCardFront img{ width:100%; height:100%; object-fit:cover; display:block; }

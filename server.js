@@ -1804,6 +1804,91 @@ function regenerateCardStats() {
 regenerateCardStats();
 
 // ===================================================================
+// SIGNALEMENT DE BUG — onglet "🐛 Signaler un bug" de la box de Tchat, en
+// partie : texte + captures d'écran, envoyés par e-mail. Fonctionne
+// uniquement si SMTP_HOST/SMTP_USER/SMTP_PASS sont renseignés dans .env
+// (voir .env.example) — sans ça, la route répond 'mail_not_configured'
+// plutôt que de planter, exactement comme le PayPal ci-dessus tant qu'il
+// n'est pas configuré.
+// ===================================================================
+const multer = require('multer');
+const nodemailer = require('nodemailer');
+
+const BUG_REPORT_EMAIL = process.env.BUG_REPORT_EMAIL || 'loris.croce2@gmail.com';
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
+const SMTP_SECURE = process.env.SMTP_SECURE === 'true';
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+function isMailConfigured() { return !!(SMTP_HOST && SMTP_USER && SMTP_PASS); }
+let mailTransporter = null;
+function getMailTransporter() {
+  if (!isMailConfigured()) return null;
+  if (!mailTransporter) {
+    mailTransporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_SECURE, // true = SSL direct (port 465), false = STARTTLS (port 587)
+      auth: { user: SMTP_USER, pass: SMTP_PASS },
+    });
+  }
+  return mailTransporter;
+}
+
+// Stockage en mémoire (jamais écrit sur disque) : les pièces jointes ne
+// servent qu'à être attachées à l'e-mail sortant, puis sont jetées.
+const bugReportUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024, files: 5 }, // 8 Mo par fichier, 5 fichiers max
+  fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype)), // captures d'écran uniquement
+});
+
+app.post('/api/report-bug', bugReportUpload.array('screenshots', 5), async (req, res) => {
+  try {
+    const message = (req.body?.message || '').trim();
+    if (!message) return res.status(400).json({ ok: false, error: 'message_required' });
+
+    // Identité du joueur si connecté — purement informatif, jamais requis :
+    // un joueur non connecté doit pouvoir signaler un bug lui aussi (pas de
+    // authMiddleware sur cette route).
+    let reporter = 'Joueur non connecté';
+    try {
+      const token = req.cookies?.arms_token;
+      if (token) {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        reporter = `${decoded.name} <${decoded.email}>`;
+      }
+    } catch (e) { /* jeton absent/invalide : on garde "Joueur non connecté" */ }
+
+    if (!isMailConfigured()) {
+      console.warn(`[report-bug] Signalement reçu mais SMTP non configuré (voir .env.example) — non envoyé. De : ${reporter}. Message : ${message.slice(0, 200)}`);
+      return res.status(503).json({ ok: false, error: 'mail_not_configured' });
+    }
+
+    const transporter = getMailTransporter();
+    const attachments = (req.files || []).map((f, i) => ({
+      filename: f.originalname || `capture-${i + 1}.png`,
+      content: f.buffer,
+      contentType: f.mimetype,
+    }));
+
+    await transporter.sendMail({
+      from: SMTP_USER,
+      to: BUG_REPORT_EMAIL,
+      replyTo: SMTP_USER,
+      subject: `[A'rms] Signalement de bug — ${reporter}`,
+      text: `Signalé par : ${reporter}\nPage : ${req.body?.pageUrl || 'inconnue'}\nNavigateur : ${req.body?.userAgent || 'inconnu'}\nDate : ${new Date().toISOString()}\n\n${message}`,
+      attachments,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[report-bug] Échec de l\'envoi :', err);
+    res.status(500).json({ ok: false, error: 'send_failed' });
+  }
+});
+
+// ===================================================================
 // Fichiers statiques
 // ===================================================================
 app.use(express.static(path.join(__dirname, 'public')));
