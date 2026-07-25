@@ -15301,20 +15301,24 @@ function continueResolveFight(from, to){
     }
   }
 
-  // IMPY (nouveau lot) : POISON — anéanti INSTANTANÉMENT par tout combattant
-  // qui le touche en combat. CORRECTIF : auparavant conditionné à
-  // resTo.hpLost>0 / resFrom.hpLost>0 (les dégâts RÉELLEMENT infligés), donc
-  // si le porteur du Poison avait 0 ATK, ou ripostait sur une cible GELÉE
-  // (riposte annulée), le Poison ne se déclenchait jamais alors même qu'un
-  // contact de combat avait bien eu lieu. Désormais indépendant des dégâts :
-  // seul le simple fait de s'être battu compte, comme pour tout combat.
-  // Imuna (C80) reste totalement immunisée, et Rking (C232) — qui "ne perd
-  // jamais de PV en combat" — reste également épargné, des deux côtés.
-  if (getEffectiveHP(to.card) > 0 && hasTag(from.card, 'poison') && to.card.label !== 'C80' && to.card.label !== 'C232') {
+  // IMPY (nouveau lot) : POISON — anéanti par tout combattant qui le touche
+  // en combat, MAIS seulement si ce contact lui a réellement fait perdre au
+  // moins 1 PV (voir resTo.hpLost / resFrom.hpLost, calculés juste au-dessus
+  // par applyDamageWithShield). CORRECTIF (redemandé explicitement) : un
+  // combattant Poison qui ne fait que taper sur du Bouclier (dégâts
+  // entièrement absorbés, hpLost===0) ne tue plus sa cible — il faut un
+  // vrai PV de perdu. Ancienne version (qui déclenchait le Poison sur le
+  // simple fait de s'être battu, même à 0 PV perdu, pour couvrir les cas
+  // d'un porteur à 0 ATK ou d'une riposte annulée par un gel) volontairement
+  // abandonnée : ces cas ne doivent désormais PLUS tuer non plus, puisqu'aucun
+  // PV n'y est perdu. Imuna (C80) reste totalement immunisée, et Rking
+  // (C232) — qui "ne perd jamais de PV en combat" — reste également épargné,
+  // des deux côtés.
+  if (resTo.hpLost > 0 && getEffectiveHP(to.card) > 0 && hasTag(from.card, 'poison') && to.card.label !== 'C80' && to.card.label !== 'C232') {
     to.card.hp = 0;
     pushHistory('pv', `${cardAnchor(to.card.label)} est anéanti par le <strong>POISON</strong> !`);
   }
-  if (getEffectiveHP(from.card) > 0 && hasTag(to.card, 'poison') && from.card.label !== 'C80' && from.card.label !== 'C232') {
+  if (resFrom.hpLost > 0 && getEffectiveHP(from.card) > 0 && hasTag(to.card, 'poison') && from.card.label !== 'C80' && from.card.label !== 'C232') {
     from.card.hp = 0;
     pushHistory('pv', `${cardAnchor(from.card.label)} est anéanti par le <strong>POISON</strong> !`);
   }
@@ -18578,6 +18582,16 @@ function addTempleAphroditeCharge(owner, isClassic){
 const MORT_EFFECT_LABELS = ['T16','C78','C212','C214','C223','C93','T02','C66','C117','C61','C25','C35','C38','C71','C200'];
 
 function discardCard(card, owner, reason='other', context = {}){
+  // IMPY : Corbrax (C76, jeton de Horde toxique/C75) — disparaissent
+  // LITTÉRALEMENT du jeu dès qu'ils quittent la zone de combat, quelle que
+  // soit la raison (mort au combat, sacrifice, effet adverse...) : ni exil,
+  // ni défausse, aucune trace (même principe que la fusion de Fusionner les
+  // tous/C236). Vérifié en tout premier pour primer sur tous les autres cas
+  // spéciaux ci-dessous.
+  if (card.label === 'C76') {
+    pushHistory('info', `${cardAnchor('C76')} disparaît sans laisser de trace en quittant la zone de combat.`);
+    return;
+  }
   // CHIMERIA (8e lot) : Temple d'Aphrodite (C191) — chaque carte "Action"
   // jouée par son propriétaire (donc envoyée en défausse avec reason==='action')
   // lui accorde une charge classique.
@@ -19107,14 +19121,30 @@ function updateDeckCounters(){
 // n'ait pu partir en défausse/exil — pour que ce soit fiable quelle que soit
 // la façon dont le deck a été construit : IA aléatoire, tutoriel, deck
 // personnalisé, partie en ligne...).
+// Figé UNE SEULE FOIS, à la première évaluation qui trouve au moins une
+// carte : les 3 factions de départ de chaque deck, jamais recalculées
+// ensuite. Sans ce figeage, les jetons étaient recalculés à chaque appel à
+// partir des cartes ENCORE dans le deck+la main — donc si une carte d'une 4e
+// faction rejoignait la main/le deck en cours de partie (carte reçue de
+// l'adversaire, effet spécial, etc.), un 4e jeton apparaissait alors qu'il
+// ne devrait JAMAIS y en avoir plus de 3. On identifie les cartes d'origine
+// de CE joueur par le préfixe de leur id (voir uid()/createCard : 'T'/'B'),
+// pas par leur zone actuelle, pour rester exact même si une carte change de
+// main en cours de partie.
+const deckFactionsSnapshot = { top: null, bottom: null };
 function renderDeckFactionBadges(){
   ['top','bottom'].forEach(seat => {
     const container = document.getElementById(seat === 'top' ? 'deckFactionsTop' : 'deckFactionsBottom');
     if (!container) return;
-    const deck = (seat === 'top') ? topDeck : botDeck;
-    const hand = getHandByOwner(seat);
-    const pool = deck.concat(hand);
-    const present = FACTIONS.filter(fac => pool.some(c => hasTag(c, fac)));
+
+    if (!deckFactionsSnapshot[seat]) {
+      const idPrefix = (seat === 'top') ? 'T' : 'B';
+      const wholeGamePool = topDeck.concat(botDeck, topHand, botHand, topLine, botLine, topArts, botArts, topDiscard, botDiscard, exilePile)
+        .filter(c => typeof c.id === 'string' && c.id.startsWith(idPrefix));
+      const snapshot = FACTIONS.filter(fac => wholeGamePool.some(c => hasTag(c, fac)));
+      if (snapshot.length > 0) deckFactionsSnapshot[seat] = snapshot;
+    }
+    const present = deckFactionsSnapshot[seat] || [];
     // Ne reconstruit (et ne rejoue donc l'animation d'apparition) que si
     // l'ensemble des factions affichées a réellement changé. fullRender()
     // appelle cette fonction après quasiment CHAQUE action de jeu (jouer une
