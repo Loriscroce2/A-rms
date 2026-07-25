@@ -3258,7 +3258,7 @@ body.fusion-shake {
       </div>
       <div id="bugReportView" class="tab">
         <div class="bugReportBody">
-          <p class="bugReportHint">Décrivez le problème rencontré, et joignez si possible une ou plusieurs captures d'écran de la partie. Le rapport est envoyé directement à l'équipe.</p>
+          <p class="bugReportHint">Décrivez le problème rencontré. Pour joindre une capture d'écran, le plus simple : faites votre capture (ex. touche Impr écran, ou l'outil de capture de votre système), cliquez ici puis <strong>Ctrl+V</strong> (Cmd+V sur Mac) pour la coller directement — pas besoin de l'enregistrer sur le disque.</p>
           <textarea id="bugReportText" placeholder="Ce qui s'est passé, ce que vous attendiez à la place…" rows="5"></textarea>
           <label class="bugReportFileLabel" for="bugReportFiles">📎 Joindre des captures d'écran (optionnel, 5 max)</label>
           <input id="bugReportFiles" type="file" accept="image/*" multiple />
@@ -13534,6 +13534,13 @@ tabBtns.forEach(b=>b.addEventListener('click', ()=>{
   histView.classList.toggle('active', tab==='history');
   const brView = document.getElementById('bugReportView');
   if (brView) brView.classList.toggle('active', tab==='bugreport');
+  // Focus immédiat du champ texte à l'ouverture de l'onglet : permet de
+  // coller une capture (Ctrl+V) tout de suite, sans avoir à cliquer dedans
+  // en premier — geste le plus naturel possible pour signaler un bug.
+  if (tab === 'bugreport') {
+    const brText = document.getElementById('bugReportText');
+    if (brText) setTimeout(() => brText.focus(), 50);
+  }
 }));
 
 /* ---------- Signaler un bug : texte + captures d'écran envoyés par e-mail ---------- */
@@ -13564,12 +13571,53 @@ tabBtns.forEach(b=>b.addEventListener('click', ()=>{
     });
   }
 
-  filesEl.addEventListener('change', () => {
-    const incoming = Array.from(filesEl.files || []);
-    selectedFiles = selectedFiles.concat(incoming).slice(0, MAX_FILES);
-    filesEl.value = ''; // permet de resélectionner le même fichier plus tard
+  // Point d'entrée commun pour toute nouvelle image (sélecteur de fichier OU
+  // collée au clavier) : dédoublonne la limite à MAX_FILES et rafraîchit
+  // l'aperçu, quelle que soit la source.
+  function addFiles(fileArray){
+    const images = fileArray.filter(f => /^image\//.test(f.type));
+    if (images.length === 0) return false;
+    selectedFiles = selectedFiles.concat(images).slice(0, MAX_FILES);
     renderFileList();
+    return true;
+  }
+
+  filesEl.addEventListener('change', () => {
+    addFiles(Array.from(filesEl.files || []));
+    filesEl.value = ''; // permet de resélectionner le même fichier plus tard
   });
+
+  // Coller une capture d'écran directement avec Ctrl+V (ou Cmd+V) : le presse-
+  // papier contient alors une image (pas du texte) dès qu'on utilise l'outil
+  // de capture du système (Windows+Maj+S, etc.) puis qu'on colle ici — le
+  // plus simple possible pour le joueur, sans passer par un fichier enregistré
+  // sur le disque. Écouté sur toute la vue de l'onglet (pas seulement le champ
+  // texte), pour que ça marche même si le focus est ailleurs dans le panneau.
+  const bugReportViewEl = document.getElementById('bugReportView');
+  function handlePaste(e){
+    const items = (e.clipboardData || window.clipboardData)?.items;
+    if (!items) return;
+    const pastedFiles = [];
+    for (const item of items) {
+      if (item.kind === 'file' && /^image\//.test(item.type)) {
+        const f = item.getAsFile();
+        if (f) pastedFiles.push(f);
+      }
+    }
+    if (pastedFiles.length === 0) return; // du texte collé normalement : on ne touche à rien
+    e.preventDefault();
+    const added = addFiles(pastedFiles);
+    if (added && statusEl) {
+      statusEl.classList.remove('err');
+      statusEl.classList.add('ok');
+      statusEl.textContent = pastedFiles.length > 1 ? `${pastedFiles.length} captures collées !` : 'Capture collée !';
+      setTimeout(() => { if (statusEl.textContent.includes('collée')) { statusEl.textContent = ''; statusEl.classList.remove('ok'); } }, 2200);
+    }
+  }
+  // Un seul écouteur, sur le conteneur : les évènements "paste" remontent
+  // (bubbling) depuis n'importe quel enfant, y compris le champ texte — pas
+  // besoin d'un second écouteur dessus, qui dupliquerait chaque capture collée.
+  if (bugReportViewEl) bugReportViewEl.addEventListener('paste', handlePaste);
 
   sendBtn.addEventListener('click', async () => {
     const message = textEl.value.trim();

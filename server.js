@@ -1835,6 +1835,18 @@ function getMailTransporter() {
   return mailTransporter;
 }
 
+// Vérification non-bloquante au démarrage : confirme dans les logs serveur
+// que les identifiants SMTP sont valides et la connexion possible, sans
+// attendre le premier signalement réel pour le découvrir.
+if (isMailConfigured()) {
+  getMailTransporter().verify((err) => {
+    if (err) console.error('[report-bug] Config SMTP invalide, l\'envoi échouera :', err.message);
+    else console.log(`[report-bug] SMTP prêt (${SMTP_USER} → ${BUG_REPORT_EMAIL || 'loris.croce2@gmail.com'}).`);
+  });
+} else {
+  console.log('[report-bug] SMTP non configuré (.env) — le formulaire de signalement restera inactif.');
+}
+
 // Stockage en mémoire (jamais écrit sur disque) : les pièces jointes ne
 // servent qu'à être attachées à l'e-mail sortant, puis sont jetées.
 const bugReportUpload = multer({
