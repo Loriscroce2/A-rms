@@ -7169,7 +7169,13 @@ function playActionC219(owner, actionCard){
 }
 
 // WADOO 4e lot : Sororité (C228) — invoque 3 "Cousus" (jetons T05/T06/T07,
-// 1 PV chacun) dans votre zone de combat.
+// 1 PV chacun, tag 'poupée') dans votre zone de combat. Comme tout
+// Personnage fraîchement posé (voir markAttacked), ils entrent ÉPUISÉS —
+// aucun des trois n'a RAPIDE. Chacun se lie ensuite aléatoirement (via le
+// mécanisme wadooLink partagé avec les autres Poupées Wadoo) à un
+// combattant adverse tiré au sort dans la zone de combat ennemie : si
+// celle-ci ne compte qu'un seul combattant, les 3 Cousus se lient
+// forcément tous à lui.
 function playActionSororite(owner, actionCard){
   if (!canPlayThisCardNow(owner, actionCard)) return;
   consumeAllowanceIfNeeded(owner, actionCard);
@@ -7189,7 +7195,26 @@ function playActionSororite(owner, actionCard){
     } else {
       line.push(...tokens);
     }
-    pushHistory('action', `${cardAnchor('C228')} invoque 3 Cousus dans la zone de combat !`);
+
+    // Épuisés dès l'entrée (aucun n'a RAPIDE).
+    tokens.forEach(t => markAttacked(owner, t));
+
+    // Lien aléatoire vers la zone de combat adverse, un tirage indépendant
+    // par Cousu (donc potentiellement tous liés à la même cible).
+    const opp = (owner === 'top') ? 'bottom' : 'top';
+    const oppLine = getLineByOwner(opp);
+    if (oppLine.length > 0) {
+      tokens.forEach(t => {
+        const target = oppLine[Math.floor(Math.random() * oppLine.length)];
+        t.wadooLink = target.id;
+      });
+      const distinctTargets = [...new Set(tokens.map(t => t.wadooLink))]
+        .map(id => oppLine.find(c => c.id === id))
+        .filter(Boolean);
+      pushHistory('action', `${cardAnchor('C228')} invoque 3 Cousus (épuisés) dans la zone de combat, liés aléatoirement à ${distinctTargets.map(c => cardAnchor(c.label)).join(', ')} !`);
+    } else {
+      pushHistory('action', `${cardAnchor('C228')} invoque 3 Cousus (épuisés) dans la zone de combat — aucun combattant adverse à lier.`);
+    }
     fullRender();
   });
 }
@@ -10359,9 +10384,8 @@ function openMiningPrompt(owner, card, fromEl){
         buttons.push(mineButton, { label: `Rituel de liaison (+${linkGain} Mithril)`, className: 'confirm' + (canLink ? '' : ' disabled'), disabled: !canLink, onClick: () => { if (canLink) startWadooLinkTargeting(owner, card); } });
     } else if (card.label === 'C206') {
         title = 'Mama Cecil';
-        const canHeal = getEffectiveHP(card) < getBaseHP('C206');
-        msg = 'Choisissez : <strong>Miner</strong> ou se <strong>Soigner</strong> de 3 PV.';
-        buttons.push(mineButton, { label: 'Capacité (Soin +3 PV)', className: 'confirm' + (canHeal ? '' : ' disabled'), disabled: !canHeal, onClick: () => { if (canHeal) useMamaCecileHeal(owner, card); } });
+        msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (+5PV pour Mama Cecil, +3PV et ESPRIT pour toutes vos Poupées liées).';
+        buttons.push(mineButton, { label: 'Action (+5PV, buff Poupées liées)', className: 'confirm', onClick: () => { useMamaCecilAbility(owner, card); } });
     } else if (card.label === 'C211') {
         title = 'Barbatruk';
         const dolls = getLineByOwner(owner).filter(c => hasTag(c, 'poupée'));
@@ -10966,15 +10990,35 @@ function useAphroditeAction(owner, card){
   fullRender();
 }
 
-function useMamaCecileHeal(owner, card){
+// WADOO (dernier lot) : Mama Cecil (C206) — ACTION : gagne +5PV (gain
+// permanent, pas un soin plafonné), et toutes ses Poupées liées (tag
+// 'poupée' + wadooLink actif) gagnent ESPRIT et +3PV.
+function useMamaCecilAbility(owner, card){
   if(!canPlayThisCardNow(owner, card)) return;
   if(hasAttacked(owner, card)) return;
 
   markAttacked(owner, card);
-  const before = card.hp;
-  card.hp = Math.min(getBaseHP('C206'), card.hp + 3);
+
+  card.hp = getEffectiveHP(card) + 5;
   playHPHitEffect(card);
-  pushHistory('info', `${cardAnchor('C206')} se soigne de ${card.hp - before} PV.`);
+  broadcastStatGainHit(card, 5, 'green');
+
+  const line = getLineByOwner(owner);
+  const linkedDolls = line.filter(c => hasTag(c, 'poupée') && c.wadooLink);
+
+  let buffMsg = '';
+  if (linkedDolls.length > 0) {
+    linkedDolls.forEach((d, i) => {
+      if (!Array.isArray(d.addedTags)) d.addedTags = [];
+      if (!hasTag(d, 'Esprit')) d.addedTags.push('Esprit');
+      d.hp = getEffectiveHP(d) + 3;
+      playHPHitEffect(d);
+      setTimeout(() => broadcastStatGainHit(d, 3, 'green'), 150 * (i + 1));
+    });
+    buffMsg = ` ${linkedDolls.map(d=>cardAnchor(d.label)).join(', ')} ${linkedDolls.length>1?'gagnent':'gagne'} <strong>ESPRIT</strong> et +3PV (Poupée${linkedDolls.length>1?'s':''} liée${linkedDolls.length>1?'s':''}) !`;
+  }
+
+  pushHistory('action', `${cardAnchor('C206')} gagne +5PV.${buffMsg}`);
   closeActionPrompt();
   fullRender();
 }
@@ -21782,7 +21826,7 @@ function aiCombatantActionIsUsable(card){
     case 'C202':
     case 'C203':
       return !card.wadooLink && getLineByOwner(opp).some(c => getType(c.label) === 'personnage'); // Rituel de liaison
-    case 'C206': return getEffectiveHP(card) < getBaseHP('C206'); // Mama Cecil : soin utile seulement si blessée
+    case 'C206': return true; // Mama Cecil : +5PV permanent, jamais gaspillé (plus un simple soin plafonné)
     case 'C211': return getLineByOwner(owner).some(c => hasTag(c, 'poupée')); // Barbatruk : a une Poupée à sacrifier
     case 'C218': {
       const enemyArts = (opp === 'top') ? topArts : botArts;
