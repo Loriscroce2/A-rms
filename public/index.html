@@ -1042,6 +1042,16 @@
       cursor:pointer;
     }
 
+    /* CHIMERIA : Hypopillon (C176) / Acrylik (C181) — surbrillance rouge-orangée
+       pulsante sur TOUTES les cartes de la main (n'importe quel type) à
+       donner à l'adversaire. */
+    .card.hypopillonEligibleHint{
+      outline:3px solid #ff6b4d !important; outline-offset:-4px;
+      box-shadow:0 0 20px rgba(255,107,77,.8) !important;
+      animation:poisonTargetPulse 1.1s ease-in-out infinite;
+      cursor:pointer;
+    }
+
     .card.placed.selectedTargetHint {
       outline: 4px solid #ffca3a; /* Bordure jaune/dorée bien visible */
       box-shadow: 0 0 20px #ffca3a;
@@ -5820,6 +5830,12 @@ let ozokshiArtifactMode = null;
 // une fois activée, les cartes éligibles de la main (tout sauf elle-même)
 // s'illuminent et sont cliquables directement pour choisir la cible.
 let boysBandTargetMode = null;
+// CHIMERIA (dernier lot) : Hypopillon (C176) / Acrylik (C181) — "donner une
+// carte à l'adversaire" suit désormais le même principe que boysBandTargetMode
+// ci-dessus : les cartes de la main du joueur concerné (toutes, quel que soit
+// leur type) s'illuminent et sont cliquables directement pour choisir
+// laquelle donner, plutôt qu'une liste de boutons texte séparée.
+let hypopillonGiveCardMode = null;
 let kryoTargetMode = null;
 let zyzyHostTargetMode = null;
 let c42TargetMode = null;
@@ -8278,7 +8294,7 @@ function memoryReplayAnyBlockingUiOpen(){
     c9SelectMode || pilateSelectMode || c18SelectMode || artaycSelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
-    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || boysBandTargetMode || kryoTargetMode || zyzyHostTargetMode ||
+    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || boysBandTargetMode || hypopillonGiveCardMode || kryoTargetMode || zyzyHostTargetMode ||
     c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
     varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
     couveuseStealTargetMode || roiDRoiTargetMode || orionMoveMode || lanceloTargetMode ||
@@ -13786,7 +13802,7 @@ function isAnyTargetSelectionActive(){
     c9SelectMode || pilateSelectMode || c18SelectMode || artaycSelectMode || remoteChoiceMode ||
     kabbaTargetMode || krouzpierTargetMode || vakxzinTargetMode ||
     c33CombatantMode || c33ArtifactMode || tokzikTargetMode || longVoyageFamiliarMode ||
-    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || boysBandTargetMode || kryoTargetMode || zyzyHostTargetMode ||
+    arakcubeTargetMode || mezamorphArakcrabeTargetMode || ozokshiArtifactMode || boysBandTargetMode || hypopillonGiveCardMode || kryoTargetMode || zyzyHostTargetMode ||
     c42TargetMode || kamykazTargetMode || c69TargetMode || vilunionTargetMode ||
     varyceTargetMode || copieDesEnfersTargetMode || exdoteTargetMode ||
     couveuseStealTargetMode || roiDRoiTargetMode || orionMoveMode || lanceloTargetMode ||
@@ -15628,6 +15644,13 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
           el.classList.add('boysBandEligibleHint');
         }
 
+        // CHIMERIA : Hypopillon (C176) / Acrylik (C181) — TOUTES les cartes
+        // de la main du joueur concerné sont éligibles (aucune exclusion de
+        // type), illuminées et cliquables pour choisir laquelle donner.
+        if (hypopillonGiveCardMode && hypopillonGiveCardMode.owner === owner && !isFaceDown) {
+          el.classList.add('hypopillonEligibleHint');
+        }
+
         if (isFaceDown) {
             el.classList.add('back');
         } else {
@@ -15681,6 +15704,17 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
               el.addEventListener('click', (e) => {
                 e.stopImmediatePropagation();
                 handleBoysBandHandCardClick(card, owner);
+              });
+            }
+
+            // CHIMERIA : Hypopillon (C176) / Acrylik (C181) — même principe,
+            // enregistré EN PREMIER pour intercepter le clic avant toute
+            // logique de jeu propre à la carte cliquée (ex. une Action qui se
+            // jouerait sinon toute seule en plus de servir de don forcé).
+            if (hypopillonGiveCardMode && hypopillonGiveCardMode.owner === owner) {
+              el.addEventListener('click', (e) => {
+                e.stopImmediatePropagation();
+                handleHypopillonHandCardClick(card, owner);
               });
             }
         } else {
@@ -20877,6 +20911,7 @@ function aiForceCancelAllTargetModes(){
     kabbaTargetMode = null; krouzpierTargetMode = null; vakxzinTargetMode = null;
     c33CombatantMode = null; c33ArtifactMode = null; tokzikTargetMode = null;
     longVoyageFamiliarMode = null; arakcubeTargetMode = null; mezamorphArakcrabeTargetMode = null; ozokshiArtifactMode = null; boysBandTargetMode = null;
+    hypopillonGiveCardMode = null;
     kryoTargetMode = null; zyzyHostTargetMode = null; c42TargetMode = null;
     kamykazTargetMode = null; c69TargetMode = null; vilunionTargetMode = null;
     varyceTargetMode = null; copieDesEnfersTargetMode = null; exdoteTargetMode = null;
@@ -24021,7 +24056,12 @@ function useBibliotempz(owner, card){
 // CHIMERIA (dernier lot) : Grenade Sonore (C178) — ACTION : mélange
 // aléatoirement la position de TOUS les combattants adverses dans leur zone
 // de combat (aucune cible à choisir, s'applique à toute la ligne adverse
-// d'un coup).
+// d'un coup). Le mélange est réellement appliqué au tableau de jeu (voir
+// animateGrenadeSonoreShuffle ci-dessous) après une petite animation où les
+// cartes s'échangent plusieurs fois de place avant de se stabiliser sur
+// l'ordre final — sans cette animation, un simple mélange instantané du
+// tableau (ancien comportement) passait facilement inaperçu, surtout à 2-3
+// combattants, d'où l'impression que "rien ne se passe".
 function useGrenadeSonore(owner, card) {
   if (artifactExhausted[owner].has(card.id)) return;
   exhaustArtifact(owner, card);
@@ -24033,12 +24073,89 @@ function useGrenadeSonore(owner, card) {
     fullRender();
     return;
   }
-  for (let i = oppLine.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [oppLine[i], oppLine[j]] = [oppLine[j], oppLine[i]];
-  }
   pushHistory('artefact', `${cardAnchor('C178')} mélange aléatoirement la zone de combat de ${playerLabel(opp)} !`);
-  fullRender();
+  animateGrenadeSonoreShuffle(opp, oppLine);
+}
+
+// Renvoie une permutation aléatoire (Fisher-Yates) de [0..n-1].
+function shuffledIndices(n) {
+  const arr = Array.from({ length: n }, (_, i) => i);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Anime le brassage des combattants adverses : les cartes DOM déjà à l'écran
+// restent dans le même ordre réel (le tableau `oppLine` n'est modifié qu'à la
+// toute fin), seule leur position visuelle (translateX/Y + légère rotation)
+// est déplacée d'un "slot" à l'autre à chaque passe, sur plusieurs passes
+// aléatoires successives, avant de se figer sur l'ordre final réellement
+// appliqué. Verrouille le jeu pendant toute la durée (voir
+// lockGameDuringAnimation), comme pour le lancer de Maximilien.
+function animateGrenadeSonoreShuffle(opp, oppLine) {
+  const battleInnerEl = document.querySelector(opp === 'top' ? '#battleTop .battleInner' : '#battleBottom .battleInner');
+  const lane = battleInnerEl ? battleInnerEl.querySelector('.lane') : null;
+  const n = oppLine.length;
+  const originalOrder = oppLine.slice();
+
+  if (!lane || lane.children.length !== n) {
+    // Filet de sécurité : DOM introuvable/désynchronisé, on mélange le
+    // tableau directement sans animation plutôt que de planter.
+    const finalOrder = shuffledIndices(n);
+    oppLine.length = 0;
+    oppLine.push(...finalOrder.map(idx => originalOrder[idx]));
+    fullRender();
+    return;
+  }
+
+  lockGameDuringAnimation();
+  const cardEls = Array.from(lane.children);
+  const laneRect = lane.getBoundingClientRect();
+  const slotLefts = cardEls.map(el => el.getBoundingClientRect().left - laneRect.left);
+
+  // Plusieurs passes de brassage visuel, la dernière étant l'ordre réellement
+  // appliqué au tableau de jeu à la fin de l'animation.
+  const ROUNDS = 5 + Math.floor(Math.random() * 2); // 5 ou 6 passes
+  const perms = [];
+  for (let r = 0; r < ROUNDS - 1; r++) {
+    let perm = shuffledIndices(n);
+    // Évite deux passes identiques d'affilée (peu visible sinon).
+    if (perms.length && n > 1 && perm.every((v, i) => v === perms[perms.length - 1][i])) {
+      [perm[0], perm[1]] = [perm[1], perm[0]];
+    }
+    perms.push(perm);
+  }
+  const finalOrder = shuffledIndices(n);
+  perms.push(finalOrder);
+
+  const STEP_MS = 210;
+  let step = 0;
+  const runStep = () => {
+    const order = perms[step]; // order[slot] = index (dans originalOrder) affiché dans ce slot
+    cardEls.forEach((el, i) => {
+      const slot = order.indexOf(i);
+      const dx = slotLefts[slot] - slotLefts[i];
+      const bob = (step % 2 === 0) ? -7 : 7;
+      el.style.transition = `transform ${STEP_MS - 20}ms cubic-bezier(.4,.1,.2,1)`;
+      el.style.transform = `translate(${dx}px, ${bob}px) rotate(${dx > 0 ? 4 : dx < 0 ? -4 : 0}deg)`;
+      el.style.zIndex = String(300 + i);
+      el.style.filter = 'drop-shadow(0 8px 14px rgba(0,0,0,.5))';
+    });
+    step++;
+    if (step < perms.length) {
+      setTimeout(runStep, STEP_MS);
+    } else {
+      setTimeout(() => {
+        oppLine.length = 0;
+        oppLine.push(...finalOrder.map(idx => originalOrder[idx]));
+        unlockGameAfterAnimation();
+        fullRender();
+      }, STEP_MS);
+    }
+  };
+  runStep();
 }
 
 function useMineEMI(owner, card) {
@@ -24566,37 +24683,58 @@ function processGiveCardToOpponentQueue() {
     return;
   }
 
+  // Choix du joueur HUMAIN : au lieu d'une liste de boutons texte séparée,
+  // les cartes éligibles de SA main s'illuminent directement (voir renderHand
+  // / .hypopillonEligibleHint) et il clique celle qu'il veut donner — même
+  // principe que Boy's band/Ozokshi. Non annulable (le don est obligatoire),
+  // donc pas de bouton "Annuler" : juste un rappel flottant de l'action en
+  // cours, jusqu'au clic sur la carte choisie.
   giveCardToOpponentBusy = true;
-  const buttons = hand.map((c, idx) => ({
-    label: cardName(c.label),
-    className: '',
-    onClick: () => {
-      const liveHand = getHandByOwner(owner);
-      const realIdx = liveHand.findIndex(x => x.id === c.id);
-      if (realIdx === -1) { giveCardToOpponentBusy = false; processGiveCardToOpponentQueue(); return; }
-      const chosen = liveHand.splice(realIdx, 1)[0];
-      getHandByOwner(opp).push(chosen);
-      pushHistory('action', `${cardAnchor(sourceLabel)} force ${playerLabel(owner)} à donner ${cardAnchor(chosen.label)} à ${playerLabel(opp)} !`);
-      updateHandsUI();
-      fullRender();
-      giveCardToOpponentBusy = false;
-      processGiveCardToOpponentQueue();
-    }
-  }));
-  openButtonsPrompt(
-    'Donner une carte',
-    `${cardAnchor(sourceLabel)} : ${playerLabel(owner)} doit choisir une carte de sa main à donner à l'adversaire.`,
-    document.body,
-    buttons,
-    { nonCancellable: true }
-  );
+  hypopillonGiveCardMode = { owner, sourceLabel };
+  closeActionPrompt();
+
+  const promptEl = document.createElement('div');
+  promptEl.id = 'hypopillon-give-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.position = 'fixed';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '8700';
+  promptEl.innerHTML = `
+    <div class="apTitle">Donner une carte</div>
+    <div class="apMsg">${cardAnchor(sourceLabel)} : ${playerLabel(owner)} doit cliquer sur une carte illuminée de sa main à donner à l'adversaire.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
   // Ce choix appartient au joueur HUMAIN (déjà vérifié ci-dessus via
   // isAIOwnedChoice), même s'il peut survenir pendant le tour de l'IA (ex.
   // Hypopillon réactif à des dégâts subis pendant qu'elle attaque) — ne doit
   // jamais être masqué par le filet global (voir applyAIPromptSilencer).
-  if (typeof actionPromptEl !== 'undefined' && actionPromptEl) {
-    actionPromptEl.classList.add('forceVisibleToHuman');
-  }
+  actionPromptEl.classList.add('forceVisibleToHuman');
+  fullRender();
+}
+
+// Résout le clic du joueur humain sur une carte illuminée de sa main pendant
+// hypopillonGiveCardMode (voir requestGiveCardToOpponent/processGiveCardToOpponentQueue
+// ci-dessus) : donne réellement cette carte à l'adversaire, puis enchaîne sur
+// la demande suivante en file d'attente s'il y en a une.
+function handleHypopillonHandCardClick(targetCard, owner) {
+  if (!hypopillonGiveCardMode || hypopillonGiveCardMode.owner !== owner) return;
+  const { sourceLabel } = hypopillonGiveCardMode;
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const liveHand = getHandByOwner(owner);
+  const realIdx = liveHand.findIndex(x => x.id === targetCard.id);
+  if (realIdx === -1) { hypopillonGiveCardMode = null; closeActionPrompt(); giveCardToOpponentBusy = false; fullRender(); processGiveCardToOpponentQueue(); return; }
+  const chosen = liveHand.splice(realIdx, 1)[0];
+  getHandByOwner(opp).push(chosen);
+  pushHistory('action', `${cardAnchor(sourceLabel)} force ${playerLabel(owner)} à donner ${cardAnchor(chosen.label)} à ${playerLabel(opp)} !`);
+  hypopillonGiveCardMode = null;
+  closeActionPrompt();
+  updateHandsUI();
+  fullRender();
+  giveCardToOpponentBusy = false;
+  processGiveCardToOpponentQueue();
 }
 
 // CHIMERIA (dernier lot) : pioche 'count' cartes pour 'player', en gérant le
