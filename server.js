@@ -1190,6 +1190,11 @@ async function stripeCreateCheckoutSession(amountCents, productName, successUrl,
   params.append('line_items[0][price_data][product_data][name]', productName);
   params.append('line_items[0][price_data][unit_amount]', String(amountCents));
   params.append('line_items[0][quantity]', '1');
+  // "Managed Payments" (activé par défaut sur les comptes Stripe récents)
+  // exige un code fiscal produit qu'on n'a pas configuré — on le désactive
+  // pour cette requête, comme suggéré par l'erreur Stripe elle-même. Pas
+  // besoin de Stripe Tax pour de la monnaie de jeu vendue en direct.
+  params.append('managed_payments[enabled]', 'false');
   const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
     method: 'POST',
     headers: { 'Authorization': stripeAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
