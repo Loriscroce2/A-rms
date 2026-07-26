@@ -1195,7 +1195,11 @@ async function stripeCreateCheckoutSession(amountCents, productName, successUrl,
     headers: { 'Authorization': stripeAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
   });
-  if (!res.ok) throw new Error(`stripe_create_session_failed_${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('[stripe] création de session échouée', res.status, errBody);
+    throw new Error(`stripe_create_session_failed_${res.status}`);
+  }
   return res.json();
 }
 
@@ -1203,7 +1207,11 @@ async function stripeRetrieveSession(sessionId) {
   const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
     headers: { 'Authorization': stripeAuthHeader() },
   });
-  if (!res.ok) throw new Error(`stripe_retrieve_session_failed_${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('[stripe] lecture de session échouée', res.status, errBody);
+    throw new Error(`stripe_retrieve_session_failed_${res.status}`);
+  }
   return res.json();
 }
 
