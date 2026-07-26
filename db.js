@@ -315,4 +315,33 @@ if (!userCols.includes('chat_color')) {
   db.exec("ALTER TABLE users ADD COLUMN chat_color TEXT NOT NULL DEFAULT '#7df9ff'");
 }
 
+// PSEUDOS UNIQUES (insensible à la casse) — nécessaire pour que l'ajout
+// d'ami par pseudo dans le tchat soit toujours sans ambiguïté. Comme des
+// comptes existants ont pu être créés avant cette règle, on commence par
+// renommer les doublons hérités (le compte le plus ancien garde son
+// pseudo tel quel, les suivants reçoivent un suffixe " (2)", " (3)"...),
+// puis on verrouille l'unicité au niveau de la base pour la suite. Cette
+// vérification est sans effet (rapide) une fois qu'il n'y a plus aucun
+// doublon, donc on peut la laisser tourner à chaque démarrage.
+const duplicateNameGroups = db.prepare(`
+  SELECT LOWER(name) AS lname, COUNT(*) AS n FROM users GROUP BY LOWER(name) HAVING COUNT(*) > 1
+`).all();
+if (duplicateNameGroups.length > 0) {
+  const qUsersWithName = db.prepare('SELECT id, name FROM users WHERE LOWER(name) = ? ORDER BY created_at ASC, id ASC');
+  const qNameTaken = db.prepare('SELECT 1 FROM users WHERE LOWER(name) = LOWER(?)');
+  const qRenameUser = db.prepare('UPDATE users SET name = ? WHERE id = ?');
+  for (const group of duplicateNameGroups) {
+    const rows = qUsersWithName.all(group.lname);
+    // Le premier (compte le plus ancien) garde son pseudo inchangé.
+    for (let i = 1; i < rows.length; i++) {
+      let suffix = i + 1;
+      let candidate = `${rows[i].name} (${suffix})`;
+      while (qNameTaken.get(candidate)) { suffix++; candidate = `${rows[i].name} (${suffix})`; }
+      qRenameUser.run(candidate, rows[i].id);
+      console.log(`[migration] Pseudo en double renommé : "${rows[i].name}" (id ${rows[i].id}) -> "${candidate}"`);
+    }
+  }
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_name_nocase ON users (name COLLATE NOCASE)');
+
 module.exports = db;

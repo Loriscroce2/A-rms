@@ -79,6 +79,7 @@ function adminMiddleware(req, res, next) {
 
 // --- Requêtes SQL préparées (users) ---
 const qFindUserByEmail = db.prepare('SELECT * FROM users WHERE email = ?');
+const qFindUserByNameCI = db.prepare('SELECT id FROM users WHERE LOWER(name) = LOWER(?)');
 const qInsertUser = db.prepare(
   'INSERT INTO users (email, name, password_hash) VALUES (?, ?, ?)'
 );
@@ -386,9 +387,25 @@ app.post('/api/signup', (req, res) => {
     if (qFindUserByEmail.get(emailLower)) {
       return res.status(409).json({ ok: false, error: 'email_taken' });
     }
+    // Les pseudos doivent être uniques (insensible à la casse) pour que
+    // l'ajout d'ami par pseudo dans le tchat soit toujours sans ambiguïté.
+    if (qFindUserByNameCI.get(name)) {
+      return res.status(409).json({ ok: false, error: 'name_taken' });
+    }
 
     const hash = bcrypt.hashSync(password, 10);
-    const info = qInsertUser.run(emailLower, name, hash);
+    let info;
+    try {
+      info = qInsertUser.run(emailLower, name, hash);
+    } catch (e) {
+      // Filet de sécurité contre une course entre deux inscriptions
+      // simultanées avec le même pseudo (la contrainte UNIQUE de la base
+      // rejette la seconde après la vérification ci-dessus).
+      if (String(e && e.message).includes('UNIQUE')) {
+        return res.status(409).json({ ok: false, error: 'name_taken' });
+      }
+      throw e;
+    }
     const user = { id: info.lastInsertRowid, email: emailLower, name };
     setAuthCookie(res, user);
     res.json({ ok: true, user });
