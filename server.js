@@ -261,11 +261,14 @@ const qGetUserShopPurchaseOne = db.prepare('SELECT 1 FROM shop_purchases WHERE u
 const qInsertShopPurchase = db.prepare('INSERT OR IGNORE INTO shop_purchases (user_id, hour_bucket, slot_index) VALUES (?, ?, ?)');
 
 // --- Requêtes SQL préparées (Astrocomptoir — hôtel de vente argent réel) ---
-const qGetWallet = db.prepare('SELECT real_balance_cents, paypal_email, astro_agreement_accepted_at, astro_agreement_version FROM users WHERE id = ?');
+const qGetWallet = db.prepare('SELECT real_balance_cents, paypal_email, astro_agreement_accepted_at, astro_agreement_version, stripe_connect_account_id, stripe_connect_ready FROM users WHERE id = ?');
 const qSetPaypalEmail = db.prepare('UPDATE users SET paypal_email = ? WHERE id = ?');
 const qAcceptAgreement = db.prepare("UPDATE users SET astro_agreement_accepted_at = datetime('now'), astro_agreement_version = ? WHERE id = ?");
 const qAddRealBalance = db.prepare('UPDATE users SET real_balance_cents = real_balance_cents + ? WHERE id = ?');
 const qSpendRealBalance = db.prepare('UPDATE users SET real_balance_cents = real_balance_cents - ? WHERE id = ? AND real_balance_cents >= ?');
+const qSetStripeConnectAccount = db.prepare('UPDATE users SET stripe_connect_account_id = ? WHERE id = ?');
+const qSetStripeConnectReady = db.prepare('UPDATE users SET stripe_connect_ready = ? WHERE id = ?');
+const qUserByStripeConnectAccount = db.prepare('SELECT id FROM users WHERE stripe_connect_account_id = ?');
 
 const qInsertListing = db.prepare('INSERT INTO market_listings (seller_id, code, price_cents) VALUES (?, ?, ?)');
 const qListingById = db.prepare('SELECT * FROM market_listings WHERE id = ?');
@@ -1203,7 +1206,12 @@ function stripeAuthHeader() {
   return 'Basic ' + Buffer.from(`${STRIPE_SECRET_KEY}:`).toString('base64');
 }
 
-async function stripeCreateCheckoutSession(amountCents, productName, successUrl, cancelUrl, imageUrl) {
+// `connect` (optionnel) = { destinationAccountId, applicationFeeAmount } —
+// utilisé pour les ventes de l'Astrocomptoir : Stripe répartit AUTOMATIQUEMENT
+// le paiement dès l'encaissement (destination charge), la part du vendeur
+// atterrit directement sur son propre compte Stripe Connect, la commission
+// reste sur le compte du jeu. Aucune écriture manuelle de solde nécessaire.
+async function stripeCreateCheckoutSession(amountCents, productName, successUrl, cancelUrl, imageUrl, connect) {
   const params = new URLSearchParams();
   params.append('mode', 'payment');
   params.append('success_url', successUrl);
@@ -1218,6 +1226,10 @@ async function stripeCreateCheckoutSession(amountCents, productName, successUrl,
   // pour cette requête, comme suggéré par l'erreur Stripe elle-même. Pas
   // besoin de Stripe Tax pour de la monnaie de jeu vendue en direct.
   params.append('managed_payments[enabled]', 'false');
+  if (connect && connect.destinationAccountId) {
+    params.append('payment_intent_data[transfer_data][destination]', connect.destinationAccountId);
+    params.append('payment_intent_data[application_fee_amount]', String(connect.applicationFeeAmount));
+  }
   const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
     method: 'POST',
     headers: { 'Authorization': stripeAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1239,6 +1251,96 @@ async function stripeRetrieveSession(sessionId) {
     const errBody = await res.text().catch(() => '');
     console.error('[stripe] lecture de session échouée', res.status, errBody);
     throw new Error(`stripe_retrieve_session_failed_${res.status}`);
+  }
+  return res.json();
+}
+
+// --- Stripe Connect : compte "Express" par vendeur (identité + IBAN via une
+// page hébergée par Stripe), pour recevoir automatiquement sa part de chaque
+// vente et retirer vers son propre compte bancaire. Payouts en mode "manual"
+// (pas de virement automatique planifié par Stripe) pour que le retrait ne
+// parte que lorsque le joueur clique sur "Retrait" dans le jeu.
+async function stripeCreateConnectedAccount(email) {
+  const params = new URLSearchParams();
+  params.append('type', 'express');
+  params.append('country', 'FR');
+  params.append('email', email);
+  params.append('capabilities[transfers][requested]', 'true');
+  params.append('business_type', 'individual');
+  params.append('settings[payouts][schedule][interval]', 'manual');
+  const res = await fetch('https://api.stripe.com/v1/accounts', {
+    method: 'POST',
+    headers: { 'Authorization': stripeAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('[stripe connect] création de compte échouée', res.status, errBody);
+    throw new Error(`stripe_connect_account_failed_${res.status}`);
+  }
+  return res.json();
+}
+
+async function stripeCreateAccountLink(accountId, refreshUrl, returnUrl) {
+  const params = new URLSearchParams();
+  params.append('account', accountId);
+  params.append('refresh_url', refreshUrl);
+  params.append('return_url', returnUrl);
+  params.append('type', 'account_onboarding');
+  const res = await fetch('https://api.stripe.com/v1/account_links', {
+    method: 'POST',
+    headers: { 'Authorization': stripeAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('[stripe connect] création du lien d\'onboarding échouée', res.status, errBody);
+    throw new Error(`stripe_connect_link_failed_${res.status}`);
+  }
+  return res.json();
+}
+
+async function stripeRetrieveAccount(accountId) {
+  const res = await fetch(`https://api.stripe.com/v1/accounts/${encodeURIComponent(accountId)}`, {
+    headers: { 'Authorization': stripeAuthHeader() },
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('[stripe connect] lecture de compte échouée', res.status, errBody);
+    throw new Error(`stripe_connect_account_read_failed_${res.status}`);
+  }
+  return res.json();
+}
+
+async function stripeRetrieveConnectedBalance(accountId) {
+  const res = await fetch('https://api.stripe.com/v1/balance', {
+    headers: { 'Authorization': stripeAuthHeader(), 'Stripe-Account': accountId },
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('[stripe connect] lecture de solde échouée', res.status, errBody);
+    throw new Error(`stripe_connect_balance_failed_${res.status}`);
+  }
+  return res.json();
+}
+
+async function stripeCreatePayoutForAccount(accountId, amountCents) {
+  const params = new URLSearchParams();
+  params.append('amount', String(amountCents));
+  params.append('currency', 'eur');
+  const res = await fetch('https://api.stripe.com/v1/payouts', {
+    method: 'POST',
+    headers: {
+      'Authorization': stripeAuthHeader(),
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Stripe-Account': accountId,
+    },
+    body: params.toString(),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('[stripe connect] création du virement échouée', res.status, errBody);
+    throw new Error(`stripe_connect_payout_failed_${res.status}`);
   }
   return res.json();
 }
@@ -1357,6 +1459,9 @@ app.get('/api/astrocomptoir/status', authMiddleware, (req, res) => {
       agreementAccepted: row.astro_agreement_version === ASTRO_AGREEMENT_VERSION,
       agreementVersion: ASTRO_AGREEMENT_VERSION,
       paypalConfigured: isPaypalConfigured(),
+      stripeConfigured: isStripeConfigured(),
+      stripeConnectReady: !!row.stripe_connect_ready,
+      hasStripeConnectAccount: !!row.stripe_connect_account_id,
     });
   } catch (e) {
     console.error(e);
@@ -1391,6 +1496,87 @@ app.post('/api/astrocomptoir/paypal-email', authMiddleware, (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Stripe Connect : connexion du compte bancaire du vendeur ---
+// Crée (ou réutilise) un compte Stripe Express pour ce joueur, puis renvoie
+// un lien d'onboarding hébergé par Stripe (identité + IBAN). Le joueur
+// revient automatiquement sur l'Astrocomptoir une fois terminé.
+app.post('/api/astrocomptoir/connect/start', authMiddleware, async (req, res) => {
+  try {
+    if (!hasAcceptedAgreement(req.user.id)) {
+      return res.status(403).json({ ok: false, error: 'agreement_required' });
+    }
+    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const wallet = qGetWallet.get(req.user.id);
+    let accountId = wallet.stripe_connect_account_id;
+    if (!accountId) {
+      const account = await stripeCreateConnectedAccount(req.user.email);
+      accountId = account.id;
+      qSetStripeConnectAccount.run(accountId, req.user.id);
+    }
+    const link = await stripeCreateAccountLink(
+      accountId,
+      `${origin}/astrocomptoir.html?connect=refresh`,
+      `${origin}/astrocomptoir.html?connect=return`
+    );
+    res.json({ ok: true, url: link.url });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'stripe_error' });
+  }
+});
+
+// Statut du compte Stripe Connect + solde disponible réel (lu en direct chez
+// Stripe, pas stocké dans notre propre base) — appelé au chargement de la
+// page et au retour de l'onboarding.
+app.get('/api/astrocomptoir/connect/status', authMiddleware, async (req, res) => {
+  try {
+    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
+    const wallet = qGetWallet.get(req.user.id);
+    if (!wallet.stripe_connect_account_id) {
+      return res.json({ ok: true, connected: false, ready: false, availableCents: 0 });
+    }
+    const account = await stripeRetrieveAccount(wallet.stripe_connect_account_id);
+    const ready = !!(account.payouts_enabled && account.details_submitted);
+    if (ready !== !!wallet.stripe_connect_ready) {
+      qSetStripeConnectReady.run(ready ? 1 : 0, req.user.id);
+    }
+    let availableCents = 0;
+    if (ready) {
+      try {
+        const balance = await stripeRetrieveConnectedBalance(wallet.stripe_connect_account_id);
+        availableCents = (balance.available || []).filter(b => b.currency === 'eur').reduce((sum, b) => sum + b.amount, 0);
+      } catch (e) { /* solde non critique pour l'affichage du statut */ }
+    }
+    res.json({ ok: true, connected: true, ready, availableCents });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'stripe_error' });
+  }
+});
+
+// Retrait automatique : déclenche un vrai virement Stripe (Payout) depuis le
+// solde disponible du compte Connect du joueur vers son IBAN enregistré.
+// Aucune validation manuelle d'admin — envoyé dès la confirmation du joueur.
+app.post('/api/astrocomptoir/connect/payout', authMiddleware, async (req, res) => {
+  try {
+    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
+    const wallet = qGetWallet.get(req.user.id);
+    if (!wallet.stripe_connect_account_id || !wallet.stripe_connect_ready) {
+      return res.status(400).json({ ok: false, error: 'connect_not_ready' });
+    }
+    const amountCents = Math.round(Number(req.body?.amountCents));
+    if (!Number.isFinite(amountCents) || amountCents < 500) {
+      return res.status(400).json({ ok: false, error: 'invalid_amount' });
+    }
+    const payout = await stripeCreatePayoutForAccount(wallet.stripe_connect_account_id, amountCents);
+    res.json({ ok: true, payoutId: payout.id, status: payout.status });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'stripe_error' });
   }
 });
 
@@ -1465,6 +1651,14 @@ app.post('/api/astrocomptoir/listings', authMiddleware, (req, res) => {
     if (!hasAcceptedAgreement(req.user.id)) {
       return res.status(403).json({ ok: false, error: 'agreement_required' });
     }
+    // Un vendeur doit avoir terminé la connexion de son compte bancaire
+    // (Stripe Connect) avant de pouvoir mettre une carte en vente, sinon un
+    // acheteur ne pourrait jamais finaliser le paiement (destination charge
+    // impossible sans compte de destination valide).
+    const sellerWallet = qGetWallet.get(req.user.id);
+    if (!sellerWallet || !sellerWallet.stripe_connect_ready) {
+      return res.status(403).json({ ok: false, error: 'connect_required' });
+    }
     const code = String(req.body?.code || '');
     const priceCents = Math.round(Number(req.body?.priceCents));
     if (!/^\d{4}$/.test(code)) return res.status(400).json({ ok: false, error: 'invalid_code' });
@@ -1529,10 +1723,10 @@ function cardCatalogName(code) {
 // qu'aucun autre acheteur ne puisse la prendre entre-temps ; si le paiement
 // échoue/est annulé/abandonné, elle redevient disponible (immédiatement au
 // clic "annuler", ou automatiquement après 30 min via le balayage paresseux
-// plus haut). Au paiement confirmé : 90% du prix est crédité au solde du
-// vendeur (retirable ensuite vers PayPal), les 10% de commission restent
-// directement sur le compte Stripe du jeu — aucune écriture nécessaire
-// puisque c'est ce même compte qui a encaissé la totalité du paiement.
+// plus haut). Le paiement est scindé automatiquement par Stripe Connect dès
+// l'encaissement (destination charge) : 90% du prix part directement sur le
+// compte Stripe du vendeur, les 10% de commission restent sur le compte du
+// jeu — aucune écriture de solde interne nécessaire.
 app.post('/api/astrocomptoir/cards/:code/buy', authMiddleware, async (req, res) => {
   try {
     if (!hasAcceptedAgreement(req.user.id)) {
@@ -1545,13 +1739,19 @@ app.post('/api/astrocomptoir/cards/:code/buy', authMiddleware, async (req, res) 
     if (!listing) {
       return res.status(404).json({ ok: false, error: 'no_listing_available' });
     }
+    const sellerWallet = qGetWallet.get(listing.seller_id);
+    if (!sellerWallet || !sellerWallet.stripe_connect_account_id || !sellerWallet.stripe_connect_ready) {
+      return res.status(409).json({ ok: false, error: 'seller_not_connected' });
+    }
     const origin = `${req.protocol}://${req.get('host')}`;
+    const commission = Math.round(listing.price_cents * ASTRO_COMMISSION_RATE);
     const session = await stripeCreateCheckoutSession(
       listing.price_cents,
       `${cardCatalogName(listing.code)} — Astrocomptoir A'rms`,
       `${origin}/astrocomptoir.html?buy=stripe_return&session_id={CHECKOUT_SESSION_ID}`,
       `${origin}/astrocomptoir.html?buy=stripe_cancel&session_id={CHECKOUT_SESSION_ID}`,
-      `${origin}/cartes/${listing.code}.png`
+      `${origin}/cartes/${listing.code}.png`,
+      { destinationAccountId: sellerWallet.stripe_connect_account_id, applicationFeeAmount: commission }
     );
     const reserved = qReserveListingForCheckout.run(session.id, listing.id);
     if (reserved.changes === 0) {
@@ -1588,9 +1788,10 @@ app.post('/api/astrocomptoir/cards/confirm-purchase', authMiddleware, async (req
     if (marked.changes === 0) {
       return res.status(409).json({ ok: false, error: 'already_sold' });
     }
+    // La répartition 90/10 a déjà eu lieu chez Stripe au moment de l'encaissement
+    // (destination charge) — ici on ne fait qu'enregistrer la vente et livrer la
+    // carte, aucune écriture de solde interne n'est nécessaire côté vendeur.
     const commission = Math.round(listing.price_cents * ASTRO_COMMISSION_RATE);
-    const sellerGain = listing.price_cents - commission;
-    qAddRealBalance.run(sellerGain, listing.seller_id);
     qUpsertCard.run(req.user.id, listing.code, 1);
     qInsertTransaction.run(listing.id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission);
     res.json({ ok: true, code: listing.code, priceCents: listing.price_cents });

@@ -244,5 +244,16 @@ if (!userCols.includes('astro_agreement_accepted_at')) {
 if (!userCols.includes('astro_agreement_version')) {
   db.exec('ALTER TABLE users ADD COLUMN astro_agreement_version TEXT');
 }
+// STRIPE CONNECT : compte Stripe Express propre à chaque vendeur, pour
+// recevoir automatiquement sa part de chaque vente (90%) et retirer vers
+// son propre IBAN — remplace le paiement PayPal manuel pour les retraits.
+// stripe_connect_ready = 1 une fois l'onboarding Stripe terminé côté
+// vendeur (identité + IBAN vérifiés, payouts_enabled = true côté Stripe).
+if (!userCols.includes('stripe_connect_account_id')) {
+  db.exec("ALTER TABLE users ADD COLUMN stripe_connect_account_id TEXT NOT NULL DEFAULT ''");
+}
+if (!userCols.includes('stripe_connect_ready')) {
+  db.exec('ALTER TABLE users ADD COLUMN stripe_connect_ready INTEGER NOT NULL DEFAULT 0');
+}
 
 module.exports = db;
