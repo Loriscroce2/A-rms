@@ -122,8 +122,9 @@ function coinsForResponse(req) {
 }
 
 // --- Requêtes SQL préparées (profil / avatar) ---
-const qGetProfile = db.prepare('SELECT id, name, coins, avatar, has_seen_tutorial FROM users WHERE id = ?');
+const qGetProfile = db.prepare('SELECT id, name, coins, avatar, has_seen_tutorial, chat_color FROM users WHERE id = ?');
 const qSetAvatar = db.prepare('UPDATE users SET avatar = ? WHERE id = ?');
+const qSetChatColor = db.prepare('UPDATE users SET chat_color = ? WHERE id = ?');
 const qMarkTutorialSeen = db.prepare('UPDATE users SET has_seen_tutorial = 1 WHERE id = ?');
 
 // ===================================================================
@@ -426,7 +427,7 @@ app.get('/api/me', authMiddleware, (req, res) => {
   const row = qGetProfile.get(req.user.id);
   const tpRow = qGetThreatPoints.get(req.user.id);
   const rank = getRankInfo(tpRow ? tpRow.threat_points : 0);
-  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '', rank, hasSeenTutorial: row ? !!row.has_seen_tutorial : false, isAdmin: isAdminEmail(req.user.email) } });
+  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '', chatColor: row ? row.chat_color : '#7df9ff', rank, hasSeenTutorial: row ? !!row.has_seen_tutorial : false, isAdmin: isAdminEmail(req.user.email) } });
 });
 
 // ===================================================================
@@ -648,6 +649,313 @@ app.post('/api/profile/avatar', authMiddleware, (req, res) => {
     }
     qSetAvatar.run(f, req.user.id);
     res.json({ ok: true, avatar: f });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Couleur de police choisie par le joueur pour ses messages de tchat
+// (général + privés) — un simple hexadécimal CSS, validé côté serveur.
+const CHAT_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+app.post('/api/profile/chat-color', authMiddleware, (req, res) => {
+  try {
+    const color = String(req.body?.color || '');
+    if (!CHAT_COLOR_RE.test(color)) {
+      return res.status(400).json({ ok: false, error: 'invalid_color' });
+    }
+    qSetChatColor.run(color, req.user.id);
+    res.json({ ok: true, color });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// ===================================================================
+// TCHAT GLOBAL — tchat général (visible de tous) + tchats privés entre
+// amis. L'envoi des messages passe par socket.io (voir plus bas, section
+// io.of('/chat')) pour le temps réel ; les routes REST ci-dessous servent
+// à charger l'historique et à gérer la liste d'amis (recherche par
+// pseudo, demandes, acceptation, suppression).
+// ===================================================================
+
+const qFindUsersByName = db.prepare(`
+  SELECT id, name, avatar FROM users
+  WHERE LOWER(name) = LOWER(?) AND id != ?
+  LIMIT 20
+`);
+const qFriendshipBetween = db.prepare(`
+  SELECT * FROM friendships
+  WHERE (requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)
+`);
+const qInsertFriendRequest = db.prepare(`
+  INSERT INTO friendships (requester_id, addressee_id, status) VALUES (?, ?, 'pending')
+`);
+const qFriendshipById = db.prepare('SELECT * FROM friendships WHERE id = ?');
+const qAcceptFriendship = db.prepare(`
+  UPDATE friendships SET status = 'accepted', responded_at = datetime('now') WHERE id = ?
+`);
+const qDeclineFriendship = db.prepare(`
+  UPDATE friendships SET status = 'declined', responded_at = datetime('now') WHERE id = ?
+`);
+const qDeleteFriendship = db.prepare('DELETE FROM friendships WHERE id = ?');
+const qMyAcceptedFriendships = db.prepare(`
+  SELECT f.id AS friendship_id,
+         CASE WHEN f.requester_id = ? THEN f.addressee_id ELSE f.requester_id END AS friend_id
+  FROM friendships f
+  WHERE f.status = 'accepted' AND (f.requester_id = ? OR f.addressee_id = ?)
+`);
+const qMyIncomingRequests = db.prepare(`
+  SELECT f.id AS friendship_id, f.requester_id AS other_id, u.name, u.avatar, f.created_at
+  FROM friendships f JOIN users u ON u.id = f.requester_id
+  WHERE f.addressee_id = ? AND f.status = 'pending'
+  ORDER BY f.created_at DESC
+`);
+const qMyOutgoingRequests = db.prepare(`
+  SELECT f.id AS friendship_id, f.addressee_id AS other_id, u.name, u.avatar, f.created_at
+  FROM friendships f JOIN users u ON u.id = f.addressee_id
+  WHERE f.requester_id = ? AND f.status = 'pending'
+  ORDER BY f.created_at DESC
+`);
+const qUserBasic = db.prepare('SELECT id, name, avatar FROM users WHERE id = ?');
+const qUnreadCountFrom = db.prepare(`
+  SELECT COUNT(*) AS n FROM chat_private_messages WHERE from_id = ? AND to_id = ? AND read_at IS NULL
+`);
+const qLastPrivateMessageBetween = db.prepare(`
+  SELECT text, created_at, from_id FROM chat_private_messages
+  WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)
+  ORDER BY id DESC LIMIT 1
+`);
+
+const qInsertGeneralMessage = db.prepare('INSERT INTO chat_general_messages (user_id, text) VALUES (?, ?)');
+const qGeneralHistory = db.prepare(`
+  SELECT m.id, m.user_id, m.text, m.created_at, u.name, u.avatar, u.chat_color
+  FROM chat_general_messages m JOIN users u ON u.id = m.user_id
+  WHERE m.id < ?
+  ORDER BY m.id DESC LIMIT ?
+`);
+const qGeneralHistoryLatest = db.prepare(`
+  SELECT m.id, m.user_id, m.text, m.created_at, u.name, u.avatar, u.chat_color
+  FROM chat_general_messages m JOIN users u ON u.id = m.user_id
+  ORDER BY m.id DESC LIMIT ?
+`);
+
+const qInsertPrivateMessage = db.prepare('INSERT INTO chat_private_messages (from_id, to_id, text) VALUES (?, ?, ?)');
+const qPrivateHistory = db.prepare(`
+  SELECT m.id, m.from_id, m.to_id, m.text, m.created_at, u.name, u.avatar, u.chat_color
+  FROM chat_private_messages m JOIN users u ON u.id = m.from_id
+  WHERE ((m.from_id = ? AND m.to_id = ?) OR (m.from_id = ? AND m.to_id = ?)) AND m.id < ?
+  ORDER BY m.id DESC LIMIT ?
+`);
+const qPrivateHistoryLatest = db.prepare(`
+  SELECT m.id, m.from_id, m.to_id, m.text, m.created_at, u.name, u.avatar, u.chat_color
+  FROM chat_private_messages m JOIN users u ON u.id = m.from_id
+  WHERE (m.from_id = ? AND m.to_id = ?) OR (m.from_id = ? AND m.to_id = ?)
+  ORDER BY m.id DESC LIMIT ?
+`);
+const qMarkPrivateRead = db.prepare(`
+  UPDATE chat_private_messages SET read_at = datetime('now')
+  WHERE from_id = ? AND to_id = ? AND read_at IS NULL
+`);
+
+const CHAT_MAX_LEN = 500;
+const CHAT_PAGE_SIZE = 50;
+
+function areFriends(userIdA, userIdB) {
+  const row = qFriendshipBetween.get(userIdA, userIdB, userIdB, userIdA);
+  return !!row && row.status === 'accepted';
+}
+
+// Recherche un joueur par pseudo exact (insensible à la casse), pour lui
+// envoyer une demande d'ami. Comme le pseudo n'est pas garanti unique,
+// plusieurs comptes peuvent être renvoyés — le joueur choisit alors le bon
+// (avatar affiché pour l'aider à distinguer).
+app.get('/api/chat/find-user', authMiddleware, (req, res) => {
+  try {
+    const pseudo = String(req.query?.pseudo || '').trim();
+    if (!pseudo) return res.json({ ok: true, matches: [] });
+    const rows = qFindUsersByName.all(pseudo, req.user.id);
+    res.json({ ok: true, matches: rows.map(r => ({ id: r.id, name: r.name, avatar: r.avatar })) });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/chat/friends/request', authMiddleware, (req, res) => {
+  try {
+    const targetId = parseInt(req.body?.targetId, 10);
+    if (!Number.isFinite(targetId) || targetId === req.user.id) {
+      return res.status(400).json({ ok: false, error: 'invalid_target' });
+    }
+    const target = qUserBasic.get(targetId);
+    if (!target) return res.status(404).json({ ok: false, error: 'user_not_found' });
+
+    const existing = qFriendshipBetween.get(req.user.id, targetId, targetId, req.user.id);
+    if (existing) {
+      if (existing.status === 'accepted') {
+        return res.status(409).json({ ok: false, error: 'already_friends' });
+      }
+      if (existing.status === 'pending') {
+        // Si l'autre joueur nous avait déjà envoyé une demande, on l'accepte
+        // directement au lieu d'en créer une seconde dans l'autre sens.
+        if (existing.requester_id === targetId) {
+          qAcceptFriendship.run(existing.id);
+          notifyUser(targetId, 'chat:friendAccepted', { friendshipId: existing.id, friend: { id: req.user.id, name: req.user.name, avatar: (qUserBasic.get(req.user.id) || {}).avatar || '' } });
+          return res.json({ ok: true, status: 'accepted' });
+        }
+        return res.status(409).json({ ok: false, error: 'request_already_sent' });
+      }
+      // status === 'declined' : on autorise à retenter, en réinitialisant la ligne existante.
+      qDeleteFriendship.run(existing.id);
+    }
+    const info = qInsertFriendRequest.run(req.user.id, targetId);
+    const me = qUserBasic.get(req.user.id);
+    notifyUser(targetId, 'chat:friendRequestReceived', {
+      friendshipId: info.lastInsertRowid,
+      from: { id: me.id, name: me.name, avatar: me.avatar || '' },
+    });
+    res.status(201).json({ ok: true, status: 'pending', friendshipId: info.lastInsertRowid });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/chat/friends/respond', authMiddleware, (req, res) => {
+  try {
+    const friendshipId = parseInt(req.body?.friendshipId, 10);
+    const accept = !!req.body?.accept;
+    const row = qFriendshipById.get(friendshipId);
+    if (!row || row.addressee_id !== req.user.id || row.status !== 'pending') {
+      return res.status(404).json({ ok: false, error: 'request_not_found' });
+    }
+    if (accept) {
+      qAcceptFriendship.run(friendshipId);
+      const me = qUserBasic.get(req.user.id);
+      notifyUser(row.requester_id, 'chat:friendAccepted', { friendshipId, friend: { id: me.id, name: me.name, avatar: me.avatar || '' } });
+      res.json({ ok: true, status: 'accepted' });
+    } else {
+      qDeclineFriendship.run(friendshipId);
+      res.json({ ok: true, status: 'declined' });
+    }
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Annule une demande d'ami que J'AI envoyée et qui est encore en attente
+// (contrairement à /respond, réservé au destinataire).
+app.post('/api/chat/friends/cancel', authMiddleware, (req, res) => {
+  try {
+    const friendshipId = parseInt(req.body?.friendshipId, 10);
+    const row = qFriendshipById.get(friendshipId);
+    if (!row || row.requester_id !== req.user.id || row.status !== 'pending') {
+      return res.status(404).json({ ok: false, error: 'request_not_found' });
+    }
+    qDeleteFriendship.run(friendshipId);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/chat/friends/remove', authMiddleware, (req, res) => {
+  try {
+    const friendId = parseInt(req.body?.friendId, 10);
+    const row = qFriendshipBetween.get(req.user.id, friendId, friendId, req.user.id);
+    if (!row || row.status !== 'accepted') {
+      return res.status(404).json({ ok: false, error: 'not_friends' });
+    }
+    qDeleteFriendship.run(row.id);
+    notifyUser(friendId, 'chat:friendRemoved', { friendId: req.user.id });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/chat/friends', authMiddleware, (req, res) => {
+  try {
+    const friendRows = qMyAcceptedFriendships.all(req.user.id, req.user.id, req.user.id);
+    const friends = friendRows.map(r => {
+      const u = qUserBasic.get(r.friend_id);
+      const unread = qUnreadCountFrom.get(r.friend_id, req.user.id).n;
+      const last = qLastPrivateMessageBetween.get(req.user.id, r.friend_id, r.friend_id, req.user.id);
+      return {
+        friendshipId: r.friendship_id,
+        id: u.id, name: u.name, avatar: u.avatar || '',
+        unread,
+        online: isUserOnline(u.id),
+        lastMessage: last ? last.text : '',
+        lastMessageAt: last ? last.created_at : null,
+      };
+    });
+    friends.sort((a, b) => (b.lastMessageAt || '').localeCompare(a.lastMessageAt || ''));
+    const incoming = qMyIncomingRequests.all(req.user.id).map(r => ({
+      friendshipId: r.friendship_id, id: r.other_id, name: r.name, avatar: r.avatar || '', createdAt: r.created_at,
+    }));
+    const outgoing = qMyOutgoingRequests.all(req.user.id).map(r => ({
+      friendshipId: r.friendship_id, id: r.other_id, name: r.name, avatar: r.avatar || '', createdAt: r.created_at,
+    }));
+    res.json({ ok: true, friends, incoming, outgoing });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/chat/general', authMiddleware, (req, res) => {
+  try {
+    const before = parseInt(req.query?.before, 10);
+    const rows = Number.isFinite(before)
+      ? qGeneralHistory.all(before, CHAT_PAGE_SIZE)
+      : qGeneralHistoryLatest.all(CHAT_PAGE_SIZE);
+    const messages = rows.map(r => ({
+      id: r.id, userId: r.user_id, name: r.name, avatar: r.avatar || '', color: r.chat_color || '#7df9ff',
+      text: r.text, createdAt: r.created_at,
+    })).reverse();
+    res.json({ ok: true, messages });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/chat/private/:friendId', authMiddleware, (req, res) => {
+  try {
+    const friendId = parseInt(req.params.friendId, 10);
+    if (!areFriends(req.user.id, friendId)) {
+      return res.status(403).json({ ok: false, error: 'not_friends' });
+    }
+    const before = parseInt(req.query?.before, 10);
+    const rows = Number.isFinite(before)
+      ? qPrivateHistory.all(req.user.id, friendId, friendId, req.user.id, before, CHAT_PAGE_SIZE)
+      : qPrivateHistoryLatest.all(req.user.id, friendId, friendId, req.user.id, CHAT_PAGE_SIZE);
+    const messages = rows.map(r => ({
+      id: r.id, fromId: r.from_id, toId: r.to_id, name: r.name, avatar: r.avatar || '', color: r.chat_color || '#7df9ff',
+      text: r.text, createdAt: r.created_at,
+    })).reverse();
+    qMarkPrivateRead.run(friendId, req.user.id);
+    res.json({ ok: true, messages });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// Marque comme lus les messages d'un ami sans recharger tout l'historique
+// (appelé quand un message arrive en direct pendant que la conversation est
+// déjà ouverte à l'écran).
+app.post('/api/chat/private/:friendId/read', authMiddleware, (req, res) => {
+  try {
+    const friendId = parseInt(req.params.friendId, 10);
+    qMarkPrivateRead.run(friendId, req.user.id);
+    res.json({ ok: true });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -2142,6 +2450,105 @@ io.on('connection', (socket) => {
     const otherSeat = (seat === 'bottom') ? 'top' : 'bottom';
     io.to(matchId).emit('matchForfeit', { winnerSeat: otherSeat, loserSeat: seat });
     liveMatches.delete(matchId);
+  });
+});
+
+// ===================================================================
+// TCHAT GLOBAL (temps réel) — espace de noms séparé du jeu 1v1 ci-dessus,
+// authentifié via le même cookie JWT que le reste du site (arms_token).
+// Un joueur peut avoir plusieurs onglets ouverts à la fois : on garde donc
+// un Set de socket ids par utilisateur plutôt qu'un seul socket.
+// ===================================================================
+const chatNsp = io.of('/chat');
+const chatOnlineSockets = new Map(); // userId -> Set<socketId>
+
+function isUserOnline(userId) {
+  const set = chatOnlineSockets.get(userId);
+  return !!set && set.size > 0;
+}
+
+// Envoie un événement à tous les onglets ouverts d'un joueur donné, s'il en
+// a (sinon ne fait rien — il verra l'info au prochain chargement de page,
+// via les routes REST /api/chat/friends etc.).
+function notifyUser(userId, event, payload) {
+  chatNsp.to(`user:${userId}`).emit(event, payload);
+}
+
+// Récupère le cookie arms_token brut depuis l'en-tête Cookie de la requête
+// de handshake socket.io (le cookie est httpOnly : pas de cookie-parser
+// disponible ici, socket.io ne passe pas par les middlewares Express).
+function parseCookie(cookieHeader, name) {
+  if (!cookieHeader) return null;
+  const parts = cookieHeader.split(';').map(p => p.trim());
+  for (const part of parts) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    if (part.slice(0, eq) === name) return decodeURIComponent(part.slice(eq + 1));
+  }
+  return null;
+}
+
+chatNsp.use((socket, next) => {
+  try {
+    const token = parseCookie(socket.request.headers.cookie, 'arms_token');
+    if (!token) return next(new Error('non_auth'));
+    const decoded = jwt.verify(token, JWT_SECRET);
+    socket.data.userId = decoded.id;
+    socket.data.name = decoded.name;
+    next();
+  } catch (e) {
+    next(new Error('token_invalid'));
+  }
+});
+
+chatNsp.on('connection', (socket) => {
+  const userId = socket.data.userId;
+  socket.join('general');
+  socket.join(`user:${userId}`);
+  if (!chatOnlineSockets.has(userId)) chatOnlineSockets.set(userId, new Set());
+  chatOnlineSockets.get(userId).add(socket.id);
+
+  socket.on('chat:sendGeneral', (payload) => {
+    try {
+      const text = String(payload?.text || '').trim().slice(0, CHAT_MAX_LEN);
+      if (!text) return;
+      const info = qInsertGeneralMessage.run(userId, text);
+      const u = qUserBasic.get(userId);
+      const profile = qGetProfile.get(userId);
+      chatNsp.to('general').emit('chat:general', {
+        id: info.lastInsertRowid, userId, name: u.name, avatar: u.avatar || '',
+        color: (profile && profile.chat_color) || '#7df9ff', text, createdAt: new Date().toISOString(),
+      });
+    } catch (e) { console.error(e); }
+  });
+
+  socket.on('chat:sendPrivate', (payload) => {
+    try {
+      const toId = parseInt(payload?.toId, 10);
+      const text = String(payload?.text || '').trim().slice(0, CHAT_MAX_LEN);
+      if (!text || !Number.isFinite(toId) || toId === userId) return;
+      if (!areFriends(userId, toId)) {
+        socket.emit('chat:privateError', { error: 'not_friends' });
+        return;
+      }
+      const info = qInsertPrivateMessage.run(userId, toId, text);
+      const u = qUserBasic.get(userId);
+      const profile = qGetProfile.get(userId);
+      const message = {
+        id: info.lastInsertRowid, fromId: userId, toId, name: u.name, avatar: u.avatar || '',
+        color: (profile && profile.chat_color) || '#7df9ff', text, createdAt: new Date().toISOString(),
+      };
+      chatNsp.to(`user:${toId}`).emit('chat:private', message);
+      chatNsp.to(`user:${userId}`).emit('chat:private', message);
+    } catch (e) { console.error(e); }
+  });
+
+  socket.on('disconnect', () => {
+    const set = chatOnlineSockets.get(userId);
+    if (set) {
+      set.delete(socket.id);
+      if (set.size === 0) chatOnlineSockets.delete(userId);
+    }
   });
 });
 

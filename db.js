@@ -182,6 +182,56 @@ db.exec(`
     completed_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
   );
+
+  -- ===================================================================
+  -- TCHAT GLOBAL — un tchat général visible de tous + des tchats privés
+  -- entre amis. Distinct du tchat de partie (qui vit en mémoire côté
+  -- socket.io pendant un match 1v1) : ici tout est persisté en base pour
+  -- garder l'historique entre deux visites.
+  -- ===================================================================
+
+  -- Relation d'amitié entre deux joueurs. Une seule ligne par paire, créée
+  -- par le "demandeur" (requester_id) ; reste 'pending' tant que le
+  -- destinataire (addressee_id) n'a pas répondu. Le tchat privé n'est
+  -- accessible qu'une fois status = 'accepted'.
+  CREATE TABLE IF NOT EXISTS friendships (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    requester_id INTEGER NOT NULL,
+    addressee_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', -- pending | accepted | declined
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    responded_at TEXT,
+    UNIQUE(requester_id, addressee_id),
+    FOREIGN KEY (requester_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (addressee_id) REFERENCES users (id) ON DELETE CASCADE
+  );
+
+  -- Tchat général : tout le monde voit tout, aucune notion de destinataire.
+  CREATE TABLE IF NOT EXISTS chat_general_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  );
+
+  -- Tchat privé entre deux amis. read_at reste NULL tant que le
+  -- destinataire n'a pas ouvert la conversation (sert au badge "non lu").
+  CREATE TABLE IF NOT EXISTS chat_private_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_id INTEGER NOT NULL,
+    to_id INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    read_at TEXT,
+    FOREIGN KEY (from_id) REFERENCES users (id) ON DELETE CASCADE,
+    FOREIGN KEY (to_id) REFERENCES users (id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_friendships_requester ON friendships (requester_id, status);
+  CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships (addressee_id, status);
+  CREATE INDEX IF NOT EXISTS idx_chat_private_pair ON chat_private_messages (from_id, to_id);
+  CREATE INDEX IF NOT EXISTS idx_chat_private_pair_rev ON chat_private_messages (to_id, from_id);
 `);
 
 // Migration douce pour les bases coin_purchases créées avant l'ajout du
@@ -258,6 +308,11 @@ if (!userCols.includes('stripe_connect_account_id')) {
 }
 if (!userCols.includes('stripe_connect_ready')) {
   db.exec('ALTER TABLE users ADD COLUMN stripe_connect_ready INTEGER NOT NULL DEFAULT 0');
+}
+// TCHAT : couleur de police choisie par le joueur pour ses messages
+// (général + privés), au format hexadécimal CSS (#rrggbb).
+if (!userCols.includes('chat_color')) {
+  db.exec("ALTER TABLE users ADD COLUMN chat_color TEXT NOT NULL DEFAULT '#7df9ff'");
 }
 
 module.exports = db;
