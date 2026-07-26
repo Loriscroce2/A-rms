@@ -1181,13 +1181,14 @@ function stripeAuthHeader() {
   return 'Basic ' + Buffer.from(`${STRIPE_SECRET_KEY}:`).toString('base64');
 }
 
-async function stripeCreateCheckoutSession(amountCents, productName, successUrl, cancelUrl) {
+async function stripeCreateCheckoutSession(amountCents, productName, successUrl, cancelUrl, imageUrl) {
   const params = new URLSearchParams();
   params.append('mode', 'payment');
   params.append('success_url', successUrl);
   params.append('cancel_url', cancelUrl);
   params.append('line_items[0][price_data][currency]', 'eur');
   params.append('line_items[0][price_data][product_data][name]', productName);
+  if (imageUrl) params.append('line_items[0][price_data][product_data][images][0]', imageUrl);
   params.append('line_items[0][price_data][unit_amount]', String(amountCents));
   params.append('line_items[0][quantity]', '1');
   // "Managed Payments" (activé par défaut sur les comptes Stripe récents)
@@ -1654,7 +1655,8 @@ app.post('/api/shop/coins/create-checkout', authMiddleware, async (req, res) => 
       pack.amountCents,
       `${pack.label} — ${pack.coins} pièces (A'rms)`,
       `${origin}/boutique.html?coins=stripe_return&session_id={CHECKOUT_SESSION_ID}`,
-      `${origin}/boutique.html?coins=stripe_cancel`
+      `${origin}/boutique.html?coins=stripe_cancel`,
+      `${origin}/assets/${pack.icon || 'monnaie.png'}`
     );
     qInsertCoinPurchaseStripe.run(req.user.id, pack.id, pack.coins, pack.amountCents, session.id, 'pending');
     res.json({ ok: true, checkoutUrl: session.url });
