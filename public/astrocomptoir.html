@@ -205,7 +205,7 @@
       <div class="astroHeroText">
         <span class="astroKicker">Marché entre joueurs</span>
         <h1>🪐 Astrocomptoir</h1>
-        <p>L'hôtel de vente d'A'rms. Trouvez la carte qu'il vous manque — paiement direct et immédiat par carte bancaire — ou donnez une seconde vie à celles qui dorment dans votre collection : connectez votre compte bancaire une fois, et vos ventes vous sont reversées automatiquement.</p>
+        <p>L'hôtel de vente d'A'rms. Trouvez la carte qu'il vous manque — paiement direct et immédiat par carte bancaire — ou donnez une seconde vie à celles qui dorment dans votre collection : vos ventes sont créditées sur votre solde, retirable vers PayPal à tout moment.</p>
       </div>
     </div>
 
@@ -214,9 +214,13 @@
         <div class="walletBalance">💶 <span id="walletAmount">0,00 €</span><span class="unit">gains de vente</span></div>
         <div>
           <div id="agreementStatusLine" class="agreementStatus">Vérification…</div>
-          <div class="paypalField" id="connectStatusRow" style="margin-top:8px;">
-            <span id="connectStatusLabel" style="font-size:13px;font-weight:800;">Vérification…</span>
-            <button class="btn-secondary" id="connectStripeBtn">Connecter mon compte bancaire</button>
+          <div class="paypalField" id="paypalConnectedRow" style="margin-top:8px; display:none;">
+            <span id="paypalConnectedLabel" style="font-size:13px;color:var(--ok);font-weight:800;"></span>
+            <button class="btn-secondary" id="disconnectPaypalBtn">Déconnecter</button>
+          </div>
+          <div class="paypalField" id="paypalFormRow" style="margin-top:8px;">
+            <input type="email" id="paypalEmailInput" placeholder="votre-email@paypal.com" />
+            <button class="btn-secondary" id="savePaypalBtn">Connecter mon PayPal</button>
           </div>
         </div>
       </div>
@@ -286,7 +290,7 @@
       <ul>
         <li>L'Astrocomptoir permet d'acheter et de vendre des cartes A'rms individuelles entre joueurs, contre de l'argent réel.</li>
         <li>Acheter une carte se paie directement par carte bancaire, au prix affiché — aucun solde préchargé n'est nécessaire pour acheter.</li>
-        <li>Vendre une carte crédite automatiquement votre part (90% du prix, la commission de 10% étant prélevée immédiatement) sur votre compte bancaire connecté via Stripe. Vous devez connecter ce compte (identité + IBAN) avant de pouvoir mettre une carte en vente.</li>
+        <li>Vendre une carte crédite votre part (90% du prix, la commission étant prélevée immédiatement) sur votre solde interne, que vous pouvez retirer vers votre compte PayPal à tout moment.</li>
         <li>Le prix de chaque annonce est fixé librement par le vendeur — A'rms ne garantit aucune valeur de revente. Quand plusieurs annonces existent pour une même carte, la moins chère se vend en premier ; à prix égal, la plus ancienne se vend en premier.</li>
       </ul>
 
@@ -297,7 +301,7 @@
 
       <h3>Retraits</h3>
       <ul>
-        <li>Les retraits sont envoyés automatiquement, sans délai de validation, vers le compte bancaire que vous avez connecté via Stripe. Vous êtes seul responsable de l'exactitude des informations fournies lors de la connexion de ce compte.</li>
+        <li>Les retraits sont envoyés automatiquement et immédiatement, sans délai de validation, vers le compte PayPal que vous avez enregistré. Vous êtes seul responsable de l'exactitude de cette adresse.</li>
       </ul>
 
       <h3>Responsabilités</h3>
@@ -510,8 +514,7 @@
     // ===================================================================
     // Portefeuille + accord légal
     // ===================================================================
-    let WALLET = { agreementAccepted:false };
-    let CONNECT = { connected:false, ready:false, availableCents:0 };
+    let WALLET = { balanceCents:0, paypalEmail:'', agreementAccepted:false, paypalConfigured:false };
 
     async function loadWallet(){
       try{
@@ -519,6 +522,18 @@
         const data = await res.json();
         if (!data.ok) return;
         WALLET = data;
+        document.getElementById('walletAmount').textContent = euros(data.balanceCents);
+        document.getElementById('paypalEmailInput').value = data.paypalEmail || '';
+        const connectedRow = document.getElementById('paypalConnectedRow');
+        const formRow = document.getElementById('paypalFormRow');
+        if (data.paypalEmail) {
+          connectedRow.style.display = 'flex';
+          formRow.style.display = 'none';
+          document.getElementById('paypalConnectedLabel').textContent = `✓ PayPal connecté : ${data.paypalEmail}`;
+        } else {
+          connectedRow.style.display = 'none';
+          formRow.style.display = 'flex';
+        }
         const line = document.getElementById('agreementStatusLine');
         if (data.agreementAccepted) {
           line.textContent = '✓ Accord Astrocomptoir accepté';
@@ -527,33 +542,6 @@
           line.textContent = '⚠ Accord non accepté — requis pour acheter, vendre ou retirer';
           line.className = 'agreementStatus pending';
           openLegalModal();
-        }
-      }catch(e){ console.error(e); }
-    }
-
-    // Statut du compte bancaire (Stripe Connect) + solde réel disponible,
-    // lu en direct chez Stripe — remplace l'ancien solde interne PayPal.
-    async function loadConnectStatus(){
-      try{
-        const res = await fetch('/api/astrocomptoir/connect/status');
-        const data = await res.json();
-        if (!data.ok) return;
-        CONNECT = data;
-        document.getElementById('walletAmount').textContent = euros(data.availableCents || 0);
-        const label = document.getElementById('connectStatusLabel');
-        const btn = document.getElementById('connectStripeBtn');
-        if (data.ready) {
-          label.textContent = '✓ Compte bancaire connecté';
-          label.style.color = 'var(--ok)';
-          btn.textContent = 'Gérer mon compte';
-        } else if (data.connected) {
-          label.textContent = '⏳ Inscription à terminer';
-          label.style.color = 'var(--warn)';
-          btn.textContent = "Continuer l'inscription";
-        } else {
-          label.textContent = '⚠ Compte bancaire non connecté';
-          label.style.color = 'var(--warn)';
-          btn.textContent = 'Connecter mon compte bancaire';
         }
       }catch(e){ console.error(e); }
     }
@@ -574,60 +562,66 @@
     document.getElementById('legalCloseBtn').addEventListener('click', closeLegalModal);
     document.getElementById('reopenLegalBtn').addEventListener('click', openLegalModal);
 
-    document.getElementById('connectStripeBtn').addEventListener('click', async () => {
-      if (!WALLET.agreementAccepted) { openLegalModal(); return; }
+    document.getElementById('savePaypalBtn').addEventListener('click', async () => {
+      const email = document.getElementById('paypalEmailInput').value.trim();
       try{
-        const res = await fetch('/api/astrocomptoir/connect/start', { method:'POST' });
+        const res = await fetch('/api/astrocomptoir/paypal-email', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email })
+        });
         const data = await res.json();
-        if (!data.ok) {
-          showToast(data.error === 'stripe_not_configured' ? "La connexion bancaire n'est pas encore disponible."
-            : 'Erreur.');
-          return;
-        }
-        if (data.url) window.location.href = data.url;
+        if (data.ok) { showToast('PayPal connecté.'); loadWallet(); }
+        else showToast(data.error === 'email_invalid' ? 'Adresse e-mail invalide.' : 'Erreur.');
+      }catch(e){ showToast('Erreur réseau.'); }
+    });
+
+    document.getElementById('disconnectPaypalBtn').addEventListener('click', async () => {
+      if (!confirm('Déconnecter cette adresse PayPal ? Vous devrez en connecter une nouvelle avant votre prochain retrait.')) return;
+      try{
+        const res = await fetch('/api/astrocomptoir/paypal-email', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ disconnect: true })
+        });
+        const data = await res.json();
+        if (data.ok) { showToast('PayPal déconnecté.'); document.getElementById('paypalEmailInput').value = ''; loadWallet(); }
+        else showToast('Erreur.');
       }catch(e){ showToast('Erreur réseau.'); }
     });
 
     document.getElementById('withdrawBtn').addEventListener('click', async () => {
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
-      if (!CONNECT.ready) { showToast("Connectez d'abord votre compte bancaire."); return; }
-      const raw = prompt(`Montant à retirer, en euros (5 € minimum). Solde disponible : ${euros(CONNECT.availableCents)}`, '');
+      if (!WALLET.paypalEmail) { showToast("Enregistrez d'abord votre adresse PayPal."); return; }
+      const raw = prompt(`Montant à retirer, en euros (5 € minimum). Solde disponible : ${euros(WALLET.balanceCents)}`, '');
       if (raw === null) return;
       const amount = parseFloat(raw.replace(',', '.'));
       if (!Number.isFinite(amount) || amount < 5) { showToast('Montant invalide (5 € minimum).'); return; }
       try{
-        const res = await fetch('/api/astrocomptoir/connect/payout', {
+        const res = await fetch('/api/astrocomptoir/withdraw', {
           method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amountCents: Math.round(amount*100) })
         });
         const data = await res.json();
         if (!data.ok) {
-          showToast(data.error === 'connect_not_ready' ? "Connectez d'abord votre compte bancaire."
-            : data.error === 'invalid_amount' ? 'Montant invalide.' : 'Erreur lors du retrait.');
+          showToast(data.error === 'insufficient_balance' ? 'Solde insuffisant.'
+            : data.error === 'paypal_email_missing' ? "Enregistrez d'abord votre adresse PayPal."
+            : data.error === 'paypal_not_configured' ? "Les retraits ne sont pas encore disponibles."
+            : data.error === 'invalid_amount' ? 'Montant invalide (5 € minimum).'
+            : data.error === 'agreement_required' ? "Vous devez d'abord accepter l'accord."
+            : data.error === 'paypal_error' ? "L'envoi a échoué, votre solde n'a pas été débité."
+            : 'Erreur.');
           return;
         }
-        showToast('Virement envoyé vers votre compte bancaire !');
-        loadConnectStatus(); loadHistory();
+        showToast('Virement envoyé sur votre compte PayPal !');
+        loadWallet(); loadHistory();
       }catch(e){ showToast('Erreur réseau.'); }
     });
 
-    // Retour de l'onboarding Stripe Connect (identité + IBAN)
-    (function handleConnectReturn(){
-      const params = new URLSearchParams(window.location.search);
-      const connectParam = params.get('connect');
-      if (connectParam === 'return' || connectParam === 'refresh') {
-        window.history.replaceState({}, '', '/astrocomptoir.html');
-      }
-    })();
-
-    // Retour après un achat de carte payé par carte bancaire (Stripe Checkout)
+    // Retour après un achat de carte payé via PayPal
     (async function handleCardPurchaseReturn(){
       const params = new URLSearchParams(window.location.search);
       const buyParam = params.get('buy');
-      const sessionId = params.get('session_id');
-      if (buyParam === 'stripe_return' && sessionId) {
+      const orderId = params.get('token');
+      if (buyParam === 'return' && orderId) {
         try{
           const res = await fetch('/api/astrocomptoir/cards/confirm-purchase', {
-            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId })
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orderId })
           });
           const data = await res.json();
           if (data.ok) {
@@ -638,10 +632,10 @@
           }
         }catch(e){}
         window.history.replaceState({}, '', '/astrocomptoir.html');
-      } else if (buyParam === 'stripe_cancel') {
-        if (sessionId) {
+      } else if (buyParam === 'cancel') {
+        if (orderId) {
           fetch('/api/astrocomptoir/cards/release-reservation', {
-            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId })
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orderId })
           }).catch(()=>{});
         }
         showToast('Achat annulé.');
@@ -705,19 +699,19 @@
 
     async function buyCard(code, priceCents){
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
-      if (!confirm(`Payer cette carte ${euros(priceCents)} par carte bancaire ?`)) return;
+      if (!confirm(`Payer cette carte ${euros(priceCents)} via PayPal ?`)) return;
       try{
         const res = await fetch(`/api/astrocomptoir/cards/${code}/buy`, { method:'POST' });
         const data = await res.json();
         if (!data.ok) {
-          showToast(data.error === 'stripe_not_configured' ? "Le paiement par carte n'est pas encore disponible."
+          showToast(data.error === 'paypal_not_configured' ? "Le paiement PayPal n'est pas encore disponible."
             : data.error === 'no_listing_available' ? 'Cette carte vient d’être vendue à quelqu’un d’autre.'
-            : data.error === 'seller_not_connected' ? "Le vendeur n'a pas terminé de connecter son compte bancaire."
+            : data.error === 'already_sold' ? 'Cette carte vient d’être vendue à quelqu’un d’autre.'
             : 'Erreur lors de l’achat.');
           loadMarket();
           return;
         }
-        if (data.checkoutUrl) window.location.href = data.checkoutUrl;
+        if (data.approveUrl) window.location.href = data.approveUrl;
       }catch(e){ showToast('Erreur réseau.'); }
     }
 
@@ -841,7 +835,6 @@
 
     async function attemptCreateListing(code, inputEl){
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
-      if (!CONNECT.ready) { showToast('Connectez votre compte bancaire avant de mettre une carte en vente.'); return; }
       const amount = parseFloat((inputEl.value || '').replace(',', '.'));
       if (!Number.isFinite(amount) || amount < 0.5) { showToast('Prix invalide (0,50 € minimum).'); return; }
       const priceCents = Math.round(amount*100);
@@ -884,7 +877,6 @@
         const data = await res.json();
         if (!data.ok) {
           showToast(data.error === 'card_not_owned' ? 'Vous ne possédez plus cette carte.'
-            : data.error === 'connect_required' ? 'Connectez votre compte bancaire avant de mettre une carte en vente.'
             : 'Erreur lors de la mise en vente.');
           return;
         }
@@ -993,7 +985,6 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       loadWallet();
-      loadConnectStatus();
       loadMarket();
       loadMyListings();
       loadSellGrid();

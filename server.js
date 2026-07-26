@@ -278,24 +278,25 @@ const qMyListings = db.prepare(`
 const qCancelListing = db.prepare("UPDATE market_listings SET status = 'cancelled' WHERE id = ? AND seller_id = ? AND status = 'active'");
 const qMarkListingSold = db.prepare("UPDATE market_listings SET status = 'sold', sold_at = datetime('now'), buyer_id = ? WHERE id = ? AND status = 'active'");
 
-// --- Achat direct par carte bancaire (Stripe) : le temps du paiement, on
-// "réserve" l'annonce (status='pending') pour qu'aucun autre acheteur ne
-// puisse la prendre. Si le paiement n'aboutit jamais (abandon, session
-// expirée), la réservation est libérée — soit immédiatement au retour
-// "annulé", soit via le balayage paresseux ci-dessous (comme le bucket
-// horaire de la boutique : recalculé à la lecture, pas de cron nécessaire).
+// --- Achat direct par carte bancaire (PayPal Checkout) : le temps du
+// paiement, on "réserve" l'annonce (status='pending') pour qu'aucun autre
+// acheteur ne puisse la prendre. Si le paiement n'aboutit jamais (abandon,
+// commande expirée), la réservation est libérée — soit immédiatement au
+// retour "annulé", soit via le balayage paresseux ci-dessous (comme le
+// bucket horaire de la boutique : recalculé à la lecture, pas de cron
+// nécessaire).
 const qReserveListingForCheckout = db.prepare(`
   UPDATE market_listings
-  SET status = 'pending', stripe_session_id = ?, reserved_until = datetime('now', '+30 minutes')
+  SET status = 'pending', paypal_order_id = ?, reserved_until = datetime('now', '+30 minutes')
   WHERE id = ? AND status = 'active'
 `);
-const qListingByStripeSession = db.prepare('SELECT * FROM market_listings WHERE stripe_session_id = ?');
+const qListingByPaypalOrderId = db.prepare('SELECT * FROM market_listings WHERE paypal_order_id = ?');
 const qReleaseListingReservation = db.prepare(`
-  UPDATE market_listings SET status = 'active', stripe_session_id = NULL, reserved_until = NULL
+  UPDATE market_listings SET status = 'active', paypal_order_id = NULL, reserved_until = NULL
   WHERE id = ? AND status = 'pending'
 `);
 const qSweepExpiredListingReservations = db.prepare(`
-  UPDATE market_listings SET status = 'active', stripe_session_id = NULL, reserved_until = NULL
+  UPDATE market_listings SET status = 'active', paypal_order_id = NULL, reserved_until = NULL
   WHERE status = 'pending' AND reserved_until < datetime('now')
 `);
 const qMarkListingSoldFromPending = db.prepare("UPDATE market_listings SET status = 'sold', sold_at = datetime('now'), buyer_id = ? WHERE id = ? AND status = 'pending'");
@@ -1499,84 +1500,46 @@ app.post('/api/astrocomptoir/paypal-email', authMiddleware, (req, res) => {
   }
 });
 
-// --- Stripe Connect : connexion du compte bancaire du vendeur ---
-// Crée (ou réutilise) un compte Stripe Express pour ce joueur, puis renvoie
-// un lien d'onboarding hébergé par Stripe (identité + IBAN). Le joueur
-// revient automatiquement sur l'Astrocomptoir une fois terminé.
-app.post('/api/astrocomptoir/connect/start', authMiddleware, async (req, res) => {
+// --- Retrait automatique vers PayPal ---
+// Débite immédiatement le solde interne, puis envoie le virement PayPal
+// (Payouts API) directement à l'adresse enregistrée par le joueur. Aucune
+// validation manuelle d'admin : si l'envoi échoue, le solde est remboursé
+// intégralement et l'erreur est renvoyée au joueur.
+app.post('/api/astrocomptoir/withdraw', authMiddleware, async (req, res) => {
   try {
     if (!hasAcceptedAgreement(req.user.id)) {
       return res.status(403).json({ ok: false, error: 'agreement_required' });
     }
-    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
-    const origin = `${req.protocol}://${req.get('host')}`;
+    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
     const wallet = qGetWallet.get(req.user.id);
-    let accountId = wallet.stripe_connect_account_id;
-    if (!accountId) {
-      const account = await stripeCreateConnectedAccount(req.user.email);
-      accountId = account.id;
-      qSetStripeConnectAccount.run(accountId, req.user.id);
-    }
-    const link = await stripeCreateAccountLink(
-      accountId,
-      `${origin}/astrocomptoir.html?connect=refresh`,
-      `${origin}/astrocomptoir.html?connect=return`
-    );
-    res.json({ ok: true, url: link.url });
-  } catch (e) {
-    console.error(e);
-    res.status(502).json({ ok: false, error: 'stripe_error' });
-  }
-});
-
-// Statut du compte Stripe Connect + solde disponible réel (lu en direct chez
-// Stripe, pas stocké dans notre propre base) — appelé au chargement de la
-// page et au retour de l'onboarding.
-app.get('/api/astrocomptoir/connect/status', authMiddleware, async (req, res) => {
-  try {
-    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
-    const wallet = qGetWallet.get(req.user.id);
-    if (!wallet.stripe_connect_account_id) {
-      return res.json({ ok: true, connected: false, ready: false, availableCents: 0 });
-    }
-    const account = await stripeRetrieveAccount(wallet.stripe_connect_account_id);
-    const ready = !!(account.payouts_enabled && account.details_submitted);
-    if (ready !== !!wallet.stripe_connect_ready) {
-      qSetStripeConnectReady.run(ready ? 1 : 0, req.user.id);
-    }
-    let availableCents = 0;
-    if (ready) {
-      try {
-        const balance = await stripeRetrieveConnectedBalance(wallet.stripe_connect_account_id);
-        availableCents = (balance.available || []).filter(b => b.currency === 'eur').reduce((sum, b) => sum + b.amount, 0);
-      } catch (e) { /* solde non critique pour l'affichage du statut */ }
-    }
-    res.json({ ok: true, connected: true, ready, availableCents });
-  } catch (e) {
-    console.error(e);
-    res.status(502).json({ ok: false, error: 'stripe_error' });
-  }
-});
-
-// Retrait automatique : déclenche un vrai virement Stripe (Payout) depuis le
-// solde disponible du compte Connect du joueur vers son IBAN enregistré.
-// Aucune validation manuelle d'admin — envoyé dès la confirmation du joueur.
-app.post('/api/astrocomptoir/connect/payout', authMiddleware, async (req, res) => {
-  try {
-    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
-    const wallet = qGetWallet.get(req.user.id);
-    if (!wallet.stripe_connect_account_id || !wallet.stripe_connect_ready) {
-      return res.status(400).json({ ok: false, error: 'connect_not_ready' });
-    }
+    if (!wallet.paypal_email) return res.status(400).json({ ok: false, error: 'paypal_email_missing' });
     const amountCents = Math.round(Number(req.body?.amountCents));
     if (!Number.isFinite(amountCents) || amountCents < 500) {
       return res.status(400).json({ ok: false, error: 'invalid_amount' });
     }
-    const payout = await stripeCreatePayoutForAccount(wallet.stripe_connect_account_id, amountCents);
-    res.json({ ok: true, payoutId: payout.id, status: payout.status });
+    const spent = qSpendRealBalance.run(amountCents, req.user.id, amountCents);
+    if (spent.changes === 0) {
+      return res.status(402).json({ ok: false, error: 'insufficient_balance' });
+    }
+    try {
+      const batchId = `astro-withdraw-${req.user.id}-${Date.now()}`;
+      const payout = await paypalSendPayout(
+        wallet.paypal_email, amountCents / 100,
+        "Votre retrait Astrocomptoir — A'rms", batchId
+      );
+      const info = qInsertWithdrawal.run(req.user.id, amountCents, wallet.paypal_email);
+      qMarkWithdrawalPaid.run(payout.batch_header?.payout_batch_id || batchId, info.lastInsertRowid);
+      const freshWallet = qGetWallet.get(req.user.id);
+      res.json({ ok: true, balanceCents: freshWallet.real_balance_cents });
+    } catch (payoutErr) {
+      // L'envoi a échoué : on rembourse intégralement le solde débité.
+      qAddRealBalance.run(amountCents, req.user.id);
+      console.error(payoutErr);
+      res.status(502).json({ ok: false, error: 'paypal_error' });
+    }
   } catch (e) {
     console.error(e);
-    res.status(502).json({ ok: false, error: 'stripe_error' });
+    res.status(500).json({ ok: false, error: 'server_error' });
   }
 });
 
@@ -1651,14 +1614,6 @@ app.post('/api/astrocomptoir/listings', authMiddleware, (req, res) => {
     if (!hasAcceptedAgreement(req.user.id)) {
       return res.status(403).json({ ok: false, error: 'agreement_required' });
     }
-    // Un vendeur doit avoir terminé la connexion de son compte bancaire
-    // (Stripe Connect) avant de pouvoir mettre une carte en vente, sinon un
-    // acheteur ne pourrait jamais finaliser le paiement (destination charge
-    // impossible sans compte de destination valide).
-    const sellerWallet = qGetWallet.get(req.user.id);
-    if (!sellerWallet || !sellerWallet.stripe_connect_ready) {
-      return res.status(403).json({ ok: false, error: 'connect_required' });
-    }
     const code = String(req.body?.code || '');
     const priceCents = Math.round(Number(req.body?.priceCents));
     if (!/^\d{4}$/.test(code)) return res.status(400).json({ ok: false, error: 'invalid_code' });
@@ -1717,61 +1672,56 @@ function cardCatalogName(code) {
 // et à prix égal la plus ANCIENNE (priorité prix puis ancienneté, comme un
 // vrai carnet d'ordres). Le joueur n'a jamais à choisir "chez qui" acheter.
 //
-// Achat en argent réel = paiement DIRECT par carte bancaire (Stripe
-// Checkout) pour le prix exact de l'annonce — plus besoin d'un solde
+// Achat en argent réel = paiement DIRECT par carte bancaire via PayPal
+// Checkout, pour le prix exact de l'annonce — plus besoin d'un solde
 // préchargé. L'annonce est réservée ('pending') le temps du paiement pour
 // qu'aucun autre acheteur ne puisse la prendre entre-temps ; si le paiement
 // échoue/est annulé/abandonné, elle redevient disponible (immédiatement au
 // clic "annuler", ou automatiquement après 30 min via le balayage paresseux
-// plus haut). Le paiement est scindé automatiquement par Stripe Connect dès
-// l'encaissement (destination charge) : 90% du prix part directement sur le
-// compte Stripe du vendeur, les 10% de commission restent sur le compte du
-// jeu — aucune écriture de solde interne nécessaire.
+// plus haut). Le paiement encaisse 100% sur le compte PayPal du jeu ; au
+// paiement confirmé, 90% est crédité au solde interne du vendeur (retirable
+// ensuite vers son propre PayPal), les 10% de commission restent sur le
+// compte PayPal du jeu.
 app.post('/api/astrocomptoir/cards/:code/buy', authMiddleware, async (req, res) => {
   try {
     if (!hasAcceptedAgreement(req.user.id)) {
       return res.status(403).json({ ok: false, error: 'agreement_required' });
     }
-    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
+    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
     qSweepExpiredListingReservations.run();
     const code = String(req.params.code || '');
     const listing = qBestListingForCode.get(code, req.user.id);
     if (!listing) {
       return res.status(404).json({ ok: false, error: 'no_listing_available' });
     }
-    const sellerWallet = qGetWallet.get(listing.seller_id);
-    if (!sellerWallet || !sellerWallet.stripe_connect_account_id || !sellerWallet.stripe_connect_ready) {
-      return res.status(409).json({ ok: false, error: 'seller_not_connected' });
-    }
     const origin = `${req.protocol}://${req.get('host')}`;
-    const commission = Math.round(listing.price_cents * ASTRO_COMMISSION_RATE);
-    const session = await stripeCreateCheckoutSession(
-      listing.price_cents,
+    const order = await paypalCreateOrder(
+      listing.price_cents / 100,
+      `${origin}/astrocomptoir.html?buy=return`,
+      `${origin}/astrocomptoir.html?buy=cancel`,
       `${cardCatalogName(listing.code)} — Astrocomptoir A'rms`,
-      `${origin}/astrocomptoir.html?buy=stripe_return&session_id={CHECKOUT_SESSION_ID}`,
-      `${origin}/astrocomptoir.html?buy=stripe_cancel&session_id={CHECKOUT_SESSION_ID}`,
-      `${origin}/cartes/${listing.code}.png`,
-      { destinationAccountId: sellerWallet.stripe_connect_account_id, applicationFeeAmount: commission }
+      "A'rms — Astrocomptoir"
     );
-    const reserved = qReserveListingForCheckout.run(session.id, listing.id);
+    const reserved = qReserveListingForCheckout.run(order.id, listing.id);
     if (reserved.changes === 0) {
-      // Vendue/réservée entre-temps (cas extrêmement rare) : la session
-      // Stripe créée ne sera jamais confirmée côté jeu, et tant que le
+      // Vendue/réservée entre-temps (cas extrêmement rare) : la commande
+      // PayPal créée ne sera jamais confirmée côté jeu, et tant que le
       // joueur ne paie pas réellement, aucune charge n'a lieu.
       return res.status(409).json({ ok: false, error: 'already_sold' });
     }
-    res.json({ ok: true, checkoutUrl: session.url });
+    const approveLink = (order.links || []).find(l => l.rel === 'approve');
+    res.json({ ok: true, orderId: order.id, approveUrl: approveLink ? approveLink.href : null });
   } catch (e) {
     console.error(e);
-    res.status(502).json({ ok: false, error: 'stripe_error' });
+    res.status(502).json({ ok: false, error: 'paypal_error' });
   }
 });
 
 app.post('/api/astrocomptoir/cards/confirm-purchase', authMiddleware, async (req, res) => {
   try {
-    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
-    const sessionId = String(req.body?.sessionId || '');
-    const listing = qListingByStripeSession.get(sessionId);
+    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
+    const orderId = String(req.body?.orderId || '');
+    const listing = qListingByPaypalOrderId.get(orderId);
     if (!listing) return res.status(404).json({ ok: false, error: 'purchase_not_found' });
     if (listing.status === 'sold') {
       if (listing.buyer_id !== req.user.id) return res.status(403).json({ ok: false, error: 'not_your_purchase' });
@@ -1780,34 +1730,33 @@ app.post('/api/astrocomptoir/cards/confirm-purchase', authMiddleware, async (req
     if (listing.status !== 'pending') {
       return res.status(409).json({ ok: false, error: 'listing_not_pending' });
     }
-    const session = await stripeRetrieveSession(sessionId);
-    if (session.payment_status !== 'paid') {
-      return res.status(402).json({ ok: false, error: 'payment_not_completed' });
+    const capture = await paypalCaptureOrder(orderId);
+    if (capture.status !== 'COMPLETED') {
+      return res.status(402).json({ ok: false, error: 'capture_not_completed' });
     }
     const marked = qMarkListingSoldFromPending.run(req.user.id, listing.id);
     if (marked.changes === 0) {
       return res.status(409).json({ ok: false, error: 'already_sold' });
     }
-    // La répartition 90/10 a déjà eu lieu chez Stripe au moment de l'encaissement
-    // (destination charge) — ici on ne fait qu'enregistrer la vente et livrer la
-    // carte, aucune écriture de solde interne n'est nécessaire côté vendeur.
     const commission = Math.round(listing.price_cents * ASTRO_COMMISSION_RATE);
+    const sellerGain = listing.price_cents - commission;
+    qAddRealBalance.run(sellerGain, listing.seller_id);
     qUpsertCard.run(req.user.id, listing.code, 1);
     qInsertTransaction.run(listing.id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission);
     res.json({ ok: true, code: listing.code, priceCents: listing.price_cents });
   } catch (e) {
     console.error(e);
-    res.status(502).json({ ok: false, error: 'stripe_error' });
+    res.status(502).json({ ok: false, error: 'paypal_error' });
   }
 });
 
-// Libère une réservation dès le retour "annulé" de Stripe, pour que la
+// Libère une réservation dès le retour "annulé" de PayPal, pour que la
 // carte redevienne achetable tout de suite plutôt que d'attendre le
 // balayage automatique (30 min).
 app.post('/api/astrocomptoir/cards/release-reservation', authMiddleware, (req, res) => {
   try {
-    const sessionId = String(req.body?.sessionId || '');
-    const listing = qListingByStripeSession.get(sessionId);
+    const orderId = String(req.body?.orderId || '');
+    const listing = qListingByPaypalOrderId.get(orderId);
     if (listing && listing.status === 'pending') {
       qReleaseListingReservation.run(listing.id);
     }
@@ -1997,28 +1946,6 @@ app.post('/api/shop/coins/confirm-stripe', authMiddleware, async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(502).json({ ok: false, error: 'stripe_error' });
-  }
-});
-
-// --- Retrait vers PayPal (débité immédiatement, validé par un admin) ---
-app.post('/api/astrocomptoir/withdraw', authMiddleware, (req, res) => {
-  try {
-    if (!hasAcceptedAgreement(req.user.id)) {
-      return res.status(403).json({ ok: false, error: 'agreement_required' });
-    }
-    const amountCents = Math.round(Number(req.body?.amountCents));
-    const wallet = qGetWallet.get(req.user.id);
-    if (!wallet.paypal_email) return res.status(400).json({ ok: false, error: 'paypal_email_missing' });
-    if (!Number.isFinite(amountCents) || amountCents < ASTRO_MIN_WITHDRAWAL_CENTS) {
-      return res.status(400).json({ ok: false, error: 'invalid_amount' });
-    }
-    const spent = qSpendRealBalance.run(amountCents, req.user.id, amountCents);
-    if (spent.changes === 0) return res.status(402).json({ ok: false, error: 'insufficient_balance' });
-    const info = qInsertWithdrawal.run(req.user.id, amountCents, wallet.paypal_email);
-    res.status(201).json({ ok: true, withdrawalId: info.lastInsertRowid });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: 'server_error' });
   }
 });
 

@@ -110,7 +110,8 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     sold_at TEXT,
     buyer_id INTEGER,
-    stripe_session_id TEXT, -- réservation en cours pendant un paiement Stripe
+    stripe_session_id TEXT, -- (hérité) réservation pendant un paiement Stripe — non utilisé actuellement
+    paypal_order_id TEXT,   -- réservation en cours pendant un paiement PayPal
     reserved_until TEXT,    -- expiration de la réservation (libère l'annonce si abandonnée)
     FOREIGN KEY (seller_id) REFERENCES users (id) ON DELETE CASCADE
   );
@@ -199,6 +200,9 @@ if (!coinPurchaseCols.includes('stripe_session_id')) {
 const marketListingCols = db.prepare("PRAGMA table_info(market_listings)").all().map(c => c.name);
 if (!marketListingCols.includes('stripe_session_id')) {
   db.exec('ALTER TABLE market_listings ADD COLUMN stripe_session_id TEXT');
+}
+if (!marketListingCols.includes('paypal_order_id')) {
+  db.exec('ALTER TABLE market_listings ADD COLUMN paypal_order_id TEXT');
 }
 if (!marketListingCols.includes('reserved_until')) {
   db.exec('ALTER TABLE market_listings ADD COLUMN reserved_until TEXT');
