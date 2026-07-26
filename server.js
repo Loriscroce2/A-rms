@@ -1194,7 +1194,7 @@ async function paypalGetAccessToken() {
   return data.access_token;
 }
 
-async function paypalCreateOrder(amountEuros, returnUrl, cancelUrl) {
+async function paypalCreateOrder(amountEuros, returnUrl, cancelUrl, description, brandName) {
   const token = await paypalGetAccessToken();
   const res = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
     method: 'POST',
@@ -1202,11 +1202,11 @@ async function paypalCreateOrder(amountEuros, returnUrl, cancelUrl) {
     body: JSON.stringify({
       intent: 'CAPTURE',
       purchase_units: [{
-        description: "Recharge du portefeuille Astrocomptoir — A'rms",
+        description: description || "Recharge du portefeuille Astrocomptoir — A'rms",
         amount: { currency_code: 'EUR', value: amountEuros.toFixed(2) },
       }],
       application_context: {
-        brand_name: "A'rms — Astrocomptoir",
+        brand_name: brandName || "A'rms — Astrocomptoir",
         user_action: 'PAY_NOW',
         return_url: returnUrl,
         cancel_url: cancelUrl,
@@ -1543,7 +1543,9 @@ app.post('/api/shop/coins/create-order', authMiddleware, async (req, res) => {
     const order = await paypalCreateOrder(
       pack.amountCents / 100,
       `${origin}/boutique.html?coins=return`,
-      `${origin}/boutique.html?coins=cancel`
+      `${origin}/boutique.html?coins=cancel`,
+      `Lot "${pack.label}" (${pack.coins} pièces) — Boutique A'rms`,
+      "A'rms — Boutique"
     );
     qInsertCoinPurchase.run(req.user.id, pack.id, pack.coins, pack.amountCents, order.id, 'pending');
     const approveLink = (order.links || []).find(l => l.rel === 'approve');
