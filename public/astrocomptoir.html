@@ -205,13 +205,13 @@
       <div class="astroHeroText">
         <span class="astroKicker">Marché entre joueurs</span>
         <h1>🪐 Astrocomptoir</h1>
-        <p>L'hôtel de vente d'A'rms. Trouvez la carte qu'il vous manque ou donnez une seconde vie à celles qui dorment dans votre collection — paiement réel via PayPal.</p>
+        <p>L'hôtel de vente d'A'rms. Trouvez la carte qu'il vous manque — paiement direct et immédiat par carte bancaire — ou donnez une seconde vie à celles qui dorment dans votre collection : vos ventes sont créditées sur votre solde, retirable vers PayPal à tout moment.</p>
       </div>
     </div>
 
     <div class="walletBar">
       <div class="walletLeft">
-        <div class="walletBalance">💶 <span id="walletAmount">0,00 €</span><span class="unit">solde</span></div>
+        <div class="walletBalance">💶 <span id="walletAmount">0,00 €</span><span class="unit">gains de vente</span></div>
         <div>
           <div id="agreementStatusLine" class="agreementStatus">Vérification…</div>
           <div class="paypalField" style="margin-top:8px;">
@@ -221,7 +221,6 @@
         </div>
       </div>
       <div class="walletActions">
-        <button class="btn-gold btn" id="topupBtn">➕ Recharger</button>
         <button class="btn-secondary" id="withdrawBtn">⬆ Retirer</button>
         <button class="btn-secondary" id="reopenLegalBtn">📜 Accord</button>
         <button class="btn-sell" id="openSellDrawerBtn">
@@ -286,7 +285,8 @@
       <h3>Fonctionnement</h3>
       <ul>
         <li>L'Astrocomptoir permet d'acheter et de vendre des cartes A'rms individuelles entre joueurs, contre de l'argent réel.</li>
-        <li>Vous rechargez un portefeuille interne via PayPal, vous achetez/vendez avec ce solde, puis vous pouvez retirer votre solde vers votre compte PayPal à tout moment.</li>
+        <li>Acheter une carte se paie directement par carte bancaire, au prix affiché — aucun solde préchargé n'est nécessaire pour acheter.</li>
+        <li>Vendre une carte crédite votre part (90% du prix, la commission étant prélevée immédiatement) sur votre solde interne, que vous pouvez retirer vers votre compte PayPal à tout moment.</li>
         <li>Le prix de chaque annonce est fixé librement par le vendeur — A'rms ne garantit aucune valeur de revente. Quand plusieurs annonces existent pour une même carte, la moins chère se vend en premier ; à prix égal, la plus ancienne se vend en premier.</li>
       </ul>
 
@@ -561,26 +561,6 @@
       }catch(e){ showToast('Erreur réseau.'); }
     });
 
-    document.getElementById('topupBtn').addEventListener('click', async () => {
-      const raw = prompt('Montant à recharger, en euros (entre 2 € et 500 €) :', '10');
-      if (raw === null) return;
-      const amount = parseFloat(raw.replace(',', '.'));
-      if (!Number.isFinite(amount) || amount < 2 || amount > 500) { showToast('Montant invalide (entre 2 € et 500 €).'); return; }
-      try{
-        const res = await fetch('/api/astrocomptoir/topup/create-order', {
-          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amountCents: Math.round(amount*100) })
-        });
-        const data = await res.json();
-        if (!data.ok) {
-          showToast(data.error === 'paypal_not_configured'
-            ? "Les paiements PayPal réels ne sont pas encore activés par l'administrateur."
-            : 'Erreur PayPal.');
-          return;
-        }
-        if (data.approveUrl) window.location.href = data.approveUrl;
-      }catch(e){ showToast('Erreur réseau.'); }
-    });
-
     document.getElementById('withdrawBtn').addEventListener('click', async () => {
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
       if (!WALLET.paypalEmail) { showToast("Enregistrez d'abord votre adresse PayPal."); return; }
@@ -603,22 +583,32 @@
       }catch(e){ showToast('Erreur réseau.'); }
     });
 
-    // Retour PayPal après une recharge (Orders v2 renvoie ?token=ORDER_ID)
-    (async function handlePaypalReturn(){
+    // Retour après un achat de carte payé par carte bancaire (Stripe Checkout)
+    (async function handleCardPurchaseReturn(){
       const params = new URLSearchParams(window.location.search);
-      const orderId = params.get('token');
-      if (params.get('topup') === 'return' && orderId) {
+      const buyParam = params.get('buy');
+      const sessionId = params.get('session_id');
+      if (buyParam === 'stripe_return' && sessionId) {
         try{
-          const res = await fetch('/api/astrocomptoir/topup/capture', {
-            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orderId })
+          const res = await fetch('/api/astrocomptoir/cards/confirm-purchase', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId })
           });
           const data = await res.json();
-          if (data.ok) showToast(data.alreadyCompleted ? 'Recharge déjà traitée.' : 'Recharge effectuée !');
-          else showToast('La recharge PayPal a échoué.');
+          if (data.ok) {
+            showToast(data.alreadyCompleted ? 'Achat déjà traité.' : `Achat réussi — ${euros(data.priceCents)} !`);
+            loadWallet(); loadMarket(); loadMyListings(); loadSellGrid(); loadHistory();
+          } else {
+            showToast("L'achat a échoué.");
+          }
         }catch(e){}
         window.history.replaceState({}, '', '/astrocomptoir.html');
-      } else if (params.get('topup') === 'cancel') {
-        showToast('Recharge annulée.');
+      } else if (buyParam === 'stripe_cancel') {
+        if (sessionId) {
+          fetch('/api/astrocomptoir/cards/release-reservation', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId })
+          }).catch(()=>{});
+        }
+        showToast('Achat annulé.');
         window.history.replaceState({}, '', '/astrocomptoir.html');
       }
     })();
@@ -679,20 +669,18 @@
 
     async function buyCard(code, priceCents){
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
-      if (!confirm(`Acheter cette carte pour ${euros(priceCents)} ?`)) return;
+      if (!confirm(`Payer cette carte ${euros(priceCents)} par carte bancaire ?`)) return;
       try{
         const res = await fetch(`/api/astrocomptoir/cards/${code}/buy`, { method:'POST' });
         const data = await res.json();
         if (!data.ok) {
-          showToast(data.error === 'insufficient_balance' ? 'Solde insuffisant — rechargez votre portefeuille.'
+          showToast(data.error === 'stripe_not_configured' ? "Le paiement par carte n'est pas encore disponible."
             : data.error === 'no_listing_available' ? 'Cette carte vient d’être vendue à quelqu’un d’autre.'
             : 'Erreur lors de l’achat.');
           loadMarket();
           return;
         }
-        showToast(`Achat réussi — ${euros(data.priceCents)} !`);
-        loadWallet(); loadMarket(); loadMyListings(); loadSellGrid(); loadHistory();
-        if (SELECTED_CODE === code) renderCardDetailStrip();
+        if (data.checkoutUrl) window.location.href = data.checkoutUrl;
       }catch(e){ showToast('Erreur réseau.'); }
     }
 

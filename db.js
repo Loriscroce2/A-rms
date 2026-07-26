@@ -106,10 +106,12 @@ db.exec(`
     seller_id INTEGER NOT NULL,
     code TEXT NOT NULL,
     price_cents INTEGER NOT NULL,
-    status TEXT NOT NULL DEFAULT 'active', -- active | sold | cancelled
+    status TEXT NOT NULL DEFAULT 'active', -- active | pending | sold | cancelled
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     sold_at TEXT,
     buyer_id INTEGER,
+    stripe_session_id TEXT, -- réservation en cours pendant un paiement Stripe
+    reserved_until TEXT,    -- expiration de la réservation (libère l'annonce si abandonnée)
     FOREIGN KEY (seller_id) REFERENCES users (id) ON DELETE CASCADE
   );
 
@@ -190,6 +192,16 @@ if (!coinPurchaseCols.includes('provider')) {
 }
 if (!coinPurchaseCols.includes('stripe_session_id')) {
   db.exec('ALTER TABLE coin_purchases ADD COLUMN stripe_session_id TEXT');
+}
+
+// Migration douce pour les bases market_listings créées avant l'achat direct
+// par carte bancaire (réservation le temps du paiement Stripe).
+const marketListingCols = db.prepare("PRAGMA table_info(market_listings)").all().map(c => c.name);
+if (!marketListingCols.includes('stripe_session_id')) {
+  db.exec('ALTER TABLE market_listings ADD COLUMN stripe_session_id TEXT');
+}
+if (!marketListingCols.includes('reserved_until')) {
+  db.exec('ALTER TABLE market_listings ADD COLUMN reserved_until TEXT');
 }
 
 // Migration douce : si la base existait déjà avant l'ajout de "coins" (anciennes

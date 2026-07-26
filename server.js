@@ -274,6 +274,28 @@ const qMyListings = db.prepare(`
 `);
 const qCancelListing = db.prepare("UPDATE market_listings SET status = 'cancelled' WHERE id = ? AND seller_id = ? AND status = 'active'");
 const qMarkListingSold = db.prepare("UPDATE market_listings SET status = 'sold', sold_at = datetime('now'), buyer_id = ? WHERE id = ? AND status = 'active'");
+
+// --- Achat direct par carte bancaire (Stripe) : le temps du paiement, on
+// "réserve" l'annonce (status='pending') pour qu'aucun autre acheteur ne
+// puisse la prendre. Si le paiement n'aboutit jamais (abandon, session
+// expirée), la réservation est libérée — soit immédiatement au retour
+// "annulé", soit via le balayage paresseux ci-dessous (comme le bucket
+// horaire de la boutique : recalculé à la lecture, pas de cron nécessaire).
+const qReserveListingForCheckout = db.prepare(`
+  UPDATE market_listings
+  SET status = 'pending', stripe_session_id = ?, reserved_until = datetime('now', '+30 minutes')
+  WHERE id = ? AND status = 'active'
+`);
+const qListingByStripeSession = db.prepare('SELECT * FROM market_listings WHERE stripe_session_id = ?');
+const qReleaseListingReservation = db.prepare(`
+  UPDATE market_listings SET status = 'active', stripe_session_id = NULL, reserved_until = NULL
+  WHERE id = ? AND status = 'pending'
+`);
+const qSweepExpiredListingReservations = db.prepare(`
+  UPDATE market_listings SET status = 'active', stripe_session_id = NULL, reserved_until = NULL
+  WHERE status = 'pending' AND reserved_until < datetime('now')
+`);
+const qMarkListingSoldFromPending = db.prepare("UPDATE market_listings SET status = 'sold', sold_at = datetime('now'), buyer_id = ? WHERE id = ? AND status = 'pending'");
 const qInsertTransaction = db.prepare(`
   INSERT INTO market_transactions (listing_id, seller_id, buyer_id, code, price_cents, commission_cents)
   VALUES (?, ?, ?, ?, ?, ?)
@@ -1371,6 +1393,7 @@ app.post('/api/astrocomptoir/paypal-email', authMiddleware, (req, res) => {
 // elles vivent dans la zone 2 (voir /listings juste après). ---
 app.get('/api/astrocomptoir/market', authMiddleware, (req, res) => {
   try {
+    qSweepExpiredListingReservations.run();
     const rows = qMarketGrouped.all(req.user.id);
     const market = rows.map(r => ({ code: r.code, bestPriceCents: r.best_price_cents, activeCount: r.active_count }));
     res.json({ ok: true, market });
@@ -1473,28 +1496,90 @@ app.delete('/api/astrocomptoir/listings/:id', authMiddleware, (req, res) => {
   }
 });
 
+// Nom lisible d'une carte pour l'affichage côté Stripe (titre du produit sur
+// la page de paiement) — lu depuis card-catalog.json (généré au démarrage),
+// mis en cache en mémoire, avec un repli sur le code si jamais introuvable.
+let _cardCatalogNameCache = null;
+function cardCatalogName(code) {
+  try {
+    if (!_cardCatalogNameCache) {
+      const p = path.join(__dirname, 'public', 'data', 'card-catalog.json');
+      _cardCatalogNameCache = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    }
+    return (_cardCatalogNameCache[code] && _cardCatalogNameCache[code].name) || `Carte ${code}`;
+  } catch (e) {
+    return `Carte ${code}`;
+  }
+}
+
 // Achat par CARTE (et non plus par annonce précise) : le serveur choisit
 // toujours automatiquement la meilleure annonce active — la moins chère,
 // et à prix égal la plus ANCIENNE (priorité prix puis ancienneté, comme un
 // vrai carnet d'ordres). Le joueur n'a jamais à choisir "chez qui" acheter.
-app.post('/api/astrocomptoir/cards/:code/buy', authMiddleware, (req, res) => {
+//
+// Achat en argent réel = paiement DIRECT par carte bancaire (Stripe
+// Checkout) pour le prix exact de l'annonce — plus besoin d'un solde
+// préchargé. L'annonce est réservée ('pending') le temps du paiement pour
+// qu'aucun autre acheteur ne puisse la prendre entre-temps ; si le paiement
+// échoue/est annulé/abandonné, elle redevient disponible (immédiatement au
+// clic "annuler", ou automatiquement après 30 min via le balayage paresseux
+// plus haut). Au paiement confirmé : 90% du prix est crédité au solde du
+// vendeur (retirable ensuite vers PayPal), les 10% de commission restent
+// directement sur le compte Stripe du jeu — aucune écriture nécessaire
+// puisque c'est ce même compte qui a encaissé la totalité du paiement.
+app.post('/api/astrocomptoir/cards/:code/buy', authMiddleware, async (req, res) => {
   try {
     if (!hasAcceptedAgreement(req.user.id)) {
       return res.status(403).json({ ok: false, error: 'agreement_required' });
     }
+    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
+    qSweepExpiredListingReservations.run();
     const code = String(req.params.code || '');
     const listing = qBestListingForCode.get(code, req.user.id);
     if (!listing) {
       return res.status(404).json({ ok: false, error: 'no_listing_available' });
     }
-    const spent = qSpendRealBalance.run(listing.price_cents, req.user.id, listing.price_cents);
-    if (spent.changes === 0) {
-      return res.status(402).json({ ok: false, error: 'insufficient_balance' });
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const session = await stripeCreateCheckoutSession(
+      listing.price_cents,
+      `${cardCatalogName(listing.code)} — Astrocomptoir A'rms`,
+      `${origin}/astrocomptoir.html?buy=stripe_return&session_id={CHECKOUT_SESSION_ID}`,
+      `${origin}/astrocomptoir.html?buy=stripe_cancel&session_id={CHECKOUT_SESSION_ID}`,
+      `${origin}/cartes/${listing.code}.png`
+    );
+    const reserved = qReserveListingForCheckout.run(session.id, listing.id);
+    if (reserved.changes === 0) {
+      // Vendue/réservée entre-temps (cas extrêmement rare) : la session
+      // Stripe créée ne sera jamais confirmée côté jeu, et tant que le
+      // joueur ne paie pas réellement, aucune charge n'a lieu.
+      return res.status(409).json({ ok: false, error: 'already_sold' });
     }
-    const marked = qMarkListingSold.run(req.user.id, listing.id);
+    res.json({ ok: true, checkoutUrl: session.url });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'stripe_error' });
+  }
+});
+
+app.post('/api/astrocomptoir/cards/confirm-purchase', authMiddleware, async (req, res) => {
+  try {
+    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
+    const sessionId = String(req.body?.sessionId || '');
+    const listing = qListingByStripeSession.get(sessionId);
+    if (!listing) return res.status(404).json({ ok: false, error: 'purchase_not_found' });
+    if (listing.status === 'sold') {
+      if (listing.buyer_id !== req.user.id) return res.status(403).json({ ok: false, error: 'not_your_purchase' });
+      return res.json({ ok: true, alreadyCompleted: true, code: listing.code, priceCents: listing.price_cents });
+    }
+    if (listing.status !== 'pending') {
+      return res.status(409).json({ ok: false, error: 'listing_not_pending' });
+    }
+    const session = await stripeRetrieveSession(sessionId);
+    if (session.payment_status !== 'paid') {
+      return res.status(402).json({ ok: false, error: 'payment_not_completed' });
+    }
+    const marked = qMarkListingSoldFromPending.run(req.user.id, listing.id);
     if (marked.changes === 0) {
-      // Vendue entre-temps (cas extrêmement rare) : remboursement immédiat.
-      qAddRealBalance.run(listing.price_cents, req.user.id);
       return res.status(409).json({ ok: false, error: 'already_sold' });
     }
     const commission = Math.round(listing.price_cents * ASTRO_COMMISSION_RATE);
@@ -1502,8 +1587,24 @@ app.post('/api/astrocomptoir/cards/:code/buy', authMiddleware, (req, res) => {
     qAddRealBalance.run(sellerGain, listing.seller_id);
     qUpsertCard.run(req.user.id, listing.code, 1);
     qInsertTransaction.run(listing.id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission);
-    const wallet = qGetWallet.get(req.user.id);
-    res.json({ ok: true, balanceCents: wallet.real_balance_cents, code: listing.code, priceCents: listing.price_cents });
+    res.json({ ok: true, code: listing.code, priceCents: listing.price_cents });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'stripe_error' });
+  }
+});
+
+// Libère une réservation dès le retour "annulé" de Stripe, pour que la
+// carte redevienne achetable tout de suite plutôt que d'attendre le
+// balayage automatique (30 min).
+app.post('/api/astrocomptoir/cards/release-reservation', authMiddleware, (req, res) => {
+  try {
+    const sessionId = String(req.body?.sessionId || '');
+    const listing = qListingByStripeSession.get(sessionId);
+    if (listing && listing.status === 'pending') {
+      qReleaseListingReservation.run(listing.id);
+    }
+    res.json({ ok: true });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
