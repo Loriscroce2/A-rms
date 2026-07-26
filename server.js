@@ -1376,6 +1376,12 @@ app.post('/api/astrocomptoir/agreement/accept', authMiddleware, (req, res) => {
 
 app.post('/api/astrocomptoir/paypal-email', authMiddleware, (req, res) => {
   try {
+    // Déconnexion explicite : efface l'adresse enregistrée, le joueur devra
+    // en connecter une nouvelle avant son prochain retrait.
+    if (req.body?.disconnect === true) {
+      qSetPaypalEmail.run('', req.user.id);
+      return res.json({ ok: true, paypalEmail: '' });
+    }
     const email = String(req.body?.email || '').trim();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ ok: false, error: 'email_invalid' });

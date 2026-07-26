@@ -214,9 +214,13 @@
         <div class="walletBalance">💶 <span id="walletAmount">0,00 €</span><span class="unit">gains de vente</span></div>
         <div>
           <div id="agreementStatusLine" class="agreementStatus">Vérification…</div>
-          <div class="paypalField" style="margin-top:8px;">
+          <div class="paypalField" id="paypalConnectedRow" style="margin-top:8px; display:none;">
+            <span id="paypalConnectedLabel" style="font-size:13px;color:var(--ok);font-weight:800;"></span>
+            <button class="btn-secondary" id="disconnectPaypalBtn">Déconnecter</button>
+          </div>
+          <div class="paypalField" id="paypalFormRow" style="margin-top:8px;">
             <input type="email" id="paypalEmailInput" placeholder="votre-email@paypal.com" />
-            <button class="btn-secondary" id="savePaypalBtn">Enregistrer</button>
+            <button class="btn-secondary" id="savePaypalBtn">Connecter mon PayPal</button>
           </div>
         </div>
       </div>
@@ -521,6 +525,16 @@
         WALLET = data;
         document.getElementById('walletAmount').textContent = euros(data.balanceCents);
         document.getElementById('paypalEmailInput').value = data.paypalEmail || '';
+        const connectedRow = document.getElementById('paypalConnectedRow');
+        const formRow = document.getElementById('paypalFormRow');
+        if (data.paypalEmail) {
+          connectedRow.style.display = 'flex';
+          formRow.style.display = 'none';
+          document.getElementById('paypalConnectedLabel').textContent = `✓ PayPal connecté : ${data.paypalEmail}`;
+        } else {
+          connectedRow.style.display = 'none';
+          formRow.style.display = 'flex';
+        }
         const line = document.getElementById('agreementStatusLine');
         if (data.agreementAccepted) {
           line.textContent = '✓ Accord Astrocomptoir accepté';
@@ -556,8 +570,20 @@
           method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email })
         });
         const data = await res.json();
-        if (data.ok) showToast('Adresse PayPal enregistrée.');
+        if (data.ok) { showToast('PayPal connecté.'); loadWallet(); }
         else showToast(data.error === 'email_invalid' ? 'Adresse e-mail invalide.' : 'Erreur.');
+      }catch(e){ showToast('Erreur réseau.'); }
+    });
+
+    document.getElementById('disconnectPaypalBtn').addEventListener('click', async () => {
+      if (!confirm('Déconnecter cette adresse PayPal ? Vous devrez en connecter une nouvelle avant votre prochain retrait.')) return;
+      try{
+        const res = await fetch('/api/astrocomptoir/paypal-email', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ disconnect: true })
+        });
+        const data = await res.json();
+        if (data.ok) { showToast('PayPal déconnecté.'); document.getElementById('paypalEmailInput').value = ''; loadWallet(); }
+        else showToast('Erreur.');
       }catch(e){ showToast('Erreur réseau.'); }
     });
 
