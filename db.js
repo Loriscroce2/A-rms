@@ -172,12 +172,25 @@ db.exec(`
     coins INTEGER NOT NULL,
     amount_cents INTEGER NOT NULL,
     paypal_order_id TEXT,
+    provider TEXT NOT NULL DEFAULT 'paypal', -- 'paypal' | 'stripe'
+    stripe_session_id TEXT,
     status TEXT NOT NULL DEFAULT 'pending', -- pending | completed | failed
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     completed_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
   );
 `);
+
+// Migration douce pour les bases coin_purchases créées avant l'ajout du
+// paiement par carte (Stripe) : on ajoute les deux colonnes manquantes sans
+// toucher aux achats déjà enregistrés (tous restent 'paypal' par défaut).
+const coinPurchaseCols = db.prepare("PRAGMA table_info(coin_purchases)").all().map(c => c.name);
+if (!coinPurchaseCols.includes('provider')) {
+  db.exec("ALTER TABLE coin_purchases ADD COLUMN provider TEXT NOT NULL DEFAULT 'paypal'");
+}
+if (!coinPurchaseCols.includes('stripe_session_id')) {
+  db.exec('ALTER TABLE coin_purchases ADD COLUMN stripe_session_id TEXT');
+}
 
 // Migration douce : si la base existait déjà avant l'ajout de "coins" (anciennes
 // installations), on ajoute la colonne sans effacer les comptes existants.

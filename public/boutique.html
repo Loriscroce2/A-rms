@@ -127,10 +127,13 @@
     .coinPackBonus{font-size:11.5px;font-weight:800;color:#9dffbb;background:rgba(25,226,122,.12);border:1px solid rgba(25,226,122,.4);border-radius:999px;padding:2px 10px;}
     .coinPackLabel{font-family:'Cinzel',sans-serif;font-size:16px;font-weight:700;color:#dff;margin-top:2px}
     .coinPackPrice{font-weight:900;font-size:19px;color:#fff;margin-top:2px;letter-spacing:.02em}
-    .coinPackBtn{width:100%;margin-top:10px;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:12px;padding:10px 10px;font-weight:900;cursor:pointer;
+    .coinPackBtn{width:100%;background:linear-gradient(180deg,#1de2ff,#07a7bf);color:#012016;border:none;border-radius:12px;padding:10px 10px;font-weight:900;cursor:pointer;
       transition:filter .15s ease, transform .15s ease;}
     .coinPackBtn:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px);}
     .coinPackBtn:disabled{opacity:.4;cursor:not-allowed}
+    .coinPackBtnCard{margin-top:10px;}
+    .coinPackBtnPaypal{margin-top:8px;background:linear-gradient(180deg,#eef2f7,#c9d3e0);color:#0a2540;font-size:13px;padding:8px 10px;
+      box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;}
     .coinPacksNote{color:var(--warn);font-size:13px;margin-top:16px;text-align:center;position:relative;z-index:1}
 
     /* ---------- Arrivage de l'heure ---------- */
@@ -363,10 +366,12 @@
     }
 
     // ===================================================================
-    // Achat de lots de pièces contre argent réel : create-order ouvre une
-    // commande de paiement pour le prix exact du lot et redirige vers la
-    // page de paiement ; au retour (?coins=return&token=ORDER_ID), on
-    // capture pour créditer les pièces.
+    // Achat de lots de pièces contre argent réel — deux moyens de paiement
+    // possibles : carte bancaire (Stripe Checkout) ou PayPal. Dans les deux
+    // cas : create-* ouvre une page de paiement hébergée, et au retour
+    // (?coins=stripe_return&session_id=... ou ?coins=return&token=...) on
+    // confirme/capture pour créditer les pièces (une seule fois par
+    // paiement, jamais deux fois pour le même identifiant).
     // ===================================================================
     let COIN_PACKS_CACHE = [];
     async function loadCoinPacks(){
@@ -375,14 +380,14 @@
         const data = await res.json();
         if (!data.ok) return;
         COIN_PACKS_CACHE = data.packs;
-        renderCoinPacks(data.packs, data.paypalConfigured);
+        renderCoinPacks(data.packs, data.paypalConfigured, data.stripeConfigured);
       }catch(e){ console.error(e); }
     }
 
-    function renderCoinPacks(packs, paypalConfigured){
+    function renderCoinPacks(packs, paypalConfigured, stripeConfigured){
       const grid = document.getElementById('coinPackGrid');
       const note = document.getElementById('coinPacksNote');
-      note.style.display = paypalConfigured ? 'none' : 'block';
+      note.style.display = (paypalConfigured || stripeConfigured) ? 'none' : 'block';
       grid.innerHTML = '';
       const bestId = packs.reduce((best, p) => (!best || p.bonusPct > best.bonusPct) ? p : best, null)?.id;
       packs.forEach((pack, i) => {
@@ -396,14 +401,34 @@
           ${pack.bonusPct > 0 ? `<div class="coinPackBonus">+${pack.bonusPct}% de valeur</div>` : ''}
           <div class="coinPackLabel">${pack.label}</div>
           <div class="coinPackPrice">${(pack.amountCents/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})} €</div>
-          <button class="coinPackBtn" ${paypalConfigured ? '' : 'disabled'}>Acheter</button>
+          <button class="coinPackBtn coinPackBtnCard" ${stripeConfigured ? '' : 'disabled'}>💳 Carte bancaire</button>
+          <button class="coinPackBtn coinPackBtnPaypal" ${paypalConfigured ? '' : 'disabled'}>PayPal</button>
         `;
-        el.querySelector('.coinPackBtn').addEventListener('click', () => buyCoinPack(pack.id, el.querySelector('.coinPackBtn')));
+        el.querySelector('.coinPackBtnCard').addEventListener('click', () => buyCoinPackByCard(pack.id, el.querySelector('.coinPackBtnCard')));
+        el.querySelector('.coinPackBtnPaypal').addEventListener('click', () => buyCoinPackByPaypal(pack.id, el.querySelector('.coinPackBtnPaypal')));
         grid.appendChild(el);
       });
     }
 
-    async function buyCoinPack(packId, btn){
+    async function buyCoinPackByCard(packId, btn){
+      if (btn) btn.disabled = true;
+      try{
+        const res = await fetch('/api/shop/coins/create-checkout', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ packId })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'stripe_not_configured'
+            ? "Le paiement par carte n'est pas encore disponible pour le moment."
+            : 'Erreur de paiement.');
+          if (btn) btn.disabled = false;
+          return;
+        }
+        if (data.checkoutUrl) window.location.href = data.checkoutUrl;
+      }catch(e){ showToast('Erreur réseau.'); if (btn) btn.disabled = false; }
+    }
+
+    async function buyCoinPackByPaypal(packId, btn){
       if (btn) btn.disabled = true;
       try{
         const res = await fetch('/api/shop/coins/create-order', {
@@ -412,7 +437,7 @@
         const data = await res.json();
         if (!data.ok) {
           showToast(data.error === 'paypal_not_configured'
-            ? "Les achats de pièces ne sont pas encore disponibles pour le moment."
+            ? "Le paiement PayPal n'est pas encore disponible pour le moment."
             : 'Erreur de paiement.');
           if (btn) btn.disabled = false;
           return;
@@ -421,11 +446,14 @@
       }catch(e){ showToast('Erreur réseau.'); if (btn) btn.disabled = false; }
     }
 
-    // Retour après un achat de pièces (Orders v2 renvoie ?token=ORDER_ID)
+    // Retour après un achat de pièces
     (async function handleCoinsReturn(){
       const params = new URLSearchParams(window.location.search);
+      const coinsParam = params.get('coins');
+
+      // Retour PayPal (Orders v2 renvoie ?token=ORDER_ID)
       const orderId = params.get('token');
-      if (params.get('coins') === 'return' && orderId) {
+      if (coinsParam === 'return' && orderId) {
         try{
           const res = await fetch('/api/shop/coins/capture', {
             method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orderId })
@@ -439,7 +467,29 @@
           }
         }catch(e){}
         window.history.replaceState({}, '', '/boutique.html');
-      } else if (params.get('coins') === 'cancel') {
+        return;
+      }
+
+      // Retour Stripe (Checkout renvoie ?session_id=cs_...)
+      const sessionId = params.get('session_id');
+      if (coinsParam === 'stripe_return' && sessionId) {
+        try{
+          const res = await fetch('/api/shop/coins/confirm-stripe', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            updateCoinsPill(data.coins);
+            showToast(data.alreadyCompleted ? 'Achat déjà traité.' : `+${data.coinsGained} pièces créditées !`);
+          } else {
+            showToast("L'achat de pièces a échoué.");
+          }
+        }catch(e){}
+        window.history.replaceState({}, '', '/boutique.html');
+        return;
+      }
+
+      if (coinsParam === 'cancel' || coinsParam === 'stripe_cancel') {
         showToast('Achat annulé.');
         window.history.replaceState({}, '', '/boutique.html');
       }

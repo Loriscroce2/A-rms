@@ -323,6 +323,8 @@ const qCompleteTopup = db.prepare("UPDATE wallet_topups SET status = 'completed'
 // et les routes /api/shop/coins/* plus bas).
 const qInsertCoinPurchase = db.prepare('INSERT INTO coin_purchases (user_id, pack_id, coins, amount_cents, paypal_order_id, status) VALUES (?, ?, ?, ?, ?, ?)');
 const qCoinPurchaseByOrderId = db.prepare('SELECT * FROM coin_purchases WHERE paypal_order_id = ?');
+const qInsertCoinPurchaseStripe = db.prepare("INSERT INTO coin_purchases (user_id, pack_id, coins, amount_cents, provider, stripe_session_id, status) VALUES (?, ?, ?, ?, 'stripe', ?, ?)");
+const qCoinPurchaseByStripeSession = db.prepare('SELECT * FROM coin_purchases WHERE stripe_session_id = ?');
 const qCompleteCoinPurchase = db.prepare("UPDATE coin_purchases SET status = 'completed', completed_at = datetime('now') WHERE id = ?");
 
 const qInsertWithdrawal = db.prepare('INSERT INTO withdrawal_requests (user_id, amount_cents, paypal_email) VALUES (?, ?, ?)');
@@ -1165,6 +1167,46 @@ const PAYPAL_API_BASE = (process.env.PAYPAL_MODE === 'live')
   : 'https://api-m.sandbox.paypal.com';
 function isPaypalConfigured() { return !!(PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET); }
 
+// --- Stripe : paiement direct par carte bancaire (alternative à PayPal),
+// via Checkout Session (page de paiement hébergée par Stripe — pas besoin
+// de manipuler de numéro de carte côté serveur). L'argent encaissé est
+// automatiquement viré par Stripe vers le compte bancaire (IBAN) associé au
+// compte Stripe propriétaire de STRIPE_SECRET_KEY, tous les quelques jours —
+// jamais de portefeuille intermédiaire. Appels en fetch brut (pas de SDK
+// Stripe) pour rester cohérent avec l'intégration PayPal ci-dessus et éviter
+// d'ajouter une dépendance npm.
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || '';
+function isStripeConfigured() { return !!STRIPE_SECRET_KEY; }
+function stripeAuthHeader() {
+  return 'Basic ' + Buffer.from(`${STRIPE_SECRET_KEY}:`).toString('base64');
+}
+
+async function stripeCreateCheckoutSession(amountCents, productName, successUrl, cancelUrl) {
+  const params = new URLSearchParams();
+  params.append('mode', 'payment');
+  params.append('success_url', successUrl);
+  params.append('cancel_url', cancelUrl);
+  params.append('line_items[0][price_data][currency]', 'eur');
+  params.append('line_items[0][price_data][product_data][name]', productName);
+  params.append('line_items[0][price_data][unit_amount]', String(amountCents));
+  params.append('line_items[0][quantity]', '1');
+  const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: { 'Authorization': stripeAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
+  if (!res.ok) throw new Error(`stripe_create_session_failed_${res.status}`);
+  return res.json();
+}
+
+async function stripeRetrieveSession(sessionId) {
+  const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+    headers: { 'Authorization': stripeAuthHeader() },
+  });
+  if (!res.ok) throw new Error(`stripe_retrieve_session_failed_${res.status}`);
+  return res.json();
+}
+
 // ===================================================================
 // BOUTIQUE — 5 lots de pièces à acheter contre argent réel (PayPal).
 // Base redemandée explicitement : 700 pièces pour 2,99€ (palier 1), puis
@@ -1530,6 +1572,7 @@ app.get('/api/shop/coin-packs', authMiddleware, (req, res) => {
   res.json({
     ok: true,
     paypalConfigured: isPaypalConfigured(),
+    stripeConfigured: isStripeConfigured(),
     packs: COIN_PACKS.map(p => ({ id: p.id, coins: p.coins, amountCents: p.amountCents, label: p.label, icon: p.icon, bonusPct: p.bonusPct })),
   });
 });
@@ -1579,6 +1622,58 @@ app.post('/api/shop/coins/capture', authMiddleware, async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(502).json({ ok: false, error: 'paypal_error' });
+  }
+});
+
+// --- Paiement direct par carte bancaire (Stripe Checkout) — même principe
+// que le flux PayPal ci-dessus : create-checkout ouvre une session de
+// paiement Stripe pour le prix exact du lot, confirm-stripe la vérifie et
+// crédite les pièces UNE SEULE FOIS (idem, jamais deux fois pour la même
+// session, voir le statut 'completed'). L'argent part directement vers le
+// compte bancaire relié au compte Stripe configuré (STRIPE_SECRET_KEY).
+app.post('/api/shop/coins/create-checkout', authMiddleware, async (req, res) => {
+  try {
+    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
+    const pack = getCoinPack(String(req.body?.packId || ''));
+    if (!pack) return res.status(400).json({ ok: false, error: 'invalid_pack' });
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const session = await stripeCreateCheckoutSession(
+      pack.amountCents,
+      `${pack.label} — ${pack.coins} pièces (A'rms)`,
+      `${origin}/boutique.html?coins=stripe_return&session_id={CHECKOUT_SESSION_ID}`,
+      `${origin}/boutique.html?coins=stripe_cancel`
+    );
+    qInsertCoinPurchaseStripe.run(req.user.id, pack.id, pack.coins, pack.amountCents, session.id, 'pending');
+    res.json({ ok: true, checkoutUrl: session.url });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'stripe_error' });
+  }
+});
+
+app.post('/api/shop/coins/confirm-stripe', authMiddleware, async (req, res) => {
+  try {
+    if (!isStripeConfigured()) return res.status(503).json({ ok: false, error: 'stripe_not_configured' });
+    const sessionId = String(req.body?.sessionId || '');
+    const purchase = qCoinPurchaseByStripeSession.get(sessionId);
+    if (!purchase || purchase.user_id !== req.user.id) {
+      return res.status(404).json({ ok: false, error: 'purchase_not_found' });
+    }
+    if (purchase.status === 'completed') {
+      const coins = coinsForResponse(req);
+      return res.json({ ok: true, coins, coinsGained: purchase.coins, alreadyCompleted: true });
+    }
+    const session = await stripeRetrieveSession(sessionId);
+    if (session.payment_status !== 'paid') {
+      return res.status(402).json({ ok: false, error: 'payment_not_completed' });
+    }
+    qCompleteCoinPurchase.run(purchase.id);
+    qAddCoins.run(purchase.coins, req.user.id);
+    const coins = coinsForResponse(req);
+    res.json({ ok: true, coins, coinsGained: purchase.coins });
+  } catch (e) {
+    console.error(e);
+    res.status(502).json({ ok: false, error: 'stripe_error' });
   }
 });
 
