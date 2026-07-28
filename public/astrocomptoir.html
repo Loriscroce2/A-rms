@@ -186,6 +186,8 @@
     .sellCard .cardNameSm{font-size:11px;font-weight:800;color:var(--ink);line-height:1.2;}
     .sellCard .count{font-size:11px;color:var(--muted);opacity:.8}
     .sellCard input{width:100%;padding:6px 8px;border-radius:8px;border:1.5px solid rgba(125,249,255,.3);background:#051820;color:var(--ink);font-size:12.5px;text-align:center;}
+    .sellCard .sellEstimate{font-size:10.5px;line-height:1.35;color:var(--muted);opacity:.85;min-height:28px;}
+    .sellCard .sellEstimate strong{color:#3ddc84;}
     .sellCard .sellBtn{background:linear-gradient(135deg,#b06bff,#6a1fd6);color:#fff;border:none;border-radius:8px;padding:7px 10px;font-weight:900;cursor:pointer;font-size:11.5px;width:100%}
 
     @media (max-width: 720px){
@@ -290,13 +292,13 @@
       <ul>
         <li>L'Astrocomptoir permet d'acheter et de vendre des cartes A'rms individuelles entre joueurs, contre de l'argent réel.</li>
         <li>Acheter une carte se paie directement par carte bancaire, au prix affiché — aucun solde préchargé n'est nécessaire pour acheter.</li>
-        <li>Vendre une carte crédite votre part (90% du prix, la commission étant prélevée immédiatement) sur votre solde interne, que vous pouvez retirer vers votre compte PayPal à tout moment.</li>
+        <li>Vendre une carte crédite votre part sur votre solde interne, que vous pouvez retirer vers votre compte PayPal à tout moment. PayPal prélève d'abord ses propres frais sur le paiement de l'acheteur (environ 2,9% + 0,35€), puis A'rms prélève sa commission de 10% sur ce qui reste — le montant que vous recevez est donc inférieur au prix affiché de la carte. Une estimation de votre gain s'affiche avant chaque mise en vente.</li>
         <li>Le prix de chaque annonce est fixé librement par le vendeur — A'rms ne garantit aucune valeur de revente. Quand plusieurs annonces existent pour une même carte, la moins chère se vend en premier ; à prix égal, la plus ancienne se vend en premier.</li>
       </ul>
 
       <h3>Commission</h3>
       <ul>
-        <li>A'rms prélève une commission de <strong>10%</strong> sur le prix de chaque vente conclue. Le vendeur reçoit les 90% restants sur son solde.</li>
+        <li>A'rms prélève une commission de <strong>10%</strong> sur chaque vente conclue, calculée après déduction des frais PayPal (voir ci-dessus). Le vendeur reçoit les 90% restants de ce montant sur son solde.</li>
       </ul>
 
       <h3>Retraits</h3>
@@ -387,6 +389,22 @@
       toast.classList.add('show');
     }
     function euros(cents){ return (cents/100).toLocaleString('fr-FR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €'; }
+
+    // Estimation de ce que le vendeur recevra réellement pour un prix donné :
+    // PayPal prélève ses propres frais (2,9 % + 0,35 € en France/UE pour un
+    // paiement standard) AVANT que le site ne calcule sa commission de 10 %
+    // sur ce qui reste. C'est une estimation affichée avant la mise en
+    // vente — le montant exact dépend de la vraie capture PayPal au moment
+    // de l'achat (voir server.js), mais l'écart est minime en pratique.
+    const PAYPAL_FEE_RATE = 0.029;
+    const PAYPAL_FEE_FIXED = 0.35;
+    function estimateSellerGainCents(priceEuros){
+      const paypalFee = priceEuros * PAYPAL_FEE_RATE + PAYPAL_FEE_FIXED;
+      const net = Math.max(0, priceEuros - paypalFee);
+      const commission = net * 0.10;
+      const sellerGain = net - commission;
+      return { paypalFeeCents: Math.round(paypalFee * 100), sellerGainCents: Math.round(sellerGain * 100) };
+    }
 
     const FACTIONS = ['Krylls','Impy','Savage','Chimeria','Wadoo'];
     const TYPES = [
@@ -875,10 +893,23 @@
           <div class="cardNameSm">${info.name}</div>
           <div class="count">${c.count} en collection</div>
           <input type="number" min="0.5" step="0.5" placeholder="Prix en €" />
+          <div class="sellEstimate">Entrez un prix pour voir votre gain estimé</div>
           <button class="sellBtn">Mettre en vente</button>
         `;
         applyStatBadges(el.querySelector('.cardImg'), c.code);
-        el.querySelector('.sellBtn').addEventListener('click', () => attemptCreateListing(c.code, el.querySelector('input')));
+        const priceInput = el.querySelector('input');
+        const estimateEl = el.querySelector('.sellEstimate');
+        function refreshEstimate(){
+          const amount = parseFloat((priceInput.value || '').replace(',', '.'));
+          if (!Number.isFinite(amount) || amount < 0.5) {
+            estimateEl.textContent = 'Entrez un prix pour voir votre gain estimé';
+            return;
+          }
+          const est = estimateSellerGainCents(amount);
+          estimateEl.innerHTML = `Vous recevrez environ <strong>${euros(est.sellerGainCents)}</strong> — après ~${euros(est.paypalFeeCents)} de frais PayPal (2,9 % + 0,35 €) et notre commission de 10 %.`;
+        }
+        priceInput.addEventListener('input', refreshEstimate);
+        el.querySelector('.sellBtn').addEventListener('click', () => attemptCreateListing(c.code, priceInput));
         grid.appendChild(el);
       });
     }
