@@ -1733,6 +1733,22 @@ async function paypalCaptureOrder(orderId) {
   return res.json();
 }
 
+// Une capture PayPal réussie renvoie le détail exact de ce qui atterrit
+// vraiment sur le compte (seller_receivable_breakdown.net_amount), après
+// déduction des frais PayPal — jamais le montant brut payé par l'acheteur.
+// Sur une petite carte, ces frais peuvent représenter une grosse part du
+// prix (frais fixe + pourcentage), donc partager la commission sur le
+// montant NET plutôt que sur le prix affiché garantit que le site ne
+// promet jamais aux vendeurs plus d'argent qu'il n'en a réellement reçu.
+function extractNetAmountCents(capture, fallbackCents) {
+  try {
+    const netStr = capture?.purchase_units?.[0]?.payments?.captures?.[0]
+      ?.seller_receivable_breakdown?.net_amount?.value;
+    if (netStr) return Math.round(parseFloat(netStr) * 100);
+  } catch (e) { /* structure inattendue : on retombe sur le montant brut */ }
+  return fallbackCents;
+}
+
 async function paypalSendPayout(email, amountEuros, note, senderBatchId) {
   const token = await paypalGetAccessToken();
   const res = await fetch(`${PAYPAL_API_BASE}/v1/payments/payouts`, {
@@ -2064,10 +2080,15 @@ app.post('/api/astrocomptoir/cards/confirm-purchase', authMiddleware, async (req
     if (marked.changes === 0) {
       return res.status(409).json({ ok: false, error: 'already_sold' });
     }
-    const commission = Math.round(listing.price_cents * ASTRO_COMMISSION_RATE);
-    const sellerGain = listing.price_cents - commission;
+    // Répartition sur le montant NET réellement encaissé (après frais
+    // PayPal), pas sur le prix affiché — voir extractNetAmountCents.
+    const netCents = extractNetAmountCents(capture, listing.price_cents);
+    const commission = Math.round(netCents * ASTRO_COMMISSION_RATE);
+    const sellerGain = netCents - commission;
     qAddRealBalance.run(sellerGain, listing.seller_id);
     qUpsertCard.run(req.user.id, listing.code, 1);
+    // price_cents reste le prix affiché/payé par l'acheteur (pour l'historique
+    // et l'affichage) ; commission_cents reflète ce que le site garde vraiment.
     qInsertTransaction.run(listing.id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission);
     res.json({ ok: true, code: listing.code, priceCents: listing.price_cents });
   } catch (e) {
