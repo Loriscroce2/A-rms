@@ -1769,7 +1769,16 @@ async function paypalSendPayout(email, amountEuros, note, senderBatchId) {
       }],
     }),
   });
-  if (!res.ok) throw new Error(`paypal_payout_failed_${res.status}`);
+  if (!res.ok) {
+    // On journalise le corps exact renvoyé par PayPal (name/message/details)
+    // pour pouvoir diagnostiquer un échec de retrait sans aller-retour :
+    // un 403 seul ne dit pas SI c'est "Payouts non activé", des identifiants
+    // sandbox utilisés en live, ou autre chose.
+    let body = null;
+    try { body = await res.json(); } catch (e) { /* réponse non-JSON, tant pis */ }
+    console.error(`[paypal] Échec de l'envoi du Payout (HTTP ${res.status}) :`, JSON.stringify(body));
+    throw new Error(`paypal_payout_failed_${res.status}`);
+  }
   return res.json();
 }
 
