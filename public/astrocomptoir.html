@@ -336,6 +336,24 @@
     </div>
   </div>
 
+  <!-- Retrait vers PayPal (fenêtre intégrée au site — pas de prompt() natif,
+       qui peut rester silencieux dans certains navigateurs/webviews) -->
+  <div class="armsModalOverlay2" id="withdrawOverlay">
+    <div class="queueModal">
+      <div class="queueIcon">💸</div>
+      <h3>Retirer vers PayPal</h3>
+      <p>Solde disponible : <strong id="withdrawAvailable">0,00 €</strong></p>
+      <div class="paypalField" style="justify-content:center;">
+        <input type="text" inputmode="decimal" id="withdrawAmountInput" placeholder="Montant en euros" style="text-align:center;max-width:170px;" />
+      </div>
+      <p id="withdrawError" style="color:#ff8a8a;font-size:12.5px;min-height:16px;margin:8px 0 0;"></p>
+      <div class="queueActions">
+        <button class="btn-secondary" id="withdrawCancelBtn">Annuler</button>
+        <button class="btn" id="withdrawConfirmBtn">Confirmer le retrait</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Drawer "Vendre une carte" -->
   <div class="sellDrawerOverlay" id="sellDrawerOverlay"></div>
   <div class="sellDrawer" id="sellDrawer">
@@ -588,32 +606,67 @@
       }catch(e){ showToast('Erreur réseau.'); }
     });
 
-    document.getElementById('withdrawBtn').addEventListener('click', async () => {
+    // La fenêtre de retrait est une modale intégrée au site plutôt qu'un
+    // prompt() natif du navigateur : ce dernier reste parfois totalement
+    // silencieux (aucune boîte de dialogue, aucune erreur visible) selon le
+    // navigateur ou la fenêtre d'affichage utilisée, ce qui donnait
+    // l'impression que le bouton "Retirer" ne faisait rien du tout.
+    const withdrawOverlay = document.getElementById('withdrawOverlay');
+    const withdrawAmountInput = document.getElementById('withdrawAmountInput');
+    const withdrawError = document.getElementById('withdrawError');
+    const withdrawConfirmBtn = document.getElementById('withdrawConfirmBtn');
+
+    function openWithdrawModal(){
+      withdrawAmountInput.value = '';
+      withdrawError.textContent = '';
+      document.getElementById('withdrawAvailable').textContent = euros(WALLET.balanceCents);
+      withdrawOverlay.classList.add('show');
+      setTimeout(() => withdrawAmountInput.focus(), 50);
+    }
+    function closeWithdrawModal(){ withdrawOverlay.classList.remove('show'); }
+
+    document.getElementById('withdrawBtn').addEventListener('click', () => {
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
       if (!WALLET.paypalEmail) { showToast("Enregistrez d'abord votre adresse PayPal."); return; }
-      const raw = prompt(`Montant à retirer, en euros. Solde disponible : ${euros(WALLET.balanceCents)}`, '');
-      if (raw === null) return;
-      const amount = parseFloat(raw.replace(',', '.'));
-      if (!Number.isFinite(amount) || amount <= 0) { showToast('Montant invalide.'); return; }
+      openWithdrawModal();
+    });
+    document.getElementById('withdrawCancelBtn').addEventListener('click', closeWithdrawModal);
+    withdrawOverlay.addEventListener('click', (e) => { if (e.target === withdrawOverlay) closeWithdrawModal(); });
+
+    async function confirmWithdraw(){
+      const amount = parseFloat((withdrawAmountInput.value || '').replace(',', '.'));
+      if (!Number.isFinite(amount) || amount <= 0) { withdrawError.textContent = 'Montant invalide.'; return; }
+      if (Math.round(amount * 100) > WALLET.balanceCents) { withdrawError.textContent = 'Solde insuffisant.'; return; }
+      withdrawError.textContent = '';
+      withdrawConfirmBtn.disabled = true;
+      withdrawConfirmBtn.textContent = 'Envoi en cours…';
       try{
         const res = await fetch('/api/astrocomptoir/withdraw', {
           method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amountCents: Math.round(amount*100) })
         });
         const data = await res.json();
         if (!data.ok) {
-          showToast(data.error === 'insufficient_balance' ? 'Solde insuffisant.'
+          withdrawError.textContent = data.error === 'insufficient_balance' ? 'Solde insuffisant.'
             : data.error === 'paypal_email_missing' ? "Enregistrez d'abord votre adresse PayPal."
             : data.error === 'paypal_not_configured' ? "Les retraits ne sont pas encore disponibles."
             : data.error === 'invalid_amount' ? 'Montant invalide.'
             : data.error === 'agreement_required' ? "Vous devez d'abord accepter l'accord."
-            : data.error === 'paypal_error' ? "L'envoi a échoué, votre solde n'a pas été débité."
-            : 'Erreur.');
+            : data.error === 'paypal_error' ? "L'envoi a échoué, votre solde n'a pas été débité. Réessayez plus tard."
+            : 'Erreur inattendue.';
           return;
         }
+        closeWithdrawModal();
         showToast('Virement envoyé sur votre compte PayPal !');
         loadWallet(); loadHistory();
-      }catch(e){ showToast('Erreur réseau.'); }
-    });
+      }catch(e){
+        withdrawError.textContent = 'Erreur réseau — vérifiez votre connexion.';
+      }finally{
+        withdrawConfirmBtn.disabled = false;
+        withdrawConfirmBtn.textContent = 'Confirmer le retrait';
+      }
+    }
+    withdrawConfirmBtn.addEventListener('click', confirmWithdraw);
+    withdrawAmountInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmWithdraw(); });
 
     // Retour après un achat de carte payé via PayPal
     (async function handleCardPurchaseReturn(){
