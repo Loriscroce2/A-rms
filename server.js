@@ -1772,7 +1772,6 @@ const ASTRO_MIN_LISTING_CENTS = 50;      // 0,50 €
 const ASTRO_MAX_LISTING_CENTS = 100000;  // 1000 €
 const ASTRO_MIN_TOPUP_CENTS = 200;       // 2 €
 const ASTRO_MAX_TOPUP_CENTS = 50000;     // 500 €
-const ASTRO_MIN_WITHDRAWAL_CENTS = 500;  // 5 €
 
 // --- Portefeuille / accord légal ---
 app.get('/api/astrocomptoir/status', authMiddleware, (req, res) => {
@@ -1839,7 +1838,9 @@ app.post('/api/astrocomptoir/withdraw', authMiddleware, async (req, res) => {
     const wallet = qGetWallet.get(req.user.id);
     if (!wallet.paypal_email) return res.status(400).json({ ok: false, error: 'paypal_email_missing' });
     const amountCents = Math.round(Number(req.body?.amountCents));
-    if (!Number.isFinite(amountCents) || amountCents < 500) {
+    // Aucun minimum arbitraire : n'importe quel montant positif (jusqu'au
+    // solde disponible) peut être retiré.
+    if (!Number.isFinite(amountCents) || amountCents < 1) {
       return res.status(400).json({ ok: false, error: 'invalid_amount' });
     }
     const spent = qSpendRealBalance.run(amountCents, req.user.id, amountCents);

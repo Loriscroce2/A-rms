@@ -591,10 +591,10 @@
     document.getElementById('withdrawBtn').addEventListener('click', async () => {
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
       if (!WALLET.paypalEmail) { showToast("Enregistrez d'abord votre adresse PayPal."); return; }
-      const raw = prompt(`Montant à retirer, en euros (5 € minimum). Solde disponible : ${euros(WALLET.balanceCents)}`, '');
+      const raw = prompt(`Montant à retirer, en euros. Solde disponible : ${euros(WALLET.balanceCents)}`, '');
       if (raw === null) return;
       const amount = parseFloat(raw.replace(',', '.'));
-      if (!Number.isFinite(amount) || amount < 5) { showToast('Montant invalide (5 € minimum).'); return; }
+      if (!Number.isFinite(amount) || amount <= 0) { showToast('Montant invalide.'); return; }
       try{
         const res = await fetch('/api/astrocomptoir/withdraw', {
           method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amountCents: Math.round(amount*100) })
@@ -604,7 +604,7 @@
           showToast(data.error === 'insufficient_balance' ? 'Solde insuffisant.'
             : data.error === 'paypal_email_missing' ? "Enregistrez d'abord votre adresse PayPal."
             : data.error === 'paypal_not_configured' ? "Les retraits ne sont pas encore disponibles."
-            : data.error === 'invalid_amount' ? 'Montant invalide (5 € minimum).'
+            : data.error === 'invalid_amount' ? 'Montant invalide.'
             : data.error === 'agreement_required' ? "Vous devez d'abord accepter l'accord."
             : data.error === 'paypal_error' ? "L'envoi a échoué, votre solde n'a pas été débité."
             : 'Erreur.');
