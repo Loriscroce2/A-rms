@@ -111,6 +111,16 @@
     <div style="text-align:center;">
       <button class="miniBtn" id="unlockSeasonCardsBtn" style="padding:10px 18px;font-size:12.5px;">🔓 Débloquer toutes les cartes WIN de rang atteint</button>
     </div>
+
+    <div class="hero" style="margin-top:46px;">
+      <h1>👑 Inverxion — Graal de fin de saison</h1>
+      <p>Programmez une date et heure précises : à cette échéance, le serveur distribuera automatiquement Inverxion (W0003) aux 10 joueurs alors en tête du classement de Menace, chacun recevant un exemplaire numéroté (001/10 à 010/10). Rien ne se passe avant l'échéance ; une fois exécutée, elle ne peut pas se redéclencher toute seule — reprogrammez une nouvelle date pour une prochaine distribution.</p>
+    </div>
+    <div style="text-align:center;">
+      <div id="seasonEndStatus" style="margin-bottom:14px;font-size:13px;color:#cfd6e6;">Chargement du statut…</div>
+      <input type="datetime-local" id="seasonEndInput" style="padding:9px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font-size:13px;margin-right:10px;">
+      <button class="miniBtn" id="scheduleSeasonEndBtn" style="padding:10px 18px;font-size:12.5px;">👑 Programmer la fin de saison</button>
+    </div>
   </main>
 
   <div class="toast" id="toast"></div>
@@ -284,6 +294,7 @@
         MY_ID = data.user.id;
         loadUsers();
         loadWithdrawals();
+        loadSeasonEndStatus();
       }catch(e){
         zone.innerHTML = `<div class="emptyState">Impossible de vérifier vos droits d'accès.</div>`;
       }
@@ -371,6 +382,46 @@
       }catch(e){ showToast('Erreur réseau.', true); }
     }
     document.getElementById('unlockSeasonCardsBtn').addEventListener('click', unlockSeasonCards);
+
+    // ===================================================================
+    // Inverxion (W0003) — programmation de la fin de saison
+    // ===================================================================
+    function formatSeasonEndDate(iso){
+      if (!iso) return null;
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return d.toLocaleString('fr-FR', { dateStyle:'long', timeStyle:'short' });
+    }
+    async function loadSeasonEndStatus(){
+      const zone = document.getElementById('seasonEndStatus');
+      try{
+        const res = await fetch('/api/admin/season-end/status');
+        const data = await res.json();
+        if (!data.ok) { zone.textContent = 'Impossible de charger le statut.'; return; }
+        if (data.executedAt) {
+          zone.innerHTML = `✅ Dernière fin de saison exécutée le <strong>${formatSeasonEndDate(data.executedAt)}</strong> (Inverxion distribuée au Top 10).`;
+        } else if (data.scheduledAt) {
+          zone.innerHTML = `⏳ Fin de saison programmée pour le <strong>${formatSeasonEndDate(data.scheduledAt)}</strong>.`;
+        } else {
+          zone.textContent = 'Aucune fin de saison programmée pour le moment.';
+        }
+      }catch(e){ zone.textContent = 'Erreur réseau.'; }
+    }
+    async function scheduleSeasonEnd(){
+      const input = document.getElementById('seasonEndInput');
+      if (!input.value) { showToast('Choisissez une date et une heure.', true); return; }
+      const scheduledAt = new Date(input.value).toISOString();
+      if (!confirm(`Programmer la fin de saison pour le ${formatSeasonEndDate(scheduledAt)} ? Inverxion sera distribuée automatiquement au Top 10 du classement à cet instant précis.`)) return;
+      try{
+        const res = await fetch('/api/admin/season-end/schedule', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ scheduledAt })
+        });
+        const data = await res.json();
+        if (data.ok) { showToast('Fin de saison programmée.'); loadSeasonEndStatus(); }
+        else showToast('Erreur lors de la programmation.', true);
+      }catch(e){ showToast('Erreur réseau.', true); }
+    }
+    document.getElementById('scheduleSeasonEndBtn').addEventListener('click', scheduleSeasonEnd);
 
     async function rejectWithdrawal(id){
       const reason = prompt('Raison du refus (facultatif) — le solde du joueur sera remboursé intégralement :', '');

@@ -627,6 +627,76 @@ app.post('/api/admin/season-cards/unlock-all', authMiddleware, adminMiddleware, 
   }
 });
 
+// ===================================================================
+// SAISON — Inverxion (W0003) : le "Graal" réservé aux 10 meilleurs joueurs
+// du classement (points de Menace) au moment PRÉCIS d'une échéance de fin
+// de saison programmée par l'admin (date/heure choisie dans admin.html,
+// voir POST /api/admin/season-end/schedule ci-dessous). Contrairement aux
+// autres cartes WIN (distribuées manuellement par seuil de rang, voir
+// bloc ci-dessus), Inverxion n'a PAS de requiredRankIndex : elle est donc
+// volontairement absente de SEASON_CARDS et gérée par ce mécanisme dédié.
+// executeSeasonEndIfDue() est appelée par un setInterval (voir tout en bas
+// du fichier, section "Démarrage") ET une fois au lancement du serveur,
+// pour rattraper une échéance passée pendant que le serveur était éteint.
+// ===================================================================
+const qGetSeasonEndSchedule = db.prepare('SELECT scheduled_at, executed_at FROM season_end_schedule WHERE id = 1');
+const qUpsertSeasonEndSchedule = db.prepare(`
+  INSERT INTO season_end_schedule (id, scheduled_at, executed_at) VALUES (1, ?, NULL)
+  ON CONFLICT(id) DO UPDATE SET scheduled_at = excluded.scheduled_at, executed_at = NULL
+`);
+const qMarkSeasonEndExecuted = db.prepare("UPDATE season_end_schedule SET executed_at = datetime('now') WHERE id = 1");
+const qInsertInverxionGrant = db.prepare('INSERT INTO inverxion_grants (user_id, edition_number, season_end_at) VALUES (?, ?, ?)');
+const qInverxionGrantsForSeasonEnd = db.prepare('SELECT user_id, edition_number FROM inverxion_grants WHERE season_end_at = ? ORDER BY edition_number ASC');
+
+function executeSeasonEndIfDue() {
+  try {
+    const row = qGetSeasonEndSchedule.get();
+    if (!row || !row.scheduled_at || row.executed_at) return; // rien de programmé, ou déjà exécuté
+    const scheduledMs = Date.parse(row.scheduled_at);
+    if (!Number.isFinite(scheduledMs) || Date.now() < scheduledMs) return; // pas encore l'heure
+
+    const top10 = qLeaderboard.all(10).filter(u => !isAdminEmail(u.email || ''));
+    const run = db.transaction(() => {
+      top10.forEach((u, idx) => {
+        qUpsertCard.run(u.id, 'W0003', 1);
+        qInsertInverxionGrant.run(u.id, idx + 1, row.scheduled_at);
+      });
+      qMarkSeasonEndExecuted.run();
+    });
+    run();
+    console.log(`🏆 Fin de saison exécutée (${row.scheduled_at}) : Inverxion distribuée à ${top10.length} joueur(s).`);
+  } catch (e) {
+    console.error('[season-end] Échec de la distribution automatique :', e);
+  }
+}
+
+app.post('/api/admin/season-end/schedule', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const { scheduledAt } = req.body || {};
+    if (!scheduledAt || !Number.isFinite(Date.parse(scheduledAt))) {
+      return res.status(400).json({ ok: false, error: 'invalid_date' });
+    }
+    // Normalisé en ISO pour un stockage/comparaison fiables, quel que soit
+    // le format envoyé par l'input datetime-local du navigateur.
+    const iso = new Date(scheduledAt).toISOString();
+    qUpsertSeasonEndSchedule.run(iso);
+    res.json({ ok: true, scheduledAt: iso });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.get('/api/admin/season-end/status', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const row = qGetSeasonEndSchedule.get() || { scheduled_at: null, executed_at: null };
+    res.json({ ok: true, scheduledAt: row.scheduled_at, executedAt: row.executed_at });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
 // Marque le didacticiel comme vu, pour ne plus jamais l'afficher
 // automatiquement à cet utilisateur (il reste accessible manuellement
 // depuis le menu à tout moment). La toute première fois, ça rapporte
@@ -2926,6 +2996,15 @@ app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 // ===================================================================
 // Démarrage
 // ===================================================================
+// SAISON : vérifie l'échéance de fin de saison (Inverxion, voir plus haut)
+// une fois immédiatement (rattrape une échéance passée pendant que le
+// serveur était éteint) puis toutes les 30 secondes — premier setInterval
+// de type "planificateur" du fichier, volontairement discret (échoue en
+// silence dans son propre try/catch, ne doit jamais impacter le reste du
+// serveur).
+executeSeasonEndIfDue();
+setInterval(executeSeasonEndIfDue, 30 * 1000);
+
 server.listen(PORT, () => {
   console.log(`✅ Serveur A'rms démarré sur http://localhost:${PORT}`);
 });

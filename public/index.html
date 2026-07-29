@@ -4113,7 +4113,7 @@ async function playIgnominieSfx(){
 /* ---------- Mappings / Noms ---------- */
 const CARD_IMAGES = {
   /* SAISON (récompenses de fin de saison, jamais en booster) */
-  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png', 'W4': '../cartes/W0004.png', 'W7': '../cartes/W0007.png', 'W6': '../cartes/W0006.png', 'W8': '../cartes/W0008.png', 'W10': '../cartes/W0010.png', 'W9': '../cartes/W0009.png', 'W5': '../cartes/W0005.png',
+  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png', 'W4': '../cartes/W0004.png', 'W7': '../cartes/W0007.png', 'W6': '../cartes/W0006.png', 'W8': '../cartes/W0008.png', 'W10': '../cartes/W0010.png', 'W9': '../cartes/W0009.png', 'W5': '../cartes/W0005.png', 'W3': '../cartes/W0003.png',
   'T30': '../cartes/T30.png', 'T31': '../cartes/T31.png',
   'C1': '../cartes/0001.png', 'C2': '../cartes/0002.png', 'C3': '../cartes/0003.png',
   'C4': '../cartes/0004.png', 'C5': '../cartes/0005.png', 'C6': '../cartes/0006.png',
@@ -4333,7 +4333,7 @@ const CARD_IMAGES = {
 
 const CARD_TYPES  = {
   /* SAISON */
-  'W1':'personnage', 'W2':'action', 'W4':'personnage', 'W7':'personnage', 'W6':'personnage', 'W8':'personnage', 'W10':'artefact', 'W9':'personnage', 'W5':'familier',
+  'W1':'personnage', 'W2':'action', 'W4':'personnage', 'W7':'personnage', 'W6':'personnage', 'W8':'personnage', 'W10':'artefact', 'W9':'personnage', 'W5':'familier', 'W3':'artefact',
   'T30':'personnage', 'T31':'personnage',
   'C1':'personnage', 'C2':'personnage', 'C3':'personnage', 'C4':'action', 'C5':'action',
   'C6':'personnage', 'C7':'artefact', 'C8':'artefact', 'C9':'personnage',
@@ -4557,7 +4557,7 @@ const CARD_TYPES  = {
 
 const CARD_NAMES = {
   /* SAISON */
-  'W1':'Zwav', 'W2':'Trou de ver', 'W4':'Groxx', 'W7':'Gems', 'W6':'Furyo', 'W8':'Cosplay', 'W10':'Âme-Rtume', 'W9':'Poltogba', 'W5':'Lukärn',
+  'W1':'Zwav', 'W2':'Trou de ver', 'W4':'Groxx', 'W7':'Gems', 'W6':'Furyo', 'W8':'Cosplay', 'W10':'Âme-Rtume', 'W9':'Poltogba', 'W5':'Lukärn', 'W3':'Inverxion',
   'T30':'Âme vide', 'T31':'Corps décharné',
   'C1':'Zyrka', 'C2':'Zykmu', 'C3':'Bzyrk', 'C4':'Blubool', 'C5':'Vortex',
   'C6':'Myzor', 'C7':'Zwyffer', 'C8':'Rescelleur', 'C9':'Zcyvenger', 'C10':'Mozkyto',
@@ -5004,7 +5004,7 @@ const CARD_TAGS = {
   /* SAISON */
   'W1':['citoyen','Krylls'], 'W2':['action','Krylls'], 'W4':['citoyen','Impy'], 'W7':['citoyen','Chimeria','Esprit','rapide'],
   'W6':['guerrier','Savage','Esprit','rapide'], 'W8':['citoyen','Chimeria'], 'W10':['artefact','Wadoo'],
-  'W9':['poupée','Wadoo'], 'W5':['familier','Savage'],
+  'W9':['poupée','Wadoo'], 'W5':['familier','Savage'], 'W3':['artefact','Impy'],
   // SAISON : Âme vide (T30) / Corps décharné (T31) — "Citoyen - Neutre
   // (toutes les factions)" : taguées avec les 5 factions à la fois pour que
   // isCardAllowedThisTurn (hasTag(card, activeFaction[player])) les
@@ -21505,6 +21505,23 @@ function endGame(winner, reason, opts = {}){
   if(GAME.over) return;
   GAME.over = true;
 
+  // SAISON : Inverxion (W3, Artefact Impy) — "Tant qu'Inverxion est en jeu,
+  // le joueur qui gagne la partie, la perd." On inverse donc le gagnant ICI,
+  // au tout début du choke-point unique par lequel passent TOUTES les voies
+  // de victoire (forge, cycle, Gazocubateur, Bibliotempz, Flavio, faction
+  // verrouillée, abandon, déconnexion...) — le reste de la fonction
+  // (overlay, jingle, récompenses, résultat classé envoyé au serveur) lit
+  // ensuite `winner` normalement, sans jamais savoir qu'il a été inversé.
+  try {
+    const inverxionInPlay = (typeof topArts !== 'undefined' && topArts.some(a => a.label === 'W3'))
+      || (typeof botArts !== 'undefined' && botArts.some(a => a.label === 'W3'));
+    if (inverxionInPlay && (winner === 'top' || winner === 'bottom')) {
+      const intendedWinner = winner;
+      winner = (winner === 'top') ? 'bottom' : 'top';
+      pushHistory('action', `${cardAnchor('W3')} inverse le résultat de la partie : ${playerLabel(intendedWinner)} aurait dû gagner, mais c'est ${playerLabel(winner)} qui remporte la victoire !`);
+    }
+  } catch(err) { console.error('[Inverxion] inversion du résultat impossible :', err); }
+
   currentTurn = 'none';
   const endBtn = document.getElementById('endTurn');
   if(endBtn) endBtn.classList.add('hidden');
@@ -23062,6 +23079,20 @@ function startTurn(player){
       pushHistory('mithril', `${cardAnchor('W5')} rapporte +${lukarnCount} Mithril à ${playerLabel(player)}.`);
     }
   } catch(err) { console.error('[Lukärn] effet impossible :', err); }
+
+  // SAISON : Inverxion (W3, Artefact Impy) — au début de CHACUN des tours de
+  // son propriétaire (celui dans la zone d'artefacts duquel elle se trouve),
+  // c'est son ADVERSAIRE qui gagne +1 Mithril (effet symétrique inversé,
+  // cohérent avec le thème de la carte). Un exemplaire dans chaque camp
+  // cumule normalement (chacun fait gagner du Mithril à l'AUTRE camp).
+  try {
+    const inverxionOpp = (player === 'top') ? 'bottom' : 'top';
+    const inverxionCount = (player === 'top' ? topArts : botArts).filter(a => a.label === 'W3').length;
+    if (inverxionCount > 0) {
+      addMithril(inverxionOpp, inverxionCount);
+      pushHistory('mithril', `${cardAnchor('W3')} rapporte +${inverxionCount} Mithril à ${playerLabel(inverxionOpp)}.`);
+    }
+  } catch(err) { console.error('[Inverxion] effet impossible :', err); }
 
   // CHIMERIA (dernier lot) : Caisse Folle (C177) — tant qu'elle se trouve
   // dans la main d'un joueur qui n'est PAS son propriétaire d'origine (donc

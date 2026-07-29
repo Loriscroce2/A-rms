@@ -245,6 +245,31 @@ db.exec(`
     PRIMARY KEY (user_id, code),
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
   );
+
+  -- SAISON : Inverxion (W0003) — "Graal" réservé aux 10 meilleurs joueurs du
+  -- classement (points de Menace) au moment précis d'une échéance de fin de
+  -- saison programmée par l'admin. Une seule ligne (id=1, même principe que
+  -- shop_state) mémorise la prochaine échéance programmée et si elle a déjà
+  -- été exécutée, pour ne jamais redistribuer deux fois à la même échéance
+  -- (et pour que le serveur puisse redémarrer sans perdre la programmation).
+  CREATE TABLE IF NOT EXISTS season_end_schedule (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    scheduled_at TEXT,
+    executed_at TEXT
+  );
+
+  -- Trace le classement (1 à 10) obtenu par chaque joueur ayant reçu
+  -- Inverxion lors d'une échéance de fin de saison exécutée — permet
+  -- d'afficher un numéro d'édition ("003/10") sur la carte et sert aussi de
+  -- dédoublonnage si l'admin reprogramme une nouvelle échéance plus tard.
+  CREATE TABLE IF NOT EXISTS inverxion_grants (
+    user_id INTEGER NOT NULL,
+    edition_number INTEGER NOT NULL,
+    season_end_at TEXT NOT NULL,
+    granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, season_end_at),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  );
 `);
 
 // Migration douce pour les bases coin_purchases créées avant l'ajout du

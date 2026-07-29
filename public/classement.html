@@ -144,6 +144,77 @@
       .roadSeasonLabel{ display:none; }
     }
 
+    /* ---- Inverxion (W0003) — Graal de fin de saison : pedestal spécial
+       affiché TOUT EN HAUT de la Voie de la Menace, hors du système de rang
+       normal (elle n'est débloquée par aucun palier — voir requiredRankIndex
+       null dans cards-catalog.js — mais réservée aux 10 meilleurs joueurs du
+       classement au moment d'une échéance de fin de saison programmée par
+       l'admin). Décor volontairement plus spectaculaire que les
+       .roadSeasonCard classiques : halo doré tournant, carte qui tournoie
+       sans fin entre recto et verso, étincelles scintillantes. ---- */
+    .graalPedestal{
+      position:relative; display:flex; flex-direction:column; align-items:center; gap:10px;
+      padding:30px 20px 24px; margin-bottom:22px; border-radius:22px; isolation:isolate;
+      background:radial-gradient(440px 240px at 50% 26%, rgba(255,217,61,.18), transparent 72%), linear-gradient(160deg, rgba(255,217,61,.07), rgba(255,255,255,.012));
+      border:1.5px solid rgba(255,217,61,.4); box-shadow:0 22px 54px rgba(0,0,0,.5), 0 0 55px rgba(255,217,61,.14);
+      overflow:hidden;
+    }
+    .graalPedestal::before{
+      content:''; position:absolute; inset:-60%; z-index:0; pointer-events:none;
+      background:conic-gradient(from 0deg, transparent, rgba(255,217,61,.22) 8%, transparent 22%, transparent 60%, rgba(255,217,61,.16) 68%, transparent 82%);
+      animation:graalRotateGlow 7s linear infinite;
+    }
+    @keyframes graalRotateGlow{ to{ transform:rotate(360deg); } }
+    .graalTitle{
+      position:relative; z-index:1; font-family:'Cinzel',sans-serif; font-weight:900; font-size:14px;
+      letter-spacing:.16em; text-transform:uppercase; color:#ffd93d; text-shadow:0 0 18px rgba(255,217,61,.65);
+    }
+    .graalStage{ position:relative; z-index:1; width:150px; height:212px; perspective:900px; }
+    .graalStage::after{
+      content:''; position:absolute; inset:-25%; z-index:3; pointer-events:none; border-radius:16px;
+      background:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.4) 50%, transparent 58%);
+      background-size:260% 260%; mix-blend-mode:overlay; animation:graalShimmer 3.4s ease-in-out infinite;
+    }
+    @keyframes graalShimmer{ 0%{ background-position:-130% -130%; } 100%{ background-position:130% 130%; } }
+    .graalCard{
+      position:relative; width:100%; height:100%; transform-style:preserve-3d;
+      animation:graalFlip 5.5s cubic-bezier(.65,.05,.35,.95) infinite;
+      filter:drop-shadow(0 18px 26px rgba(0,0,0,.6));
+    }
+    @keyframes graalFlip{
+      0%, 36%{ transform:rotateY(0deg); }
+      50%, 86%{ transform:rotateY(180deg); }
+      100%{ transform:rotateY(360deg); }
+    }
+    .graalFace{
+      position:absolute; inset:0; border-radius:13px; overflow:hidden; backface-visibility:hidden;
+      border:2px solid rgba(255,217,61,.6); box-shadow:0 0 26px rgba(255,217,61,.4);
+    }
+    .graalFace img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .graalFace.graalBack{ transform:rotateY(180deg); }
+    .graalPedestal.locked .graalFace img{ filter:grayscale(1) brightness(.5); }
+    .graalPedestal.locked .graalCard{ filter:drop-shadow(0 18px 26px rgba(0,0,0,.6)) grayscale(.35); }
+    .graalPedestal.locked .graalStage::after{ opacity:.35; }
+    .graalLockBadge{
+      position:absolute; inset:0; z-index:4; display:none; align-items:center; justify-content:center;
+      font-size:34px; text-shadow:0 3px 10px rgba(0,0,0,.9); pointer-events:none;
+    }
+    .graalPedestal.locked .graalLockBadge{ display:flex; }
+    .graalSpark{
+      position:absolute; z-index:2; width:5px; height:5px; border-radius:50%;
+      background:#ffe98a; box-shadow:0 0 9px 2px rgba(255,233,138,.9);
+      animation:graalTwinkle 2.6s ease-in-out infinite;
+    }
+    @keyframes graalTwinkle{ 0%,100%{ opacity:0; transform:scale(.4); } 50%{ opacity:1; transform:scale(1.3); } }
+    .graalPedestal.locked .graalSpark{ opacity:.25; animation-duration:5s; }
+    .graalEditionBadge{
+      position:relative; z-index:1; font-size:11px; font-weight:800; padding:4px 13px; border-radius:999px;
+      background:rgba(255,217,61,.15); border:1px solid rgba(255,217,61,.45); color:#ffe98a;
+      transition:background .3s ease, border-color .3s ease, color .3s ease;
+    }
+    .graalPedestal:not(.locked) .graalEditionBadge{ background:rgba(61,220,132,.16); border-color:rgba(61,220,132,.5); color:#7dffb0; }
+    .graalDesc{ position:relative; z-index:1; font-size:12px; color:var(--muted); opacity:.9; max-width:440px; text-align:center; line-height:1.65; }
+
     /* ---- Zoom plein format d'une carte WIN au survol (voir revealZoom
        dans astrocomptoir.html, même principe) : visuel complet + pouvoir
        (dessinés sur l'image) et PV/PB en médaillons, grisé tant que la
@@ -363,6 +434,28 @@
           <div class="section">
             <h2>🗺 La Voie de la Menace</h2>
             <p class="sectionSub">Votre position actuelle est marquée sur le chemin. Cliquez sur n'importe quel palier pour en savoir plus.</p>
+
+            <div class="graalPedestal locked" id="graalPedestal" title="Inverxion — Graal de fin de saison">
+              <div class="graalTitle">👑 Graal de fin de saison</div>
+              <div class="graalStage">
+                <div class="graalCard">
+                  <div class="graalFace graalFront"><img src="/cartes/W0003.png" alt="Inverxion"></div>
+                  <div class="graalFace graalBack"><img src="/cartes/Versobasic.png" alt=""></div>
+                </div>
+                <div class="graalLockBadge">🔒</div>
+                <div class="graalSpark" style="top:6%;left:10%;animation-delay:.2s;"></div>
+                <div class="graalSpark" style="top:18%;left:88%;animation-delay:1.1s;"></div>
+                <div class="graalSpark" style="top:72%;left:4%;animation-delay:1.8s;"></div>
+                <div class="graalSpark" style="top:86%;left:82%;animation-delay:.7s;"></div>
+                <div class="graalSpark" style="top:46%;left:96%;animation-delay:2.3s;"></div>
+                <div class="graalSpark" style="top:4%;left:55%;animation-delay:3.1s;"></div>
+              </div>
+              <div class="graalEditionBadge" id="graalEditionBadge">Verrouillée</div>
+              <div class="graalDesc">
+                <strong>Inverxion</strong> (Artefact Impy) — réservée aux 10 meilleurs joueurs du classement de Menace au moment précis de la fin de saison, chaque exemplaire numéroté. Tant qu'elle est en jeu, le joueur qui gagne la partie... la perd, et son adversaire gagne +1 Mithril à chacun de ses tours.
+              </div>
+            </div>
+
             <div class="roadWrap">
               <div class="roadTrack" id="roadTrack"></div>
             </div>
@@ -534,6 +627,20 @@
           MY_OWNED_CODES = new Set(data.cards.filter(c => c.count > 0).map(c => c.code));
         }
       }catch(e){ /* pas grave — les badges resteront simplement affichés verrouillés */ }
+      updateGraalPedestal();
+    }
+
+    // Inverxion (W0003) n'a pas de rang requis (voir requiredRankIndex null
+    // côté serveur) : son état obtenue/verrouillée dépend UNIQUEMENT de
+    // MY_OWNED_CODES (déjà chargé pour les .roadSeasonCard normales),
+    // aucun appel réseau supplémentaire nécessaire.
+    function updateGraalPedestal(){
+      const el = document.getElementById('graalPedestal');
+      const badge = document.getElementById('graalEditionBadge');
+      if (!el) return;
+      const owned = MY_OWNED_CODES.has('W0003');
+      el.classList.toggle('locked', !owned);
+      if (badge) badge.textContent = owned ? 'Possédée ✓' : 'Verrouillée';
     }
 
     // ===== La Voie de la Menace (chemin de progression) =====

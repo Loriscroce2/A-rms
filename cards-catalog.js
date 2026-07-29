@@ -161,6 +161,14 @@ const SEASON_CARDS = [
   { code: 'W0010', num: 10, faction: 'Wadoo', requiredRankIndex: 12 }, // Âme-Rtume — Extinction I
   { code: 'W0009', num: 9, faction: 'Wadoo', requiredRankIndex: 13 }, // Poltogba — Extinction II
   { code: 'W0005', num: 5, faction: 'Savage', requiredRankIndex: 14 }, // Lukärn — Extinction III
+  // Inverxion (W0003) — "Graal" HORS système de rang : requiredRankIndex
+  // volontairement null (jamais un nombre), ce qui l'exclut automatiquement
+  // du bouton admin "débloquer toutes les cartes de rang atteint" (voir la
+  // garde `typeof c.requiredRankIndex !== 'number'` dans server.js). Sa
+  // distribution passe UNIQUEMENT par le mécanisme dédié de fin de saison
+  // programmée (season_end_schedule / inverxion_grants, voir server.js) —
+  // réservée aux 10 meilleurs joueurs du classement à l'échéance choisie.
+  { code: 'W0003', num: 3, faction: 'Impy', requiredRankIndex: null }, // Inverxion — Graal de fin de saison
 ];
 
 module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };
