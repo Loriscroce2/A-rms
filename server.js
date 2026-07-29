@@ -1798,6 +1798,12 @@ const ASTRO_MIN_LISTING_CENTS = 50;      // 0,50 €
 const ASTRO_MAX_LISTING_CENTS = 100000;  // 1000 €
 const ASTRO_MIN_TOPUP_CENTS = 200;       // 2 €
 const ASTRO_MAX_TOPUP_CENTS = 50000;     // 500 €
+// En dessous de 10 €, la part fixe des frais PayPal (0,35 €) prélevée sur le
+// retrait dévore une proportion disproportionnée du montant (jusqu'à ~38 %
+// pour 1 €) — ce plancher garde ce prélèvement sous ~6,5 %, un niveau
+// raisonnable. Voir estimateWithdrawNetCents côté astrocomptoir.html pour
+// l'estimation en direct affichée au joueur.
+const ASTRO_MIN_WITHDRAWAL_CENTS = 1000; // 10 €
 
 // --- Portefeuille / accord légal ---
 app.get('/api/astrocomptoir/status', authMiddleware, (req, res) => {
@@ -1868,10 +1874,11 @@ app.post('/api/astrocomptoir/withdraw', authMiddleware, async (req, res) => {
     const wallet = qGetWallet.get(req.user.id);
     if (!wallet.paypal_email) return res.status(400).json({ ok: false, error: 'paypal_email_missing' });
     const amountCents = Math.round(Number(req.body?.amountCents));
-    // Aucun minimum arbitraire : n'importe quel montant positif (jusqu'au
-    // solde disponible) peut être retiré.
-    if (!Number.isFinite(amountCents) || amountCents < 1) {
-      return res.status(400).json({ ok: false, error: 'invalid_amount' });
+    // Minimum de 10 € : en dessous, la part fixe des frais PayPal prélevés
+    // sur l'envoi (voir estimateWithdrawNetCents côté client) dévore une
+    // proportion disproportionnée du montant demandé.
+    if (!Number.isFinite(amountCents) || amountCents < ASTRO_MIN_WITHDRAWAL_CENTS) {
+      return res.status(400).json({ ok: false, error: 'amount_below_minimum' });
     }
     const spent = qSpendRealBalance.run(amountCents, req.user.id, amountCents);
     if (spent.changes === 0) {

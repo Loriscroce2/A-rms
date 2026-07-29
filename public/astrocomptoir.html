@@ -224,6 +224,7 @@
             <input type="email" id="paypalEmailInput" placeholder="votre-email@paypal.com" />
             <button class="btn-secondary" id="savePaypalBtn">Connecter mon PayPal</button>
           </div>
+          <p style="font-size:10.5px;color:#ff8a8a;opacity:.85;margin:6px 0 0;max-width:340px;">⚠ Cette adresse doit être celle de VOTRE compte PayPal. Si elle est incorrecte, vos retraits resteront bloqués — l'argent ne pourra pas vous être envoyé.</p>
         </div>
       </div>
       <div class="walletActions">
@@ -303,7 +304,9 @@
 
       <h3>Retraits</h3>
       <ul>
-        <li>Une demande de retrait débite immédiatement votre solde, puis est validée manuellement par un administrateur avant l'envoi réel de l'argent vers le compte PayPal que vous avez enregistré. Ce délai de validation permet un contrôle manuel de chaque envoi. Vous êtes seul responsable de l'exactitude de l'adresse PayPal enregistrée.</li>
+        <li>Le montant minimum d'une demande de retrait est de <strong>10,00 €</strong>. En dessous de ce seuil, les frais PayPal prélevés sur l'envoi (voir ci-dessous) représenteraient une part disproportionnée du montant demandé.</li>
+        <li>Une demande de retrait débite immédiatement votre solde, puis est validée manuellement par un administrateur avant l'envoi réel de l'argent vers le compte PayPal que vous avez enregistré. Ce délai de validation permet un contrôle manuel de chaque envoi.</li>
+        <li>L'adresse PayPal enregistrée sur votre profil DOIT être celle de votre propre compte PayPal. Si cette adresse est incorrecte, mal orthographiée, ou ne correspond à aucun compte PayPal existant, l'envoi de l'argent sera impossible : votre retrait restera bloqué jusqu'à ce que vous corrigiez l'adresse enregistrée. Vous êtes seul responsable de l'exactitude de cette adresse.</li>
         <li>PayPal prélève à nouveau ses propres frais (environ 2,9 % + 0,35 €) sur cet envoi, cette fois-ci sur le montant que VOUS recevez — vous ne recevrez donc pas la totalité du montant demandé. Une estimation du montant réellement reçu s'affiche avant de confirmer chaque demande.</li>
       </ul>
 
@@ -345,11 +348,11 @@
     <div class="queueModal">
       <div class="queueIcon">💸</div>
       <h3>Demander un retrait vers PayPal</h3>
-      <p>Solde disponible : <strong id="withdrawAvailable">0,00 €</strong></p>
+      <p>Solde disponible : <strong id="withdrawAvailable">0,00 €</strong> — minimum 10,00 €</p>
       <div class="paypalField" style="justify-content:center;">
-        <input type="text" inputmode="decimal" id="withdrawAmountInput" placeholder="Montant en euros" style="text-align:center;max-width:170px;" />
+        <input type="text" inputmode="decimal" id="withdrawAmountInput" placeholder="Montant en euros (10 € min.)" style="text-align:center;max-width:170px;" />
       </div>
-      <p style="font-size:11.5px;color:#9fb0c8;margin:8px 0 0;">Le montant est débité de votre solde immédiatement, puis un administrateur vous envoie l'argent manuellement vers l'adresse PayPal enregistrée sur votre profil.</p>
+      <p style="font-size:11.5px;color:#9fb0c8;margin:8px 0 0;">Le montant est débité de votre solde immédiatement, puis un administrateur vous envoie l'argent manuellement vers l'adresse PayPal enregistrée sur votre profil. L'adresse enregistrée doit être celle de VOTRE compte PayPal — si elle est incorrecte ou ne correspond pas à un compte PayPal existant, l'envoi sera impossible et votre retrait restera bloqué.</p>
       <p id="withdrawEstimate" style="font-size:12px;color:#ffd93d;margin:8px 0 0;min-height:16px;"></p>
       <p id="withdrawError" style="color:#ff8a8a;font-size:12.5px;min-height:16px;margin:4px 0 0;"></p>
       <div class="queueActions">
@@ -680,14 +683,18 @@
     document.getElementById('withdrawBtn').addEventListener('click', () => {
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
       if (!WALLET.paypalEmail) { showToast("Enregistrez d'abord votre adresse PayPal."); return; }
+      if (WALLET.balanceCents < WITHDRAW_MIN_CENTS) { showToast(`Solde insuffisant — le retrait minimum est de ${euros(WITHDRAW_MIN_CENTS)}.`); return; }
       openWithdrawModal();
     });
     document.getElementById('withdrawCancelBtn').addEventListener('click', closeWithdrawModal);
     withdrawOverlay.addEventListener('click', (e) => { if (e.target === withdrawOverlay) closeWithdrawModal(); });
 
+    const WITHDRAW_MIN_CENTS = 1000; // 10 €, doit rester synchronisé avec ASTRO_MIN_WITHDRAWAL_CENTS côté server.js
+
     async function confirmWithdraw(){
       const amount = parseFloat((withdrawAmountInput.value || '').replace(',', '.'));
       if (!Number.isFinite(amount) || amount <= 0) { withdrawError.textContent = 'Montant invalide.'; return; }
+      if (Math.round(amount * 100) < WITHDRAW_MIN_CENTS) { withdrawError.textContent = `Le retrait minimum est de ${euros(WITHDRAW_MIN_CENTS)}.`; return; }
       if (Math.round(amount * 100) > WALLET.balanceCents) { withdrawError.textContent = 'Solde insuffisant.'; return; }
       withdrawError.textContent = '';
       withdrawConfirmBtn.disabled = true;
@@ -701,6 +708,7 @@
           withdrawError.textContent = data.error === 'insufficient_balance' ? 'Solde insuffisant.'
             : data.error === 'paypal_email_missing' ? "Enregistrez d'abord votre adresse PayPal."
             : data.error === 'paypal_not_configured' ? "Les retraits ne sont pas encore disponibles."
+            : data.error === 'amount_below_minimum' ? `Le retrait minimum est de ${euros(WITHDRAW_MIN_CENTS)}.`
             : data.error === 'invalid_amount' ? 'Montant invalide.'
             : data.error === 'agreement_required' ? "Vous devez d'abord accepter l'accord."
             : 'Erreur inattendue.';
