@@ -159,6 +159,8 @@ const SEASON_CARDS = [
   { code: 'W0006', num: 6, faction: 'Savage', requiredRankIndex: 10 }, // Furyo — Apocalyptique II
   { code: 'W0008', num: 8, faction: 'Chimeria', requiredRankIndex: 11 }, // Cosplay — Apocalyptique III
   { code: 'W0010', num: 10, faction: 'Wadoo', requiredRankIndex: 12 }, // Âme-Rtume — Extinction I
+  { code: 'W0009', num: 9, faction: 'Wadoo', requiredRankIndex: 13 }, // Poltogba — Extinction II
+  { code: 'W0005', num: 5, faction: 'Savage', requiredRankIndex: 14 }, // Lukärn — Extinction III
 ];
 
 module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };

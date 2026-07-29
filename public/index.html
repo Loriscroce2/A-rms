@@ -4113,7 +4113,7 @@ async function playIgnominieSfx(){
 /* ---------- Mappings / Noms ---------- */
 const CARD_IMAGES = {
   /* SAISON (récompenses de fin de saison, jamais en booster) */
-  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png', 'W4': '../cartes/W0004.png', 'W7': '../cartes/W0007.png', 'W6': '../cartes/W0006.png', 'W8': '../cartes/W0008.png', 'W10': '../cartes/W0010.png',
+  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png', 'W4': '../cartes/W0004.png', 'W7': '../cartes/W0007.png', 'W6': '../cartes/W0006.png', 'W8': '../cartes/W0008.png', 'W10': '../cartes/W0010.png', 'W9': '../cartes/W0009.png', 'W5': '../cartes/W0005.png',
   'T30': '../cartes/T30.png', 'T31': '../cartes/T31.png',
   'C1': '../cartes/0001.png', 'C2': '../cartes/0002.png', 'C3': '../cartes/0003.png',
   'C4': '../cartes/0004.png', 'C5': '../cartes/0005.png', 'C6': '../cartes/0006.png',
@@ -4333,7 +4333,7 @@ const CARD_IMAGES = {
 
 const CARD_TYPES  = {
   /* SAISON */
-  'W1':'personnage', 'W2':'action', 'W4':'personnage', 'W7':'personnage', 'W6':'personnage', 'W8':'personnage', 'W10':'artefact',
+  'W1':'personnage', 'W2':'action', 'W4':'personnage', 'W7':'personnage', 'W6':'personnage', 'W8':'personnage', 'W10':'artefact', 'W9':'personnage', 'W5':'familier',
   'T30':'personnage', 'T31':'personnage',
   'C1':'personnage', 'C2':'personnage', 'C3':'personnage', 'C4':'action', 'C5':'action',
   'C6':'personnage', 'C7':'artefact', 'C8':'artefact', 'C9':'personnage',
@@ -4557,7 +4557,7 @@ const CARD_TYPES  = {
 
 const CARD_NAMES = {
   /* SAISON */
-  'W1':'Zwav', 'W2':'Trou de ver', 'W4':'Groxx', 'W7':'Gems', 'W6':'Furyo', 'W8':'Cosplay', 'W10':'Âme-Rtume',
+  'W1':'Zwav', 'W2':'Trou de ver', 'W4':'Groxx', 'W7':'Gems', 'W6':'Furyo', 'W8':'Cosplay', 'W10':'Âme-Rtume', 'W9':'Poltogba', 'W5':'Lukärn',
   'T30':'Âme vide', 'T31':'Corps décharné',
   'C1':'Zyrka', 'C2':'Zykmu', 'C3':'Bzyrk', 'C4':'Blubool', 'C5':'Vortex',
   'C6':'Myzor', 'C7':'Zwyffer', 'C8':'Rescelleur', 'C9':'Zcyvenger', 'C10':'Mozkyto',
@@ -4784,7 +4784,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 /* PV/boucliers */
 const CARD_HP_BASE = {
   /* SAISON */
-  'W1':4, 'W4':6, 'W7':6, 'W6':7, 'W8':5, 'T30':1, 'T31':4,
+  'W1':4, 'W4':6, 'W7':6, 'W6':7, 'W8':5, 'W9':6, 'T30':1, 'T31':4,
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
   'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7, 'C82': 1, 'C83': 2, 'C86': 5,
@@ -5004,6 +5004,7 @@ const CARD_TAGS = {
   /* SAISON */
   'W1':['citoyen','Krylls'], 'W2':['action','Krylls'], 'W4':['citoyen','Impy'], 'W7':['citoyen','Chimeria','Esprit','rapide'],
   'W6':['guerrier','Savage','Esprit','rapide'], 'W8':['citoyen','Chimeria'], 'W10':['artefact','Wadoo'],
+  'W9':['poupée','Wadoo'], 'W5':['familier','Savage'],
   // SAISON : Âme vide (T30) / Corps décharné (T31) — "Citoyen - Neutre
   // (toutes les factions)" : taguées avec les 5 factions à la fois pour que
   // isCardAllowedThisTurn (hasTag(card, activeFaction[player])) les
@@ -5281,6 +5282,14 @@ function isFrozen(card) {
   const hasBaro = getFamiliersOnHost(card).some(f => f.label === 'C106' && !isFamiliarEffectSuppressed(card, 'C106'));
 
   return hasBaro;
+}
+
+// SAISON : Lukärn (W5, Familier Savage) — tant qu'il est rattaché à un
+// combattant, celui-ci ne peut pas perdre de PV (le Bouclier/PB continue
+// d'absorber normalement, seule la perte de PV elle-même est bloquée).
+function hasLukarnProtection(card) {
+  if (getType(card.label) !== 'personnage') return false;
+  return getFamiliersOnHost(card).some(f => f.label === 'W5' && !isFamiliarEffectSuppressed(card, 'W5'));
 }
 
 // AJOUT : Fonction utilitaire pour vérifier si une carte ne peut pas être défaussée
@@ -5638,6 +5647,14 @@ if (label === 'C154') {
   // liés, filtrée à l'usage sur les cibles encore en jeu (« lien actif »).
   if (label === 'C249') {
     c.nomyaLinkedIds = [];
+  }
+  // SAISON : Poltogba (W9, Poupée Wadoo) — JOUER : se lie à TOUS les
+  // combattants adverses présents au moment où elle entre en jeu (en une
+  // seule fois, contrairement à Nomya qui accumule un lien par tour). Liste
+  // des IDs liés, filtrée à l'usage sur les cibles encore en jeu (« lien
+  // actif »), même principe que nomyaLinkedIds.
+  if (label === 'W9') {
+    c.poltogbaLinkedIds = [];
   }
   if (label === 'C212') {
     // 4 "revenez-en" disponibles au départ, affichées via le système de
@@ -10108,6 +10125,63 @@ function performNomyaMining(owner, card) {
   fullRender();
 }
 
+// ===================================================================
+// SAISON : Poltogba (W9, Poupée Wadoo) — compte les liens encore ACTIFS
+// (cibles toujours en jeu, camp confondu) parmi ceux posés une fois pour
+// toutes à son entrée en jeu (voir poltogbaLinkedIds dans setupDrops), même
+// principe que countActiveNomyaLinks.
+// ===================================================================
+function countActivePoltogbaLinks(card) {
+  if (!Array.isArray(card.poltogbaLinkedIds) || card.poltogbaLinkedIds.length === 0) return 0;
+  const boardIds = new Set([...topLine, ...botLine].map(c => c.id));
+  return card.poltogbaLinkedIds.filter(id => boardIds.has(id)).length;
+}
+
+// SAISON : Poltogba (W9) — MINER : minage classique (+1 Mithril, -1 PV sauf
+// gratuit/Coqsix) PUIS, en plus (principe de conception identique à Nomya/
+// Doolia/Acrylik : un effet inscrit sur "MINER :" s'ajoute toujours au
+// minage classique, il ne le remplace pas), l'adversaire défausse autant de
+// cartes du DESSUS de son deck que de liens encore actifs.
+function performPoltogbaMining(owner, card) {
+  const coqsixCount = getFamiliersOnHost(card).filter(f => f.label === 'C159').length;
+  const curHP = getEffectiveHP(card);
+  const canMine = card.canMineFreely || curHP > 1 || coqsixCount > 0;
+  if (!canMine) return;
+
+  markAttacked(owner, card);
+
+  // ---- Minage classique (identique à performMining) ----
+  let totalGain = 1;
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  if (coqsixCount > 0) {
+    const oppHand = getHandByOwner(opp);
+    if (oppHand.length >= 7) {
+      for (let i = 0; i < coqsixCount; i++) addMithril(owner);
+      totalGain += coqsixCount;
+    } else {
+      addMithril(owner);
+    }
+  } else {
+    addMithril(owner);
+  }
+
+  if (card.canMineFreely || coqsixCount > 0) {
+    pushHistory('pv', `${cardAnchor('W9')} mine sans perdre de PV (+${totalGain} Mithril).`);
+  } else {
+    card.hp = curHP - 1;
+    onHPDamaged(owner, card, 1, 'mining');
+    pushHistory('pv', `${cardAnchor('W9')} mine : -1 PV, +${totalGain} Mithril.`);
+  }
+
+  // ---- Effet supplémentaire propre à Poltogba : défausse par lien actif ----
+  const links = countActivePoltogbaLinks(card);
+  if (links > 0) {
+    forceDiscardFromDeckTop(opp, links, 'W9');
+  }
+
+  fullRender();
+}
+
 // AJOUT C120 : Fonction pour activer la capacité de Salomon II
 // REMPLACEZ L'ANCIENNE FONCTION PAR CELLE-CI
 // CHIMERIA (8e lot) : Dr.Melvina (C199) — MINER : mining classique (+1
@@ -10685,6 +10759,18 @@ function openMiningPrompt(owner, card, fromEl){
         title = 'Cosplay';
         msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (Renvoie Cosplay dans votre main avec +2 PV).';
         buttons.push(mineButton, { label: 'Action (Retour en main, +2PV)', className: 'confirm', onClick: () => { useCosplayReturnAbility(owner, card); } });
+    } else if (card.label === 'W9') {
+        title = 'Poltogba';
+        // Chez Poltogba, MINER conserve le gain classique (+1 Mithril, -1 PV
+        // sauf Minage gratuit/Coqsix) ET force EN PLUS l'adversaire à
+        // défausser autant de cartes du dessus de son deck que de liens
+        // encore actifs (posés une fois pour toutes à son entrée en jeu,
+        // voir setupDrops) — un effet "MINER :" s'ajoute toujours au minage
+        // classique, il ne le remplace pas.
+        const activePoltogbaLinks = countActivePoltogbaLinks(card);
+        mineButton.label += activePoltogbaLinks > 0 ? ` + Adversaire défausse ${activePoltogbaLinks} carte${activePoltogbaLinks > 1 ? 's' : ''}` : '';
+        mineButton.onClick = () => { performPoltogbaMining(owner, card); };
+        buttons.push(mineButton);
     } else if (card.label === 'C206') {
         title = 'Mama Cecil';
         msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (+5PV pour Mama Cecil, +3PV et ESPRIT pour toutes vos Poupées liées).';
@@ -11948,7 +12034,10 @@ function applyDamageWithShield(card, incoming, ignoreShield) {
       if (typeof card.tempHP === 'number') card.tempHP -= damageToTempHP;
       dmg -= damageToTempHP;
 
-      if (dmg > 0 && typeof card.hp === 'number') {
+      // SAISON : Lukärn (W5) — tant qu'il est rattaché à cette carte, elle
+      // ne peut pas perdre de PV (le Bouclier/tempHP absorbés ci-dessus
+      // restent inchangés, seule cette dernière étape est bloquée).
+      if (dmg > 0 && typeof card.hp === 'number' && !hasLukarnProtection(card)) {
           card.hp = Math.max(0, card.hp - dmg);
       }
   }
@@ -18565,6 +18654,22 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
         handleNoxrocEffect(who);
       }
 
+      // SAISON : Poltogba (W9, Poupée Wadoo) — JOUER : se lie à TOUS les
+      // combattants adverses présents à cet instant (lien figé une fois pour
+      // toutes à l'entrée en jeu, PAS ré-évalué plus tard — les combattants
+      // adverses joués APRÈS elle ne sont donc pas automatiquement liés).
+      if (card.label === 'W9') {
+        const poltogbaOpp = (who === 'top') ? 'bottom' : 'top';
+        const poltogbaOppLine = getLineByOwner(poltogbaOpp);
+        if (!Array.isArray(card.poltogbaLinkedIds)) card.poltogbaLinkedIds = [];
+        card.poltogbaLinkedIds = poltogbaOppLine.map(c => c.id);
+        if (card.poltogbaLinkedIds.length > 0) {
+          pushHistory('info', `${cardAnchor('W9')} se lie à ${card.poltogbaLinkedIds.length} combattant${card.poltogbaLinkedIds.length > 1 ? 's' : ''} adverse${card.poltogbaLinkedIds.length > 1 ? 's' : ''}.`);
+        } else {
+          pushHistory('info', `${cardAnchor('W9')} : aucun combattant adverse à lier.`);
+        }
+      }
+
       if (card.label === 'C111') {
         pushHistory('jeu', `${cardAnchor('C111')} déploie une vague de froid sur la ligne adverse !`);
 
@@ -21579,7 +21684,8 @@ function upkeepFamiliersFor(player){
     }
 
     const hasMozkyto = fams.some(f=>f.label==='C10' && !isFamiliarEffectSuppressed(host, 'C10'));
-    if(hasMozkyto && typeof host.hp==='number' && host.label !== 'C62'){
+    // SAISON : Lukärn (W5) bloque aussi cette perte de PV d'entretien.
+    if(hasMozkyto && typeof host.hp==='number' && host.label !== 'C62' && !hasLukarnProtection(host)){
       host.hp = Math.max(0, host.hp - 2);
       playHPHitEffect(host);
       onHPDamaged(player, host, 2, 'upkeep-mozkyto');
@@ -22945,6 +23051,18 @@ function startTurn(player){
     }
   } catch(err) { console.error('[Fungasyte] effet impossible :', err); }
 
+  // SAISON : Lukärn (W5, Familier Savage) — tant qu'il est rattaché à un
+  // combattant, son propriétaire gagne +1 Mithril au début de CHACUN de ses
+  // propres tours (pas ceux de l'adversaire). Même schéma que Fungasyte
+  // ci-dessus (filtre sur playOwner + isFamiliarEffectSuppressed).
+  try {
+    const lukarnCount = getAllFamiliers().filter(f => f.label === 'W5' && (f.playOwner || player) === player && !isFamiliarEffectSuppressed({ id: f.attachedTo }, 'W5')).length;
+    if (lukarnCount > 0) {
+      addMithril(player, lukarnCount);
+      pushHistory('mithril', `${cardAnchor('W5')} rapporte +${lukarnCount} Mithril à ${playerLabel(player)}.`);
+    }
+  } catch(err) { console.error('[Lukärn] effet impossible :', err); }
+
   // CHIMERIA (dernier lot) : Caisse Folle (C177) — tant qu'elle se trouve
   // dans la main d'un joueur qui n'est PAS son propriétaire d'origine (donc
   // elle lui a été "donnée", voir requestGiveCardToOpponent), celui-ci
@@ -24028,6 +24146,9 @@ function dealDamageToCardAndCheckDeath(targetCard, amount, cause) {
   if (amount <= 0) return false;
   const side = topLine.some(c => c.id === targetCard.id) ? 'top' : (botLine.some(c => c.id === targetCard.id) ? 'bottom' : null);
   if (!side || typeof targetCard.hp !== 'number') return false;
+  // SAISON : Lukärn (W5) — tant qu'il est rattaché à targetCard, elle ne
+  // peut pas perdre de PV, quelle que soit la source de dégâts.
+  if (hasLukarnProtection(targetCard)) return false;
   targetCard.hp -= amount;
   onHPDamaged(side, targetCard, amount, cause || 'action');
   playHPHitEffect(targetCard);
