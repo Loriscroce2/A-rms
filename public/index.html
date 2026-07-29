@@ -18314,9 +18314,13 @@ function getMaxCombatantsForOwner(owner){
   const obstructeurCount = oppArts.filter(a => a.label === 'C95').length;
   // SAISON : Groxx (W4) — tant qu'il reste dans l'Exil (voir discardCard),
   // réduit de 2 la capacité d'accueil de la zone de combat de SON adversaire
-  // (donc de owner si c'est l'adversaire de owner qui l'a exilé).
+  // (donc de owner si c'est l'adversaire de owner qui l'a exilé). On compte
+  // TOUTES les copies présentes dans l'Exil (chacune réduit de 2, cumulable),
+  // quelle que soit la façon dont chacune y est arrivée (sa propre mort, ou
+  // exilée par un effet adverse) — trueOwnerOf(card) reste fiable même hors
+  // du bloc MORT dédié, contrairement à une propriété posée à la main.
   const groxxOpp = (owner === 'top') ? 'bottom' : 'top';
-  const groxxCount = exilePile.filter(c => c.label === 'W4' && c.exiledBy === groxxOpp).length;
+  const groxxCount = exilePile.filter(c => c.label === 'W4' && trueOwnerOf(c) === groxxOpp).length;
   return Math.max(1, MAX_COMBATANTS_PER_ZONE_BASE + etendardzCount * 2 - obstructeurCount - groxxCount * 2);
 }
 
@@ -19381,9 +19385,12 @@ if (reason === 'manual') {
   // SAISON : Groxx (W4) — MORT : exilé au lieu d'être défaussé. Tant qu'il
   // reste dans l'Exil, la capacité d'accueil de la zone de combat ADVERSE
   // (celle de l'adversaire de owner) est réduite de 2 — voir
-  // getMaxCombatantsForOwner, qui compte les Groxx en Exil via card.exiledBy.
+  // getMaxCombatantsForOwner, qui compte TOUTES les copies de Groxx présentes
+  // dans l'Exil (même dupliquées, quelle que soit la façon dont chacune y est
+  // arrivée) via trueOwnerOf(card), fiable même hors de ce bloc MORT précis
+  // (ex. exilée par un effet adverse comme Tokzik plutôt que par sa propre
+  // mort).
   if (card.label === 'W4' && reason === 'death') {
-    card.exiledBy = owner;
     const groxxOpp = (owner === 'top') ? 'bottom' : 'top';
     addToExile(card, context);
     pushHistory('exil', `${cardAnchor('W4')} est exilé : tant qu'il y reste, la capacité d'accueil de la zone de combat de ${playerLabel(groxxOpp)} est réduite de 2.`);
