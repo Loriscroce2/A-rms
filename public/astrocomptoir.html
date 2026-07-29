@@ -304,6 +304,7 @@
       <h3>Retraits</h3>
       <ul>
         <li>Une demande de retrait débite immédiatement votre solde, puis est validée manuellement par un administrateur avant l'envoi réel de l'argent vers le compte PayPal que vous avez enregistré. Ce délai de validation permet un contrôle manuel de chaque envoi. Vous êtes seul responsable de l'exactitude de l'adresse PayPal enregistrée.</li>
+        <li>PayPal prélève à nouveau ses propres frais (environ 2,9 % + 0,35 €) sur cet envoi, cette fois-ci sur le montant que VOUS recevez — vous ne recevrez donc pas la totalité du montant demandé. Une estimation du montant réellement reçu s'affiche avant de confirmer chaque demande.</li>
       </ul>
 
       <h3>Responsabilités</h3>
@@ -349,6 +350,7 @@
         <input type="text" inputmode="decimal" id="withdrawAmountInput" placeholder="Montant en euros" style="text-align:center;max-width:170px;" />
       </div>
       <p style="font-size:11.5px;color:#9fb0c8;margin:8px 0 0;">Le montant est débité de votre solde immédiatement, puis un administrateur vous envoie l'argent manuellement vers l'adresse PayPal enregistrée sur votre profil.</p>
+      <p id="withdrawEstimate" style="font-size:12px;color:#ffd93d;margin:8px 0 0;min-height:16px;"></p>
       <p id="withdrawError" style="color:#ff8a8a;font-size:12.5px;min-height:16px;margin:4px 0 0;"></p>
       <div class="queueActions">
         <button class="btn-secondary" id="withdrawCancelBtn">Annuler</button>
@@ -405,6 +407,20 @@
       const commission = net * 0.10;
       const sellerGain = net - commission;
       return { paypalFeeCents: Math.round(paypalFee * 100), sellerGainCents: Math.round(sellerGain * 100) };
+    }
+
+    // RETRAIT : quand l'administrateur envoie l'argent depuis son PayPal vers
+    // celui du joueur (paiement "biens et services"), PayPal prélève à
+    // nouveau ses propres frais — cette fois sur le montant reçu par le
+    // JOUEUR, pas sur celui débité de son solde interne. Il n'y a PAS de
+    // commission A'rms sur un retrait (déjà prélevée à la vente) : seuls les
+    // frais PayPal s'appliquent ici. Même formule que pour une vente
+    // (2,9 % + 0,35 €), affichée pour que le joueur sache, AVANT de
+    // confirmer, qu'il ne recevra pas la totalité du montant demandé.
+    function estimateWithdrawNetCents(amountEuros){
+      const paypalFee = amountEuros * PAYPAL_FEE_RATE + PAYPAL_FEE_FIXED;
+      const net = Math.max(0, amountEuros - paypalFee);
+      return { paypalFeeCents: Math.round(paypalFee * 100), netCents: Math.round(net * 100) };
     }
 
     const FACTIONS = ['Krylls','Impy','Savage','Chimeria','Wadoo'];
@@ -634,10 +650,27 @@
     const withdrawAmountInput = document.getElementById('withdrawAmountInput');
     const withdrawError = document.getElementById('withdrawError');
     const withdrawConfirmBtn = document.getElementById('withdrawConfirmBtn');
+    const withdrawEstimate = document.getElementById('withdrawEstimate');
+
+    // Estimation en direct, mise à jour à chaque frappe : le joueur DOIT
+    // savoir, AVANT de confirmer sa demande, qu'il ne recevra pas le montant
+    // demandé en entier — PayPal prélève ses propres frais (~2,9 % + 0,35 €)
+    // sur l'envoi "biens et services" que l'administrateur lui fera
+    // manuellement. Le montant débité de son solde, lui, reste bien celui
+    // demandé (voir confirmWithdraw) — seul ce qu'il reçoit RÉELLEMENT sur
+    // son compte PayPal est réduit par ces frais, hors du contrôle du site.
+    function refreshWithdrawEstimate(){
+      const amount = parseFloat((withdrawAmountInput.value || '').replace(',', '.'));
+      if (!Number.isFinite(amount) || amount <= 0) { withdrawEstimate.innerHTML = ''; return; }
+      const est = estimateWithdrawNetCents(amount);
+      withdrawEstimate.innerHTML = `⚠ Vous recevrez réellement environ <strong>${euros(est.netCents)}</strong> sur votre PayPal (PayPal prélève ~${euros(est.paypalFeeCents)} de frais sur cet envoi — pas nous). Votre solde sera bien débité de ${euros(Math.round(amount*100))}.`;
+    }
+    withdrawAmountInput.addEventListener('input', refreshWithdrawEstimate);
 
     function openWithdrawModal(){
       withdrawAmountInput.value = '';
       withdrawError.textContent = '';
+      withdrawEstimate.innerHTML = '';
       document.getElementById('withdrawAvailable').textContent = euros(WALLET.balanceCents);
       withdrawOverlay.classList.add('show');
       setTimeout(() => withdrawAmountInput.focus(), 50);
