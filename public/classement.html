@@ -112,7 +112,7 @@
     }
     @keyframes roadPinBounce{ 0%,100%{ transform:translateY(-50%) translateX(0); } 50%{ transform:translateY(-50%) translateX(-6px); } }
 
-    /* ---- Carte 'W' de fin de saison, affichée grisée + cadenas à côté du
+    /* ---- Carte WIN de fin de saison, affichée grisée + cadenas à côté du
        rang qui la débloque — la distribution réelle n'a lieu que via le
        bouton admin, jamais automatiquement ici (purement informatif). ---- */
     .roadSeasonCard{
@@ -136,6 +136,44 @@
     @media (max-width:640px){
       .roadSeasonCard{ left:150px; width:36px; height:50px; }
       .roadSeasonLabel{ display:none; }
+    }
+
+    /* ---- Zoom plein format d'une carte WIN au survol (voir revealZoom
+       dans astrocomptoir.html, même principe) : visuel complet + pouvoir
+       (dessinés sur l'image) et PV/PB en médaillons, grisé tant que la
+       carte n'est pas obtenue, cadenas central si verrouillée. ---- */
+    .seasonCardZoom{
+      position:fixed; z-index:6500; pointer-events:none; display:none;
+      width:min(300px,32vw); height:min(468px,58vh);
+      border-radius:16px; background-size:contain; background-repeat:no-repeat; background-position:center;
+      background-color:#04141a; box-shadow:0 26px 50px rgba(0,0,0,.6), 0 0 34px rgba(125,249,255,.35);
+      border:2px solid rgba(125,249,255,.5); transform:scale(.92); opacity:0;
+      transition:opacity .12s ease, transform .12s ease;
+    }
+    .seasonCardZoom.show{ display:block; opacity:1; transform:scale(1); }
+    .seasonCardZoom.locked{ filter:grayscale(1) brightness(.6); border-color:rgba(255,255,255,.3); }
+    .seasonCardZoom .zoomLockIcon{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      font-size:54px; text-shadow:0 4px 14px rgba(0,0,0,.9); filter:none;
+    }
+    .seasonCardZoom .zoomStat{
+      position:absolute; right:-14px; display:flex; align-items:center; justify-content:center;
+      color:#fff; font-weight:900; width:42px; height:42px; font-size:17px; z-index:5;
+      font-family:'Manrope',system-ui,sans-serif; filter:none;
+    }
+    .seasonCardZoom .zoomStat.hp{
+      top:32%; border-radius:50%;
+      background:radial-gradient(circle at 30% 24%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #ff5c5c 55%, #8a0000);
+      border:2.5px solid rgba(255,190,190,.95);
+      box-shadow:0 0 14px rgba(255,40,40,.65), 0 3px 6px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.35), inset 0 2px 3px rgba(255,255,255,.4);
+      text-shadow:0 1px 2px rgba(0,0,0,.9);
+    }
+    .seasonCardZoom .zoomStat.shield{
+      top:56%; border-radius:50% 50% 22% 22% / 64% 64% 30% 30%;
+      background:radial-gradient(circle at 30% 22%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #55d6ff 55%, #0a4f8a);
+      border:2.5px solid rgba(195,238,255,.95);
+      box-shadow:0 0 14px rgba(70,195,255,.65), 0 3px 6px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.3), inset 0 2px 3px rgba(255,255,255,.4);
+      color:#eafcff; text-shadow:0 1px 2px rgba(0,0,0,.9);
     }
     .roadDetail{
       margin-top:6px; border-radius:16px; padding:18px 20px; text-align:center;
@@ -380,6 +418,8 @@
     </div>
   </div>
 
+  <div id="seasonCardZoom" class="seasonCardZoom"></div>
+
   <script src="/auth.js"></script>
   <script src="/sitenav.js"></script>
   <script src="/socket.io/socket.io.js"></script>
@@ -449,21 +489,29 @@
       document.documentElement.style.setProperty('--tierColor', hex);
     }
 
-    // ===== Cartes 'W' de fin de saison, affichées à côté du rang qui les
+    // ===== Cartes WIN de fin de saison, affichées à côté du rang qui les
     // débloque (grisées + cadenas — la distribution réelle reste manuelle,
-    // via le bouton admin). SEASON_CARD_BY_RANK : { rankIndex: {code, name} }.
+    // via le bouton admin). SEASON_CARD_BY_RANK : { rankIndex: {code, name, hp, shield} }.
     let SEASON_CARD_BY_RANK = {};
+    let SEASON_CARD_BY_CODE = {};
     let MY_OWNED_CODES = new Set();
     async function loadSeasonCards(){
       try{
-        const res = await fetch('/data/card-catalog.json');
-        const data = await res.json();
-        Object.entries(data || {}).forEach(([code, info]) => {
+        const [catalogRes, statsRes] = await Promise.all([
+          fetch('/data/card-catalog.json'),
+          fetch('/data/card-stats.json'),
+        ]);
+        const catalogData = await catalogRes.json();
+        const statsData = await statsRes.json().catch(() => ({}));
+        Object.entries(catalogData || {}).forEach(([code, info]) => {
           if (info && typeof info.requiredRankIndex === 'number') {
-            SEASON_CARD_BY_RANK[info.requiredRankIndex] = { code, name: info.name || code };
+            const st = (statsData || {})[code] || {};
+            const entry = { code, name: info.name || code, type: info.type || '', hp: st.hp ?? 0, shield: st.shield ?? 0 };
+            SEASON_CARD_BY_RANK[info.requiredRankIndex] = entry;
+            SEASON_CARD_BY_CODE[code] = entry;
           }
         });
-      }catch(e){ console.error('Impossible de charger le catalogue de cartes W :', e); }
+      }catch(e){ console.error('Impossible de charger le catalogue des cartes WIN :', e); }
     }
     async function loadMyCollection(){
       try{
@@ -518,7 +566,7 @@
         if (seasonCard) {
           const owned = MY_OWNED_CODES.has(seasonCard.code);
           html += `
-            <div class="roadSeasonCard${owned ? ' owned' : ''}" style="top:${y}px;" title="${seasonCard.name} — récompense de fin de saison au rang ${r.label}${owned ? ' (obtenue)' : ', distribuée par l’administrateur une fois ce rang atteint'}">
+            <div class="roadSeasonCard${owned ? ' owned' : ''}" data-code="${seasonCard.code}" data-owned="${owned ? '1' : '0'}" style="top:${y}px;" title="Carte WIN : ${seasonCard.name} — récompense de fin de saison au rang ${r.label}${owned ? ' (obtenue)' : ', distribuée par l’administrateur une fois ce rang atteint'}">
               <img src="/cartes/${seasonCard.code}.png" alt="${seasonCard.name}" loading="lazy">
               <div class="roadSeasonLock">🔒</div>
               <div class="roadSeasonLabel">${seasonCard.name}</div>
@@ -531,6 +579,10 @@
         node.addEventListener('click', () => showRoadDetail(parseInt(node.dataset.index, 10)));
       });
 
+      track.querySelectorAll('.roadSeasonCard').forEach(node => {
+        attachSeasonCardZoom(node, node.dataset.code, node.dataset.owned === '1');
+      });
+
       showRoadDetail(myRankIndex != null ? myRankIndex : 0);
 
       // Centre automatiquement la vue (verticalement) sur la position actuelle du joueur.
@@ -541,6 +593,45 @@
           wrap.scrollTop = Math.max(0, targetY - wrap.clientHeight / 2);
         });
       }
+    }
+
+    // ===== Zoom au survol d'une carte WIN sur la Voie de la Menace =====
+    // Même principe que dans l'Astrocomptoir (revealZoom) : agrandit le
+    // visuel complet de la carte (donc son pouvoir, entièrement dessiné sur
+    // l'image) près du curseur, avec ses PV/PB en médaillons superposés.
+    // Grisée + verrouillée tant que non obtenue ; en couleur sinon.
+    const seasonZoomEl = document.getElementById('seasonCardZoom');
+    function attachSeasonCardZoom(cardEl, code, owned){
+      const info = SEASON_CARD_BY_CODE[code];
+      cardEl.addEventListener('mousemove', (e) => {
+        seasonZoomEl.style.backgroundImage = `url('/cartes/${code}.png')`;
+        seasonZoomEl.classList.toggle('locked', !owned);
+        let x = e.clientX + 26, y = e.clientY - 60;
+        if (x + 300 > window.innerWidth) x = e.clientX - 326;
+        if (y < 10) y = 10;
+        seasonZoomEl.style.left = x + 'px'; seasonZoomEl.style.top = y + 'px';
+
+        seasonZoomEl.querySelectorAll('.zoomStat, .zoomLockIcon').forEach(n => n.remove());
+        // PV/PB uniquement pour les cartes 'personnage' (un combattant) —
+        // les cartes 'action' n'ont pas de PV/PB à afficher.
+        if (info && info.type === 'personnage') {
+          const hp = document.createElement('div');
+          hp.className = 'zoomStat hp'; hp.textContent = info.hp ?? 0;
+          seasonZoomEl.appendChild(hp);
+          if (info.shield > 0) {
+            const sh = document.createElement('div');
+            sh.className = 'zoomStat shield'; sh.textContent = info.shield;
+            seasonZoomEl.appendChild(sh);
+          }
+        }
+        if (!owned) {
+          const lock = document.createElement('div');
+          lock.className = 'zoomLockIcon'; lock.textContent = '🔒';
+          seasonZoomEl.appendChild(lock);
+        }
+        seasonZoomEl.classList.add('show');
+      });
+      cardEl.addEventListener('mouseleave', () => seasonZoomEl.classList.remove('show'));
     }
 
     function showRoadDetail(i){

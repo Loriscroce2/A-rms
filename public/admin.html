@@ -105,11 +105,11 @@
     </div>
 
     <div class="hero" style="margin-top:46px;">
-      <h1>🗺 Cartes 'W' de fin de saison</h1>
-      <p>Distribue réellement les cartes 'W' (Zwav, Trou de ver...) à tous les joueurs ayant atteint le rang de Menace requis, s'ils ne l'ont pas déjà reçue. Sans effet sur les joueurs n'ayant pas encore atteint le rang, et sans jamais distribuer deux fois la même carte au même joueur. Le compte administrateur possède déjà en permanence toutes les cartes (dont les 'W') et n'est pas concerné.</p>
+      <h1>🏆 Cartes WIN de fin de saison</h1>
+      <p>Distribue réellement les cartes WIN (Zwav, Trou de ver...) à tous les joueurs ayant atteint le rang de Menace requis, s'ils ne l'ont pas déjà reçue. Sans effet sur les joueurs n'ayant pas encore atteint le rang, et sans jamais distribuer deux fois la même carte au même joueur. Le compte administrateur possède déjà en permanence toutes les cartes (dont les WIN) et n'est pas concerné.</p>
     </div>
     <div style="text-align:center;">
-      <button class="miniBtn" id="unlockSeasonCardsBtn" style="padding:10px 18px;font-size:12.5px;">🔓 Débloquer toutes les cartes de rang atteint</button>
+      <button class="miniBtn" id="unlockSeasonCardsBtn" style="padding:10px 18px;font-size:12.5px;">🔓 Débloquer toutes les cartes WIN de rang atteint</button>
     </div>
   </main>
 
@@ -357,13 +357,13 @@
     document.getElementById('resetHistoryBtn').addEventListener('click', resetSalesHistory);
 
     async function unlockSeasonCards(){
-      if (!confirm("Distribuer les cartes 'W' à tous les joueurs ayant atteint le rang requis (et pas déjà reçues) ? Cette action modifie réellement les collections des joueurs.")) return;
+      if (!confirm("Distribuer les cartes WIN à tous les joueurs ayant atteint le rang requis (et pas déjà reçues) ? Cette action modifie réellement les collections des joueurs.")) return;
       try{
         const res = await fetch('/api/admin/season-cards/unlock-all', { method:'POST' });
         const data = await res.json();
         if (data.ok) {
           showToast(data.grantedCount > 0
-            ? `${data.grantedCount} carte(s) 'W' distribuée(s) parmi ${data.playersChecked} joueur(s) vérifié(s).`
+            ? `${data.grantedCount} carte(s) WIN distribuée(s) parmi ${data.playersChecked} joueur(s) vérifié(s).`
             : `Aucune nouvelle carte à distribuer (${data.playersChecked} joueur(s) vérifié(s)).`);
         } else {
           showToast('Erreur lors de la distribution.', true);
