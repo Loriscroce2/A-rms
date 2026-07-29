@@ -134,4 +134,21 @@ function generateRandomBooster(size = 7) {
   return codes;
 }
 
-module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };
+// ===================================================================
+// SAISON — cartes récompenses de fin de saison (W0001, W0002...), gagnées
+// selon le rang de Menace atteint (voir le futur système de distribution en
+// fin de saison, pas encore implémenté). Volontairement tenues À L'ÉCART de
+// IMPLEMENTED_CODES / ALL_CARDS / SEASON_1_ALL_SLOTS ci-dessus : aucune des
+// fonctions qui tirent des cartes pour les boosters, la boutique, ou la
+// collection de départ (randomCard, generateRandomBooster, cardsByFaction,
+// generateStarterCollection) ne parcourt cette liste, donc ces cartes ne
+// peuvent JAMAIS être obtenues par ces circuits — seulement via la
+// distribution manuelle de fin de saison. Chaque exemplaire distribué est en
+// plus numéroté individuellement (ex. "002/500"), une contrainte gérée par
+// le futur système de distribution, pas par ce catalogue.
+const SEASON_CARDS = [
+  { code: 'W0001', num: 1, faction: 'Krylls' }, // Zwav
+  { code: 'W0002', num: 2, faction: 'Krylls' }, // Trou de ver
+];
+
+module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };

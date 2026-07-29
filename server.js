@@ -2629,7 +2629,9 @@ function regenerateCardStats() {
       }
       const body = html.slice(braceStart + 1, i);
       const pairs = {};
-      const re = /'([CT]\d+)'\s*:\s*(-?\d+|'[^']*'|"[^"]*")/g;
+      // [CTW] : C = cartes numériques classiques, T = jetons, W = cartes
+      // Saison (récompenses de fin de saison, ex. W0001 Zwav ↔ label 'W1').
+      const re = /'([CTW]\d+)'\s*:\s*(-?\d+|'[^']*'|"[^"]*")/g;
       let m;
       while ((m = re.exec(body)) !== null) {
         let val = m[2];
@@ -2648,6 +2650,19 @@ function regenerateCardStats() {
     const result = {};
     catalog.ALL_CARDS.forEach(({ num, code }) => {
       const label = `C${num}`;
+      if (cardTypes[label] !== 'personnage') return;
+      result[code] = {
+        type: 'personnage',
+        hp: cardHp[label] || 0,
+        shield: cardShield[label] || 0,
+      };
+    });
+    // SAISON : mêmes tables (CARD_TYPES/CARD_HP_BASE/CARD_SHIELD_BASE),
+    // simplement avec le label 'W{num}' au lieu de 'C{num}' — voir
+    // catalog.SEASON_CARDS, volontairement hors de ALL_CARDS pour rester
+    // exclues des boosters/de la boutique.
+    (catalog.SEASON_CARDS || []).forEach(({ num, code }) => {
+      const label = `W${num}`;
       if (cardTypes[label] !== 'personnage') return;
       result[code] = {
         type: 'personnage',
@@ -2675,6 +2690,17 @@ function regenerateCardStats() {
         name: cardNames[label] || `Carte ${code}`,
         type: cardTypes[label] || 'inconnu',
         faction: catalog.factionOf(num),
+      };
+    });
+    // SAISON : mêmes tables, label 'W{num}' — la faction vient directement
+    // de catalog.SEASON_CARDS (factionOf(num) ne connaît que le schéma
+    // numérique 1-250 et donnerait un résultat faux pour ces codes).
+    (catalog.SEASON_CARDS || []).forEach(({ num, code, faction }) => {
+      const label = `W${num}`;
+      catalogResult[code] = {
+        name: cardNames[label] || `Carte ${code}`,
+        type: cardTypes[label] || 'inconnu',
+        faction: faction,
       };
     });
     const catalogOutPath = path.join(__dirname, 'public', 'data', 'card-catalog.json');

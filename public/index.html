@@ -353,6 +353,48 @@
     .thumb .shield{ position:absolute; right:-6px; top:calc(50% + 34px); width:28px; height:28px; font-size:12px; }
     .thumb:hover{ transform:scale(1.18); z-index:2; }
 
+    /* SAISON : bouton flottant + fenêtre du STOCK (cartes W0001 Zwav /
+       W0002 Trou de ver). Fenêtre déplaçable (glisser l'en-tête), fermable
+       (croix), rouverte via le bouton flottant — l'un ET l'autre disparaissent
+       entièrement dès que le STOCK est vide (voir renderStockWindow en JS). */
+    .stockToggleBtn{
+      position:fixed; left:20px; bottom:120px; z-index:2040;
+      background:linear-gradient(180deg,#1a2f6b,#0e1a3d); color:#dfe8ff;
+      border:2px solid #6d8bff88; border-radius:999px; padding:9px 16px;
+      font-weight:800; font-size:13px; letter-spacing:.03em; cursor:pointer;
+      box-shadow:0 0 16px #6d8bff55;
+    }
+    .stockToggleBtn:hover{ filter:brightness(1.15); }
+    .stockWindow{
+      position:fixed; left:20px; bottom:120px; z-index:2060;
+      width:min(360px, 88vw); max-height:70vh;
+      background:rgba(6,10,26,.92); border:2px solid #6d8bff88; border-radius:14px;
+      box-shadow:0 0 24px #6d8bff55; overflow:hidden; display:flex; flex-direction:column;
+    }
+    .stockWindowHeader{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 12px; cursor:grab; user-select:none;
+      background:linear-gradient(180deg,#1a2f6b,#0e1a3d); color:#dfe8ff;
+      font-weight:800; font-size:13px; letter-spacing:.03em;
+      border-bottom:1px solid #6d8bff55;
+    }
+    .stockWindowHeader:active{ cursor:grabbing; }
+    .stockCloseBtn{
+      appearance:none; border:none; background:transparent; color:#dfe8ff;
+      font-size:18px; line-height:1; cursor:pointer; padding:0 4px;
+    }
+    .stockCloseBtn:hover{ color:#ff8080; }
+    .stockWindowBody{
+      padding:12px; overflow-y:auto; display:flex; flex-wrap:wrap; gap:10px;
+      justify-content:flex-start;
+    }
+    .stockWindowBody .stockThumb{
+      width:90px; height:130px; border:2px solid #6d8bff; border-radius:10px;
+      background-size:cover; background-position:center; background-color:#111;
+      box-shadow:0 0 10px #6d8bff55;
+    }
+    .stockWindowBody .stockEmpty{ color:#9fb0e8; font-size:12.5px; padding:6px; }
+
     /* Carrousels de DÉFAUSSE : les deux (haut ET bas) s'ouvrent désormais au
        MÊME endroit — entre les deux piles de défausse, au milieu à droite de
        l'écran — plutôt que chacun près de sa propre pile. */
@@ -3223,6 +3265,20 @@ body.fusion-shake {
     </div>
   </div>
 
+  <!-- SAISON : bouton flottant + fenêtre du STOCK (cartes W0001 Zwav /
+       W0002 Trou de ver) — ouvrable/fermable et déplaçable, disparaît
+       entièrement dès que le STOCK du joueur est vide (voir renderStockWindow). -->
+  <button id="stockToggleBtn" class="stockToggleBtn" style="display:none;" title="Voir mon STOCK">
+    STOCK (<span id="stockToggleCount">0</span>)
+  </button>
+  <div id="stockWindow" class="stockWindow" style="display:none;">
+    <div class="stockWindowHeader" id="stockWindowHeader">
+      <span>STOCK (<span id="stockCount">0</span>)</span>
+      <button id="stockWindowClose" class="stockCloseBtn" title="Fermer">×</button>
+    </div>
+    <div class="stockWindowBody" id="stockWindowBody"></div>
+  </div>
+
   <div id="factionOverlay" class="factionOverlay">
     <div class="factionPrompt">
       <div class="fpTitle" id="fpTitle">Choix de faction</div>
@@ -3384,11 +3440,26 @@ function getCardImage(label){
 }
 
 /* 2) Conversions code/label */
+// Cartes "Saison" (récompenses de fin de saison, W0001, W0002...) : préfixe
+// W dédié, en parallèle du schéma numérique C/0000 existant — jamais mélangé
+// avec lui (W0001 ↔ 'W1', tout comme 0001 ↔ 'C1'), pour que ces cartes ne
+// puissent jamais apparaître par erreur dans un booster/une collection de
+// départ (voir cards-catalog.js : SEASON_CARDS reste hors de ALL_CARDS/
+// IMPLEMENTED_CODES/SEASON_1_ALL_SLOTS).
 function labelToCode(label){
-  const n = parseInt(String(label).replace(/^C/i,''),10);
+  const s = String(label);
+  if (/^W/i.test(s)) {
+    const n = parseInt(s.replace(/^W/i,''),10);
+    return 'W' + String(isNaN(n)?0:n).padStart(4,'0');
+  }
+  const n = parseInt(s.replace(/^C/i,''),10);
   return String(isNaN(n)?0:n).padStart(4,'0');
 }
-function codeToLabel(code){ return 'C' + parseInt(code,10); }
+function codeToLabel(code){
+  const s = String(code);
+  if (/^W/i.test(s)) return 'W' + parseInt(s.replace(/^W/i,''),10);
+  return 'C' + parseInt(s,10);
+}
 
 /* 3) Faction par tranche (identique à play.html) → tag automatique */
 function factionFromCode(code){
@@ -4004,6 +4075,8 @@ async function playIgnominieSfx(){
 
 /* ---------- Mappings / Noms ---------- */
 const CARD_IMAGES = {
+  /* SAISON (récompenses de fin de saison, jamais en booster) */
+  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png',
   'C1': '../cartes/0001.png', 'C2': '../cartes/0002.png', 'C3': '../cartes/0003.png',
   'C4': '../cartes/0004.png', 'C5': '../cartes/0005.png', 'C6': '../cartes/0006.png',
   'C7': '../cartes/0007.png', 'C8': '../cartes/0008.png', 'C9': '../cartes/0009.png',
@@ -4221,6 +4294,8 @@ const CARD_IMAGES = {
 };
 
 const CARD_TYPES  = {
+  /* SAISON */
+  'W1':'personnage', 'W2':'action',
   'C1':'personnage', 'C2':'personnage', 'C3':'personnage', 'C4':'action', 'C5':'action',
   'C6':'personnage', 'C7':'artefact', 'C8':'artefact', 'C9':'personnage',
   'C10':'familier', 'C11':'familier', 'C12':'personnage', 'C13':'personnage', 'C14':'personnage',
@@ -4442,6 +4517,8 @@ const CARD_TYPES  = {
 };
 
 const CARD_NAMES = {
+  /* SAISON */
+  'W1':'Zwav', 'W2':'Trou de ver',
   'C1':'Zyrka', 'C2':'Zykmu', 'C3':'Bzyrk', 'C4':'Blubool', 'C5':'Vortex',
   'C6':'Myzor', 'C7':'Zwyffer', 'C8':'Rescelleur', 'C9':'Zcyvenger', 'C10':'Mozkyto',
   'C11':'Barbara', 'C12':'Rat-Ky', 'C13':'Narzbok', 'C14':'Wyrz-M', 'C15':'Zancredy',
@@ -4666,6 +4743,8 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 
 /* PV/boucliers */
 const CARD_HP_BASE = {
+  /* SAISON */
+  'W1':4,
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
   'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7, 'C82': 1, 'C83': 2, 'C86': 5,
@@ -4806,6 +4885,8 @@ const CARD_HP_BASE = {
 };
 
 const CARD_SHIELD_BASE = {
+  /* SAISON */
+  'W1':4,
   'C1':0, 'C2':0, 'C3':1, 'C6':0, 'C9':0, 'C13':1, 'C14':1, 'C15':2, 'C17':2,
   'C22':1, 'C26':4, 'C34':1, 'C36':4, 'C38':3,
   'C52': 0, 'C56': 0, 'C66': 5, 'C68': 1, 'C78': 2, 'T17': 1, 'T18': 1,
@@ -4880,6 +4961,8 @@ const CARD_SHIELD_BASE = {
 
 /* Tags */
 const CARD_TAGS = {
+  /* SAISON */
+  'W1':['citoyen','Krylls'], 'W2':['action','Krylls'],
   'C1':['guerrier','Krylls'], 'C2':['citoyen','Krylls'], 'C3':['guerrier','Krylls'],
   'C4':['action','Krylls'], 'C5':['action','Krylls'], 'C6':['citoyen','Krylls'],
   'C7':['artefact','Krylls'], 'C8':['artefact','Krylls'], 'C9':['citoyen','Krylls'],
@@ -5648,6 +5731,15 @@ let topDeck = [];
 let botDeck = [];
 let topHand = [];
 let botHand = [];
+// Mécanique "STOCK" (cartes Saison W0001 Zwav / W0002 Trou de ver) : zone
+// séparée par joueur, distincte de la main/du deck/de la défausse. Les
+// cartes y arrivent via STOCKAGE N (dessus de son propre deck) ou
+// CONTRE-STOCKAGE N (dessus du deck adverse, mais toujours vers le STOCK de
+// celui qui déclenche l'effet). Voir maybeAskStockRecovery (startTurn) pour
+// la question "récupérer en main ?" posée en tout début de chaque tour,
+// juste après le choix de faction.
+let topStock = [];
+let botStock = [];
 
 if (ONLINE_MODE) {
   // En ligne : on ne construit rien tout de suite, on attend l'état
@@ -6576,6 +6668,33 @@ function openC5Prompt(owner, card, anchorEl){
     { label:'Valider', className:'confirm', onClick:()=>playActionC5(owner, card) },
     { label:'Annuler', className:'cancel', onClick:()=>{} },
   ]);
+}
+
+/* ---- SAISON : Action W2 "Trou de ver" ---- */
+function openW2Prompt(owner, card, anchorEl) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  openButtonsPrompt('Trou de ver', 'Jouer <strong>Trou de ver</strong> ?<br><small>Effet : <strong>STOCKAGE 2</strong> (2 cartes du dessus de votre deck) et <strong>CONTRE-STOCKAGE 2</strong> (2 cartes du dessus du deck adverse) rejoignent votre STOCK.</small>', anchorEl, [
+    { label: 'Valider', className: 'confirm', onClick: () => playActionW2(owner, card) },
+    { label: 'Annuler', className: 'cancel', onClick: () => {} },
+  ]);
+}
+
+function playActionW2(owner, actionCard) {
+  if (!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+
+  discardCard(actionCard, owner, 'action');
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const movedOwn = stockMoveTopOfDeck(owner, owner, 2);
+  const movedOpp = stockMoveTopOfDeck(owner, opp, 2);
+
+  pushHistory('action', `${cardAnchor('W2')} est jouée : <strong>STOCKAGE ${movedOwn}</strong> et <strong>CONTRE-STOCKAGE ${movedOpp}</strong> rejoignent le STOCK de ${playerLabel(owner)}.`);
+  fullRender();
 }
 
 /* ---- Action C21 "Kontinued" ---- */
@@ -10485,6 +10604,11 @@ function openMiningPrompt(owner, card, fromEl){
         const canLink = !card.wadooLink && getLineByOwner(owner === 'top' ? 'bottom' : 'top').some(c => getType(c.label) === 'personnage');
         msg = `Choisissez : <strong>Miner</strong> ou effectuer le <strong>Rituel de liaison</strong> (lier cette Poupée à un ennemi, +${linkGain} Mithril).`;
         buttons.push(mineButton, { label: `Rituel de liaison (+${linkGain} Mithril)`, className: 'confirm' + (canLink ? '' : ' disabled'), disabled: !canLink, onClick: () => { if (canLink) startWadooLinkTargeting(owner, card); } });
+    } else if (card.label === 'W1') {
+        title = 'Zwav';
+        const canStock = getDeckByOwner(owner).length > 0;
+        msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (STOCKAGE 2 : déplace les 2 cartes du dessus de votre deck dans votre STOCK).';
+        buttons.push(mineButton, { label: 'Action (STOCKAGE 2)', className: 'confirm' + (canStock ? '' : ' disabled'), disabled: !canStock, onClick: () => { if (canStock) useZwavAbility(owner, card); } });
     } else if (card.label === 'C206') {
         title = 'Mama Cecil';
         msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (+5PV pour Mama Cecil, +3PV et ESPRIT pour toutes vos Poupées liées).';
@@ -11089,6 +11213,23 @@ function useAphroditeAction(owner, card){
   }
   if (typeof card.hp === 'number') card.hp += 2;
   pushHistory('jeu', `${cardAnchor('T21')} gagne <strong>+2 PV</strong> !`);
+  closeActionPrompt();
+  fullRender();
+}
+
+// SAISON : Zwav (W1) — ACTION : STOCKAGE 2 (déplace les 2 cartes du dessus
+// de son propre deck dans le STOCK de son propriétaire).
+function useZwavAbility(owner, card){
+  if(!canPlayThisCardNow(owner, card)) return;
+  if(hasAttacked(owner, card)) return;
+
+  markAttacked(owner, card);
+  const moved = stockMoveTopOfDeck(owner, owner, 2);
+  if (moved > 0) {
+    pushHistory('action', `${cardAnchor('W1')} utilise <strong>STOCKAGE ${moved}</strong> : ${moved} carte${moved > 1 ? 's' : ''} du dessus de son deck rejoign${moved > 1 ? 'ent' : 't'} le STOCK de ${playerLabel(owner)}.`);
+  } else {
+    pushHistory('info', `${cardAnchor('W1')} : deck vide, aucune carte à déplacer vers le STOCK.`);
+  }
   closeActionPrompt();
   fullRender();
 }
@@ -15963,6 +16104,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C118') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC118Prompt(owner, card, el)); }); }
             if (card.label === 'C104') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => playActionLongVoyage(owner, card, el)); }); }
             if (card.label === 'C21') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC21Prompt(owner, card, el)); }); }
+            if (card.label === 'W2') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openW2Prompt(owner, card, el)); }); }
             if (card.label === 'C63') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC63Prompt(owner, card, el)); }); }
             if (card.label === 'C51') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC51Prompt(owner, card, el)); }); }
             if (card.label === 'C19') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC19Prompt(owner, card, el)); }); }
@@ -18703,6 +18845,102 @@ discardBottomEl.addEventListener('click', ()=>{
 discardTopCarousel.addEventListener('mouseleave',()=>{ hideZoom(); });
 discardBottomCarousel.addEventListener('mouseleave',()=>{ hideZoom(); });
 
+/* ===================================================================
+   SAISON : fenêtre du STOCK (cartes W0001 Zwav / W0002 Trou de ver) —
+   affiche le STOCK du joueur humain (MY_SEAT), ouvrable/fermable via le
+   bouton flottant/la croix, déplaçable en glissant l'en-tête. Disparaît
+   entièrement (bouton ET fenêtre) dès que le STOCK est vide. Un simple
+   compteur "meilleur effort" affiche aussi le STOCK adverse dans le titre
+   quand il en a (pas de contenu détaillé : information publique — les
+   joueurs connaissent le nombre exact de cartes sur le marché — mais le
+   contenu précis du STOCK adverse reste cette du domaine du plateau/de la
+   main, non affiché ici).
+   =================================================================== */
+let stockWindowOpen = false;
+let stockWindowDragState = null;
+let stockWindowPos = null; // {left, top} en px, mémorisé après un glisser-déposer
+
+function renderStockWindow(){
+  const toggleBtn = document.getElementById('stockToggleBtn');
+  const toggleCount = document.getElementById('stockToggleCount');
+  const win = document.getElementById('stockWindow');
+  const countEl = document.getElementById('stockCount');
+  const bodyEl = document.getElementById('stockWindowBody');
+  if (!toggleBtn || !win || !bodyEl) return;
+
+  const seat = (typeof MY_SEAT !== 'undefined') ? MY_SEAT : 'bottom';
+  const stock = getStockByOwner(seat);
+  const n = stock.length;
+
+  if (n === 0) {
+    // Le STOCK est vide : le bouton ET la fenêtre disparaissent entièrement.
+    toggleBtn.style.display = 'none';
+    win.style.display = 'none';
+    stockWindowOpen = false;
+    return;
+  }
+
+  toggleBtn.style.display = 'inline-block';
+  if (toggleCount) toggleCount.textContent = String(n);
+  if (countEl) countEl.textContent = String(n);
+
+  bodyEl.innerHTML = '';
+  stock.forEach(card => {
+    const thumb = document.createElement('div');
+    thumb.className = 'stockThumb';
+    const img = (typeof CARD_IMAGES !== 'undefined' && CARD_IMAGES[card.label]) ? CARD_IMAGES[card.label] : '';
+    if (img) thumb.style.backgroundImage = `url('${img}')`;
+    thumb.title = cardName(card.label);
+    thumb.addEventListener('mouseenter', () => showZoom(card.label, card));
+    thumb.addEventListener('mouseleave', hideZoom);
+    bodyEl.appendChild(thumb);
+  });
+
+  win.style.display = stockWindowOpen ? 'flex' : 'none';
+  if (stockWindowOpen && stockWindowPos) {
+    win.style.left = stockWindowPos.left + 'px';
+    win.style.top = stockWindowPos.top + 'px';
+    win.style.bottom = 'auto';
+  }
+}
+
+(function initStockWindowUI(){
+  const toggleBtn = document.getElementById('stockToggleBtn');
+  const win = document.getElementById('stockWindow');
+  const closeBtn = document.getElementById('stockWindowClose');
+  const header = document.getElementById('stockWindowHeader');
+  if (!toggleBtn || !win || !closeBtn || !header) return;
+
+  toggleBtn.addEventListener('click', () => {
+    stockWindowOpen = true;
+    renderStockWindow();
+  });
+  closeBtn.addEventListener('click', () => {
+    stockWindowOpen = false;
+    win.style.display = 'none';
+  });
+
+  header.addEventListener('pointerdown', (e) => {
+    const rect = win.getBoundingClientRect();
+    stockWindowDragState = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    win.style.left = rect.left + 'px';
+    win.style.top = rect.top + 'px';
+    win.style.bottom = 'auto';
+    header.setPointerCapture(e.pointerId);
+  });
+  header.addEventListener('pointermove', (e) => {
+    if (!stockWindowDragState) return;
+    const left = Math.max(4, Math.min(window.innerWidth - win.offsetWidth - 4, e.clientX - stockWindowDragState.dx));
+    const top = Math.max(4, Math.min(window.innerHeight - win.offsetHeight - 4, e.clientY - stockWindowDragState.dy));
+    win.style.left = left + 'px';
+    win.style.top = top + 'px';
+    stockWindowPos = { left, top };
+  });
+  const endDrag = () => { stockWindowDragState = null; };
+  header.addEventListener('pointerup', endDrag);
+  header.addEventListener('pointercancel', endDrag);
+})();
+
 /* --- Défausse API --- */
 function returnSealedToOpponentDeck(card, owner){
   if(card.label!=='C8') return;
@@ -18998,6 +19236,17 @@ if (reason === 'manual') {
       startKrouzpierChain(owner);
     } else {
       pushHistory('info', `${cardAnchor('C25')} : aucun combattant adverse en zone de combat, son effet ne se déclenche pas.`);
+    }
+  }
+  // SAISON : Zwav (W1) — MORT : CONTRE-STOCKAGE 2 (déplace les 2 cartes du
+  // dessus du deck ADVERSE dans le STOCK de son propriétaire, `owner`).
+  if (card.label === 'W1' && reason === 'death') {
+    const zwavOpp = (owner === 'top') ? 'bottom' : 'top';
+    const zwavMoved = stockMoveTopOfDeck(owner, zwavOpp, 2);
+    if (zwavMoved > 0) {
+      pushHistory('info', `${cardAnchor('W1')} : <strong>CONTRE-STOCKAGE ${zwavMoved}</strong> — ${zwavMoved} carte${zwavMoved > 1 ? 's' : ''} du dessus du deck de ${playerLabel(zwavOpp)} rejoign${zwavMoved > 1 ? 'ent' : 't'} le STOCK de ${playerLabel(owner)}.`);
+    } else {
+      pushHistory('info', `${cardAnchor('W1')} : deck adverse vide, CONTRE-STOCKAGE ne déplace aucune carte.`);
     }
   }
   // KRYLLS (nouveau lot) : Tokzik (C35) — MORT : exile un combattant adverse (ciblage par clic).
@@ -19496,6 +19745,7 @@ function fullRender(){
   updateMithril();
   renderArms();
   updateFactionBadges();
+  if (typeof renderStockWindow === 'function') renderStockWindow();
   // NOUVEAU : Appel à la fonction de dessin des liens
   drawPrismisLinks();
 renderDirectAttackTargets();
@@ -19817,8 +20067,38 @@ function checkForge(player){
 /* ---------- Pioches & fin de tour ---------- */
 function getDeckByOwner(owner) { return owner === 'top' ? topDeck : botDeck; }
 function getHandByOwner(owner) { return owner === 'top' ? topHand : botHand; }
+function getStockByOwner(owner) { return owner === 'top' ? topStock : botStock; }
 
+// SAISON : déplace jusqu'à N cartes du DESSUS du deck de `sourceOwner` vers
+// le STOCK de `actingOwner` (STOCKAGE : sourceOwner === actingOwner ;
+// CONTRE-STOCKAGE : sourceOwner === l'adversaire de actingOwner). Ne
+// déclenche volontairement AUCUN effet "à la pioche" (Fléau, Pister sa
+// proie...) : ces cartes ne rejoignent pas la main, seulement le STOCK.
+// Renvoie le nombre de cartes réellement déplacées (peut être < N si le
+// deck source est presque vide).
+function stockMoveTopOfDeck(actingOwner, sourceOwner, n){
+  const deck = getDeckByOwner(sourceOwner);
+  const stock = getStockByOwner(actingOwner);
+  let moved = 0;
+  for (let i = 0; i < n && deck.length > 0; i++) {
+    stock.push(deck.shift());
+    moved++;
+  }
+  if (moved > 0) {
+    updateDeckCounters();
+    if (typeof renderStockWindow === 'function') renderStockWindow();
+  }
+  return moved;
+}
 
+// SAISON : transfère tout le STOCK de `owner` vers sa main (réponse "Oui" à
+// la question posée en début de tour par maybeAskStockRecovery).
+function moveStockToHand(owner){
+  const stock = getStockByOwner(owner);
+  const hand = getHandByOwner(owner);
+  while (stock.length > 0) hand.push(stock.shift());
+  if (typeof renderStockWindow === 'function') renderStockWindow();
+}
 
 function drawOneFor(player){
   const deck = getDeckByOwner(player);
@@ -22025,13 +22305,16 @@ const AI_COMBATANT_ACTION_LABELS = [
   // Harpon Géant/Serpentø nécessitent un ciblage non encore câblé côté IA et
   // sont volontairement exclus pour éviter tout blocage (voir le bug Anamars
   // corrigé plus tôt dans le projet).
-  'T26','C138','C122'
+  'T26','C138','C122',
+  // SAISON : Zwav (W1) — capacité 100% automatique (aucun ciblage).
+  'W1'
 ];
 
 function aiCombatantActionIsUsable(card){
   const owner = AI_SEAT;
   const opp = (owner === 'top') ? 'bottom' : 'top';
   switch (card.label) {
+    case 'W1':   return getDeckByOwner(owner).length > 0; // Zwav : STOCKAGE 2, utile tant qu'il reste des cartes au deck
     case 'C9':   return true; // Zcyvenger : +1 Mithril puis pioche en défausse, toujours bon
     case 'C22':  return true; // Khromafayl : pioche 1 carte, toujours bon
     case 'C44': {
@@ -22484,6 +22767,45 @@ function startTurn(player){
   zampanoAllowance = { owner: null, factions: [] };
 
   openFactionPrompt(player, ()=>{
+    // SAISON : question "récupérer votre STOCK en main ?" posée juste après
+    // le choix de faction (voir maybeAskStockRecovery), AVANT le reste de la
+    // mise en place du tour (entretien, forge, familiers...).
+    maybeAskStockRecovery(player, () => continueStartTurnAfterFaction(player));
+  });
+
+  fullRender();
+  updateTurnUI();
+}
+
+// SAISON : cartes W0001 Zwav / W0002 Trou de ver — si `player` a au moins 1
+// carte dans son STOCK, lui demande (Oui/Non) s'il veut la récupérer en
+// main, juste après le choix de faction. Pour l'IA, décidée automatiquement
+// (toujours "Oui" — une carte en main est toujours au moins aussi utile
+// qu'en STOCK) SANS ouvrir de fenêtre visible : aiResolveAnyOpenPrompt() ne
+// peut résoudre une fenêtre qu'une fois maybeStartAITurn() déjà lancé, qui
+// dépend justement de cette callback — un traitement synchrone pour l'IA
+// évite tout blocage circulaire (même principe que openFactionPrompt, qui
+// court-circuite déjà sa propre fenêtre pour VS_AI_MODE && player === AI_SEAT).
+function maybeAskStockRecovery(player, next){
+  const stock = getStockByOwner(player);
+  if (!stock || stock.length === 0) { next(); return; }
+
+  if (typeof VS_AI_MODE !== 'undefined' && VS_AI_MODE && player === AI_SEAT) {
+    const n = stock.length;
+    moveStockToHand(player);
+    pushHistory('info', `${playerLabel(player)} récupère ${n} carte${n > 1 ? 's' : ''} de son STOCK en main.`);
+    next();
+    return;
+  }
+
+  const n = stock.length;
+  openButtonsPrompt('STOCK', `Vous avez <strong>${n}</strong> carte${n > 1 ? 's' : ''} en STOCK. Voulez-vous les récupérer en main ?`, null, [
+    { label: 'Oui, récupérer', className: 'confirm', onClick: () => { moveStockToHand(player); next(); } },
+    { label: 'Non, garder en STOCK', className: 'cancel', onClick: () => { next(); } },
+  ]);
+}
+
+function continueStartTurnAfterFaction(player){
     // Même protection que dans performEndTurn : cette callback déclenche
     // beaucoup de logique liée aux cartes (entretien, forge, familiers...).
     // Si l'une d'elles plantait, l'ancien code pouvait laisser la partie
@@ -22541,10 +22863,6 @@ function startTurn(player){
       updateTurnUI();
       maybeStartAITurn(player);
     }
-  });
-
-  fullRender();
-  updateTurnUI();
 }
 /* ---------- Viseur global ---------- */
 
@@ -26534,6 +26852,7 @@ if (ONLINE_MODE) {
     return {
       currentTurn,
       topDeck, botDeck, topHand, botHand,
+      topStock, botStock,
       topLine, botLine, topArts, botArts,
       topDiscard, botDiscard, exilePile,
       famTop, famBottom,
@@ -26559,6 +26878,7 @@ if (ONLINE_MODE) {
       currentTurn = state.currentTurn;
       topDeck = state.topDeck || []; botDeck = state.botDeck || [];
       topHand = state.topHand || []; botHand = state.botHand || [];
+      topStock = state.topStock || []; botStock = state.botStock || [];
       replaceContents(topLine, state.topLine);
       replaceContents(botLine, state.botLine);
       replaceContents(topArts, state.topArts);
