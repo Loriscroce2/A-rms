@@ -245,6 +245,21 @@ if (!coinPurchaseCols.includes('stripe_session_id')) {
   db.exec('ALTER TABLE coin_purchases ADD COLUMN stripe_session_id TEXT');
 }
 
+// Migration douce : colonne seller_gain_cents sur market_transactions — le
+// montant RÉELLEMENT crédité au vendeur (après frais PayPal ET commission),
+// distinct de price_cents (prix affiché/payé par l'acheteur, brut) et
+// commission_cents (part gardée par le site). Sans cette colonne dédiée,
+// l'historique ne pouvait afficher qu'une approximation trompeuse
+// (price_cents - commission_cents), qui ignore les frais PayPal déjà
+// déduits en amont — voir extractNetAmountCents côté server.js. NULL sur les
+// lignes déjà existantes (avant cette migration) : le montant exact n'a pas
+// été conservé pour elles, l'affichage retombe alors sur l'ancienne
+// approximation pour ces seules anciennes lignes.
+const marketTransactionCols = db.prepare("PRAGMA table_info(market_transactions)").all().map(c => c.name);
+if (!marketTransactionCols.includes('seller_gain_cents')) {
+  db.exec('ALTER TABLE market_transactions ADD COLUMN seller_gain_cents INTEGER');
+}
+
 // Migration douce pour les bases market_listings créées avant l'achat direct
 // par carte bancaire (réservation le temps du paiement Stripe).
 const marketListingCols = db.prepare("PRAGMA table_info(market_listings)").all().map(c => c.name);

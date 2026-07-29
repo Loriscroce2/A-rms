@@ -303,7 +303,7 @@
 
       <h3>Retraits</h3>
       <ul>
-        <li>Les retraits sont envoyés automatiquement et immédiatement, sans délai de validation, vers le compte PayPal que vous avez enregistré. Vous êtes seul responsable de l'exactitude de cette adresse.</li>
+        <li>Une demande de retrait débite immédiatement votre solde, puis est validée manuellement par un administrateur avant l'envoi réel de l'argent vers le compte PayPal que vous avez enregistré. Ce délai de validation permet un contrôle manuel de chaque envoi. Vous êtes seul responsable de l'exactitude de l'adresse PayPal enregistrée.</li>
       </ul>
 
       <h3>Responsabilités</h3>
@@ -343,15 +343,16 @@
   <div class="armsModalOverlay2" id="withdrawOverlay">
     <div class="queueModal">
       <div class="queueIcon">💸</div>
-      <h3>Retirer vers PayPal</h3>
+      <h3>Demander un retrait vers PayPal</h3>
       <p>Solde disponible : <strong id="withdrawAvailable">0,00 €</strong></p>
       <div class="paypalField" style="justify-content:center;">
         <input type="text" inputmode="decimal" id="withdrawAmountInput" placeholder="Montant en euros" style="text-align:center;max-width:170px;" />
       </div>
-      <p id="withdrawError" style="color:#ff8a8a;font-size:12.5px;min-height:16px;margin:8px 0 0;"></p>
+      <p style="font-size:11.5px;color:#9fb0c8;margin:8px 0 0;">Le montant est débité de votre solde immédiatement, puis un administrateur vous envoie l'argent manuellement vers l'adresse PayPal enregistrée sur votre profil.</p>
+      <p id="withdrawError" style="color:#ff8a8a;font-size:12.5px;min-height:16px;margin:4px 0 0;"></p>
       <div class="queueActions">
         <button class="btn-secondary" id="withdrawCancelBtn">Annuler</button>
-        <button class="btn" id="withdrawConfirmBtn">Confirmer le retrait</button>
+        <button class="btn" id="withdrawConfirmBtn">Demander le retrait</button>
       </div>
     </div>
   </div>
@@ -669,18 +670,17 @@
             : data.error === 'paypal_not_configured' ? "Les retraits ne sont pas encore disponibles."
             : data.error === 'invalid_amount' ? 'Montant invalide.'
             : data.error === 'agreement_required' ? "Vous devez d'abord accepter l'accord."
-            : data.error === 'paypal_error' ? "L'envoi a échoué, votre solde n'a pas été débité. Réessayez plus tard."
             : 'Erreur inattendue.';
           return;
         }
         closeWithdrawModal();
-        showToast('Virement envoyé sur votre compte PayPal !');
+        showToast('Demande de retrait envoyée — en attente de validation par un administrateur.');
         loadWallet(); loadHistory();
       }catch(e){
         withdrawError.textContent = 'Erreur réseau — vérifiez votre connexion.';
       }finally{
         withdrawConfirmBtn.disabled = false;
-        withdrawConfirmBtn.textContent = 'Confirmer le retrait';
+        withdrawConfirmBtn.textContent = 'Demander le retrait';
       }
     }
     withdrawConfirmBtn.addEventListener('click', confirmWithdraw);
@@ -1029,7 +1029,15 @@
         const rows = [];
         if (txData.ok) {
           txData.transactions.forEach(t => {
-            const netCents = t.role === 'sale' ? (t.priceCents - t.commissionCents) : t.priceCents;
+            // IMPORTANT : pour une vente, le montant à afficher au vendeur est
+            // sellerGainCents — le montant RÉELLEMENT crédité sur son solde
+            // Astrocomptoir (net des frais PayPal ET de la commission de 10%)
+            // — jamais t.priceCents (prix affiché/payé par l'acheteur, brut)
+            // ni une simple approximation "prix - 10%".
+            const amountCents = t.role === 'sale' ? t.sellerGainCents : t.priceCents;
+            const amountLabel = t.role === 'sale'
+              ? `Reçu : ${euros(amountCents)} <span style="opacity:.6;font-size:11px;">(prix de vente : ${euros(t.priceCents)})</span>`
+              : `Payé : ${euros(amountCents)}`;
             rows.push({
               date: t.createdAt,
               html: `<tr>
@@ -1037,7 +1045,7 @@
                 <td><span class="tag ${t.role}">${t.role === 'sale' ? 'Vente' : 'Achat'}</span></td>
                 <td>${cardInfo(t.code).name}</td>
                 <td>${t.role === 'sale' ? 'Acheteur' : 'Vendeur'} : ${t.counterparty}</td>
-                <td>${t.role === 'sale' ? 'Reçu' : 'Payé'} : ${euros(netCents)}</td>
+                <td>${amountLabel}</td>
               </tr>`
             });
           });

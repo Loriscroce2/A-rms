@@ -303,9 +303,10 @@ const qSweepExpiredListingReservations = db.prepare(`
 `);
 const qMarkListingSoldFromPending = db.prepare("UPDATE market_listings SET status = 'sold', sold_at = datetime('now'), buyer_id = ? WHERE id = ? AND status = 'pending'");
 const qInsertTransaction = db.prepare(`
-  INSERT INTO market_transactions (listing_id, seller_id, buyer_id, code, price_cents, commission_cents)
-  VALUES (?, ?, ?, ?, ?, ?)
+  INSERT INTO market_transactions (listing_id, seller_id, buyer_id, code, price_cents, commission_cents, seller_gain_cents)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
 `);
+const qResetMarketTransactions = db.prepare('DELETE FROM market_transactions');
 const qMyTransactions = db.prepare(`
   SELECT t.*, su.name AS seller_name, bu.name AS buyer_name FROM market_transactions t
   JOIN users su ON su.id = t.seller_id
@@ -1849,17 +1850,21 @@ app.post('/api/astrocomptoir/paypal-email', authMiddleware, (req, res) => {
   }
 });
 
-// --- Retrait automatique vers PayPal ---
-// Débite immédiatement le solde interne, puis envoie le virement PayPal
-// (Payouts API) directement à l'adresse enregistrée par le joueur. Aucune
-// validation manuelle d'admin : si l'envoi échoue, le solde est remboursé
-// intégralement et l'erreur est renvoyée au joueur.
+// --- Demande de retrait vers PayPal (validation manuelle par un admin) ---
+// Débite immédiatement le solde interne (pour ne jamais permettre un double
+// retrait du même montant) et crée une demande 'pending'. AUCUN appel à
+// l'API PayPal Payouts ici : l'administrateur envoie l'argent lui-même,
+// manuellement, depuis son propre compte PayPal, puis confirme l'envoi
+// depuis le panneau d'administration (voir /api/admin/astrocomptoir/
+// withdrawals/:id/approve) — ce qui marque la demande comme payée. Ce choix
+// contourne volontairement l'API Payouts, bloquée côté PayPal en attente de
+// validation de leur part (AUTHORIZATION_ERROR), sans dépendre de ce blocage
+// pour que les joueurs puissent retirer leur argent dès maintenant.
 app.post('/api/astrocomptoir/withdraw', authMiddleware, async (req, res) => {
   try {
     if (!hasAcceptedAgreement(req.user.id)) {
       return res.status(403).json({ ok: false, error: 'agreement_required' });
     }
-    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
     const wallet = qGetWallet.get(req.user.id);
     if (!wallet.paypal_email) return res.status(400).json({ ok: false, error: 'paypal_email_missing' });
     const amountCents = Math.round(Number(req.body?.amountCents));
@@ -1872,22 +1877,9 @@ app.post('/api/astrocomptoir/withdraw', authMiddleware, async (req, res) => {
     if (spent.changes === 0) {
       return res.status(402).json({ ok: false, error: 'insufficient_balance' });
     }
-    try {
-      const batchId = `astro-withdraw-${req.user.id}-${Date.now()}`;
-      const payout = await paypalSendPayout(
-        wallet.paypal_email, amountCents / 100,
-        "Votre retrait Astrocomptoir — A'rms", batchId
-      );
-      const info = qInsertWithdrawal.run(req.user.id, amountCents, wallet.paypal_email);
-      qMarkWithdrawalPaid.run(payout.batch_header?.payout_batch_id || batchId, info.lastInsertRowid);
-      const freshWallet = qGetWallet.get(req.user.id);
-      res.json({ ok: true, balanceCents: freshWallet.real_balance_cents });
-    } catch (payoutErr) {
-      // L'envoi a échoué : on rembourse intégralement le solde débité.
-      qAddRealBalance.run(amountCents, req.user.id);
-      console.error(payoutErr);
-      res.status(502).json({ ok: false, error: 'paypal_error' });
-    }
+    qInsertWithdrawal.run(req.user.id, amountCents, wallet.paypal_email);
+    const freshWallet = qGetWallet.get(req.user.id);
+    res.json({ ok: true, pending: true, balanceCents: freshWallet.real_balance_cents });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -2097,8 +2089,11 @@ app.post('/api/astrocomptoir/cards/confirm-purchase', authMiddleware, async (req
     qAddRealBalance.run(sellerGain, listing.seller_id);
     qUpsertCard.run(req.user.id, listing.code, 1);
     // price_cents reste le prix affiché/payé par l'acheteur (pour l'historique
-    // et l'affichage) ; commission_cents reflète ce que le site garde vraiment.
-    qInsertTransaction.run(listing.id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission);
+    // et l'affichage) ; commission_cents reflète ce que le site garde vraiment ;
+    // seller_gain_cents est le montant EXACT crédité au vendeur (net des frais
+    // PayPal ET de la commission) — c'est ce champ, et lui seul, qui doit être
+    // affiché au vendeur comme "reçu" dans son historique.
+    qInsertTransaction.run(listing.id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission, sellerGain);
     res.json({ ok: true, code: listing.code, priceCents: listing.price_cents });
   } catch (e) {
     console.error(e);
@@ -2128,6 +2123,13 @@ app.get('/api/astrocomptoir/transactions', authMiddleware, (req, res) => {
     const rows = qMyTransactions.all(req.user.id, req.user.id);
     const transactions = rows.map(r => ({
       id: r.id, code: r.code, priceCents: r.price_cents, commissionCents: r.commission_cents,
+      // Montant réellement crédité au vendeur (net des frais PayPal + commission).
+      // NULL sur les transactions antérieures à cette colonne : on retombe alors
+      // sur l'ancienne approximation (prix - commission), la seule donnée
+      // disponible pour ces lignes historiques.
+      sellerGainCents: (r.seller_gain_cents !== null && r.seller_gain_cents !== undefined)
+        ? r.seller_gain_cents
+        : (r.price_cents - r.commission_cents),
       role: r.seller_id === req.user.id ? 'sale' : 'purchase',
       counterparty: r.seller_id === req.user.id ? r.buyer_name : r.seller_name,
       createdAt: r.created_at,
@@ -2320,7 +2322,14 @@ app.get('/api/astrocomptoir/withdrawals', authMiddleware, (req, res) => {
   }
 });
 
-// --- Administration des retraits (envoi réel via PayPal Payouts API) ---
+// --- Administration des retraits (confirmation manuelle) ---
+// L'administrateur envoie l'argent lui-même, à la main, depuis son propre
+// compte PayPal (Loris.croce2@gmail.com) vers l'adresse PayPal du joueur
+// (w.paypal_email, affichée dans le panneau). Ce bouton ne fait qu'ENREGISTRER
+// que l'envoi a bien eu lieu — il n'appelle plus l'API PayPal Payouts
+// (bloquée côté PayPal, AUTHORIZATION_ERROR, en attente de validation de
+// leur part), pour que les retraits fonctionnent dès maintenant sans en
+// dépendre.
 app.get('/api/admin/astrocomptoir/withdrawals', authMiddleware, adminMiddleware, (req, res) => {
   try {
     const rows = qPendingWithdrawals.all();
@@ -2339,17 +2348,14 @@ app.get('/api/admin/astrocomptoir/withdrawals', authMiddleware, adminMiddleware,
 
 app.post('/api/admin/astrocomptoir/withdrawals/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    if (!isPaypalConfigured()) return res.status(503).json({ ok: false, error: 'paypal_not_configured' });
     const id = parseInt(req.params.id, 10);
     const w = qWithdrawalById.get(id);
     if (!w || w.status !== 'pending') return res.status(404).json({ ok: false, error: 'withdrawal_not_found' });
-    const batchId = `arms-withdraw-${id}-${Date.now()}`;
-    const payout = await paypalSendPayout(w.paypal_email, w.amount_cents / 100, `A'rms Astrocomptoir — retrait #${id}`, batchId);
-    qMarkWithdrawalPaid.run(payout.batch_header?.payout_batch_id || batchId, id);
+    qMarkWithdrawalPaid.run(null, id);
     res.json({ ok: true });
   } catch (e) {
     console.error(e);
-    res.status(502).json({ ok: false, error: 'paypal_error' });
+    res.status(500).json({ ok: false, error: 'server_error' });
   }
 });
 
@@ -2360,6 +2366,23 @@ app.post('/api/admin/astrocomptoir/withdrawals/:id/reject', authMiddleware, admi
     if (!w || w.status !== 'pending') return res.status(404).json({ ok: false, error: 'withdrawal_not_found' });
     qAddRealBalance.run(w.amount_cents, w.user_id); // remboursement intégral
     qMarkWithdrawalRejected.run(String(req.body?.reason || ''), id);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Remise à zéro de l'historique des ventes (admin uniquement) ---
+// Efface définitivement toutes les lignes de market_transactions (ventes
+// conclues, tous joueurs confondus) — n'affecte NI les soldes des joueurs
+// (déjà crédités/débités au moment de chaque vente, ce reset ne les touche
+// pas), NI les annonces actives (market_listings), NI les demandes de
+// retrait. Sert uniquement à vider l'affichage de l'historique général et
+// des historiques personnels des joueurs.
+app.post('/api/admin/astrocomptoir/reset-history', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    qResetMarketTransactions.run();
     res.json({ ok: true });
   } catch (e) {
     console.error(e);
