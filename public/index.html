@@ -4113,7 +4113,7 @@ async function playIgnominieSfx(){
 /* ---------- Mappings / Noms ---------- */
 const CARD_IMAGES = {
   /* SAISON (récompenses de fin de saison, jamais en booster) */
-  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png', 'W4': '../cartes/W0004.png', 'W7': '../cartes/W0007.png',
+  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png', 'W4': '../cartes/W0004.png', 'W7': '../cartes/W0007.png', 'W6': '../cartes/W0006.png', 'W8': '../cartes/W0008.png',
   'C1': '../cartes/0001.png', 'C2': '../cartes/0002.png', 'C3': '../cartes/0003.png',
   'C4': '../cartes/0004.png', 'C5': '../cartes/0005.png', 'C6': '../cartes/0006.png',
   'C7': '../cartes/0007.png', 'C8': '../cartes/0008.png', 'C9': '../cartes/0009.png',
@@ -4332,7 +4332,7 @@ const CARD_IMAGES = {
 
 const CARD_TYPES  = {
   /* SAISON */
-  'W1':'personnage', 'W2':'action', 'W4':'personnage', 'W7':'personnage',
+  'W1':'personnage', 'W2':'action', 'W4':'personnage', 'W7':'personnage', 'W6':'personnage', 'W8':'personnage',
   'C1':'personnage', 'C2':'personnage', 'C3':'personnage', 'C4':'action', 'C5':'action',
   'C6':'personnage', 'C7':'artefact', 'C8':'artefact', 'C9':'personnage',
   'C10':'familier', 'C11':'familier', 'C12':'personnage', 'C13':'personnage', 'C14':'personnage',
@@ -4555,7 +4555,7 @@ const CARD_TYPES  = {
 
 const CARD_NAMES = {
   /* SAISON */
-  'W1':'Zwav', 'W2':'Trou de ver', 'W4':'Groxx', 'W7':'Gems',
+  'W1':'Zwav', 'W2':'Trou de ver', 'W4':'Groxx', 'W7':'Gems', 'W6':'Furyo', 'W8':'Cosplay',
   'C1':'Zyrka', 'C2':'Zykmu', 'C3':'Bzyrk', 'C4':'Blubool', 'C5':'Vortex',
   'C6':'Myzor', 'C7':'Zwyffer', 'C8':'Rescelleur', 'C9':'Zcyvenger', 'C10':'Mozkyto',
   'C11':'Barbara', 'C12':'Rat-Ky', 'C13':'Narzbok', 'C14':'Wyrz-M', 'C15':'Zancredy',
@@ -4781,7 +4781,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 /* PV/boucliers */
 const CARD_HP_BASE = {
   /* SAISON */
-  'W1':4, 'W4':6, 'W7':6,
+  'W1':4, 'W4':6, 'W7':6, 'W6':7, 'W8':5,
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
   'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7, 'C82': 1, 'C83': 2, 'C86': 5,
@@ -4923,7 +4923,7 @@ const CARD_HP_BASE = {
 
 const CARD_SHIELD_BASE = {
   /* SAISON */
-  'W1':4,
+  'W1':4, 'W6':2,
   'C1':0, 'C2':0, 'C3':1, 'C6':0, 'C9':0, 'C13':1, 'C14':1, 'C15':2, 'C17':2,
   'C22':1, 'C26':4, 'C34':1, 'C36':4, 'C38':3,
   'C52': 0, 'C56': 0, 'C66': 5, 'C68': 1, 'C78': 2, 'T17': 1, 'T18': 1,
@@ -5000,6 +5000,7 @@ const CARD_SHIELD_BASE = {
 const CARD_TAGS = {
   /* SAISON */
   'W1':['citoyen','Krylls'], 'W2':['action','Krylls'], 'W4':['citoyen','Impy'], 'W7':['citoyen','Chimeria','Esprit','rapide'],
+  'W6':['guerrier','Savage','Esprit','rapide'], 'W8':['citoyen','Chimeria'],
   'C1':['guerrier','Krylls'], 'C2':['citoyen','Krylls'], 'C3':['guerrier','Krylls'],
   'C4':['action','Krylls'], 'C5':['action','Krylls'], 'C6':['citoyen','Krylls'],
   'C7':['artefact','Krylls'], 'C8':['artefact','Krylls'], 'C9':['citoyen','Krylls'],
@@ -6076,6 +6077,9 @@ let c69TargetMode = null;
 let vilunionTargetMode = null;
 let liensSelectionMode = null; // Pour gérer l'effet de la carte C153 "Liens"
 let freedaTargetMode = null;
+// SAISON : Furyo (W6) — ACTION : gèle jusqu'à 2 combattants ADVERSES au
+// choix. { owner, cardId, picked:[ids] } — voir startFuryoTargeting.
+let furyoTargetMode = null;
 let miroirTargetMode = null;
 let hitAndRunMode = null;
 let peinturlurerMode = null;
@@ -8572,7 +8576,7 @@ function memoryReplayAnyBlockingUiOpen(){
   const modesActive = !!(
     (venusylvaDestroyMode && venusylvaDestroyMode.active) ||
     c112TargetMode || c114TargetMode || c231TargetMode || wadooLinkMode || dollyHealMode ||
-    prismisTargetMode || liensSelectionMode || freedaTargetMode || miroirTargetMode ||
+    prismisTargetMode || liensSelectionMode || freedaTargetMode || furyoTargetMode || miroirTargetMode ||
     hitAndRunMode || peinturlurerMode || explorationMode || chargeboxTargetMode ||
     c59DestroyMode || c51SelectMode || c58HealingMode ||
     c9SelectMode || pilateSelectMode || c18SelectMode || artaycSelectMode || remoteChoiceMode ||
@@ -10656,6 +10660,16 @@ function openMiningPrompt(owner, card, fromEl){
         const canInfiltrate = !card.gemsOriginalOwner && getLineByOwner(gemsOpp).length < getMaxCombatantsForOwner(gemsOpp);
         msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (Infiltration : Gems passe dans la zone de combat adverse — elle y prend une place — puis détruit les combattants les plus proches à sa gauche et à sa droite au début de chacun de vos tours).';
         buttons.push(mineButton, { label: 'Action (Infiltration)', className: 'confirm' + (canInfiltrate ? '' : ' disabled'), disabled: !canInfiltrate, onClick: () => { if (canInfiltrate) useGemsInfiltration(owner, card); } });
+    } else if (card.label === 'W6') {
+        title = 'Furyo';
+        const furyoOpp = (owner === 'top') ? 'bottom' : 'top';
+        const canFreeze = getLineByOwner(furyoOpp).length > 0;
+        msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (Gèle jusqu\'à 2 combattants adverses de votre choix).';
+        buttons.push(mineButton, { label: 'Action (Geler 2 adverses)', className: 'confirm' + (canFreeze ? '' : ' disabled'), disabled: !canFreeze, onClick: () => { if (canFreeze) startFuryoTargeting(owner, card); } });
+    } else if (card.label === 'W8') {
+        title = 'Cosplay';
+        msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (Renvoie Cosplay dans votre main avec +2 PV).';
+        buttons.push(mineButton, { label: 'Action (Retour en main, +2PV)', className: 'confirm', onClick: () => { useCosplayReturnAbility(owner, card); } });
     } else if (card.label === 'C206') {
         title = 'Mama Cecil';
         msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (+5PV pour Mama Cecil, +3PV et ESPRIT pour toutes vos Poupées liées).';
@@ -11373,6 +11387,111 @@ function completeGemsInfiltration(originalOwner, newController, card, side) {
   if (side === 'right') { targetLine.push(card); } else { targetLine.unshift(card); }
 
   pushHistory('action', `${cardAnchor('W7')} s'infiltre dans la zone de combat de ${playerLabel(newController)} (insérée tout à ${side === 'right' ? 'droite' : 'gauche'}) !`);
+  fullRender();
+}
+
+// SAISON : Furyo (W6) — ACTION : gèle jusqu'à 2 combattants ADVERSES au
+// choix (voir furyoTargetMode). Le mode "smart" de l'IA (aiChooseSmartTarget)
+// gère ce ciblage directement en cliquant sur les cartes du plateau, donc les
+// boutons de cette fenêtre ne sont utiles qu'au joueur humain.
+function startFuryoTargeting(owner, card) {
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+  if (oppLine.length === 0) {
+    pushHistory('info', `Effet de ${cardAnchor('W6')} : aucun combattant adverse à geler.`);
+    return;
+  }
+
+  furyoTargetMode = { owner, cardId: card.id, picked: [] };
+  markAttacked(owner, card);
+
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'furyo-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '2000';
+  promptEl.innerHTML = `
+    <div class="apTitle">Action : Furyo</div>
+    <div class="apMsg">Choisissez jusqu'à <strong>2 combattants adverses</strong> à <strong>GELER</strong>.</div>
+    <div class="apRow">
+        <button id="furyo-done" class="apBtn confirm">Terminer</button>
+        <button id="furyo-cancel" class="apBtn cancel">Annuler</button>
+    </div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+
+  promptEl.querySelector('#furyo-cancel').addEventListener('click', () => {
+    if (furyoTargetMode && furyoTargetMode.picked.length === 0) {
+      exhausted[owner].delete(card.id); // "Rembourse" l'action si rien n'a été gelé
+    }
+    endFuryoTargetingCleanup();
+    pushHistory('info', "L'action de Furyo a été annulée.");
+  });
+  promptEl.querySelector('#furyo-done').addEventListener('click', () => {
+    endFuryoTargetingCleanup();
+  });
+
+  fullRender();
+}
+
+function handleFuryoTargetSelection(targetCard, targetOwner) {
+  if (!furyoTargetMode || getType(targetCard.label) !== 'personnage') return;
+  if (targetOwner === furyoTargetMode.owner) return; // uniquement des adversaires
+  if (furyoTargetMode.picked.includes(targetCard.id)) return; // pas deux fois la même cible
+
+  applyFreezeToCard(targetCard);
+  furyoTargetMode.picked.push(targetCard.id);
+  pushHistory('action', `${cardAnchor('W6')} GÈLE ${cardAnchor(targetCard.label)}.`);
+
+  const opp = (furyoTargetMode.owner === 'top') ? 'bottom' : 'top';
+  const remaining = getLineByOwner(opp).filter(c => !furyoTargetMode.picked.includes(c.id));
+  if (furyoTargetMode.picked.length >= 2 || remaining.length === 0) {
+    endFuryoTargetingCleanup();
+  } else {
+    fullRender();
+  }
+}
+
+function endFuryoTargetingCleanup() {
+  furyoTargetMode = null;
+  closeActionPrompt();
+  fullRender();
+}
+
+// SAISON : Cosplay (W8) — JOUER : +2 Mithril (voir setupDrops, comme C109).
+// ACTION : se renvoie dans sa propre main avec +2PV — la remise en main
+// normale (voir C231/handleC231TargetSelection) réinitialise habituellement
+// hp à getBaseHP(label), mais resetStatsToBaseWhenEnteringBattle NE touche
+// JAMAIS card.hp en le remettant sur le terrain (voir Harpess/C156) : il
+// suffit donc de fixer card.hp = hp actuel + 2 avant de la renvoyer en main
+// pour que le bonus reste permanent et cumulable à chaque cycle.
+function useCosplayReturnAbility(owner, card) {
+  if (!canPlayThisCardNow(owner, card)) return;
+  if (hasAttacked(owner, card)) return;
+
+  const line = getLineByOwner(owner);
+  const idx = line.findIndex(c => c.id === card.id);
+  if (idx === -1) return;
+  line.splice(idx, 1);
+  detachFamiliarsOnHost(card, owner, false); // retour en main, pas une mort
+  cleanupPrismisLinksOnCardRemoval(card);
+  cleanupWadooLinksOnCardRemoval(card);
+
+  const baseHp = getBaseHP(card.label);
+  const currentHp = (typeof card.hp === 'number') ? card.hp : baseHp;
+  card.hp = currentHp + 2;
+  card.shield = getBaseShield(card.label);
+  card.isFrozenByEffect = false;
+
+  const hand = getHandByOwner(owner);
+  hand.push(card);
+
+  pushHistory('action', `${cardAnchor('W8')} revient dans la main de ${playerLabel(owner)} avec <strong>+2 PV</strong> (désormais ${card.hp} PV).`);
+  closeActionPrompt();
   fullRender();
 }
 
@@ -14311,7 +14430,7 @@ function isAnyTargetSelectionActive(){
   return !!(
     (venusylvaDestroyMode && venusylvaDestroyMode.active) ||
     c112TargetMode || c114TargetMode || c231TargetMode || wadooLinkMode || dollyHealMode ||
-    prismisTargetMode || liensSelectionMode || freedaTargetMode || miroirTargetMode ||
+    prismisTargetMode || liensSelectionMode || freedaTargetMode || furyoTargetMode || miroirTargetMode ||
     hitAndRunMode || peinturlurerMode || explorationMode || chargeboxTargetMode ||
     c59DestroyMode || c51SelectMode || c58HealingMode ||
     c9SelectMode || pilateSelectMode || c18SelectMode || artaycSelectMode || remoteChoiceMode ||
@@ -16833,6 +16952,11 @@ if (hitAndRunMode) {
     el.classList.add('positiveTargetHint');
     el.style.cursor = 'pointer';
   }
+  if (furyoTargetMode && owner !== furyoTargetMode.owner && getType(card.label) === 'personnage') {
+    const isPicked = furyoTargetMode.picked.includes(card.id);
+    if (isPicked) { el.classList.add('selectedTargetHint'); } else { el.classList.add('enemyTargetHint'); }
+    el.style.cursor = 'pointer';
+  }
   if (c51SelectMode && c51SelectMode.owner !== owner && getType(card.label) === 'personnage') {
     const isPicked = c51SelectMode.picked.includes(card.id);
     if (isPicked) { el.classList.add('selectedTargetHint'); } else { el.classList.add('positiveTargetHint'); }
@@ -16909,6 +17033,7 @@ if (hitAndRunMode) {
     if (c51SelectMode && c51SelectMode.owner !== owner) { handleC51TargetSelection(card); return; }
     if (c58HealingMode) { handleC58HealingSelection(card); return; }
     if (freedaTargetMode) { handleFreedaTargetSelection(card, owner); return; }
+    if (furyoTargetMode) { handleFuryoTargetSelection(card, owner); return; }
     if (dollyHealMode) { handleDollyHealSelection(card); return; } // CORRIGÉ : clic pour Dolly
     if (hitAndRunMode) { handleHitAndRunSelection(card, owner); return; }
     if (chargeboxTargetMode) { handleChargeboxTargetSelection(card, owner); return; }
@@ -18379,6 +18504,11 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       }
 
       if (card.label === 'C2' && (fromId==='handTop' || fromId==='handBottom')) { addMithril(who); }
+      // SAISON : Cosplay (W8) — JOUER : +2 Mithril.
+      if (card.label === 'W8' && (fromId==='handTop' || fromId==='handBottom')) {
+        addMithril(who); addMithril(who);
+        pushHistory('mithril', `${cardAnchor('W8')} rapporte +2 Mithril à ${playerLabel(who)}.`);
+      }
       if (card.label === 'C6') { nonKryllsAllowance[who] = (nonKryllsAllowance[who]||0) + 1; }
       if (drop === dropLeft) lineArray.unshift(card); else lineArray.push(card);
       pushHistory('jeu', `${cardAnchor(card.label)} joué en combat (${playerLabel(who)}).`);
@@ -21624,7 +21754,7 @@ function aiForceCancelAllTargetModes(){
     venusylvaDestroyMode = { active: false, venusylvaId: null };
     c112TargetMode = null; c114TargetMode = null; c231TargetMode = null;
     wadooLinkMode = null; dollyHealMode = null; prismisTargetMode = null;
-    liensSelectionMode = null; freedaTargetMode = null; miroirTargetMode = null;
+    liensSelectionMode = null; freedaTargetMode = null; furyoTargetMode = null; miroirTargetMode = null;
     hitAndRunMode = null; peinturlurerMode = null; explorationMode = null;
     chargeboxTargetMode = null; c59DestroyMode = null;
     c51SelectMode = null; c58HealingMode = null; c9SelectMode = null;
@@ -21876,7 +22006,12 @@ function aiResolveAnyOpenPrompt(selfSeat){
     // de la carte) à chaque tentative : l'IA relançait alors indéfiniment la
     // même capacité au pas suivant, la lançant et l'annulant en boucle sans
     // jamais faire progresser la partie.
-    (typeof c114TargetMode !== 'undefined' && c114TargetMode)
+    (typeof c114TargetMode !== 'undefined' && c114TargetMode) ||
+    // SAISON : Furyo (W6) — cette fenêtre affiche un bouton "Terminer" actif
+    // dès l'ouverture (pour permettre à un joueur humain de s'arrêter à 1
+    // cible) : sans ce court-circuit, le repli générique cliquerait ce
+    // bouton immédiatement, terminant l'action sans avoir gelé personne.
+    (typeof furyoTargetMode !== 'undefined' && furyoTargetMode)
   );
   if (hasKnownSmartMode) {
     const smart = aiChooseSmartTarget(selfSeat);
@@ -22048,6 +22183,15 @@ function aiChooseSmartTarget(selfSeat){
   if (typeof c114TargetMode !== 'undefined' && c114TargetMode) {
     const persos = entries.filter(e => e.zone === 'lane' && getType(e.card.label) === 'personnage');
     return pickBest(persos.filter(e => e.owner === oppSeat), persos);
+  }
+
+  // SAISON : Furyo (W6) — gèle jusqu'à 2 combattants ADVERSES ; exclut les
+  // cibles déjà gelées cette activation-ci (furyoTargetMode.picked), et vise
+  // toujours la plus dangereuse en priorité, comme un ciblage punitif classique.
+  if (typeof furyoTargetMode !== 'undefined' && furyoTargetMode) {
+    const alreadyPicked = new Set(furyoTargetMode.picked || []);
+    const enemyCombatants = entries.filter(e => e.zone === 'lane' && e.owner === oppSeat && !alreadyPicked.has(e.card.id));
+    return pickBest(enemyCombatants);
   }
 
   // Générique : la plupart des autres ciblages à effet unique (Tokzik, Kryo,
@@ -22488,7 +22632,10 @@ const AI_COMBATANT_ACTION_LABELS = [
   // corrigé plus tôt dans le projet).
   'T26','C138','C122',
   // SAISON : Zwav (W1) — capacité 100% automatique (aucun ciblage).
-  'W1'
+  // Furyo (W6) — ciblage multiple mais géré par le mode "smart" de l'IA
+  // (furyoTargetMode, voir aiChooseSmartTarget). Cosplay (W8) — capacité
+  // 100% automatique (aucun ciblage).
+  'W1', 'W6', 'W8'
 ];
 
 function aiCombatantActionIsUsable(card){
@@ -22496,6 +22643,8 @@ function aiCombatantActionIsUsable(card){
   const opp = (owner === 'top') ? 'bottom' : 'top';
   switch (card.label) {
     case 'W1':   return getDeckByOwner(owner).length > 0; // Zwav : STOCKAGE 2, utile tant qu'il reste des cartes au deck
+    case 'W6':   return getLineByOwner(opp).length > 0; // Furyo : geler jusqu'à 2 combattants adverses, utile dès qu'il y a une cible
+    case 'W8':   return true; // Cosplay : retour en main avec +2PV permanent, toujours bon
     case 'C9':   return true; // Zcyvenger : +1 Mithril puis pioche en défausse, toujours bon
     case 'C22':  return true; // Khromafayl : pioche 1 carte, toujours bon
     case 'C44': {

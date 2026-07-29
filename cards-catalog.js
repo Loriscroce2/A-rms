@@ -156,6 +156,8 @@ const SEASON_CARDS = [
   { code: 'W0002', num: 2, faction: 'Krylls', requiredRankIndex: 7 }, // Trou de ver — Mortelle II
   { code: 'W0004', num: 4, faction: 'Impy', requiredRankIndex: 8 }, // Groxx — Mortelle III
   { code: 'W0007', num: 7, faction: 'Chimeria', requiredRankIndex: 9 }, // Gems — Apocalyptique I
+  { code: 'W0006', num: 6, faction: 'Savage', requiredRankIndex: 10 }, // Furyo — Apocalyptique II
+  { code: 'W0008', num: 8, faction: 'Chimeria', requiredRankIndex: 11 }, // Cosplay — Apocalyptique III
 ];
 
 module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };
