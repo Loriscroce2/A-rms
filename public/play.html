@@ -294,6 +294,7 @@
           <button data-fac="Savage">Savage</button>
           <button data-fac="Chimeria">Chimeria</button>
           <button data-fac="Wadoo">Wadoo</button>
+          <button data-fac="WIN">🏆 WIN</button>
         </div>
         <div class="search">
           🔍 <input id="q" placeholder="Rechercher n° (ex: 0018) …" />
@@ -449,6 +450,18 @@
       const code = pad4(n);
       FULL_CATALOG.push({ code, num:n, faction:factionOf(n), img:`/cartes/${code}.png`, implemented: IMPLEMENTED_SET.has(n) });
     }
+    // Cartes WIN (récompenses de fin de saison, miroir de SEASON_CARDS dans
+    // cards-catalog.js) : ajoutées à la collection navigable et jouables en
+    // deck (dans leur faction), mais jamais tirées via boosters/boutique —
+    // voir randomCard/generateRandomBooster côté serveur, qui ignorent
+    // volontairement cette liste. isWin permet de les repérer à l'affichage.
+    const SEASON_CARDS = [
+      { code: 'W0001', faction: 'Krylls' }, // Zwav
+      { code: 'W0002', faction: 'Krylls' }, // Trou de ver
+    ];
+    SEASON_CARDS.forEach(sc => {
+      FULL_CATALOG.push({ code: sc.code, num: null, faction: sc.faction, img: `/cartes/${sc.code}.png`, implemented: true, isWin: true });
+    });
     // Catalogue RESTREINT : uniquement les cartes réellement jouables — c'est
     // celui-ci qui doit gouverner tout ce qui touche à la construction de deck.
     const CATALOG = FULL_CATALOG.filter(c => c.implemented);
@@ -836,8 +849,8 @@
 
     function renderCollection(){
       grid.innerHTML = '';
-      const list = COLLECTION.filter(c => 
-        (currentFacFilter === 'all' || c.faction === currentFacFilter) && 
+      const list = COLLECTION.filter(c =>
+        (currentFacFilter === 'all' || c.faction === currentFacFilter || (currentFacFilter === 'WIN' && c.isWin)) &&
         (!currentQuery || c.code.includes(currentQuery))
       );
       list.forEach(c => grid.appendChild(createCardNode(c, false)));

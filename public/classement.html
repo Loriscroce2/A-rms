@@ -498,8 +498,8 @@
     async function loadSeasonCards(){
       try{
         const [catalogRes, statsRes] = await Promise.all([
-          fetch('/data/card-catalog.json'),
-          fetch('/data/card-stats.json'),
+          fetch('/data/card-catalog.json', { cache: 'no-store' }),
+          fetch('/data/card-stats.json', { cache: 'no-store' }),
         ]);
         const catalogData = await catalogRes.json();
         const statsData = await statsRes.json().catch(() => ({}));
