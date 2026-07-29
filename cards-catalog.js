@@ -146,9 +146,14 @@ function generateRandomBooster(size = 7) {
 // distribution manuelle de fin de saison. Chaque exemplaire distribué est en
 // plus numéroté individuellement (ex. "002/500"), une contrainte gérée par
 // le futur système de distribution, pas par ce catalogue.
+// requiredRankIndex : index (0-14) du rang de Menace qui doit être ATTEINT
+// pour prétendre à cette carte (voir RANK_TIER_NAMES / RANK_CUM_START dans
+// server.js — idx 6 = Mortelle I, 7 = Mortelle II, etc.). Sert à la fois à
+// l'affichage sur la Voie de la Menace (classement.html) et à la
+// distribution via le bouton admin "débloquer toutes les cartes".
 const SEASON_CARDS = [
-  { code: 'W0001', num: 1, faction: 'Krylls' }, // Zwav
-  { code: 'W0002', num: 2, faction: 'Krylls' }, // Trou de ver
+  { code: 'W0001', num: 1, faction: 'Krylls', requiredRankIndex: 6 }, // Zwav — Mortelle I
+  { code: 'W0002', num: 2, faction: 'Krylls', requiredRankIndex: 7 }, // Trou de ver — Mortelle II
 ];
 
 module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };

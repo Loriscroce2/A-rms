@@ -232,6 +232,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_friendships_addressee ON friendships (addressee_id, status);
   CREATE INDEX IF NOT EXISTS idx_chat_private_pair ON chat_private_messages (from_id, to_id);
   CREATE INDEX IF NOT EXISTS idx_chat_private_pair_rev ON chat_private_messages (to_id, from_id);
+
+  -- Trace chaque carte 'W' (récompense de fin de saison, voir SEASON_CARDS
+  -- dans cards-catalog.js) déjà distribuée à un joueur via le bouton admin
+  -- "débloquer toutes les cartes", pour ne JAMAIS la distribuer deux fois au
+  -- même joueur si l'administrateur clique le bouton plusieurs fois (ex.
+  -- après que d'autres joueurs ont depuis atteint le rang requis).
+  CREATE TABLE IF NOT EXISTS season_card_grants (
+    user_id INTEGER NOT NULL,
+    code TEXT NOT NULL,
+    granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, code),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  );
 `);
 
 // Migration douce pour les bases coin_purchases créées avant l'ajout du

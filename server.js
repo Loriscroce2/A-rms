@@ -409,6 +409,7 @@ app.post('/api/signup', (req, res) => {
     }
     const user = { id: info.lastInsertRowid, email: emailLower, name };
     setAuthCookie(res, user);
+    if (isAdminEmail(emailLower)) ensureAdminFullCollection();
     res.json({ ok: true, user });
   } catch (e) {
     console.error(e);
@@ -429,6 +430,7 @@ app.post('/api/login', (req, res) => {
 
     const user = { id: userRow.id, email: userRow.email, name: userRow.name };
     setAuthCookie(res, user);
+    if (isAdminEmail(userRow.email)) ensureAdminFullCollection();
     res.json({ ok: true, user });
   } catch (e) {
     console.error(e);
@@ -540,6 +542,30 @@ const qUpsertUserCard = db.prepare(`
   INSERT INTO user_cards (user_id, code, count) VALUES (?, ?, ?)
   ON CONFLICT(user_id, code) DO UPDATE SET count = excluded.count
 `);
+
+// Le compte administrateur a TOUJOURS accès à toutes les cartes (1-250 +
+// toute la série 'W' de fin de saison), en 2 exemplaires chacune — MAIS
+// jamais les jetons (T01-T29), qui restent hors de ce catalogue. Idempotent
+// (SET, pas d'addition) : peut être rappelée à volonté (démarrage serveur,
+// chaque connexion admin) sans jamais faire gonfler les quantités.
+function ensureAdminFullCollection() {
+  try {
+    const admin = qFindUserByEmail.get(ADMIN_EMAIL);
+    if (!admin) return; // compte pas encore créé (première installation)
+    const grantAll = db.transaction(() => {
+      catalog.SEASON_1_ALL_SLOTS.forEach(slot => {
+        qUpsertUserCard.run(admin.id, slot.code, 2);
+      });
+      (catalog.SEASON_CARDS || []).forEach(c => {
+        qUpsertUserCard.run(admin.id, c.code, 2);
+      });
+    });
+    grantAll();
+  } catch (e) {
+    console.error('[admin-collection] Échec de la mise à jour automatique :', e.message);
+  }
+}
+
 app.post('/api/admin/users/:id/full-collection', authMiddleware, adminMiddleware, (req, res) => {
   try {
     const targetId = parseInt(req.params.id, 10);
@@ -552,6 +578,49 @@ app.post('/api/admin/users/:id/full-collection', authMiddleware, adminMiddleware
     });
     grantAll();
     res.json({ ok: true, granted: catalog.SEASON_1_ALL_SLOTS.length });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// ===================================================================
+// CARTES 'W' DE FIN DE SAISON — distribution liée au rang de Menace.
+// Chaque carte de catalog.SEASON_CARDS porte un requiredRankIndex (0-14) :
+// tout joueur ayant AU MOINS atteint ce rang y a droit. La distribution
+// n'est JAMAIS automatique : elle n'a lieu que lorsque l'administrateur
+// clique sur "Débloquer toutes les cartes" (voir bouton admin.html), et
+// season_card_grants garde la trace de qui a déjà reçu quoi pour ne
+// jamais distribuer deux fois la même carte au même joueur.
+// ===================================================================
+const qAllUsersForSeasonGrant = db.prepare('SELECT id, email, threat_points FROM users');
+const qSeasonGrantExists = db.prepare('SELECT 1 FROM season_card_grants WHERE user_id = ? AND code = ?');
+const qInsertSeasonGrant = db.prepare('INSERT INTO season_card_grants (user_id, code) VALUES (?, ?)');
+
+app.post('/api/admin/season-cards/unlock-all', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const users = qAllUsersForSeasonGrant.all();
+    let grantedCount = 0;
+    const perCard = {};
+    (catalog.SEASON_CARDS || []).forEach(c => { perCard[c.code] = 0; });
+
+    const run = db.transaction(() => {
+      users.forEach(u => {
+        if (isAdminEmail(u.email)) return; // le compte admin a déjà tout en permanence
+        const myRankIndex = rankIndexForPoints(u.threat_points);
+        (catalog.SEASON_CARDS || []).forEach(c => {
+          if (typeof c.requiredRankIndex !== 'number' || myRankIndex < c.requiredRankIndex) return;
+          if (qSeasonGrantExists.get(u.id, c.code)) return;
+          qInsertSeasonGrant.run(u.id, c.code);
+          qUpsertCard.run(u.id, c.code, 1);
+          grantedCount++;
+          perCard[c.code] = (perCard[c.code] || 0) + 1;
+        });
+      });
+    });
+    run();
+
+    res.json({ ok: true, grantedCount, perCard, playersChecked: users.length });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -2725,12 +2794,16 @@ function regenerateCardStats() {
     // SAISON : mêmes tables, label 'W{num}' — la faction vient directement
     // de catalog.SEASON_CARDS (factionOf(num) ne connaît que le schéma
     // numérique 1-250 et donnerait un résultat faux pour ces codes).
-    (catalog.SEASON_CARDS || []).forEach(({ num, code, faction }) => {
+    (catalog.SEASON_CARDS || []).forEach(({ num, code, faction, requiredRankIndex }) => {
       const label = `W${num}`;
       catalogResult[code] = {
         name: cardNames[label] || `Carte ${code}`,
         type: cardTypes[label] || 'inconnu',
         faction: faction,
+        // Index (0-14) du rang de Menace requis pour cette carte — utilisé
+        // par classement.html pour l'afficher (grisée, cadenas) à côté du
+        // bon rang sur la Voie de la Menace.
+        requiredRankIndex: typeof requiredRankIndex === 'number' ? requiredRankIndex : null,
       };
     });
     const catalogOutPath = path.join(__dirname, 'public', 'data', 'card-catalog.json');
@@ -2744,6 +2817,7 @@ function regenerateCardStats() {
   }
 }
 regenerateCardStats();
+ensureAdminFullCollection();
 
 // ===================================================================
 // SIGNALEMENT DE BUG — onglet "🐛 Signaler un bug" de la box de Tchat, en
