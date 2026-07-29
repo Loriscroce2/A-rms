@@ -4113,7 +4113,7 @@ async function playIgnominieSfx(){
 /* ---------- Mappings / Noms ---------- */
 const CARD_IMAGES = {
   /* SAISON (récompenses de fin de saison, jamais en booster) */
-  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png',
+  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png', 'W4': '../cartes/W0004.png', 'W7': '../cartes/W0007.png',
   'C1': '../cartes/0001.png', 'C2': '../cartes/0002.png', 'C3': '../cartes/0003.png',
   'C4': '../cartes/0004.png', 'C5': '../cartes/0005.png', 'C6': '../cartes/0006.png',
   'C7': '../cartes/0007.png', 'C8': '../cartes/0008.png', 'C9': '../cartes/0009.png',
@@ -4332,7 +4332,7 @@ const CARD_IMAGES = {
 
 const CARD_TYPES  = {
   /* SAISON */
-  'W1':'personnage', 'W2':'action',
+  'W1':'personnage', 'W2':'action', 'W4':'personnage', 'W7':'personnage',
   'C1':'personnage', 'C2':'personnage', 'C3':'personnage', 'C4':'action', 'C5':'action',
   'C6':'personnage', 'C7':'artefact', 'C8':'artefact', 'C9':'personnage',
   'C10':'familier', 'C11':'familier', 'C12':'personnage', 'C13':'personnage', 'C14':'personnage',
@@ -4555,7 +4555,7 @@ const CARD_TYPES  = {
 
 const CARD_NAMES = {
   /* SAISON */
-  'W1':'Zwav', 'W2':'Trou de ver',
+  'W1':'Zwav', 'W2':'Trou de ver', 'W4':'Groxx', 'W7':'Gems',
   'C1':'Zyrka', 'C2':'Zykmu', 'C3':'Bzyrk', 'C4':'Blubool', 'C5':'Vortex',
   'C6':'Myzor', 'C7':'Zwyffer', 'C8':'Rescelleur', 'C9':'Zcyvenger', 'C10':'Mozkyto',
   'C11':'Barbara', 'C12':'Rat-Ky', 'C13':'Narzbok', 'C14':'Wyrz-M', 'C15':'Zancredy',
@@ -4781,7 +4781,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 /* PV/boucliers */
 const CARD_HP_BASE = {
   /* SAISON */
-  'W1':4,
+  'W1':4, 'W4':6, 'W7':6,
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
   'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7, 'C82': 1, 'C83': 2, 'C86': 5,
@@ -4999,7 +4999,7 @@ const CARD_SHIELD_BASE = {
 /* Tags */
 const CARD_TAGS = {
   /* SAISON */
-  'W1':['citoyen','Krylls'], 'W2':['action','Krylls'],
+  'W1':['citoyen','Krylls'], 'W2':['action','Krylls'], 'W4':['citoyen','Impy'], 'W7':['citoyen','Chimeria','Esprit','rapide'],
   'C1':['guerrier','Krylls'], 'C2':['citoyen','Krylls'], 'C3':['guerrier','Krylls'],
   'C4':['action','Krylls'], 'C5':['action','Krylls'], 'C6':['citoyen','Krylls'],
   'C7':['artefact','Krylls'], 'C8':['artefact','Krylls'], 'C9':['citoyen','Krylls'],
@@ -10646,6 +10646,16 @@ function openMiningPrompt(owner, card, fromEl){
         const canStock = getDeckByOwner(owner).length > 0;
         msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (STOCKAGE 2 : déplace les 2 cartes du dessus de votre deck dans votre STOCK).';
         buttons.push(mineButton, { label: 'Action (STOCKAGE 2)', className: 'confirm' + (canStock ? '' : ' disabled'), disabled: !canStock, onClick: () => { if (canStock) useZwavAbility(owner, card); } });
+    } else if (card.label === 'W7') {
+        title = 'Gems';
+        // SAISON : Gems (W7) — l'ACTION d'infiltration n'est disponible
+        // qu'une seule fois (avant qu'elle ait déjà infiltré la zone adverse,
+        // voir card.gemsOriginalOwner posé par useGemsInfiltration) et
+        // seulement si la zone de combat adverse a une place libre.
+        const gemsOpp = (owner === 'top') ? 'bottom' : 'top';
+        const canInfiltrate = !card.gemsOriginalOwner && getLineByOwner(gemsOpp).length < getMaxCombatantsForOwner(gemsOpp);
+        msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (Infiltration : Gems passe dans la zone de combat adverse — elle y prend une place — puis détruit les combattants les plus proches à sa gauche et à sa droite au début de chacun de vos tours).';
+        buttons.push(mineButton, { label: 'Action (Infiltration)', className: 'confirm' + (canInfiltrate ? '' : ' disabled'), disabled: !canInfiltrate, onClick: () => { if (canInfiltrate) useGemsInfiltration(owner, card); } });
     } else if (card.label === 'C206') {
         title = 'Mama Cecil';
         msg = 'Choisissez : <strong>Miner</strong> ou utiliser votre <strong>Action</strong> (+5PV pour Mama Cecil, +3PV et ESPRIT pour toutes vos Poupées liées).';
@@ -11268,6 +11278,101 @@ function useZwavAbility(owner, card){
     pushHistory('info', `${cardAnchor('W1')} : deck vide, aucune carte à déplacer vers le STOCK.`);
   }
   closeActionPrompt();
+  fullRender();
+}
+
+// SAISON : Gems (W7) — ACTION : infiltration. Passe dans la zone de combat
+// ADVERSE (y prend une place, voir getMaxCombatantsForOwner) ; le joueur qui
+// LA REÇOIT (le nouveau contrôleur) choisit l'extrémité d'insertion (tout à
+// gauche ou tout à droite — voir requestGemsInsertionChoice). Une fois
+// infiltrée, elle est jouable normalement par ce nouveau contrôleur (Miner /
+// Attaque), à condition qu'il ait Chimeria comme faction active ce tour-là :
+// cette restriction est déjà garantie automatiquement par
+// isCardAllowedThisTurn/hasTag + activeFaction dès qu'elle appartient à sa
+// zone de combat (ownerOfCardOnBoard se base uniquement sur l'appartenance
+// à topLine/botLine), donc aucune logique supplémentaire n'est nécessaire
+// ici. Son propriétaire D'ORIGINE (celui qui a joué cette ACTION, conservé
+// dans card.gemsOriginalOwner) continue lui de bénéficier de son effet
+// récurrent de destruction des voisins, au début de CHACUN de ses propres
+// tours (voir startTurn).
+function useGemsInfiltration(owner, card){
+  if(!canPlayThisCardNow(owner, card)) return;
+  if(hasAttacked(owner, card)) return;
+  if (card.gemsOriginalOwner) return; // déjà infiltrée, l'ACTION ne se réutilise pas
+
+  const gemsOpp = (owner === 'top') ? 'bottom' : 'top';
+  if (getLineByOwner(gemsOpp).length >= getMaxCombatantsForOwner(gemsOpp)) {
+    pushHistory('info', `${cardAnchor('W7')} : la zone de combat de ${playerLabel(gemsOpp)} est déjà pleine, l'infiltration est impossible.`);
+    closeActionPrompt();
+    fullRender();
+    return;
+  }
+
+  markAttacked(owner, card);
+  card.gemsOriginalOwner = owner;
+  closeActionPrompt();
+
+  requestGemsInsertionChoice(gemsOpp, (side) => {
+    completeGemsInfiltration(owner, gemsOpp, card, side);
+  });
+}
+
+// Demande au NOUVEAU contrôleur (celui qui reçoit Gems) de choisir
+// l'extrémité d'insertion dans sa propre zone de combat. Même schéma à 3
+// branches que handlePestrassDeathrattle : IA (décision automatique), partie
+// en ligne où ce choix appartient à l'adversaire (délégation via
+// requestOpponentChoice), ou choix local direct (hotseat, ou en ligne si
+// c'est bien mon propre choix).
+function requestGemsInsertionChoice(newController, callback) {
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(newController)) {
+    setTimeout(() => callback('left'), 600);
+    return;
+  }
+
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && MY_SEAT !== newController) {
+    showWaitOverlay(`Patientez : l'adversaire choisit où insérer ${cardName('W7')} infiltrée dans sa zone de combat...`);
+    requestOpponentChoice('gems', {}, (side) => {
+      hideWaitOverlay();
+      callback(side === 'right' ? 'right' : 'left');
+    });
+    return;
+  }
+
+  openGemsInsertionPrompt(callback);
+}
+
+function openGemsInsertionPrompt(callback) {
+  openButtonsPrompt(
+    'Infiltration : Gems',
+    `${cardAnchor('W7')} s'infiltre dans votre zone de combat ! Choisissez où l'insérer.`,
+    null,
+    [
+      { label: 'Tout à gauche', className: 'confirm', onClick: () => callback('left') },
+      { label: 'Tout à droite', className: 'confirm', onClick: () => callback('right') },
+    ]
+  );
+}
+
+function completeGemsInfiltration(originalOwner, newController, card, side) {
+  const ownLine = getLineByOwner(originalOwner);
+  const removeIdx = ownLine.findIndex(c => c.id === card.id);
+  if (removeIdx === -1) { fullRender(); return; }
+  ownLine.splice(removeIdx, 1);
+
+  const targetLine = getLineByOwner(newController);
+  // Sécurité : la capacité a déjà été vérifiée avant d'ouvrir le choix, mais
+  // on revérifie ici au cas où l'état aurait changé entre-temps (partie en
+  // ligne : latence de la réponse adverse).
+  if (targetLine.length >= getMaxCombatantsForOwner(newController)) {
+    ownLine.splice(removeIdx, 0, card);
+    pushHistory('info', `${cardAnchor('W7')} : la zone de combat de ${playerLabel(newController)} est maintenant pleine, l'infiltration échoue.`);
+    fullRender();
+    return;
+  }
+
+  if (side === 'right') { targetLine.push(card); } else { targetLine.unshift(card); }
+
+  pushHistory('action', `${cardAnchor('W7')} s'infiltre dans la zone de combat de ${playerLabel(newController)} (insérée tout à ${side === 'right' ? 'droite' : 'gauche'}) !`);
   fullRender();
 }
 
@@ -14416,6 +14521,18 @@ function handleIncomingChoiceRequest(requestId, kind, payload) {
     showChoiceNotice(`${cardName('C117')} déclenche son effet : à vous de choisir qui soigner.`);
     buildDollyPrompt();
     fullRender();
+  }
+
+  if (kind === 'gems') {
+    // SAISON : Gems (W7) s'infiltre dans MA zone de combat (celle du
+    // destinataire de cette requête) — c'est à moi de choisir l'extrémité
+    // d'insertion, pas au joueur qui vient d'activer son ACTION.
+    showChoiceNotice(`${cardName('W7')} s'infiltre dans votre zone de combat : à vous de choisir où l'insérer.`);
+    openGemsInsertionPrompt((side) => {
+      hideChoiceNotice();
+      closeActionPrompt();
+      window.__socket.emit('choiceResponse', { matchId: ONLINE_MATCH_ID, seat: MY_SEAT, requestId, choice: side });
+    });
   }
 
   if (kind === 'c58') {
@@ -18195,7 +18312,12 @@ function getMaxCombatantsForOwner(owner){
   // est réduite de 1 par exemplaire (inverse d'Etendardz).
   const oppArts = (owner === 'top') ? botArts : topArts;
   const obstructeurCount = oppArts.filter(a => a.label === 'C95').length;
-  return Math.max(1, MAX_COMBATANTS_PER_ZONE_BASE + etendardzCount * 2 - obstructeurCount);
+  // SAISON : Groxx (W4) — tant qu'il reste dans l'Exil (voir discardCard),
+  // réduit de 2 la capacité d'accueil de la zone de combat de SON adversaire
+  // (donc de owner si c'est l'adversaire de owner qui l'a exilé).
+  const groxxOpp = (owner === 'top') ? 'bottom' : 'top';
+  const groxxCount = exilePile.filter(c => c.label === 'W4' && c.exiledBy === groxxOpp).length;
+  return Math.max(1, MAX_COMBATANTS_PER_ZONE_BASE + etendardzCount * 2 - obstructeurCount - groxxCount * 2);
 }
 
 function setupDrops(dropLeft, dropRight, lineArray, who){
@@ -19254,6 +19376,18 @@ if (reason === 'manual') {
     addToExile(card, context);
     pushHistory('exil', `${cardAnchor('T02')} est bannie en EXIL.`);
     return; // On arrête la fonction ici
+  }
+
+  // SAISON : Groxx (W4) — MORT : exilé au lieu d'être défaussé. Tant qu'il
+  // reste dans l'Exil, la capacité d'accueil de la zone de combat ADVERSE
+  // (celle de l'adversaire de owner) est réduite de 2 — voir
+  // getMaxCombatantsForOwner, qui compte les Groxx en Exil via card.exiledBy.
+  if (card.label === 'W4' && reason === 'death') {
+    card.exiledBy = owner;
+    const groxxOpp = (owner === 'top') ? 'bottom' : 'top';
+    addToExile(card, context);
+    pushHistory('exil', `${cardAnchor('W4')} est exilé : tant qu'il y reste, la capacité d'accueil de la zone de combat de ${playerLabel(groxxOpp)} est réduite de 2.`);
+    return;
   }
 
   if (card.label === 'C66' && reason === 'death') {
@@ -22643,6 +22777,43 @@ function startTurn(player){
       }
     }
   } catch(err) { console.error('[Sucepince] effet impossible :', err); }
+
+  // SAISON : Gems (W7) — au début de CHACUN des tours de son propriétaire
+  // D'ORIGINE (celui qui l'a jouée et a activé son ACTION d'infiltration,
+  // voir useGemsInfiltration/card.gemsOriginalOwner), si elle est toujours
+  // sur le plateau (quel que soit son contrôleur actuel — elle peut être
+  // dans topLine OU botLine après l'infiltration), détruit les combattants
+  // immédiatement à sa gauche et à sa droite dans SA rangée actuelle. Cet
+  // effet reste attaché à son propriétaire d'origine même après le
+  // transfert de contrôle (Miner/Capacité/Attaque, eux, appartiennent
+  // désormais au nouveau contrôleur — voir isCardAllowedThisTurn).
+  try {
+    [topLine, botLine].forEach(gemsLine => {
+      gemsLine.filter(c => c.label === 'W7' && c.gemsOriginalOwner === player).forEach(gems => {
+        const idx = gemsLine.indexOf(gems);
+        if (idx === -1) return;
+        const targets = [];
+        if (idx - 1 >= 0) targets.push(gemsLine[idx - 1]);
+        if (idx + 1 < gemsLine.length) targets.push(gemsLine[idx + 1]);
+        if (targets.length === 0) {
+          pushHistory('info', `${cardAnchor('W7')} : aucun combattant adjacent à détruire.`);
+          return;
+        }
+        const destroyedLabels = targets.map(t => cardAnchor(t.label));
+        targets.forEach(victim => {
+          const vLine = topLine.includes(victim) ? topLine : botLine;
+          const vOwner = topLine.includes(victim) ? 'top' : 'bottom';
+          const vIdx = vLine.findIndex(c => c.id === victim.id);
+          if (vIdx !== -1) {
+            vLine.splice(vIdx, 1);
+            detachFamiliarsOnHost(victim, vOwner);
+            discardCard(victim, vOwner, 'death');
+          }
+        });
+        pushHistory('action', `${cardAnchor('W7')} détruit les combattants adjacents : ${destroyedLabels.join(', ')}.`);
+      });
+    });
+  } catch(err) { console.error('[Gems] effet de destruction impossible :', err); }
 
   // Minuteur de tour : redémarré à 90s à chaque nouveau tour. Enveloppé pour
   // garantir qu'il ne puisse JAMAIS interrompre le reste de la mise en place

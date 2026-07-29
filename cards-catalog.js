@@ -154,6 +154,8 @@ function generateRandomBooster(size = 7) {
 const SEASON_CARDS = [
   { code: 'W0001', num: 1, faction: 'Krylls', requiredRankIndex: 6 }, // Zwav — Mortelle I
   { code: 'W0002', num: 2, faction: 'Krylls', requiredRankIndex: 7 }, // Trou de ver — Mortelle II
+  { code: 'W0004', num: 4, faction: 'Impy', requiredRankIndex: 8 }, // Groxx — Mortelle III
+  { code: 'W0007', num: 7, faction: 'Chimeria', requiredRankIndex: 9 }, // Gems — Apocalyptique I
 ];
 
 module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };
