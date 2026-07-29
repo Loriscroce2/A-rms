@@ -7994,7 +7994,10 @@ function playActionRollback(owner, actionCard){
       detachFamiliarsOnHost(c, side, false); // retour en main, pas une mort
       cleanupPrismisLinksOnCardRemoval(c);
       cleanupWadooLinksOnCardRemoval(c);
-      if (typeof c.hp === 'number') c.hp = getBaseHP(c.label);
+      // SAISON : Cosplay (W8) garde ses PV actuels même renvoyée en main par
+      // un effet extérieur — seule sa propre ACTION lui donne +2PV (voir
+      // useCosplayReturnAbility).
+      if (typeof c.hp === 'number' && c.label !== 'W8') c.hp = getBaseHP(c.label);
       c.shield = getBaseShield(c.label);
       c.isFrozenByEffect = false; // une carte qui retourne en main perd le GEL
       getHandByOwner(side).push(c);
@@ -9730,7 +9733,9 @@ function handleC231TargetSelection(targetCard, targetOwner) {
 
   // Remise en main : PV/Bouclier reviennent à leur valeur de base, comme
   // pour toute carte qui quitte le champ de bataille — et elle perd le GEL.
-  if (typeof targetCard.hp === 'number') targetCard.hp = getBaseHP(targetCard.label);
+  // SAISON : Cosplay (W8) garde ses PV actuels même renvoyée en main par
+  // un effet extérieur (voir useCosplayReturnAbility pour sa propre ACTION).
+  if (typeof targetCard.hp === 'number' && targetCard.label !== 'W8') targetCard.hp = getBaseHP(targetCard.label);
   targetCard.shield = getBaseShield(targetCard.label);
   targetCard.isFrozenByEffect = false;
   const targetHand = getHandByOwner(targetOwner);
@@ -16059,7 +16064,8 @@ function continueResolveFight(from, to){
       detachFamiliarsOnHost(card, owner, false); // sauvée par Gluangel : ne meurt pas
 
       // 2. On réinitialise la carte sauvée à ses statistiques de base
-      card.hp = getBaseHP(card.label);
+      // SAISON : Cosplay (W8) garde ses PV actuels même sauvée par Gluangel.
+      if (card.label !== 'W8') { card.hp = getBaseHP(card.label); }
       card.shield = getBaseShield(card.label);
       // Nettoyage complet des effets temporaires
       delete card.tempHP;
@@ -17819,7 +17825,8 @@ function onCharacterEnterBattlefield_impl(card, owner) {
         detachFamiliarsOnHost(t, ouraboreasOpp, false); // retour en main, pas une mort
         if (typeof cleanupPrismisLinksOnCardRemoval === 'function') cleanupPrismisLinksOnCardRemoval(t);
         if (typeof cleanupWadooLinksOnCardRemoval === 'function') cleanupWadooLinksOnCardRemoval(t);
-        if (typeof t.hp === 'number') t.hp = getBaseHP(t.label);
+        // SAISON : Cosplay (W8) garde ses PV actuels même renvoyée en main.
+        if (typeof t.hp === 'number' && t.label !== 'W8') t.hp = getBaseHP(t.label);
         t.shield = getBaseShield(t.label);
         t.isFrozenByEffect = false; // une carte qui retourne en main perd le GEL
         getHandByOwner(ouraboreasOpp).push(t);
@@ -22944,18 +22951,19 @@ function startTurn(player){
     }
   } catch(err) { console.error('[Sucepince] effet impossible :', err); }
 
-  // SAISON : Gems (W7) — au début de CHACUN des tours de son propriétaire
-  // D'ORIGINE (celui qui l'a jouée et a activé son ACTION d'infiltration,
-  // voir useGemsInfiltration/card.gemsOriginalOwner), si elle est toujours
-  // sur le plateau (quel que soit son contrôleur actuel — elle peut être
-  // dans topLine OU botLine après l'infiltration), détruit les combattants
-  // immédiatement à sa gauche et à sa droite dans SA rangée actuelle. Cet
-  // effet reste attaché à son propriétaire d'origine même après le
-  // transfert de contrôle (Miner/Capacité/Attaque, eux, appartiennent
-  // désormais au nouveau contrôleur — voir isCardAllowedThisTurn).
+  // SAISON : Gems (W7) — au début de CHACUN des tours du joueur qui l'a
+  // actuellement dans SA zone de combat (donc le NOUVEAU contrôleur après
+  // l'infiltration, voir useGemsInfiltration), si elle a déjà infiltré au
+  // moins une fois (card.gemsOriginalOwner posé, empêche le déclenchement
+  // avant toute infiltration), détruit les combattants immédiatement à sa
+  // gauche et à sa droite dans SA rangée actuelle. Contrairement à Miner/
+  // Capacité/Attaque (déjà automatiquement gérés par isCardAllowedThisTurn
+  // via l'appartenance à topLine/botLine), ce déclenchement de début de
+  // tour n'est pas générique : on le cible explicitement ici sur la rangée
+  // de `player`.
   try {
-    [topLine, botLine].forEach(gemsLine => {
-      gemsLine.filter(c => c.label === 'W7' && c.gemsOriginalOwner === player).forEach(gems => {
+    const gemsLine = getLineByOwner(player);
+    gemsLine.filter(c => c.label === 'W7' && c.gemsOriginalOwner).forEach(gems => {
         const idx = gemsLine.indexOf(gems);
         if (idx === -1) return;
         const targets = [];
@@ -22977,7 +22985,6 @@ function startTurn(player){
           }
         });
         pushHistory('action', `${cardAnchor('W7')} détruit les combattants adjacents : ${destroyedLabels.join(', ')}.`);
-      });
     });
   } catch(err) { console.error('[Gems] effet de destruction impossible :', err); }
 
@@ -25938,7 +25945,9 @@ function applyHitAndRunEffect() {
 
       // Très important : détacher les familiers et réinitialiser la carte
       detachFamiliarsOnHost(cardToHand, owner, false); // retour en main, pas une mort
-      cardToHand.hp = getBaseHP(cardToHand.label);
+      // SAISON : Cosplay (W8) garde ses PV actuels même renvoyée en main par
+      // Hit & Run (voir useCosplayReturnAbility pour sa propre ACTION).
+      if (cardToHand.label !== 'W8') { cardToHand.hp = getBaseHP(cardToHand.label); }
       cardToHand.shield = getBaseShield(cardToHand.label);
       cardToHand.isFrozenByEffect = false; // une carte qui retourne en main perd le GEL
       delete cardToHand.tempHP;
