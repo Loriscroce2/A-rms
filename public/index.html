@@ -4113,7 +4113,8 @@ async function playIgnominieSfx(){
 /* ---------- Mappings / Noms ---------- */
 const CARD_IMAGES = {
   /* SAISON (récompenses de fin de saison, jamais en booster) */
-  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png', 'W4': '../cartes/W0004.png', 'W7': '../cartes/W0007.png', 'W6': '../cartes/W0006.png', 'W8': '../cartes/W0008.png',
+  'W1': '../cartes/W0001.png', 'W2': '../cartes/W0002.png', 'W4': '../cartes/W0004.png', 'W7': '../cartes/W0007.png', 'W6': '../cartes/W0006.png', 'W8': '../cartes/W0008.png', 'W10': '../cartes/W0010.png',
+  'T30': '../cartes/T30.png', 'T31': '../cartes/T31.png',
   'C1': '../cartes/0001.png', 'C2': '../cartes/0002.png', 'C3': '../cartes/0003.png',
   'C4': '../cartes/0004.png', 'C5': '../cartes/0005.png', 'C6': '../cartes/0006.png',
   'C7': '../cartes/0007.png', 'C8': '../cartes/0008.png', 'C9': '../cartes/0009.png',
@@ -4332,7 +4333,8 @@ const CARD_IMAGES = {
 
 const CARD_TYPES  = {
   /* SAISON */
-  'W1':'personnage', 'W2':'action', 'W4':'personnage', 'W7':'personnage', 'W6':'personnage', 'W8':'personnage',
+  'W1':'personnage', 'W2':'action', 'W4':'personnage', 'W7':'personnage', 'W6':'personnage', 'W8':'personnage', 'W10':'artefact',
+  'T30':'personnage', 'T31':'personnage',
   'C1':'personnage', 'C2':'personnage', 'C3':'personnage', 'C4':'action', 'C5':'action',
   'C6':'personnage', 'C7':'artefact', 'C8':'artefact', 'C9':'personnage',
   'C10':'familier', 'C11':'familier', 'C12':'personnage', 'C13':'personnage', 'C14':'personnage',
@@ -4555,7 +4557,8 @@ const CARD_TYPES  = {
 
 const CARD_NAMES = {
   /* SAISON */
-  'W1':'Zwav', 'W2':'Trou de ver', 'W4':'Groxx', 'W7':'Gems', 'W6':'Furyo', 'W8':'Cosplay',
+  'W1':'Zwav', 'W2':'Trou de ver', 'W4':'Groxx', 'W7':'Gems', 'W6':'Furyo', 'W8':'Cosplay', 'W10':'Âme-Rtume',
+  'T30':'Âme vide', 'T31':'Corps décharné',
   'C1':'Zyrka', 'C2':'Zykmu', 'C3':'Bzyrk', 'C4':'Blubool', 'C5':'Vortex',
   'C6':'Myzor', 'C7':'Zwyffer', 'C8':'Rescelleur', 'C9':'Zcyvenger', 'C10':'Mozkyto',
   'C11':'Barbara', 'C12':'Rat-Ky', 'C13':'Narzbok', 'C14':'Wyrz-M', 'C15':'Zancredy',
@@ -4781,7 +4784,7 @@ function cardName(label){ return CARD_NAMES[label] || label; }
 /* PV/boucliers */
 const CARD_HP_BASE = {
   /* SAISON */
-  'W1':4, 'W4':6, 'W7':6, 'W6':7, 'W8':5,
+  'W1':4, 'W4':6, 'W7':6, 'W6':7, 'W8':5, 'T30':1, 'T31':4,
   'C1':4, 'C2':1, 'C3':5, 'C6':3, 'C9':2, 'C12':1, 'C13':2, 'C14':6, 'C15':3, 'C17':2, 'C20':3,
   'C22':2,
   'C52': 5, 'C55': 3, 'C56': 6, 'C59': 4, 'C60': 2, 'C61': 4, 'C62': 0, 'C65': 2, 'C66': 1, 'C67': 5, 'C68': 4, 'C71': 1, 'C73': 7, 'C76': 1, 'C77': 4, 'C78': 10, 'T17': 5, 'T18': 5, 'C79': 3, 'C80': 7, 'C82': 1, 'C83': 2, 'C86': 5,
@@ -5000,7 +5003,14 @@ const CARD_SHIELD_BASE = {
 const CARD_TAGS = {
   /* SAISON */
   'W1':['citoyen','Krylls'], 'W2':['action','Krylls'], 'W4':['citoyen','Impy'], 'W7':['citoyen','Chimeria','Esprit','rapide'],
-  'W6':['guerrier','Savage','Esprit','rapide'], 'W8':['citoyen','Chimeria'],
+  'W6':['guerrier','Savage','Esprit','rapide'], 'W8':['citoyen','Chimeria'], 'W10':['artefact','Wadoo'],
+  // SAISON : Âme vide (T30) / Corps décharné (T31) — "Citoyen - Neutre
+  // (toutes les factions)" : taguées avec les 5 factions à la fois pour que
+  // isCardAllowedThisTurn (hasTag(card, activeFaction[player])) les
+  // considère toujours jouables/utilisables, quelle que soit la faction
+  // active du tour.
+  'T30':['citoyen','Krylls','Impy','Savage','Chimeria','Wadoo','Esprit'],
+  'T31':['citoyen','Krylls','Impy','Savage','Chimeria','Wadoo','rapide'],
   'C1':['guerrier','Krylls'], 'C2':['citoyen','Krylls'], 'C3':['guerrier','Krylls'],
   'C4':['action','Krylls'], 'C5':['action','Krylls'], 'C6':['citoyen','Krylls'],
   'C7':['artefact','Krylls'], 'C8':['artefact','Krylls'], 'C9':['citoyen','Krylls'],
@@ -15703,6 +15713,13 @@ function resolveFight(from, to){
       pushHistory('mithril', `${cardAnchor('T21')} gagne <strong>+1 Mithril</strong> au combat !`);
     }
     // ===================================================================
+    // SAISON : Corps décharné (T31) — COMBAT : gagne +1 Mithril.
+    // ===================================================================
+    if (from.card.label === 'T31') {
+      addMithril(from.owner);
+      pushHistory('mithril', `${cardAnchor('T31')} gagne <strong>+1 Mithril</strong> au combat !`);
+    }
+    // ===================================================================
     // CHIMERIA (8e lot) : Aphrodite Corrompue (T22) — COMBAT : vole +1
     // Mithril à l'adversaire, qui peut passer en négatif.
     // ===================================================================
@@ -17362,6 +17379,27 @@ if (card.label === 'C208') { // WADOO : Autel aux Ossements
   }
   openButtonsPrompt('Autel aux Ossements', 'Activer l\'Autel ?<br><small>Effet : Gagnez 1 Mithril. L\'adversaire défausse la carte du dessous de son deck.</small>', el, [
     { label:'Activer', className:'confirm', onClick:()=>useAutelAuxOssements(owner, card) },
+    { label:'Annuler', className:'cancel', onClick:()=>{} },
+  ]);
+}
+
+if (card.label === 'W10') { // SAISON : Âme-Rtume
+  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(artifactExhausted[owner].has(card.id)){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
+  if(!isCardAllowedThisTurn(owner, card)){
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `Utilisation refusée : ${cardAnchor('W10')} n’appartient pas à la faction active de ce tour.`);
+    return;
+  }
+  const ameRtumeOpp = (owner === 'top') ? 'bottom' : 'top';
+  const canUseAmeRtume = getLineByOwner(owner).length < getMaxCombatantsForOwner(owner) && getLineByOwner(ameRtumeOpp).length < getMaxCombatantsForOwner(ameRtumeOpp);
+  if (!canUseAmeRtume) {
+    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
+    pushHistory('info', `${cardAnchor('W10')} : une des deux zones de combat est pleine, l'action est impossible.`);
+    return;
+  }
+  openButtonsPrompt('Âme-Rtume', `Activer l'Action ?<br><small>Effet : place ${cardAnchor('T30')} dans la zone de combat de ${playerLabel(ameRtumeOpp)} et ${cardAnchor('T31')} dans la vôtre.</small>`, el, [
+    { label:'Activer', className:'confirm', onClick:()=>useAmeRtume(owner, card) },
     { label:'Annuler', className:'cancel', onClick:()=>{} },
   ]);
 }
@@ -19517,6 +19555,15 @@ if (reason === 'manual') {
     addToExile(card, context);
     pushHistory('exil', `${cardAnchor('T02')} est bannie en EXIL.`);
     return; // On arrête la fonction ici
+  }
+
+  // SAISON : Âme vide (T30) — ESPRIT : exilée (au lieu d'être défaussée) dès
+  // qu'elle sort de la zone de combat, quelle qu'en soit la raison (mort au
+  // combat, détruite par un effet, etc. — passe forcément par discardCard).
+  if (card.label === 'T30') {
+    addToExile(card, context);
+    pushHistory('exil', `${cardAnchor('T30')} est exilée en quittant la zone de combat.`);
+    return;
   }
 
   // SAISON : Groxx (W4) — MORT : exilé au lieu d'être défaussé. Tant qu'il
@@ -22775,6 +22822,15 @@ function aiArtifactUsefulnessScore(card){
     // Mithril : priorité élevée et constante.
     case 'C208': return 90;
 
+    // SAISON : Âme-Rtume — place un Corps décharné (4PV, RAPIDE, +1 Mithril
+    // au combat) dans sa propre zone et une Âme vide (1PV, gêne mineure)
+    // dans celle de l'adversaire. Bon rapport, mais nécessite de la place
+    // des DEUX côtés.
+    case 'W10': {
+      const canPlaceAmeRtume = myLine.length < getMaxCombatantsForOwner(AI_SEAT) && oppLine.length < getMaxCombatantsForOwner(oppSeat);
+      return canPlaceAmeRtume ? 70 : 0;
+    }
+
     // KRYLLS — Mine E.M.I : usage unique (elle est défaussée), rapporte 1
     // Mithril par combattant adverse actuellement protégé par du Bouclier.
     // Ne vaut le coup que s'il y a au moins une cible.
@@ -24894,6 +24950,41 @@ function useAutelAuxOssements(owner, card) {
   const opp = (owner === 'top') ? 'bottom' : 'top';
   pushHistory('mithril', `${cardAnchor('C208')} est activé : +1 Mithril.`);
   forceDiscardFromDeckBottom(opp, 1, 'C208');
+  closeActionPrompt();
+  fullRender();
+}
+
+// SAISON : Âme-Rtume (W10) — ACTION : place 1 Âme vide (T30) dans la zone de
+// combat ADVERSE et 1 Corps décharné (T31) dans SA PROPRE zone de combat.
+// L'Âme vide (sans RAPIDE) arrive épuisée, comme tout jeton apparu
+// directement sur le plateau (ex. Kamykaz/spawnKamykazDuplicate). Le Corps
+// décharné a RAPIDE (imprimé sur la carte) : comme pour toute carte RAPIDE
+// jouée normalement (voir setupDrops), il n'est PAS marqué épuisé et peut
+// agir dès son entrée en jeu.
+function useAmeRtume(owner, card) {
+  if (currentTurn !== owner) return;
+  if (artifactExhausted[owner].has(card.id)) return;
+
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+  const ownLine = getLineByOwner(owner);
+  if (oppLine.length >= getMaxCombatantsForOwner(opp) || ownLine.length >= getMaxCombatantsForOwner(owner)) {
+    pushHistory('info', `${cardAnchor('W10')} : une des deux zones de combat est pleine, l'action est impossible.`);
+    closeActionPrompt();
+    fullRender();
+    return;
+  }
+
+  exhaustArtifact(owner, card);
+
+  const ameVide = createCard('T30', opp === 'top' ? 'T' : 'B');
+  oppLine.push(ameVide);
+  markAttacked(opp, ameVide);
+
+  const corpsDecharne = createCard('T31', owner === 'top' ? 'T' : 'B');
+  ownLine.push(corpsDecharne);
+
+  pushHistory('artefact', `${cardAnchor('W10')} est activé : ${cardAnchor('T30')} apparaît dans la zone de combat de ${playerLabel(opp)}, ${cardAnchor('T31')} dans celle de ${playerLabel(owner)}.`);
   closeActionPrompt();
   fullRender();
 }
