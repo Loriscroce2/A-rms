@@ -22345,6 +22345,11 @@ function aiCanAttackWith(card, owner){
   if (isAnyTargetSelectionActive()) return false;
   if (['T02','T10','C215'].includes(card.label)) return false;
   if (getFamiliersOnHost(card).some(f => f.label === 'C70')) return false;
+  // CHIMERIA (dernier lot) : Blokméria (C187) bloque aussi l'attaque (voir
+  // startAiming, qui applique la même règle côté joueur humain) — sans ce
+  // filtre, l'IA pouvait attaquer avec un combattant qui en est pourtant
+  // empêché.
+  if (getFamiliersOnHost(card).some(f => f.label === 'C187' && !isFamiliarEffectSuppressed(card, 'C187'))) return false;
   if (isFrozen(card)) return false;
   if (!canUnitActThisTurn(owner, card)) return false;
   return true;
@@ -22564,6 +22569,11 @@ function aiTryMine(){
     if (isFrozen(c)) return false;
     if (!canUnitActThisTurn(AI_SEAT, c)) return false;
     if (getFamiliersOnHost(c).some(f => f.label === 'C70')) return false;
+    // CHIMERIA (dernier lot) : Blokméria (C187) bloque aussi le minage — sans
+    // ce filtre, l'IA sélectionnait en boucle un combattant que
+    // openMiningPrompt refuse silencieusement (aucun état modifié), ce qui
+    // gelait tout le tour de l'IA sur cette même carte.
+    if (getFamiliersOnHost(c).some(f => f.label === 'C187' && !isFamiliarEffectSuppressed(c, 'C187'))) return false;
     if (['T02','T10'].includes(c.label)) return false;
     const curHP = getEffectiveHP(c);
     const coqsixCount = getFamiliersOnHost(c).filter(f => f.label === 'C159').length;
