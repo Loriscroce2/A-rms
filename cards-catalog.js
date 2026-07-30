@@ -184,4 +184,31 @@ const SEASON_SKINS = [
   { file: 'versoimpy1.png', requiredRankIndex: 5 }, // Hostile III
 ];
 
-module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, SEASON_SKINS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };
+// ===================================================================
+// SAISON — récompenses en PIÈCES de fin de saison, un montant croissant par
+// palier de Menace ATTEINT (requiredRankIndex, même convention 0-14 que
+// SEASON_CARDS/SEASON_SKINS ci-dessus — idx 0 = Mineure I, le palier de
+// DÉPART, volontairement EXCLU : tout le monde l'a déjà d'office, il ne
+// représente aucune progression). Distribué de façon CUMULATIVE via le même
+// bouton admin "débloquer les récompenses de rang atteint" que les cartes
+// WIN et les skins : un joueur qui atteint Extinction III (idx 14) reçoit
+// les 14 montants ci-dessous d'un coup (voir season_coin_grants dans db.js
+// pour la trace anti-doublon).
+const SEASON_COIN_REWARDS = [
+  { requiredRankIndex: 1, coins: 150 },  // Mineure II
+  { requiredRankIndex: 2, coins: 250 },  // Mineure III
+  { requiredRankIndex: 3, coins: 350 },  // Hostile I
+  { requiredRankIndex: 4, coins: 450 },  // Hostile II
+  { requiredRankIndex: 5, coins: 600 },  // Hostile III
+  { requiredRankIndex: 6, coins: 750 },  // Mortelle I
+  { requiredRankIndex: 7, coins: 900 },  // Mortelle II
+  { requiredRankIndex: 8, coins: 1100 }, // Mortelle III
+  { requiredRankIndex: 9, coins: 1350 }, // Apocalyptique I
+  { requiredRankIndex: 10, coins: 1600 }, // Apocalyptique II
+  { requiredRankIndex: 11, coins: 1900 }, // Apocalyptique III
+  { requiredRankIndex: 12, coins: 2200 }, // Extinction I
+  { requiredRankIndex: 13, coins: 2500 }, // Extinction II
+  { requiredRankIndex: 14, coins: 3000 }, // Extinction III
+];
+
+module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, SEASON_SKINS, SEASON_COIN_REWARDS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };

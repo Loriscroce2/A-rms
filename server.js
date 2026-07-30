@@ -600,6 +600,10 @@ app.post('/api/admin/users/:id/full-collection', authMiddleware, adminMiddleware
 const qAllUsersForSeasonGrant = db.prepare('SELECT id, email, threat_points FROM users');
 const qSeasonGrantExists = db.prepare('SELECT 1 FROM season_card_grants WHERE user_id = ? AND code = ?');
 const qInsertSeasonGrant = db.prepare('INSERT INTO season_card_grants (user_id, code) VALUES (?, ?)');
+// Récompenses en pièces de fin de saison (voir SEASON_COIN_REWARDS) — même
+// mécanisme anti-doublon par palier de Menace que les cartes/skins ci-dessus.
+const qCoinGrantExists = db.prepare('SELECT 1 FROM season_coin_grants WHERE user_id = ? AND rank_index = ?');
+const qInsertCoinGrant = db.prepare('INSERT INTO season_coin_grants (user_id, rank_index, coins) VALUES (?, ?, ?)');
 
 app.post('/api/admin/season-cards/unlock-all', authMiddleware, adminMiddleware, (req, res) => {
   try {
@@ -614,6 +618,10 @@ app.post('/api/admin/season-cards/unlock-all', authMiddleware, adminMiddleware, 
     let grantedSkins = 0;
     const perSkin = {};
     (catalog.SEASON_SKINS || []).forEach(s => { perSkin[s.file] = 0; });
+    // Pièces de fin de saison (voir SEASON_COIN_REWARDS) : même bouton,
+    // même logique de seuil cumulatif par palier de Menace atteint.
+    let grantedCoinsTotal = 0;
+    let grantedCoinsPlayers = 0;
 
     const run = db.transaction(() => {
       users.forEach(u => {
@@ -637,11 +645,23 @@ app.post('/api/admin/season-cards/unlock-all', authMiddleware, adminMiddleware, 
           grantedSkins++;
           perSkin[s.file] = (perSkin[s.file] || 0) + 1;
         });
+        let userCoinGain = 0;
+        (catalog.SEASON_COIN_REWARDS || []).forEach(r => {
+          if (typeof r.requiredRankIndex !== 'number' || myRankIndex < r.requiredRankIndex) return;
+          if (qCoinGrantExists.get(u.id, r.requiredRankIndex)) return;
+          qInsertCoinGrant.run(u.id, r.requiredRankIndex, r.coins);
+          userCoinGain += r.coins;
+        });
+        if (userCoinGain > 0) {
+          qAddCoins.run(userCoinGain, u.id);
+          grantedCoinsTotal += userCoinGain;
+          grantedCoinsPlayers++;
+        }
       });
     });
     run();
 
-    res.json({ ok: true, grantedCount, perCard, grantedSkins, perSkin, playersChecked: users.length });
+    res.json({ ok: true, grantedCount, perCard, grantedSkins, perSkin, grantedCoinsTotal, grantedCoinsPlayers, playersChecked: users.length });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -918,6 +938,60 @@ app.post('/api/profile/card-back', authMiddleware, (req, res) => {
     }
     qSetCardBack.run(f, req.user.id);
     res.json({ ok: true, cardBack: f });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// ===================================================================
+// BOUTIQUE — dos de carte achetables directement contre des pièces (prix
+// fixe, voir SHOP_SKIN_PRICE), à la différence des skins de SEASON_SKINS
+// qui sont EXCLUSIVEMENT des récompenses de palier de Menace (jamais en
+// vente). Un skin en boutique = tout fichier présent dans public/assets/Skin
+// qui n'est PAS référencé dans SEASON_SKINS — pas besoin de liste séparée à
+// maintenir : ajouter une image dans le dossier suffit à la rendre
+// achetable automatiquement, sauf si on lui donne un requiredRankIndex.
+// ===================================================================
+const SHOP_SKIN_PRICE = 1000;
+function shopSkinFiles() {
+  const rankGoverned = new Set((catalog.SEASON_SKINS || []).map(s => s.file));
+  return listSkinFiles().filter(f => !rankGoverned.has(f));
+}
+
+app.get('/api/shop/skins', authMiddleware, (req, res) => {
+  try {
+    const isAdmin = isAdminEmail(req.user.email);
+    const userRow = qGetProfile.get(req.user.id);
+    const unlockedSet = new Set(isAdmin ? listSkinFiles() : qSkinUnlocksForUser.all(req.user.id).map(r => r.filename));
+    const skins = shopSkinFiles().map(file => ({
+      file,
+      price: SHOP_SKIN_PRICE,
+      owned: isAdmin || unlockedSet.has(file),
+    }));
+    res.json({ ok: true, skins, coins: coinsForResponse(req), equipped: (userRow && userRow.card_back) || '' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/shop/skins/buy', authMiddleware, (req, res) => {
+  try {
+    const f = String((req.body || {}).filename || '');
+    if (!shopSkinFiles().includes(f)) {
+      return res.status(400).json({ ok: false, error: 'invalid_skin' });
+    }
+    const isAdmin = isAdminEmail(req.user.email);
+    if (isAdmin || qSkinUnlockExists.get(req.user.id, f)) {
+      return res.status(400).json({ ok: false, error: 'already_owned' });
+    }
+    const spend = qSpendCoins.run(SHOP_SKIN_PRICE, req.user.id, SHOP_SKIN_PRICE);
+    if (spend.changes === 0) {
+      return res.status(400).json({ ok: false, error: 'not_enough_coins' });
+    }
+    qInsertSkinUnlock.run(req.user.id, f);
+    res.json({ ok: true, filename: f, coins: coinsForResponse(req) });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -3122,6 +3196,20 @@ function regenerateCardStats() {
     const catalogOutPath = path.join(__dirname, 'public', 'data', 'card-catalog.json');
     fs.writeFileSync(catalogOutPath, JSON.stringify(catalogResult), 'utf-8');
     console.log(`[card-catalog] Régénéré automatiquement au démarrage : ${Object.keys(catalogResult).length} cartes.`);
+
+    // --- Catalogue STATIQUE des récompenses de fin de saison hors cartes WIN
+    // (skins de dos de carte + pièces), pour que classement.html puisse les
+    // placer sur la Voie de la Menace sans authentification (au même titre
+    // que card-catalog.json ci-dessus) — l'état "possédé/déjà touché" reste,
+    // lui, calculé côté client à partir de données authentifiées séparées
+    // (/api/skins pour les skins, simple comparaison de rang pour les
+    // pièces, qui ne nécessite aucune requête supplémentaire).
+    const seasonRewardsOutPath = path.join(__dirname, 'public', 'data', 'season-rewards.json');
+    fs.writeFileSync(seasonRewardsOutPath, JSON.stringify({
+      skins: (catalog.SEASON_SKINS || []).map(s => ({ file: s.file, requiredRankIndex: s.requiredRankIndex })),
+      coins: (catalog.SEASON_COIN_REWARDS || []).map(r => ({ requiredRankIndex: r.requiredRankIndex, coins: r.coins })),
+    }), 'utf-8');
+    console.log('[season-rewards] Régénéré automatiquement au démarrage.');
   } catch (err) {
     // En cas d'échec (fichier index.html introuvable, format inattendu...),
     // on ne bloque JAMAIS le démarrage du serveur pour autant — le fichier

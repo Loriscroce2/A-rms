@@ -373,9 +373,13 @@
         const res = await fetch('/api/admin/season-cards/unlock-all', { method:'POST' });
         const data = await res.json();
         if (data.ok) {
-          showToast(data.grantedCount > 0
-            ? `${data.grantedCount} carte(s) WIN distribuée(s) parmi ${data.playersChecked} joueur(s) vérifié(s).`
-            : `Aucune nouvelle carte à distribuer (${data.playersChecked} joueur(s) vérifié(s)).`);
+          const parts = [];
+          if (data.grantedCount > 0) parts.push(`${data.grantedCount} carte(s) WIN`);
+          if (data.grantedSkins > 0) parts.push(`${data.grantedSkins} skin(s) de dos de carte`);
+          if (data.grantedCoinsTotal > 0) parts.push(`${data.grantedCoinsTotal} pièce(s) (${data.grantedCoinsPlayers} joueur(s))`);
+          showToast(parts.length > 0
+            ? `Distribué : ${parts.join(', ')} — parmi ${data.playersChecked} joueur(s) vérifié(s).`
+            : `Rien de nouveau à distribuer (${data.playersChecked} joueur(s) vérifié(s)).`);
         } else {
           showToast('Erreur lors de la distribution.', true);
         }

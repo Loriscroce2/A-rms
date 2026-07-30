@@ -20065,10 +20065,31 @@ function updateHandsUI(){
     window.__updateMyHandPanelCount(myHand.length);
   }
 }
+// Dos de carte équipé, appliqué UNIQUEMENT à la pioche de MY_SEAT (voir
+// applyMyDeckSkin ci-dessous) — même mapping que armsCardBackUrl (auth.js,
+// non inclus ici) et vsCardBackUrl (écran de tirage, plus haut dans ce
+// fichier), gardé en local pour ne pas dépendre de leur portée.
+function deckSkinUrl(cardBack){
+  if (!cardBack) return '/cartes/Versobasic.png';
+  return `/assets/Skin/${encodeURIComponent(cardBack)}`;
+}
+// SAISON : applique le dos de carte équipé par le joueur LOCAL (MY_SEAT)
+// uniquement sur SA PROPRE pioche (#deckTop ou #deckBottom selon le siège).
+// La pioche de l'ADVERSAIRE garde volontairement le dos classique, quel que
+// soit son skin — exception explicitement demandée (au même titre que la
+// main adverse, jamais reskinée) pour ne jamais laisser un skin se mélanger
+// entre les deux pioches visibles sur le plateau.
+function applyMyDeckSkin(){
+  const myProfile = window.PLAYER_PROFILES && window.PLAYER_PROFILES[MY_SEAT];
+  const myDeckEl = document.getElementById(MY_SEAT === 'top' ? 'deckTop' : 'deckBottom');
+  if (!myDeckEl) return;
+  myDeckEl.style.backgroundImage = `url('${deckSkinUrl(myProfile && myProfile.cardBack)}')`;
+}
 function updateDeckCounters(){
   document.getElementById('deckTop').setAttribute('data-count', topDeck.length);
   document.getElementById('deckBottom').setAttribute('data-count', botDeck.length);
   renderDeckFactionBadges();
+  applyMyDeckSkin();
 }
 
 // Affiche, à côté de chaque pioche, les 3 factions dont le deck de ce

@@ -144,6 +144,46 @@
       .roadSeasonLabel{ display:none; }
     }
 
+    /* ---- Skin de dos de carte offert en récompense de palier (voir
+       SEASON_SKINS) — même gabarit visuel que .roadSeasonCard juste
+       au-dessus (grisé + cadenas tant que non débloqué), simplement décalé
+       plus à droite pour ne jamais chevaucher une carte WIN sur le même
+       rang. ---- */
+    .roadSkinBadge{
+      position:absolute; left:270px; top:0; transform:translateY(-50%); width:44px; height:62px;
+      border-radius:8px; overflow:hidden; z-index:2; cursor:help;
+      border:1.5px solid rgba(255,255,255,.18); box-shadow:0 4px 12px rgba(0,0,0,.5);
+      background:#0a1a22;
+    }
+    .roadSkinBadge img{ width:100%; height:100%; object-fit:cover; filter:grayscale(1) brightness(.5); display:block; }
+    .roadSkinBadge.owned{ border-color:#7df9ff; box-shadow:0 0 12px rgba(125,249,255,.55); }
+    .roadSkinBadge.owned img{ filter:none; }
+    .roadSkinBadge.owned .roadSeasonLock{ display:none; }
+    .roadSkinBadge.owned::after{
+      content:'✓'; position:absolute; top:-5px; right:-5px; width:18px; height:18px; border-radius:50%;
+      background:#7df9ff; color:#04150c; font-size:12px; font-weight:900; line-height:18px; text-align:center;
+      box-shadow:0 0 6px rgba(125,249,255,.8), 0 1px 3px rgba(0,0,0,.6); border:1.5px solid #0a1a22; z-index:3;
+    }
+    @media (max-width:640px){ .roadSkinBadge{ left:196px; width:36px; height:50px; } }
+
+    /* ---- Récompense en PIÈCES de fin de saison (voir SEASON_COIN_REWARDS)
+       — une pastille à droite de tout le reste (carte WIN + skin), grisée
+       tant que le palier n'est pas atteint. Contrairement aux cartes/skins,
+       l'état "obtenu" ici est simplement "ce rang est-il atteint ?" (le
+       versement réel se fait via le bouton admin, mais visuellement on
+       affiche la récompense comme acquise dès que le rang l'est, cohérent
+       avec le reste de la Voie). ---- */
+    .roadCoinBadge{
+      position:absolute; left:330px; top:0; transform:translateY(-50%); white-space:nowrap;
+      display:flex; align-items:center; gap:4px; padding:5px 10px; border-radius:999px; z-index:2; cursor:help;
+      border:1.5px solid rgba(255,217,61,.3); background:linear-gradient(180deg,#3a2f0a,#1e1706);
+      color:#ffe98a; font-weight:800; font-size:11.5px; opacity:.42; filter:grayscale(.5);
+      transition:opacity .2s ease, filter .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .roadCoinBadge img{ height:15px; width:auto; flex:none; }
+    .roadCoinBadge.owned{ opacity:1; filter:none; border-color:rgba(255,217,61,.65); box-shadow:0 0 10px rgba(255,217,61,.35); }
+    @media (max-width:640px){ .roadCoinBadge{ left:196px; top:26px; font-size:10px; padding:3px 8px; } }
+
     /* ---- Inverxion (W0003) — Graal de fin de saison : pedestal spécial
        affiché TOUT EN HAUT de la Voie de la Menace, hors du système de rang
        normal (elle n'est débloquée par aucun palier — voir requiredRankIndex
@@ -666,6 +706,39 @@
         });
       }catch(e){ console.error('Impossible de charger le catalogue des cartes WIN :', e); }
     }
+    // ===== Skins de dos de carte + pièces de fin de saison (voir
+    // SEASON_SKINS/SEASON_COIN_REWARDS dans cards-catalog.js), affichés sur
+    // la Voie au même titre que les cartes WIN ci-dessus. SKIN_BY_RANK /
+    // COIN_BY_RANK sont construits depuis le catalogue STATIQUE
+    // (season-rewards.json, non authentifié — même principe que
+    // card-catalog.json), pendant que MY_UNLOCKED_SKINS (état réellement
+    // possédé, pas juste "rang atteint") vient de /api/skins. =====
+    let SKIN_BY_RANK = {};
+    let COIN_BY_RANK = {};
+    let MY_UNLOCKED_SKINS = new Set();
+    async function loadSeasonRewards(){
+      try{
+        const res = await fetch('/data/season-rewards.json', { cache: 'no-store' });
+        const data = await res.json();
+        (data.skins || []).forEach(s => {
+          if (typeof s.requiredRankIndex === 'number') SKIN_BY_RANK[s.requiredRankIndex] = s;
+        });
+        (data.coins || []).forEach(c => {
+          if (typeof c.requiredRankIndex === 'number') COIN_BY_RANK[c.requiredRankIndex] = c;
+        });
+      }catch(e){ console.error('Impossible de charger le catalogue des récompenses de saison :', e); }
+    }
+    async function loadMySkins(){
+      try{
+        const res = await fetch('/api/skins');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && data.ok && Array.isArray(data.skins)) {
+          MY_UNLOCKED_SKINS = new Set(data.skins.filter(s => s.unlocked).map(s => s.file));
+        }
+      }catch(e){ /* pas grave — les badges resteront simplement affichés verrouillés */ }
+    }
+
     async function loadMyCollection(){
       try{
         const res = await fetch('/api/collection');
@@ -748,6 +821,25 @@
               <img src="/cartes/${seasonCard.code}.png" alt="${seasonCard.name}" loading="lazy">
               <div class="roadSeasonLock">🔒</div>
               <div class="roadSeasonLabel">${seasonCard.name}</div>
+            </div>`;
+        }
+
+        const skinReward = SKIN_BY_RANK[i];
+        if (skinReward) {
+          const skinOwned = MY_UNLOCKED_SKINS.has(skinReward.file);
+          html += `
+            <div class="roadSkinBadge${skinOwned ? ' owned' : ''}" style="top:${y}px;" title="Dos de carte : récompense de fin de saison au rang ${r.label}${skinOwned ? ' (débloqué)' : ', distribué par l’administrateur une fois ce rang atteint'}">
+              <img src="/assets/Skin/${encodeURIComponent(skinReward.file)}" alt="Dos de carte" loading="lazy">
+              ${skinOwned ? '' : '<div class="roadSeasonLock">🔒</div>'}
+            </div>`;
+        }
+
+        const coinReward = COIN_BY_RANK[i];
+        if (coinReward) {
+          const coinOwned = myRankIndex != null && i <= myRankIndex;
+          html += `
+            <div class="roadCoinBadge${coinOwned ? ' owned' : ''}" style="top:${y}px;" title="${coinReward.coins} pièces — récompense de fin de saison au rang ${r.label}${coinOwned ? ' (rang atteint)' : ', distribuées par l’administrateur une fois ce rang atteint'}">
+              <img src="/assets/monnaie.png" alt="Pièces"> ${coinReward.coins}
             </div>`;
         }
       });
@@ -1032,12 +1124,14 @@
     (async function init(){
       try{
         await loadSeasonCards();
+        await loadSeasonRewards();
 
         const meRes = await fetch('/api/me');
         const meData = await meRes.json();
         const myProfile = (meRes.ok && meData.user) ? meData.user : null;
 
         if (myProfile) await loadMyCollection();
+        if (myProfile) await loadMySkins();
 
         const lbRes = await fetch('/api/leaderboard?limit=100');
         const lbData = await lbRes.json();

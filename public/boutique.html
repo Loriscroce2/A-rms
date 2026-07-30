@@ -289,6 +289,15 @@
       <div class="revealGrid" id="boosterReveal"></div>
     </div>
 
+    <div class="section" id="skinsSection" style="display:none;">
+      <div class="sectionHead">
+        <span class="kicker">Personnalisation</span>
+        <h2>🎴 Dos de carte</h2>
+        <p>Habillez le dos de vos cartes pour la partie — visible de tous, sauf dans votre main et sur le dessus de votre pioche vus par l'adversaire.</p>
+      </div>
+      <div class="shopGrid" id="skinsGrid"></div>
+    </div>
+
     <div class="section">
       <div class="sectionHead">
         <span class="kicker">Ne rien laisser dormir</span>
@@ -616,6 +625,58 @@
       }catch(e){ console.error(e); }
     }
 
+    // ---------- Dos de carte achetables (voir /api/shop/skins côté serveur) ----------
+    async function loadSkins(){
+      try{
+        const res = await fetch('/api/shop/skins');
+        const data = await res.json();
+        if (!data.ok) return;
+        updateCoinsPill(data.coins);
+        renderSkins(data.skins, data.coins, data.equipped);
+      }catch(e){ console.error(e); }
+    }
+
+    function renderSkins(skins, coins, equipped){
+      const section = document.getElementById('skinsSection');
+      const grid = document.getElementById('skinsGrid');
+      grid.innerHTML = '';
+      if (!skins || skins.length === 0) { section.style.display = 'none'; return; }
+      section.style.display = '';
+      skins.forEach((skin, i) => {
+        const el = document.createElement('div');
+        el.className = 'shopSlot popIn' + (skin.owned ? ' sold' : '');
+        el.style.animationDelay = `${i * 0.06}s`;
+        el.innerHTML = `
+          <div class="cardImg" style="background-image:url('${(typeof armsCardBackUrl === 'function') ? armsCardBackUrl(skin.file) : '/assets/Skin/' + encodeURIComponent(skin.file)}')"></div>
+          <div class="price"><img class="coinIcon" src="/assets/monnaie.png" alt="pièces"> ${skin.price}</div>
+          ${skin.owned
+            ? `<div class="soldLabel">${equipped === skin.file ? 'Équipé' : 'Possédé'}</div>`
+            : `<button class="buyBtn" ${coins < skin.price ? 'disabled' : ''}>Acheter</button>`}
+        `;
+        if (!skin.owned) {
+          el.querySelector('.buyBtn').addEventListener('click', () => buySkin(skin.file));
+        }
+        grid.appendChild(el);
+      });
+    }
+
+    async function buySkin(filename){
+      try{
+        const res = await fetch('/api/shop/skins/buy', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ filename })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error === 'not_enough_coins' ? 'Pas assez de pièces.' : data.error === 'already_owned' ? 'Déjà possédé !' : 'Erreur.');
+          return;
+        }
+        updateCoinsPill(data.coins);
+        showToast('Dos de carte débloqué ! Équipez-le depuis votre profil.');
+        loadSkins();
+      }catch(e){ showToast('Erreur de connexion.'); }
+    }
+
     async function sellSurplus(code, quantity){
       try{
         const res = await fetch('/api/collection/sell-surplus', {
@@ -648,6 +709,7 @@
       loadCoinPacks();
       loadShop();
       loadSurplus();
+      loadSkins();
       requestAnimationFrame(() => {
         document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
       });

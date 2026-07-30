@@ -283,6 +283,21 @@ db.exec(`
     PRIMARY KEY (user_id, filename),
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
   );
+
+  -- Récompenses en PIÈCES de fin de saison (voir SEASON_COIN_REWARDS dans
+  -- cards-catalog.js) — même principe que season_card_grants/card_back_unlocks :
+  -- trace chaque palier de Menace déjà récompensé en pièces pour un joueur
+  -- donné, pour ne jamais recréditer deux fois le même palier (le bouton
+  -- admin "débloquer les récompenses de rang atteint" peut être cliqué
+  -- plusieurs fois sans effet cumulatif indésirable).
+  CREATE TABLE IF NOT EXISTS season_coin_grants (
+    user_id INTEGER NOT NULL,
+    rank_index INTEGER NOT NULL,
+    coins INTEGER NOT NULL,
+    granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, rank_index),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  );
 `);
 
 // Migration douce pour les bases coin_purchases créées avant l'ajout du
