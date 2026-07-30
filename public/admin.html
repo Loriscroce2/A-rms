@@ -91,10 +91,12 @@
     <div id="adminZone" class="loadingState">Vérification des droits d'accès…</div>
 
     <div class="hero" style="margin-top:46px;">
-      <h1>🪐 Retraits Astrocomptoir — ancien solde (PayPal)</h1>
-      <p>Depuis le passage à Stripe Connect, les nouvelles ventes paient directement le vendeur et les retraits partent automatiquement — ils n'apparaissent jamais ici. Cette liste ne concerne que les joueurs ayant encore un solde d'avant ce changement : envoyez l'argent vous-même depuis PayPal (Loris.croce2@gmail.com) vers l'adresse indiquée, PUIS cliquez sur « Marquer comme envoyé » pour l'enregistrer.</p>
+      <h1>🪐 Soldes Astrocomptoir</h1>
+      <p>Remet le solde interne (real_balance_cents) de TOUS les joueurs à 0 €. L'Astrocomptoir fonctionne désormais exclusivement via Stripe Connect (le retrait manuel PayPal a été entièrement retiré) — utile en phase de test pour repartir d'un état propre.</p>
     </div>
-    <div id="withdrawalsZone" class="loadingState">Chargement…</div>
+    <div style="text-align:center;">
+      <button class="miniBtn delete" id="resetBalancesBtn" style="padding:10px 18px;font-size:12.5px;">Remettre tous les soldes à 0</button>
+    </div>
 
     <div class="hero" style="margin-top:46px;">
       <h1>🔌 Connexions Stripe (Astrocomptoir)</h1>
@@ -301,68 +303,13 @@
         }
         MY_ID = data.user.id;
         loadUsers();
-        loadWithdrawals();
         loadSeasonEndStatus();
       }catch(e){
         zone.innerHTML = `<div class="emptyState">Impossible de vérifier vos droits d'accès.</div>`;
       }
     })();
 
-    // ===================================================================
-    // Astrocomptoir — retraits en attente
-    // ===================================================================
     function euros(cents){ return (cents/100).toLocaleString('fr-FR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €'; }
-
-    async function loadWithdrawals(){
-      const zone = document.getElementById('withdrawalsZone');
-      zone.innerHTML = `<div class="loadingState">Chargement…</div>`;
-      try{
-        const res = await fetch('/api/admin/astrocomptoir/withdrawals');
-        const data = await res.json();
-        if (!res.ok || !data.ok) { zone.innerHTML = `<div class="emptyState">Impossible de charger les retraits.</div>`; return; }
-        if (data.withdrawals.length === 0) {
-          zone.innerHTML = `<div class="emptyState">Aucun retrait en attente.</div>`;
-          return;
-        }
-        zone.innerHTML = `
-          <table class="userTable">
-            <thead><tr><th>Joueur</th><th>PayPal</th><th>Montant</th><th>Demandé le</th><th>Actions</th></tr></thead>
-            <tbody>${data.withdrawals.map(w => `
-              <tr class="userRow" data-wid="${w.id}">
-                <td><div class="userName">${w.userName}</div><div class="userEmail">${w.userEmail}</div></td>
-                <td>${w.paypalEmail}</td>
-                <td class="userName">${euros(w.amountCents)}</td>
-                <td class="userEmail">${new Date(w.requestedAt).toLocaleString('fr-FR')}</td>
-                <td>
-                  <div class="rowActions">
-                    <button class="miniBtn save" data-action="approve" data-id="${w.id}">✔ Marquer comme envoyé</button>
-                    <button class="miniBtn delete" data-action="reject" data-id="${w.id}">✕ Refuser</button>
-                  </div>
-                </td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        `;
-        zone.querySelectorAll('[data-action="approve"]').forEach(btn => {
-          btn.addEventListener('click', () => approveWithdrawal(parseInt(btn.dataset.id, 10)));
-        });
-        zone.querySelectorAll('[data-action="reject"]').forEach(btn => {
-          btn.addEventListener('click', () => rejectWithdrawal(parseInt(btn.dataset.id, 10)));
-        });
-      }catch(e){
-        zone.innerHTML = `<div class="emptyState">Erreur réseau.</div>`;
-      }
-    }
-
-    async function approveWithdrawal(id){
-      if (!confirm(`Avez-vous DÉJÀ envoyé cet argent vous-même depuis votre PayPal (Loris.croce2@gmail.com) vers l'adresse du joueur ? Ce bouton ne fait qu'enregistrer que c'est fait — il n'envoie rien lui-même.`)) return;
-      try{
-        const res = await fetch(`/api/admin/astrocomptoir/withdrawals/${id}/approve`, { method:'POST' });
-        const data = await res.json();
-        if (data.ok) { showToast('Retrait marqué comme envoyé.'); loadWithdrawals(); }
-        else showToast('Erreur lors de l\'enregistrement.', true);
-      }catch(e){ showToast('Erreur réseau.', true); }
-    }
 
     async function resetSalesHistory(){
       if (!confirm("Remettre l'historique des ventes à 0 ? Cette action est irréversible et effacera TOUTES les ventes conclues (historique général et historiques personnels des joueurs). Les soldes, annonces actives et retraits ne sont pas affectés.")) return;
@@ -446,18 +393,16 @@
     }
     document.getElementById('scheduleSeasonEndBtn').addEventListener('click', scheduleSeasonEnd);
 
-    async function rejectWithdrawal(id){
-      const reason = prompt('Raison du refus (facultatif) — le solde du joueur sera remboursé intégralement :', '');
-      if (reason === null) return;
+    async function resetAllBalances(){
+      if (!confirm("Remettre TOUS les soldes Astrocomptoir à 0 € ? Cette action est irréversible et concerne tous les comptes (anciens soldes hérités de PayPal comme gains en attente de connexion Stripe). Les annonces actives, l'historique des ventes et l'état de connexion Stripe ne sont pas affectés.")) return;
       try{
-        const res = await fetch(`/api/admin/astrocomptoir/withdrawals/${id}/reject`, {
-          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ reason })
-        });
+        const res = await fetch('/api/admin/astrocomptoir/reset-balances', { method:'POST' });
         const data = await res.json();
-        if (data.ok) { showToast('Retrait refusé, joueur remboursé.'); loadWithdrawals(); }
-        else showToast('Erreur.', true);
+        if (data.ok) showToast(`Soldes remis à 0 (${data.affected} compte(s)).`);
+        else showToast('Erreur lors de la remise à zéro.', true);
       }catch(e){ showToast('Erreur réseau.', true); }
     }
+    document.getElementById('resetBalancesBtn').addEventListener('click', resetAllBalances);
   </script>
 </body>
 </html>

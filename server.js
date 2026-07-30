@@ -267,11 +267,14 @@ const qGetUserShopPurchaseOne = db.prepare('SELECT 1 FROM shop_purchases WHERE u
 const qInsertShopPurchase = db.prepare('INSERT OR IGNORE INTO shop_purchases (user_id, hour_bucket, slot_index) VALUES (?, ?, ?)');
 
 // --- Requêtes SQL préparées (Astrocomptoir — hôtel de vente argent réel) ---
-const qGetWallet = db.prepare('SELECT real_balance_cents, paypal_email, astro_agreement_accepted_at, astro_agreement_version, stripe_connect_account_id, stripe_connect_ready FROM users WHERE id = ?');
-const qSetPaypalEmail = db.prepare('UPDATE users SET paypal_email = ? WHERE id = ?');
+const qGetWallet = db.prepare('SELECT real_balance_cents, astro_agreement_accepted_at, astro_agreement_version, stripe_connect_account_id, stripe_connect_ready FROM users WHERE id = ?');
 const qAcceptAgreement = db.prepare("UPDATE users SET astro_agreement_accepted_at = datetime('now'), astro_agreement_version = ? WHERE id = ?");
 const qAddRealBalance = db.prepare('UPDATE users SET real_balance_cents = real_balance_cents + ? WHERE id = ?');
 const qSpendRealBalance = db.prepare('UPDATE users SET real_balance_cents = real_balance_cents - ? WHERE id = ? AND real_balance_cents >= ?');
+// Remise à zéro de TOUS les soldes Astrocomptoir (admin uniquement, voir
+// /api/admin/astrocomptoir/reset-balances) — phase de test, aucun vrai
+// joueur concerné pour l'instant.
+const qAdminResetAllBalances = db.prepare('UPDATE users SET real_balance_cents = 0');
 const qSetStripeConnectAccount = db.prepare('UPDATE users SET stripe_connect_account_id = ? WHERE id = ?');
 const qSetStripeConnectReady = db.prepare('UPDATE users SET stripe_connect_ready = ? WHERE id = ?');
 const qUserByStripeConnectAccount = db.prepare('SELECT id FROM users WHERE stripe_connect_account_id = ?');
@@ -289,23 +292,15 @@ const qMyListings = db.prepare(`
 const qCancelListing = db.prepare("UPDATE market_listings SET status = 'cancelled' WHERE id = ? AND seller_id = ? AND status = 'active'");
 const qMarkListingSold = db.prepare("UPDATE market_listings SET status = 'sold', sold_at = datetime('now'), buyer_id = ? WHERE id = ? AND status = 'active'");
 
-// --- Achat direct par carte bancaire (PayPal Checkout) : le temps du
-// paiement, on "réserve" l'annonce (status='pending') pour qu'aucun autre
-// acheteur ne puisse la prendre. Si le paiement n'aboutit jamais (abandon,
-// commande expirée), la réservation est libérée — soit immédiatement au
-// retour "annulé", soit via le balayage paresseux ci-dessous (comme le
-// bucket horaire de la boutique : recalculé à la lecture, pas de cron
-// nécessaire).
-const qReserveListingForCheckout = db.prepare(`
-  UPDATE market_listings
-  SET status = 'pending', paypal_order_id = ?, reserved_until = datetime('now', '+30 minutes')
-  WHERE id = ? AND status = 'active'
-`);
-const qListingByPaypalOrderId = db.prepare('SELECT * FROM market_listings WHERE paypal_order_id = ?');
-// Achat par carte bancaire via Stripe Connect (destination charge) : même
-// mécanique de réservation temporaire que l'ancien flux PayPal ci-dessus,
-// mais sur sa propre colonne dédiée (stripe_session_id) pour ne jamais
-// mélanger les deux identifiants.
+// --- Achat direct par carte bancaire via Stripe Connect (destination
+// charge) : le temps du paiement, on "réserve" l'annonce (status='pending')
+// pour qu'aucun autre acheteur ne puisse la prendre. Si le paiement n'aboutit
+// jamais (abandon, session expirée), la réservation est libérée — soit
+// immédiatement au retour "annulé", soit via le balayage paresseux ci-dessous
+// (comme le bucket horaire de la boutique : recalculé à la lecture, pas de
+// cron nécessaire). paypal_order_id (colonne encore présente sur
+// market_listings) n'est plus utilisée : l'achat de cartes par PayPal a été
+// entièrement remplacé par Stripe.
 const qReserveListingForStripeCheckout = db.prepare(`
   UPDATE market_listings
   SET status = 'pending', stripe_session_id = ?, settle_via = ?, reserved_until = datetime('now', '+30 minutes')
@@ -371,26 +366,17 @@ const qInsertCoinPurchaseStripe = db.prepare("INSERT INTO coin_purchases (user_i
 const qCoinPurchaseByStripeSession = db.prepare('SELECT * FROM coin_purchases WHERE stripe_session_id = ?');
 const qCompleteCoinPurchase = db.prepare("UPDATE coin_purchases SET status = 'completed', completed_at = datetime('now') WHERE id = ?");
 
-const qInsertWithdrawal = db.prepare('INSERT INTO withdrawal_requests (user_id, amount_cents, paypal_email) VALUES (?, ?, ?)');
-// Retrait automatique via Stripe Connect : contrairement à qInsertWithdrawal
-// ci-dessus (ancien flux PayPal, débit immédiat PUIS validation manuelle),
-// l'argent est déjà parti chez Stripe au moment où cette ligne est insérée
-// (voir /api/astrocomptoir/connect/payout) — elle sert uniquement de
-// justificatif/historique consultable par le joueur et l'administrateur,
-// jamais de file d'attente à valider.
+// Retrait automatique via Stripe Connect : l'argent est déjà parti chez
+// Stripe au moment où cette ligne est insérée (voir
+// /api/astrocomptoir/connect/payout) — elle sert uniquement de
+// justificatif/historique consultable par le joueur, jamais de file
+// d'attente à valider (le flux d'approbation manuelle PayPal a été retiré,
+// il n'existe plus qu'un seul flux de retrait : Stripe Connect).
 const qInsertStripePayout = db.prepare(`
   INSERT INTO withdrawal_requests (user_id, amount_cents, paypal_email, method, status, processed_at, stripe_payout_id)
   VALUES (?, ?, '', 'stripe', 'paid', datetime('now'), ?)
 `);
 const qMyWithdrawals = db.prepare('SELECT * FROM withdrawal_requests WHERE user_id = ? ORDER BY requested_at DESC');
-const qWithdrawalById = db.prepare('SELECT * FROM withdrawal_requests WHERE id = ?');
-const qPendingWithdrawals = db.prepare(`
-  SELECT w.*, u.name AS user_name, u.email AS user_email FROM withdrawal_requests w
-  JOIN users u ON u.id = w.user_id
-  WHERE w.status = 'pending' ORDER BY w.requested_at ASC
-`);
-const qMarkWithdrawalPaid = db.prepare("UPDATE withdrawal_requests SET status = 'paid', processed_at = datetime('now'), paypal_payout_batch_id = ? WHERE id = ?");
-const qMarkWithdrawalRejected = db.prepare("UPDATE withdrawal_requests SET status = 'rejected', processed_at = datetime('now'), admin_note = ? WHERE id = ?");
 
 // --- Helper : accorde des cartes à un joueur (upsert additif) ---
 function grantCards(userId, codes) {
@@ -1865,22 +1851,24 @@ app.post('/api/matchmaking/cancel', authMiddleware, (req, res) => {
 });
 
 // ===================================================================
-// ASTROCOMPTOIR — hôtel de vente entre joueurs, argent réel via PayPal.
-// Modèle "portefeuille interne" : on recharge son solde via PayPal
-// Checkout, on achète/vend des cartes avec ce solde (10% de commission
-// prélevée sur chaque vente), et on retire son solde vers son PayPal
-// quand on veut (validé manuellement par un administrateur avant l'envoi
-// réel — voir /api/admin/astrocomptoir/withdrawals/:id/approve).
+// ASTROCOMPTOIR — hôtel de vente entre joueurs, argent réel via Stripe
+// Connect exclusivement (aucune trace de PayPal dans ce module désormais) :
+// achat direct par carte bancaire, vente sans démarche préalable (le gain
+// est crédité sur un solde interne si le vendeur n'est pas encore connecté,
+// voir settle_via='platform' dans /cards/:code/buy), et retrait automatique
+// une fois le compte Stripe du vendeur connecté et vérifié (voir
+// /connect/payout) — jamais de validation manuelle par un administrateur.
 // ===================================================================
 
-// --- PayPal : appels réels à l'API REST (Orders v2 pour les recharges,
-// Payouts v1 pour les retraits). Ne fonctionnent QUE si PAYPAL_CLIENT_ID
-// et PAYPAL_CLIENT_SECRET sont renseignés dans .env (voir .env.example) —
-// sans ça, les routes concernées renvoient 'paypal_not_configured' plutôt
-// que de planter. Pour activer les vrais paiements : créer une App sur
-// developer.paypal.com avec un compte PayPal Business, copier son Client
-// ID / Secret dans .env, régler PAYPAL_MODE sur "sandbox" pour tester ou
-// "live" pour du vrai argent.
+// --- PayPal : utilisé UNIQUEMENT par la Boutique (achat de lots de pièces,
+// voir /api/shop/coins/* plus bas) — plus du tout par l'Astrocomptoir, qui
+// est passé entièrement à Stripe. Appels réels à l'API REST (Orders v2).
+// Ne fonctionnent QUE si PAYPAL_CLIENT_ID et PAYPAL_CLIENT_SECRET sont
+// renseignés dans .env (voir .env.example) — sans ça, les routes concernées
+// renvoient 'paypal_not_configured' plutôt que de planter. Pour activer les
+// vrais paiements : créer une App sur developer.paypal.com avec un compte
+// PayPal Business, copier son Client ID / Secret dans .env, régler
+// PAYPAL_MODE sur "sandbox" pour tester ou "live" pour du vrai argent.
 const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
 const PAYPAL_API_BASE = (process.env.PAYPAL_MODE === 'live')
@@ -2131,38 +2119,11 @@ async function paypalCaptureOrder(orderId) {
 // les destination charges Stripe Connect versent un montant net FIXÉ À
 // L'AVANCE, plus besoin d'inspecter la capture après coup pour le connaître.)
 
-async function paypalSendPayout(email, amountEuros, note, senderBatchId) {
-  const token = await paypalGetAccessToken();
-  const res = await fetch(`${PAYPAL_API_BASE}/v1/payments/payouts`, {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sender_batch_header: {
-        sender_batch_id: senderBatchId,
-        email_subject: "Votre retrait Astrocomptoir — A'rms",
-        email_message: note,
-      },
-      items: [{
-        recipient_type: 'EMAIL',
-        amount: { value: amountEuros.toFixed(2), currency: 'EUR' },
-        receiver: email,
-        note,
-        sender_item_id: senderBatchId,
-      }],
-    }),
-  });
-  if (!res.ok) {
-    // On journalise le corps exact renvoyé par PayPal (name/message/details)
-    // pour pouvoir diagnostiquer un échec de retrait sans aller-retour :
-    // un 403 seul ne dit pas SI c'est "Payouts non activé", des identifiants
-    // sandbox utilisés en live, ou autre chose.
-    let body = null;
-    try { body = await res.json(); } catch (e) { /* réponse non-JSON, tant pis */ }
-    console.error(`[paypal] Échec de l'envoi du Payout (HTTP ${res.status}) :`, JSON.stringify(body));
-    throw new Error(`paypal_payout_failed_${res.status}`);
-  }
-  return res.json();
-}
+// (paypalSendPayout a été retiré avec le reste du flux de retrait PayPal
+// legacy de l'Astrocomptoir — les retraits passent désormais exclusivement
+// par Stripe Connect, voir /connect/payout. La fonction n'était de toute
+// façon plus jamais appelée : l'ancien panneau admin ne faisait qu'enregistrer
+// un envoi PayPal fait manuellement, sans jamais appeler cette API.)
 
 // Version de l'accord légal Astrocomptoir : si son texte change un jour, on
 // incrémente cette valeur (ex. 'v2') — chaque joueur devra alors le
@@ -2177,13 +2138,6 @@ function hasAcceptedAgreement(userId) {
 const ASTRO_COMMISSION_RATE = 0.10;
 const ASTRO_MIN_LISTING_CENTS = 50;      // 0,50 €
 const ASTRO_MAX_LISTING_CENTS = 100000;  // 1000 €
-// En dessous de 10 €, la part fixe des frais PayPal (0,35 €) prélevée sur le
-// retrait dévore une proportion disproportionnée du montant (jusqu'à ~38 %
-// pour 1 €) — ce plancher garde ce prélèvement sous ~6,5 %, un niveau
-// raisonnable. Voir estimateWithdrawNetCents côté astrocomptoir.html pour
-// l'estimation en direct affichée au joueur.
-const ASTRO_MIN_WITHDRAWAL_CENTS = 1000; // 10 €
-
 // --- Portefeuille / accord légal ---
 app.get('/api/astrocomptoir/status', authMiddleware, (req, res) => {
   try {
@@ -2191,10 +2145,8 @@ app.get('/api/astrocomptoir/status', authMiddleware, (req, res) => {
     res.json({
       ok: true,
       balanceCents: row.real_balance_cents,
-      paypalEmail: row.paypal_email || '',
       agreementAccepted: row.astro_agreement_version === ASTRO_AGREEMENT_VERSION,
       agreementVersion: ASTRO_AGREEMENT_VERSION,
-      paypalConfigured: isPaypalConfigured(),
       stripeConfigured: isStripeConfigured(),
       stripeConnectReady: !!row.stripe_connect_ready,
       hasStripeConnectAccount: !!row.stripe_connect_account_id,
@@ -2209,26 +2161,6 @@ app.post('/api/astrocomptoir/agreement/accept', authMiddleware, (req, res) => {
   try {
     qAcceptAgreement.run(ASTRO_AGREEMENT_VERSION, req.user.id);
     res.json({ ok: true, agreementVersion: ASTRO_AGREEMENT_VERSION });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: 'server_error' });
-  }
-});
-
-app.post('/api/astrocomptoir/paypal-email', authMiddleware, (req, res) => {
-  try {
-    // Déconnexion explicite : efface l'adresse enregistrée, le joueur devra
-    // en connecter une nouvelle avant son prochain retrait.
-    if (req.body?.disconnect === true) {
-      qSetPaypalEmail.run('', req.user.id);
-      return res.json({ ok: true, paypalEmail: '' });
-    }
-    const email = String(req.body?.email || '').trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ ok: false, error: 'email_invalid' });
-    }
-    qSetPaypalEmail.run(email, req.user.id);
-    res.json({ ok: true, paypalEmail: email });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -2355,48 +2287,6 @@ app.post('/api/astrocomptoir/connect/payout', authMiddleware, async (req, res) =
   } catch (e) {
     console.error(e);
     res.status(502).json({ ok: false, error: 'stripe_error' });
-  }
-});
-
-// --- Ancien solde (ventes conclues avant le passage à Stripe Connect) :
-// retrait manuel vers PayPal, conservé UNIQUEMENT pour que les joueurs ayant
-// déjà un solde en attente sous l'ancien système puissent le récupérer. Plus
-// aucune vente n'alimente ce solde désormais (voir /cards/confirm-purchase) —
-// une fois tous les anciens soldes vidés, cette route et le panneau
-// d'approbation admin associé pourront être retirés. ---
-// Débite immédiatement le solde interne (pour ne jamais permettre un double
-// retrait du même montant) et crée une demande 'pending'. AUCUN appel à
-// l'API PayPal Payouts ici : l'administrateur envoie l'argent lui-même,
-// manuellement, depuis son propre compte PayPal, puis confirme l'envoi
-// depuis le panneau d'administration (voir /api/admin/astrocomptoir/
-// withdrawals/:id/approve) — ce qui marque la demande comme payée. Ce choix
-// contourne volontairement l'API Payouts, bloquée côté PayPal en attente de
-// validation de leur part (AUTHORIZATION_ERROR), sans dépendre de ce blocage
-// pour que les joueurs puissent retirer leur argent dès maintenant.
-app.post('/api/astrocomptoir/withdraw', authMiddleware, async (req, res) => {
-  try {
-    if (!hasAcceptedAgreement(req.user.id)) {
-      return res.status(403).json({ ok: false, error: 'agreement_required' });
-    }
-    const wallet = qGetWallet.get(req.user.id);
-    if (!wallet.paypal_email) return res.status(400).json({ ok: false, error: 'paypal_email_missing' });
-    const amountCents = Math.round(Number(req.body?.amountCents));
-    // Minimum de 10 € : en dessous, la part fixe des frais PayPal prélevés
-    // sur l'envoi (voir estimateWithdrawNetCents côté client) dévore une
-    // proportion disproportionnée du montant demandé.
-    if (!Number.isFinite(amountCents) || amountCents < ASTRO_MIN_WITHDRAWAL_CENTS) {
-      return res.status(400).json({ ok: false, error: 'amount_below_minimum' });
-    }
-    const spent = qSpendRealBalance.run(amountCents, req.user.id, amountCents);
-    if (spent.changes === 0) {
-      return res.status(402).json({ ok: false, error: 'insufficient_balance' });
-    }
-    qInsertWithdrawal.run(req.user.id, amountCents, wallet.paypal_email);
-    const freshWallet = qGetWallet.get(req.user.id);
-    res.json({ ok: true, pending: true, balanceCents: freshWallet.real_balance_cents });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: 'server_error' });
   }
 });
 
@@ -2826,57 +2716,6 @@ app.get('/api/astrocomptoir/withdrawals', authMiddleware, (req, res) => {
   }
 });
 
-// --- Administration des retraits (confirmation manuelle) ---
-// L'administrateur envoie l'argent lui-même, à la main, depuis son propre
-// compte PayPal (Loris.croce2@gmail.com) vers l'adresse PayPal du joueur
-// (w.paypal_email, affichée dans le panneau). Ce bouton ne fait qu'ENREGISTRER
-// que l'envoi a bien eu lieu — il n'appelle plus l'API PayPal Payouts
-// (bloquée côté PayPal, AUTHORIZATION_ERROR, en attente de validation de
-// leur part), pour que les retraits fonctionnent dès maintenant sans en
-// dépendre.
-app.get('/api/admin/astrocomptoir/withdrawals', authMiddleware, adminMiddleware, (req, res) => {
-  try {
-    const rows = qPendingWithdrawals.all();
-    res.json({
-      ok: true,
-      withdrawals: rows.map(r => ({
-        id: r.id, amountCents: r.amount_cents, paypalEmail: r.paypal_email,
-        userName: r.user_name, userEmail: r.user_email, requestedAt: r.requested_at,
-      })),
-    });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: 'server_error' });
-  }
-});
-
-app.post('/api/admin/astrocomptoir/withdrawals/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    const w = qWithdrawalById.get(id);
-    if (!w || w.status !== 'pending') return res.status(404).json({ ok: false, error: 'withdrawal_not_found' });
-    qMarkWithdrawalPaid.run(null, id);
-    res.json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: 'server_error' });
-  }
-});
-
-app.post('/api/admin/astrocomptoir/withdrawals/:id/reject', authMiddleware, adminMiddleware, (req, res) => {
-  try {
-    const id = parseInt(req.params.id, 10);
-    const w = qWithdrawalById.get(id);
-    if (!w || w.status !== 'pending') return res.status(404).json({ ok: false, error: 'withdrawal_not_found' });
-    qAddRealBalance.run(w.amount_cents, w.user_id); // remboursement intégral
-    qMarkWithdrawalRejected.run(String(req.body?.reason || ''), id);
-    res.json({ ok: true });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ ok: false, error: 'server_error' });
-  }
-});
-
 // --- Remise à zéro de l'historique des ventes (admin uniquement) ---
 // Efface définitivement toutes les lignes de market_transactions (ventes
 // conclues, tous joueurs confondus) — n'affecte NI les soldes des joueurs
@@ -2904,6 +2743,22 @@ app.post('/api/admin/astrocomptoir/reset-history', authMiddleware, adminMiddlewa
 app.post('/api/admin/astrocomptoir/reset-stripe-connect', authMiddleware, adminMiddleware, (req, res) => {
   try {
     const info = qAdminResetAllStripeConnect.run();
+    res.json({ ok: true, affected: info.changes });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Remise à zéro de TOUS les soldes Astrocomptoir (admin uniquement) ---
+// Remet real_balance_cents à 0 pour chaque joueur — efface aussi bien les
+// anciens soldes hérités du flux PayPal (désormais totalement retiré) que
+// les gains en attente de transfert accumulés via settle_via='platform'
+// (ventes conclues avant connexion Stripe). N'affecte ni les annonces
+// actives, ni l'historique des ventes, ni l'état de connexion Stripe.
+app.post('/api/admin/astrocomptoir/reset-balances', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const info = qAdminResetAllBalances.run();
     res.json({ ok: true, affected: info.changes });
   } catch (e) {
     console.error(e);
