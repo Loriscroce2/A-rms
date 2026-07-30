@@ -207,33 +207,53 @@
       <div class="astroHeroText">
         <span class="astroKicker">Marché entre joueurs</span>
         <h1>🪐 Astrocomptoir</h1>
-        <p>L'hôtel de vente d'A'rms. Trouvez la carte qu'il vous manque — paiement direct et immédiat par carte bancaire — ou donnez une seconde vie à celles qui dorment dans votre collection : vos ventes sont créditées sur votre solde, retirable vers PayPal à tout moment.</p>
+        <p>L'hôtel de vente d'A'rms. Trouvez la carte qu'il vous manque — paiement direct et immédiat par carte bancaire — ou donnez une seconde vie à celles qui dorment dans votre collection : vendez-les à d'autres joueurs et recevez l'argent directement sur votre compte, en quelques clics.</p>
       </div>
     </div>
 
     <div class="walletBar">
       <div class="walletLeft">
-        <div class="walletBalance">💶 <span id="walletAmount">0,00 €</span><span class="unit">gains de vente</span></div>
+        <div class="walletBalance">💶 <span id="walletAmount">0,00 €</span><span class="unit">disponible</span></div>
         <div>
           <div id="agreementStatusLine" class="agreementStatus">Vérification…</div>
-          <div class="paypalField" id="paypalConnectedRow" style="margin-top:8px; display:none;">
-            <span id="paypalConnectedLabel" style="font-size:13px;color:var(--ok);font-weight:800;"></span>
-            <button class="btn-secondary" id="disconnectPaypalBtn">Déconnecter</button>
+
+          <!-- Compte non connecté : mise en avant du bénéfice, pas de la contrainte -->
+          <div class="paypalField" id="connectPromptRow" style="margin-top:8px; display:none;">
+            <span style="font-size:12.5px;color:#ffd93d;font-weight:700;">💰 Connectez votre compte pour être payé sur vos ventes</span>
+            <button class="btn" id="startConnectBtn">Recevoir mes gains — 2 min</button>
           </div>
-          <div class="paypalField" id="paypalFormRow" style="margin-top:8px;">
-            <input type="email" id="paypalEmailInput" placeholder="votre-email@paypal.com" />
-            <button class="btn-secondary" id="savePaypalBtn">Connecter mon PayPal</button>
+          <p id="connectHint" style="font-size:10.5px;color:#9fb0c8;opacity:.9;margin:6px 0 0;max-width:360px; display:none;">Formulaire sécurisé hébergé par Stripe (nom, IBAN). Une fois connecté, chaque vente vous paie automatiquement et instantanément — plus besoin de rien redemander.</p>
+
+          <!-- En cours de vérification côté Stripe (onboarding commencé mais pas terminé) -->
+          <div class="paypalField" id="connectPendingRow" style="margin-top:8px; display:none;">
+            <span style="font-size:13px;color:var(--warn);font-weight:800;">⏳ Connexion en cours de vérification…</span>
+            <button class="btn-secondary" id="resumeConnectBtn">Reprendre</button>
           </div>
-          <p style="font-size:10.5px;color:#ff8a8a;opacity:.85;margin:6px 0 0;max-width:340px;">⚠ Cette adresse doit être celle de VOTRE compte PayPal. Si elle est incorrecte, vos retraits resteront bloqués — l'argent ne pourra pas vous être envoyé.</p>
+
+          <!-- Compte connecté et prêt à vendre -->
+          <div class="paypalField" id="connectReadyRow" style="margin-top:8px; display:none;">
+            <span style="font-size:13px;color:var(--ok);font-weight:800;">✓ Compte connecté — vos ventes sont payées automatiquement</span>
+          </div>
         </div>
       </div>
       <div class="walletActions">
-        <button class="btn-secondary" id="withdrawBtn">⬆ Retirer</button>
+        <button class="btn-secondary" id="withdrawBtn" style="display:none;">⬆ Retirer</button>
         <button class="btn-secondary" id="reopenLegalBtn">📜 Accord</button>
         <button class="btn-sell" id="openSellDrawerBtn">
           <span class="burgerIcon"><span></span><span></span><span></span></span>
           Vendre une carte
         </button>
+      </div>
+    </div>
+
+    <!-- Ancien solde (ventes conclues avant le passage à Stripe) : n'apparaît
+         que s'il en reste un à retirer, pour ne perdre l'argent de personne. -->
+    <div class="walletBar" id="legacyBalanceBar" style="display:none; margin-top:-8px; opacity:.9;">
+      <div class="walletLeft">
+        <div class="walletBalance" style="font-size:15px;">🕰️ <span id="legacyWalletAmount">0,00 €</span><span class="unit">ancien solde (avant Stripe)</span></div>
+      </div>
+      <div class="walletActions">
+        <button class="btn-secondary" id="legacyWithdrawBtn">⬆ Retirer vers PayPal</button>
       </div>
     </div>
 
@@ -293,21 +313,20 @@
       <ul>
         <li>L'Astrocomptoir permet d'acheter et de vendre des cartes A'rms individuelles entre joueurs, contre de l'argent réel.</li>
         <li>Acheter une carte se paie directement par carte bancaire, au prix affiché — aucun solde préchargé n'est nécessaire pour acheter.</li>
-        <li>Vendre une carte crédite votre part sur votre solde interne, que vous pouvez retirer vers votre compte PayPal à tout moment. PayPal prélève d'abord ses propres frais sur le paiement de l'acheteur (environ 2,9% + 0,35€), puis A'rms prélève sa commission de 10% sur ce qui reste — le montant que vous recevez est donc inférieur au prix affiché de la carte. Une estimation de votre gain s'affiche avant chaque mise en vente.</li>
+        <li>Pour vendre, vous devez d'abord connecter un compte de paiement (via Stripe, quelques minutes). C'est la seule étape supplémentaire demandée aux vendeurs : les acheteurs n'ont rien à connecter. Stripe est un établissement de paiement agréé qui vérifie votre identité et votre IBAN pour le compte du site — A'rms ne voit ni ne stocke jamais ces informations.</li>
+        <li>Le paiement de l'acheteur est réparti automatiquement, au moment même de l'achat : votre part (prix affiché moins la commission de 10%, voir ci-dessous) part directement sur votre compte Stripe. À aucun moment cet argent ne transite ou ne stationne sur un compte détenu par A'rms — c'est cette architecture, et non une simple promesse, qui protège votre argent.</li>
         <li>Le prix de chaque annonce est fixé librement par le vendeur — A'rms ne garantit aucune valeur de revente. Quand plusieurs annonces existent pour une même carte, la moins chère se vend en premier ; à prix égal, la plus ancienne se vend en premier.</li>
       </ul>
 
       <h3>Commission</h3>
       <ul>
-        <li>A'rms prélève une commission de <strong>10%</strong> sur chaque vente conclue, calculée après déduction des frais PayPal (voir ci-dessus). Le vendeur reçoit les 90% restants de ce montant sur son solde.</li>
+        <li>A'rms prélève une commission de <strong>10%</strong> du prix affiché sur chaque vente conclue (minimum 0,50 € par vente). Le vendeur reçoit le reste, versé directement sur son compte Stripe — ce montant est exact et connu à l'avance, affiché avant chaque mise en vente.</li>
       </ul>
 
       <h3>Retraits</h3>
       <ul>
-        <li>Le montant minimum d'une demande de retrait est de <strong>10,00 €</strong>. En dessous de ce seuil, les frais PayPal prélevés sur l'envoi (voir ci-dessous) représenteraient une part disproportionnée du montant demandé.</li>
-        <li>Une demande de retrait débite immédiatement votre solde, puis est validée manuellement par un administrateur avant l'envoi réel de l'argent vers le compte PayPal que vous avez enregistré. Ce délai de validation permet un contrôle manuel de chaque envoi.</li>
-        <li>L'adresse PayPal enregistrée sur votre profil DOIT être celle de votre propre compte PayPal. Si cette adresse est incorrecte, mal orthographiée, ou ne correspond à aucun compte PayPal existant, l'envoi de l'argent sera impossible : votre retrait restera bloqué jusqu'à ce que vous corrigiez l'adresse enregistrée. Vous êtes seul responsable de l'exactitude de cette adresse.</li>
-        <li>PayPal prélève à nouveau ses propres frais (environ 2,9 % + 0,35 €) sur cet envoi, cette fois-ci sur le montant que VOUS recevez — vous ne recevrez donc pas la totalité du montant demandé. Une estimation du montant réellement reçu s'affiche avant de confirmer chaque demande.</li>
+        <li>Une fois votre compte connecté, l'argent de vos ventes est disponible sur votre solde Stripe. Vous pouvez demander un virement vers votre compte bancaire à tout moment, à partir de <strong>5,00 €</strong>, sans validation manuelle : le virement part dès votre confirmation, généralement reçu sous 1 à 3 jours ouvrés selon les délais bancaires standards de Stripe.</li>
+        <li>Si vous aviez déjà un solde de ventes en attente avant ce changement, il reste retirable vers votre PayPal comme auparavant (bouton dédié) — plus aucune nouvelle vente n'alimente ce solde.</li>
       </ul>
 
       <h3>Responsabilités</h3>
@@ -342,22 +361,47 @@
     </div>
   </div>
 
-  <!-- Retrait vers PayPal (fenêtre intégrée au site — pas de prompt() natif,
-       qui peut rester silencieux dans certains navigateurs/webviews) -->
+  <!-- Retrait de l'ANCIEN solde (ventes conclues avant le passage à Stripe
+       Connect) vers PayPal, avec validation manuelle admin — comme avant.
+       Fenêtre intégrée au site plutôt qu'un prompt() natif, qui peut rester
+       totalement silencieux dans certains navigateurs/webviews. -->
   <div class="armsModalOverlay2" id="withdrawOverlay">
     <div class="queueModal">
-      <div class="queueIcon">💸</div>
-      <h3>Demander un retrait vers PayPal</h3>
+      <div class="queueIcon">🕰️</div>
+      <h3>Retirer votre ancien solde vers PayPal</h3>
       <p>Solde disponible : <strong id="withdrawAvailable">0,00 €</strong> — minimum 10,00 €</p>
       <div class="paypalField" style="justify-content:center;">
+        <input type="email" id="legacyPaypalEmailInput" placeholder="votre-email@paypal.com" style="text-align:center;max-width:220px;" />
+      </div>
+      <div class="paypalField" style="justify-content:center;margin-top:8px;">
         <input type="text" inputmode="decimal" id="withdrawAmountInput" placeholder="Montant en euros (10 € min.)" style="text-align:center;max-width:170px;" />
       </div>
-      <p style="font-size:11.5px;color:#9fb0c8;margin:8px 0 0;">Le montant est débité de votre solde immédiatement, puis un administrateur vous envoie l'argent manuellement vers l'adresse PayPal enregistrée sur votre profil. L'adresse enregistrée doit être celle de VOTRE compte PayPal — si elle est incorrecte ou ne correspond pas à un compte PayPal existant, l'envoi sera impossible et votre retrait restera bloqué.</p>
+      <p style="font-size:11.5px;color:#9fb0c8;margin:8px 0 0;">Ce solde vient de ventes conclues avant le passage à Stripe — il est retiré une bonne fois pour toutes de cette façon. Le montant est débité de votre solde immédiatement, puis un administrateur vous envoie l'argent manuellement vers l'adresse PayPal indiquée ci-dessus. Vous êtes responsable de l'exactitude de cette adresse.</p>
       <p id="withdrawEstimate" style="font-size:12px;color:#ffd93d;margin:8px 0 0;min-height:16px;"></p>
       <p id="withdrawError" style="color:#ff8a8a;font-size:12.5px;min-height:16px;margin:4px 0 0;"></p>
       <div class="queueActions">
         <button class="btn-secondary" id="withdrawCancelBtn">Annuler</button>
         <button class="btn" id="withdrawConfirmBtn">Demander le retrait</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Retrait Stripe (flux principal) : virement instantané vers le compte
+       bancaire connecté, aucune validation manuelle — l'argent est déjà le
+       vôtre sur votre propre compte Stripe. -->
+  <div class="armsModalOverlay2" id="stripePayoutOverlay">
+    <div class="queueModal">
+      <div class="queueIcon">💸</div>
+      <h3>Retirer vers votre compte bancaire</h3>
+      <p>Solde disponible : <strong id="stripePayoutAvailable">0,00 €</strong> — minimum 5,00 €</p>
+      <div class="paypalField" style="justify-content:center;">
+        <input type="text" inputmode="decimal" id="stripePayoutAmountInput" placeholder="Montant en euros (5 € min.)" style="text-align:center;max-width:170px;" />
+      </div>
+      <p style="font-size:11.5px;color:#9fb0c8;margin:8px 0 0;">Le virement part dès votre confirmation, sans validation manuelle — reçu généralement sous 1 à 3 jours ouvrés selon les délais bancaires standards de Stripe.</p>
+      <p id="stripePayoutError" style="color:#ff8a8a;font-size:12.5px;min-height:16px;margin:4px 0 0;"></p>
+      <div class="queueActions">
+        <button class="btn-secondary" id="stripePayoutCancelBtn">Annuler</button>
+        <button class="btn" id="stripePayoutConfirmBtn">Confirmer le retrait</button>
       </div>
     </div>
   </div>
@@ -396,30 +440,27 @@
     }
     function euros(cents){ return (cents/100).toLocaleString('fr-FR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + ' €'; }
 
-    // Estimation de ce que le vendeur recevra réellement pour un prix donné :
-    // PayPal prélève ses propres frais (2,9 % + 0,35 € en France/UE pour un
-    // paiement standard) AVANT que le site ne calcule sa commission de 10 %
-    // sur ce qui reste. C'est une estimation affichée avant la mise en
-    // vente — le montant exact dépend de la vraie capture PayPal au moment
-    // de l'achat (voir server.js), mais l'écart est minime en pratique.
-    const PAYPAL_FEE_RATE = 0.029;
-    const PAYPAL_FEE_FIXED = 0.35;
+    // Estimation de ce que le vendeur recevra pour un prix donné : avec
+    // Stripe Connect, la répartition (destination charge) est fixée au
+    // moment même du paiement — ce montant n'est donc plus une estimation
+    // approximative comme du temps de PayPal, c'est exactement ce qui
+    // arrivera sur le compte du vendeur. Doit rester synchronisé avec
+    // ASTRO_COMMISSION_RATE / ASTRO_MIN_COMMISSION_CENTS côté server.js.
+    const COMMISSION_RATE = 0.10;
+    const MIN_COMMISSION_CENTS = 50; // 0,50 €
     function estimateSellerGainCents(priceEuros){
-      const paypalFee = priceEuros * PAYPAL_FEE_RATE + PAYPAL_FEE_FIXED;
-      const net = Math.max(0, priceEuros - paypalFee);
-      const commission = net * 0.10;
-      const sellerGain = net - commission;
-      return { paypalFeeCents: Math.round(paypalFee * 100), sellerGainCents: Math.round(sellerGain * 100) };
+      const priceCents = Math.round(priceEuros * 100);
+      const commissionCents = Math.max(Math.round(priceCents * COMMISSION_RATE), MIN_COMMISSION_CENTS);
+      return { commissionCents, sellerGainCents: priceCents - commissionCents };
     }
 
-    // RETRAIT : quand l'administrateur envoie l'argent depuis son PayPal vers
-    // celui du joueur (paiement "biens et services"), PayPal prélève à
-    // nouveau ses propres frais — cette fois sur le montant reçu par le
-    // JOUEUR, pas sur celui débité de son solde interne. Il n'y a PAS de
-    // commission A'rms sur un retrait (déjà prélevée à la vente) : seuls les
-    // frais PayPal s'appliquent ici. Même formule que pour une vente
-    // (2,9 % + 0,35 €), affichée pour que le joueur sache, AVANT de
-    // confirmer, qu'il ne recevra pas la totalité du montant demandé.
+    // RETRAIT (ancien solde uniquement, avant le passage à Stripe Connect) :
+    // l'administrateur envoie l'argent depuis son propre PayPal vers celui
+    // du joueur, qui prélève ses frais standards sur cet envoi. Ne concerne
+    // plus aucune nouvelle vente — voir le solde Stripe (loadConnectStatus)
+    // pour le fonctionnement actuel, sans ces frais ni cette estimation.
+    const PAYPAL_FEE_RATE = 0.029;
+    const PAYPAL_FEE_FIXED = 0.35;
     function estimateWithdrawNetCents(amountEuros){
       const paypalFee = amountEuros * PAYPAL_FEE_RATE + PAYPAL_FEE_FIXED;
       const net = Math.max(0, amountEuros - paypalFee);
@@ -572,7 +613,8 @@
     // ===================================================================
     // Portefeuille + accord légal
     // ===================================================================
-    let WALLET = { balanceCents:0, paypalEmail:'', agreementAccepted:false, paypalConfigured:false };
+    let WALLET = { balanceCents:0, agreementAccepted:false, stripeConfigured:false, stripeConnectReady:false, hasStripeConnectAccount:false };
+    let CONNECT = { connected:false, ready:false, availableCents:0 };
 
     async function loadWallet(){
       try{
@@ -580,18 +622,43 @@
         const data = await res.json();
         if (!data.ok) return;
         WALLET = data;
-        document.getElementById('walletAmount').textContent = euros(data.balanceCents);
-        document.getElementById('paypalEmailInput').value = data.paypalEmail || '';
-        const connectedRow = document.getElementById('paypalConnectedRow');
-        const formRow = document.getElementById('paypalFormRow');
-        if (data.paypalEmail) {
-          connectedRow.style.display = 'flex';
-          formRow.style.display = 'none';
-          document.getElementById('paypalConnectedLabel').textContent = `✓ PayPal connecté : ${data.paypalEmail}`;
+
+        // Ancien solde (avant Stripe) : n'affiche la barre dédiée que s'il en
+        // reste un, pour ne pas encombrer l'écran des joueurs qui n'ont
+        // jamais connu l'ancien système.
+        const legacyBar = document.getElementById('legacyBalanceBar');
+        if (data.balanceCents > 0) {
+          legacyBar.style.display = 'flex';
+          document.getElementById('legacyWalletAmount').textContent = euros(data.balanceCents);
         } else {
-          connectedRow.style.display = 'none';
-          formRow.style.display = 'flex';
+          legacyBar.style.display = 'none';
         }
+
+        const promptRow = document.getElementById('connectPromptRow');
+        const hint = document.getElementById('connectHint');
+        const pendingRow = document.getElementById('connectPendingRow');
+        const readyRow = document.getElementById('connectReadyRow');
+        const withdrawBtn = document.getElementById('withdrawBtn');
+        if (data.stripeConnectReady) {
+          promptRow.style.display = 'none'; hint.style.display = 'none';
+          pendingRow.style.display = 'none';
+          readyRow.style.display = 'flex';
+          withdrawBtn.style.display = 'inline-flex';
+          loadConnectStatus();
+        } else if (data.hasStripeConnectAccount) {
+          promptRow.style.display = 'none'; hint.style.display = 'none';
+          pendingRow.style.display = 'flex';
+          readyRow.style.display = 'none';
+          withdrawBtn.style.display = 'none';
+          document.getElementById('walletAmount').textContent = euros(0);
+        } else {
+          promptRow.style.display = 'flex'; hint.style.display = 'block';
+          pendingRow.style.display = 'none';
+          readyRow.style.display = 'none';
+          withdrawBtn.style.display = 'none';
+          document.getElementById('walletAmount').textContent = euros(0);
+        }
+
         const line = document.getElementById('agreementStatusLine');
         if (data.agreementAccepted) {
           line.textContent = '✓ Accord Astrocomptoir accepté';
@@ -601,6 +668,19 @@
           line.className = 'agreementStatus pending';
           openLegalModal();
         }
+      }catch(e){ console.error(e); }
+    }
+
+    // Solde réel disponible chez Stripe (jamais stocké chez nous) — appelé
+    // seulement quand stripeConnectReady est vrai, et au retour de
+    // l'onboarding pour rafraîchir l'état dès qu'il devient vrai.
+    async function loadConnectStatus(){
+      try{
+        const res = await fetch('/api/astrocomptoir/connect/status');
+        const data = await res.json();
+        if (!data.ok) return;
+        CONNECT = data;
+        document.getElementById('walletAmount').textContent = euros(data.availableCents || 0);
       }catch(e){ console.error(e); }
     }
 
@@ -620,48 +700,34 @@
     document.getElementById('legalCloseBtn').addEventListener('click', closeLegalModal);
     document.getElementById('reopenLegalBtn').addEventListener('click', openLegalModal);
 
-    document.getElementById('savePaypalBtn').addEventListener('click', async () => {
-      const email = document.getElementById('paypalEmailInput').value.trim();
+    // Connexion du compte de paiement (Stripe Express) — un seul bouton,
+    // qu'il s'agisse de démarrer ou de reprendre un onboarding inachevé :
+    // le serveur réutilise le compte existant s'il y en a déjà un.
+    async function startStripeConnect(){
+      if (!WALLET.agreementAccepted) { openLegalModal(); return; }
       try{
-        const res = await fetch('/api/astrocomptoir/paypal-email', {
-          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email })
-        });
+        const res = await fetch('/api/astrocomptoir/connect/start', { method:'POST' });
         const data = await res.json();
-        if (data.ok) { showToast('PayPal connecté.'); loadWallet(); }
-        else showToast(data.error === 'email_invalid' ? 'Adresse e-mail invalide.' : 'Erreur.');
+        if (data.ok && data.url) { window.location.href = data.url; }
+        else showToast('Connexion impossible pour le moment — réessayez plus tard.');
       }catch(e){ showToast('Erreur réseau.'); }
-    });
+    }
+    document.getElementById('startConnectBtn').addEventListener('click', startStripeConnect);
+    document.getElementById('resumeConnectBtn').addEventListener('click', startStripeConnect);
 
-    document.getElementById('disconnectPaypalBtn').addEventListener('click', async () => {
-      if (!confirm('Déconnecter cette adresse PayPal ? Vous devrez en connecter une nouvelle avant votre prochain retrait.')) return;
-      try{
-        const res = await fetch('/api/astrocomptoir/paypal-email', {
-          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ disconnect: true })
-        });
-        const data = await res.json();
-        if (data.ok) { showToast('PayPal déconnecté.'); document.getElementById('paypalEmailInput').value = ''; loadWallet(); }
-        else showToast('Erreur.');
-      }catch(e){ showToast('Erreur réseau.'); }
-    });
-
-    // La fenêtre de retrait est une modale intégrée au site plutôt qu'un
-    // prompt() natif du navigateur : ce dernier reste parfois totalement
-    // silencieux (aucune boîte de dialogue, aucune erreur visible) selon le
-    // navigateur ou la fenêtre d'affichage utilisée, ce qui donnait
-    // l'impression que le bouton "Retirer" ne faisait rien du tout.
+    // ===================================================================
+    // Retrait de l'ANCIEN solde (avant Stripe) vers PayPal — inchangé,
+    // validation manuelle admin. Fenêtre intégrée au site plutôt qu'un
+    // prompt() natif, qui peut rester silencieux selon navigateur/webview.
+    // ===================================================================
     const withdrawOverlay = document.getElementById('withdrawOverlay');
     const withdrawAmountInput = document.getElementById('withdrawAmountInput');
+    const legacyPaypalEmailInput = document.getElementById('legacyPaypalEmailInput');
     const withdrawError = document.getElementById('withdrawError');
     const withdrawConfirmBtn = document.getElementById('withdrawConfirmBtn');
     const withdrawEstimate = document.getElementById('withdrawEstimate');
+    const WITHDRAW_MIN_CENTS = 1000; // 10 €, doit rester synchronisé avec ASTRO_MIN_WITHDRAWAL_CENTS côté server.js
 
-    // Estimation en direct, mise à jour à chaque frappe : le joueur DOIT
-    // savoir, AVANT de confirmer sa demande, qu'il ne recevra pas le montant
-    // demandé en entier — PayPal prélève ses propres frais (~2,9 % + 0,35 €)
-    // sur l'envoi "biens et services" que l'administrateur lui fera
-    // manuellement. Le montant débité de son solde, lui, reste bien celui
-    // demandé (voir confirmWithdraw) — seul ce qu'il reçoit RÉELLEMENT sur
-    // son compte PayPal est réduit par ces frais, hors du contrôle du site.
     function refreshWithdrawEstimate(){
       const amount = parseFloat((withdrawAmountInput.value || '').replace(',', '.'));
       if (!Number.isFinite(amount) || amount <= 0) { withdrawEstimate.innerHTML = ''; return; }
@@ -672,6 +738,7 @@
 
     function openWithdrawModal(){
       withdrawAmountInput.value = '';
+      legacyPaypalEmailInput.value = WALLET.paypalEmail || '';
       withdrawError.textContent = '';
       withdrawEstimate.innerHTML = '';
       document.getElementById('withdrawAvailable').textContent = euros(WALLET.balanceCents);
@@ -680,19 +747,18 @@
     }
     function closeWithdrawModal(){ withdrawOverlay.classList.remove('show'); }
 
-    document.getElementById('withdrawBtn').addEventListener('click', () => {
+    document.getElementById('legacyWithdrawBtn').addEventListener('click', () => {
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
-      if (!WALLET.paypalEmail) { showToast("Enregistrez d'abord votre adresse PayPal."); return; }
       if (WALLET.balanceCents < WITHDRAW_MIN_CENTS) { showToast(`Solde insuffisant — le retrait minimum est de ${euros(WITHDRAW_MIN_CENTS)}.`); return; }
       openWithdrawModal();
     });
     document.getElementById('withdrawCancelBtn').addEventListener('click', closeWithdrawModal);
     withdrawOverlay.addEventListener('click', (e) => { if (e.target === withdrawOverlay) closeWithdrawModal(); });
 
-    const WITHDRAW_MIN_CENTS = 1000; // 10 €, doit rester synchronisé avec ASTRO_MIN_WITHDRAWAL_CENTS côté server.js
-
     async function confirmWithdraw(){
       const amount = parseFloat((withdrawAmountInput.value || '').replace(',', '.'));
+      const email = legacyPaypalEmailInput.value.trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { withdrawError.textContent = 'Adresse PayPal invalide.'; return; }
       if (!Number.isFinite(amount) || amount <= 0) { withdrawError.textContent = 'Montant invalide.'; return; }
       if (Math.round(amount * 100) < WITHDRAW_MIN_CENTS) { withdrawError.textContent = `Le retrait minimum est de ${euros(WITHDRAW_MIN_CENTS)}.`; return; }
       if (Math.round(amount * 100) > WALLET.balanceCents) { withdrawError.textContent = 'Solde insuffisant.'; return; }
@@ -700,6 +766,11 @@
       withdrawConfirmBtn.disabled = true;
       withdrawConfirmBtn.textContent = 'Envoi en cours…';
       try{
+        if (email !== (WALLET.paypalEmail || '')) {
+          await fetch('/api/astrocomptoir/paypal-email', {
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email })
+          });
+        }
         const res = await fetch('/api/astrocomptoir/withdraw', {
           method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amountCents: Math.round(amount*100) })
         });
@@ -707,7 +778,6 @@
         if (!data.ok) {
           withdrawError.textContent = data.error === 'insufficient_balance' ? 'Solde insuffisant.'
             : data.error === 'paypal_email_missing' ? "Enregistrez d'abord votre adresse PayPal."
-            : data.error === 'paypal_not_configured' ? "Les retraits ne sont pas encore disponibles."
             : data.error === 'amount_below_minimum' ? `Le retrait minimum est de ${euros(WITHDRAW_MIN_CENTS)}.`
             : data.error === 'invalid_amount' ? 'Montant invalide.'
             : data.error === 'agreement_required' ? "Vous devez d'abord accepter l'accord."
@@ -727,15 +797,81 @@
     withdrawConfirmBtn.addEventListener('click', confirmWithdraw);
     withdrawAmountInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmWithdraw(); });
 
-    // Retour après un achat de carte payé via PayPal
-    (async function handleCardPurchaseReturn(){
+    // ===================================================================
+    // Retrait Stripe (flux principal) — virement instantané, sans
+    // validation manuelle : l'argent est déjà celui du joueur, sur son
+    // propre compte Stripe. On vérifie toujours le solde RÉEL juste avant
+    // (loadConnectStatus), jamais un solde stocké chez nous.
+    // ===================================================================
+    const stripePayoutOverlay = document.getElementById('stripePayoutOverlay');
+    const stripePayoutAmountInput = document.getElementById('stripePayoutAmountInput');
+    const stripePayoutError = document.getElementById('stripePayoutError');
+    const stripePayoutConfirmBtn = document.getElementById('stripePayoutConfirmBtn');
+    const STRIPE_PAYOUT_MIN_CENTS = 500; // 5 €, doit rester synchronisé avec STRIPE_MIN_PAYOUT_CENTS côté server.js
+
+    async function openStripePayoutModal(){
+      await loadConnectStatus();
+      stripePayoutAmountInput.value = '';
+      stripePayoutError.textContent = '';
+      document.getElementById('stripePayoutAvailable').textContent = euros(CONNECT.availableCents || 0);
+      stripePayoutOverlay.classList.add('show');
+      setTimeout(() => stripePayoutAmountInput.focus(), 50);
+    }
+    function closeStripePayoutModal(){ stripePayoutOverlay.classList.remove('show'); }
+
+    document.getElementById('withdrawBtn').addEventListener('click', () => {
+      if (!WALLET.agreementAccepted) { openLegalModal(); return; }
+      if (!WALLET.stripeConnectReady) { showToast('Connectez votre compte pour pouvoir retirer.'); return; }
+      openStripePayoutModal();
+    });
+    document.getElementById('stripePayoutCancelBtn').addEventListener('click', closeStripePayoutModal);
+    stripePayoutOverlay.addEventListener('click', (e) => { if (e.target === stripePayoutOverlay) closeStripePayoutModal(); });
+
+    async function confirmStripePayout(){
+      const amount = parseFloat((stripePayoutAmountInput.value || '').replace(',', '.'));
+      if (!Number.isFinite(amount) || amount <= 0) { stripePayoutError.textContent = 'Montant invalide.'; return; }
+      const amountCents = Math.round(amount * 100);
+      if (amountCents < STRIPE_PAYOUT_MIN_CENTS) { stripePayoutError.textContent = `Le retrait minimum est de ${euros(STRIPE_PAYOUT_MIN_CENTS)}.`; return; }
+      if (amountCents > (CONNECT.availableCents || 0)) { stripePayoutError.textContent = 'Solde insuffisant.'; return; }
+      stripePayoutError.textContent = '';
+      stripePayoutConfirmBtn.disabled = true;
+      stripePayoutConfirmBtn.textContent = 'Envoi en cours…';
+      try{
+        const res = await fetch('/api/astrocomptoir/connect/payout', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ amountCents })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          stripePayoutError.textContent = data.error === 'insufficient_balance' ? 'Solde insuffisant.'
+            : data.error === 'connect_not_ready' ? 'Votre compte doit être connecté et vérifié.'
+            : data.error === 'invalid_amount' ? `Le retrait minimum est de ${euros(STRIPE_PAYOUT_MIN_CENTS)}.`
+            : 'Erreur inattendue.';
+          return;
+        }
+        closeStripePayoutModal();
+        showToast('Virement envoyé — vous le recevrez sous quelques jours ouvrés.');
+        loadWallet(); loadHistory();
+      }catch(e){
+        stripePayoutError.textContent = 'Erreur réseau — vérifiez votre connexion.';
+      }finally{
+        stripePayoutConfirmBtn.disabled = false;
+        stripePayoutConfirmBtn.textContent = 'Confirmer le retrait';
+      }
+    }
+    stripePayoutConfirmBtn.addEventListener('click', confirmStripePayout);
+    stripePayoutAmountInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmStripePayout(); });
+
+    // Retour après un achat de carte payé via Stripe, et retour après la
+    // connexion du compte de paiement (onboarding Stripe Express).
+    (async function handleAstroReturns(){
       const params = new URLSearchParams(window.location.search);
       const buyParam = params.get('buy');
-      const orderId = params.get('token');
-      if (buyParam === 'return' && orderId) {
+      const sessionId = params.get('session_id');
+      const connectParam = params.get('connect');
+      if (buyParam === 'stripe_return' && sessionId) {
         try{
           const res = await fetch('/api/astrocomptoir/cards/confirm-purchase', {
-            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orderId })
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId })
           });
           const data = await res.json();
           if (data.ok) {
@@ -746,14 +882,18 @@
           }
         }catch(e){}
         window.history.replaceState({}, '', '/astrocomptoir.html');
-      } else if (buyParam === 'cancel') {
-        if (orderId) {
+      } else if (buyParam === 'stripe_cancel') {
+        if (sessionId) {
           fetch('/api/astrocomptoir/cards/release-reservation', {
-            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ orderId })
+            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId })
           }).catch(()=>{});
         }
         showToast('Achat annulé.');
         window.history.replaceState({}, '', '/astrocomptoir.html');
+      } else if (connectParam === 'return' || connectParam === 'refresh') {
+        showToast(connectParam === 'return' ? 'Connexion en cours de vérification…' : 'Reprise de la connexion…');
+        window.history.replaceState({}, '', '/astrocomptoir.html');
+        loadWallet();
       }
     })();
 
@@ -813,19 +953,20 @@
 
     async function buyCard(code, priceCents){
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
-      if (!confirm(`Payer cette carte ${euros(priceCents)} via PayPal ?`)) return;
+      if (!confirm(`Payer cette carte ${euros(priceCents)} par carte bancaire ?`)) return;
       try{
         const res = await fetch(`/api/astrocomptoir/cards/${code}/buy`, { method:'POST' });
         const data = await res.json();
         if (!data.ok) {
-          showToast(data.error === 'paypal_not_configured' ? "Le paiement PayPal n'est pas encore disponible."
+          showToast(data.error === 'stripe_not_configured' ? "Le paiement par carte n'est pas encore disponible."
+            : data.error === 'seller_not_connected' ? 'Le vendeur n’a pas terminé sa connexion — réessayez plus tard.'
             : data.error === 'no_listing_available' ? 'Cette carte vient d’être vendue à quelqu’un d’autre.'
             : data.error === 'already_sold' ? 'Cette carte vient d’être vendue à quelqu’un d’autre.'
             : 'Erreur lors de l’achat.');
           loadMarket();
           return;
         }
-        if (data.approveUrl) window.location.href = data.approveUrl;
+        if (data.checkoutUrl) window.location.href = data.checkoutUrl;
       }catch(e){ showToast('Erreur réseau.'); }
     }
 
@@ -902,7 +1043,22 @@
       document.getElementById('sellDrawerOverlay').classList.remove('show');
       document.getElementById('sellDrawer').classList.remove('show');
     }
-    document.getElementById('openSellDrawerBtn').addEventListener('click', openSellDrawer);
+    // Avant d'ouvrir le tiroir de vente : le joueur doit avoir connecté son
+    // compte de paiement, sinon aucune de ses cartes ne pourrait vraiment se
+    // vendre. On ne le bloque pas sèchement — on l'invite à connecter en 2
+    // minutes, en mettant en avant le bénéfice (être payé), pas la contrainte.
+    document.getElementById('openSellDrawerBtn').addEventListener('click', () => {
+      if (!WALLET.agreementAccepted) { openLegalModal(); return; }
+      if (!WALLET.stripeConnectReady) {
+        if (WALLET.hasStripeConnectAccount) {
+          showToast('Terminez la connexion de votre compte pour pouvoir vendre.');
+        } else if (confirm("Pour vendre vos cartes et être payé, connectez votre compte de paiement (2 minutes, sécurisé par Stripe). Connecter maintenant ?")) {
+          startStripeConnect();
+        }
+        return;
+      }
+      openSellDrawer();
+    });
     document.getElementById('sellDrawerCloseBtn').addEventListener('click', closeSellDrawer);
     document.getElementById('sellDrawerOverlay').addEventListener('click', closeSellDrawer);
 
@@ -947,7 +1103,7 @@
             return;
           }
           const est = estimateSellerGainCents(amount);
-          estimateEl.innerHTML = `Vous recevrez environ <strong>${euros(est.sellerGainCents)}</strong> — après ~${euros(est.paypalFeeCents)} de frais PayPal (2,9 % + 0,35 €) et notre commission de 10 %.`;
+          estimateEl.innerHTML = `Vous recevrez <strong>${euros(est.sellerGainCents)}</strong> directement sur votre compte, dès l'achat — après notre commission de ${euros(est.commissionCents)}.`;
         }
         priceInput.addEventListener('input', refreshEstimate);
         el.querySelector('.sellBtn').addEventListener('click', () => attemptCreateListing(c.code, priceInput));
@@ -1004,6 +1160,7 @@
         const data = await res.json();
         if (!data.ok) {
           showToast(data.error === 'card_not_owned' ? 'Vous ne possédez plus cette carte.'
+            : data.error === 'connect_required' ? 'Connectez votre compte de paiement pour pouvoir vendre.'
             : 'Erreur lors de la mise en vente.');
           return;
         }

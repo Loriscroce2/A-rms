@@ -326,6 +326,22 @@ if (!marketTransactionCols.includes('seller_gain_cents')) {
   db.exec('ALTER TABLE market_transactions ADD COLUMN seller_gain_cents INTEGER');
 }
 
+// Migration douce : distinguer les retraits envoyés automatiquement via
+// Stripe Connect (payout instantané déclenché par le joueur lui-même, voir
+// /api/astrocomptoir/connect/payout) des anciens retraits PayPal validés
+// manuellement par un administrateur. method='paypal_manual' par défaut :
+// toutes les lignes déjà existantes AVANT cette migration viennent bien de
+// l'ancien flux manuel — seules les nouvelles lignes créées après passeront
+// explicitement 'stripe'. stripe_payout_id trace l'identifiant Stripe pour
+// pouvoir retrouver l'envoi côté dashboard Stripe en cas de litige.
+const withdrawalCols = db.prepare("PRAGMA table_info(withdrawal_requests)").all().map(c => c.name);
+if (!withdrawalCols.includes('method')) {
+  db.exec("ALTER TABLE withdrawal_requests ADD COLUMN method TEXT NOT NULL DEFAULT 'paypal_manual'");
+}
+if (!withdrawalCols.includes('stripe_payout_id')) {
+  db.exec('ALTER TABLE withdrawal_requests ADD COLUMN stripe_payout_id TEXT');
+}
+
 // Migration douce pour les bases market_listings créées avant l'achat direct
 // par carte bancaire (réservation le temps du paiement Stripe).
 const marketListingCols = db.prepare("PRAGMA table_info(market_listings)").all().map(c => c.name);
