@@ -130,6 +130,8 @@
       .cwDuelBtn{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,217,61,.5);
         background:rgba(255,217,61,.1);color:#ffd93d;font-size:14px;cursor:pointer;transition:transform .15s ease, background .15s ease;}
       .cwDuelBtn:hover{background:rgba(255,217,61,.22);transform:scale(1.08);}
+      .cwDuelBtn.offline{border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.04);color:#5f7a82;opacity:.55;cursor:not-allowed;}
+      .cwDuelBtn.offline:hover{background:rgba(255,255,255,.04);transform:none;}
 
       .cwModalOverlay{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;
         background:rgba(2,8,11,.72);backdrop-filter:blur(4px);padding:20px;}
@@ -437,7 +439,7 @@
             <div class="cwFriendLast">${f.lastMessage ? esc(f.lastMessage) : 'Aucun message'}</div>
           </div>
           ${f.unread ? `<div class="cwUnreadBadge">${f.unread}</div>` : ''}
-          ${f.online ? `<button class="cwDuelBtn" data-duel-id="${f.id}" data-duel-name="${esc(f.name)}" title="Défier ${esc(f.name)} en 1v1 (non classé)">⚔</button>` : ''}
+          <button class="cwDuelBtn${f.online ? '' : ' offline'}" data-duel-id="${f.id}" data-duel-name="${esc(f.name)}" data-duel-online="${f.online ? '1' : '0'}" title="${f.online ? `Défier ${esc(f.name)} en 1v1 (non classé)` : `${esc(f.name)} est hors ligne — impossible de le défier pour l'instant`}">⚔</button>
         </div>
       `).join('');
     } else {
@@ -458,6 +460,10 @@
     }));
     body.querySelectorAll('.cwDuelBtn[data-duel-id]').forEach(btn => btn.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (btn.dataset.duelOnline !== '1') {
+        showCwToast(`${btn.dataset.duelName} est hors ligne — impossible de le défier pour l'instant.`, true);
+        return;
+      }
       startCwDuel({ id: parseInt(btn.dataset.duelId, 10), name: btn.dataset.duelName });
     }));
   }
@@ -516,6 +522,16 @@
       updateBadges();
       if (State.activeTab === 'friends' && State.friendsSubview === 'list') renderFriendsBody();
     } catch (e) { console.error(e); }
+  }
+
+  // Met à jour le statut en ligne d'UN ami précis dans l'état local (sans
+  // refaire un fetch complet) et rafraîchit l'affichage si la liste d'amis
+  // est actuellement visible — voir chat:friendOnline / chat:friendOffline.
+  function setFriendOnlineState(userId, online) {
+    const f = (State.friendsData.friends || []).find(x => x.id === userId);
+    if (!f || f.online === online) return;
+    f.online = online;
+    if (State.activeTab === 'friends' && State.friendsSubview === 'list') renderFriendsBody();
   }
 
   async function doFriendSearch(pseudo) {
@@ -712,6 +728,13 @@
     socket.on('chat:friendRequestReceived', () => loadFriends());
     socket.on('chat:friendAccepted', () => loadFriends());
     socket.on('chat:friendRemoved', () => loadFriends());
+
+    // Un ami vient de se connecter/déconnecter du tchat (voir
+    // notifyFriendsOfPresence côté serveur) — met à jour le point vert et le
+    // bouton "Défier" (visible uniquement pour les amis EN LIGNE) EN TEMPS
+    // RÉEL, sans attendre le rafraîchissement de sécurité toutes les 30s.
+    socket.on('chat:friendOnline', ({ userId } = {}) => setFriendOnlineState(userId, true));
+    socket.on('chat:friendOffline', ({ userId } = {}) => setFriendOnlineState(userId, false));
 
     // ---- Défi 1v1 entre amis (SAISON) ----
     socket.on('duel:challengeReceived', (payload) => {

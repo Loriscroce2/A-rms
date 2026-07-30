@@ -2721,6 +2721,19 @@ function isUserOnline(userId) {
   return !!set && set.size > 0;
 }
 
+// Prévient chaque ami accepté d'un joueur qu'il vient de se connecter/
+// déconnecter du tchat, en temps réel — sans ça, le petit point vert et le
+// bouton "Défier" (visible uniquement pour les amis EN LIGNE) ne se
+// mettaient à jour que via le rafraîchissement de sécurité toutes les 30s
+// (voir chat-widget.js), donnant l'impression que le bouton "n'apparaît
+// jamais" si l'ami vient tout juste de se connecter.
+function notifyFriendsOfPresence(userId, online) {
+  try {
+    const rows = qMyAcceptedFriendships.all(userId, userId, userId);
+    rows.forEach(r => notifyUser(r.friend_id, online ? 'chat:friendOnline' : 'chat:friendOffline', { userId }));
+  } catch (e) { console.error(e); }
+}
+
 // Envoie un événement à tous les onglets ouverts d'un joueur donné, s'il en
 // a (sinon ne fait rien — il verra l'info au prochain chargement de page,
 // via les routes REST /api/chat/friends etc.).
@@ -2759,8 +2772,13 @@ chatNsp.on('connection', (socket) => {
   const userId = socket.data.userId;
   socket.join('general');
   socket.join(`user:${userId}`);
+  // Transition hors-ligne -> en ligne UNIQUEMENT au tout premier onglet
+  // ouvert par ce joueur (un second onglet du même joueur ne redéclenche
+  // pas l'info à ses amis, déjà notifiés).
+  const wasOffline = !isUserOnline(userId);
   if (!chatOnlineSockets.has(userId)) chatOnlineSockets.set(userId, new Set());
   chatOnlineSockets.get(userId).add(socket.id);
+  if (wasOffline) notifyFriendsOfPresence(userId, true);
 
   socket.on('chat:sendGeneral', (payload) => {
     try {
@@ -2872,7 +2890,12 @@ chatNsp.on('connection', (socket) => {
     const set = chatOnlineSockets.get(userId);
     if (set) {
       set.delete(socket.id);
-      if (set.size === 0) chatOnlineSockets.delete(userId);
+      if (set.size === 0) {
+        chatOnlineSockets.delete(userId);
+        // Dernier onglet fermé pour ce joueur : transition en ligne -> hors
+        // ligne, prévenir ses amis en temps réel (voir notifyFriendsOfPresence).
+        notifyFriendsOfPresence(userId, false);
+      }
     }
   });
 });
