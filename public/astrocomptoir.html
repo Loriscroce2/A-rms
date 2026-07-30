@@ -217,12 +217,12 @@
         <div>
           <div id="agreementStatusLine" class="agreementStatus">Vérification…</div>
 
-          <!-- Compte non connecté : mise en avant du bénéfice, pas de la contrainte -->
+          <!-- Gains en attente, compte pas encore connecté : mise en avant du bénéfice, pas de la contrainte -->
           <div class="walletField" id="connectPromptRow" style="margin-top:8px; display:none;">
-            <span style="font-size:12.5px;color:#ffd93d;font-weight:700;">💰 Connectez votre compte pour être payé sur vos ventes</span>
+            <span style="font-size:12.5px;color:#ffd93d;font-weight:700;">💰 Vous avez des gains en attente — connectez votre compte pour les retirer</span>
             <button class="btn" id="startConnectBtn">Recevoir mes gains — 2 min</button>
           </div>
-          <p id="connectHint" style="font-size:10.5px;color:#9fb0c8;opacity:.9;margin:6px 0 0;max-width:360px; display:none;">Formulaire sécurisé hébergé par Stripe (nom, IBAN). Une fois connecté, chaque vente vous paie automatiquement et instantanément — plus besoin de rien redemander.</p>
+          <p id="connectHint" style="font-size:10.5px;color:#9fb0c8;opacity:.9;margin:6px 0 0;max-width:360px; display:none;">Formulaire sécurisé hébergé par Stripe (nom, IBAN), demandé uniquement au moment de retirer — jamais pour vendre. Une fois connecté, vos prochaines ventes vous paient automatiquement et instantanément.</p>
 
           <!-- En cours de vérification côté Stripe (onboarding commencé mais pas terminé) -->
           <div class="walletField" id="connectPendingRow" style="margin-top:8px; display:none;">
@@ -230,14 +230,14 @@
             <button class="btn-secondary" id="resumeConnectBtn">Reprendre</button>
           </div>
 
-          <!-- Compte connecté et prêt à vendre -->
+          <!-- Compte connecté et prêt -->
           <div class="walletField" id="connectReadyRow" style="margin-top:8px; display:none;">
             <span style="font-size:13px;color:var(--ok);font-weight:800;">✓ Compte connecté — vos ventes sont payées automatiquement</span>
           </div>
         </div>
       </div>
       <div class="walletActions">
-        <button class="btn-secondary" id="withdrawBtn" style="display:none;">⬆ Retirer</button>
+        <button class="btn-secondary" id="withdrawBtn">⬆ Retirer</button>
         <button class="btn-secondary" id="reopenLegalBtn">📜 Accord</button>
         <button class="btn-sell" id="openSellDrawerBtn">
           <span class="burgerIcon"><span></span><span></span><span></span></span>
@@ -307,7 +307,7 @@
       <ul>
         <li>L'Astrocomptoir permet à des joueurs d'acheter et de vendre entre eux des cartes A'rms individuelles, contre de l'argent réel.</li>
         <li>A'rms agit uniquement en tant qu'intermédiaire technique de mise en relation entre acheteurs et vendeurs. A'rms n'est ni partie à la vente, ni acheteur, ni vendeur, ni dépositaire des fonds : les paiements sont intégralement traités par Stripe, prestataire de services de paiement tiers agréé, indépendant d'A'rms.</li>
-        <li>Acheter une carte se paie directement par carte bancaire, au prix affiché. Pour vendre, un vendeur doit préalablement connecter un compte de paiement via Stripe (vérification d'identité et coordonnées bancaires gérées exclusivement par Stripe — A'rms n'a à aucun moment accès à ces informations ni aux fonds correspondants).</li>
+        <li>Acheter une carte se paie directement par carte bancaire, au prix affiché. Vendre ne nécessite aucune démarche préalable : le gain de chaque vente est crédité sur le solde Astrocomptoir du vendeur. Pour retirer ce solde vers un compte bancaire, le vendeur doit connecter un compte de paiement via Stripe (vérification d'identité et coordonnées bancaires gérées exclusivement par Stripe — A'rms n'a à aucun moment accès à ces informations ni aux fonds correspondants) ; tant que ce compte n'est pas connecté, les gains restent visibles sur le solde du vendeur mais ne peuvent pas être virés vers sa banque.</li>
         <li>Le prix de chaque annonce est fixé librement par le vendeur. A'rms ne garantit, sous aucune forme, la valeur, la liquidité ou la possibilité de revente d'une carte — le marché dépend uniquement de l'offre et de la demande entre joueurs.</li>
         <li>Une vente conclue est définitive et non remboursable, sauf erreur technique avérée et imputable à A'rms.</li>
       </ul>
@@ -319,7 +319,7 @@
 
       <h3>3. Retraits</h3>
       <ul>
-        <li>Les fonds issus des ventes sont crédités par Stripe sur le compte du vendeur ; leur retrait vers un compte bancaire s'effectue directement depuis ce compte, à partir de 5,00 €, selon les délais et modalités propres à Stripe. A'rms n'intervient à aucun moment dans ce virement et ne peut en garantir le délai, qui dépend de tiers hors de son contrôle.</li>
+        <li>Selon que le vendeur a déjà connecté son compte de paiement au moment de la vente, le gain est soit versé directement par Stripe sur son compte (vendeur déjà connecté), soit affiché sur son solde Astrocomptoir en attendant qu'il connecte son compte (vendeur pas encore connecté) — dans ce second cas, la somme est transférée vers son compte Stripe au moment où il demande son premier retrait. Dans tous les cas, le retrait effectif vers un compte bancaire s'effectue depuis le compte Stripe du vendeur, à partir de 5,00 €, selon les délais et modalités propres à Stripe. A'rms n'intervient à aucun moment dans ce virement et ne peut en garantir le délai, qui dépend de tiers hors de son contrôle.</li>
       </ul>
 
       <h3>4. Absence de garantie</h3>
@@ -608,25 +608,26 @@
         const hint = document.getElementById('connectHint');
         const pendingRow = document.getElementById('connectPendingRow');
         const readyRow = document.getElementById('connectReadyRow');
-        const withdrawBtn = document.getElementById('withdrawBtn');
         if (data.stripeConnectReady) {
           promptRow.style.display = 'none'; hint.style.display = 'none';
           pendingRow.style.display = 'none';
           readyRow.style.display = 'flex';
-          withdrawBtn.style.display = 'inline-flex';
           loadConnectStatus();
         } else if (data.hasStripeConnectAccount) {
           promptRow.style.display = 'none'; hint.style.display = 'none';
           pendingRow.style.display = 'flex';
           readyRow.style.display = 'none';
-          withdrawBtn.style.display = 'none';
-          document.getElementById('walletAmount').textContent = euros(0);
+          document.getElementById('walletAmount').textContent = euros(data.balanceCents || 0);
         } else {
-          promptRow.style.display = 'flex'; hint.style.display = 'block';
+          // Pas encore connecté : on affiche le solde déjà accumulé (gains de
+          // ventes conclues avant connexion) et on n'invite à connecter que
+          // s'il y a réellement quelque chose à retirer.
+          const hasPending = (data.balanceCents || 0) > 0;
+          promptRow.style.display = hasPending ? 'flex' : 'none';
+          hint.style.display = hasPending ? 'block' : 'none';
           pendingRow.style.display = 'none';
           readyRow.style.display = 'none';
-          withdrawBtn.style.display = 'none';
-          document.getElementById('walletAmount').textContent = euros(0);
+          document.getElementById('walletAmount').textContent = euros(data.balanceCents || 0);
         }
 
         const line = document.getElementById('agreementStatusLine');
@@ -650,7 +651,10 @@
         const data = await res.json();
         if (!data.ok) return;
         CONNECT = data;
-        document.getElementById('walletAmount').textContent = euros(data.availableCents || 0);
+        // Le total affiché inclut un éventuel solde en attente pas encore
+        // transféré (ventes conclues avant la connexion) — il est rattrapé
+        // automatiquement au moment du retrait (voir /connect/payout).
+        document.getElementById('walletAmount').textContent = euros((data.availableCents || 0) + (WALLET.balanceCents || 0));
       }catch(e){ console.error(e); }
     }
 
@@ -701,15 +705,27 @@
       await loadConnectStatus();
       stripePayoutAmountInput.value = '';
       stripePayoutError.textContent = '';
-      document.getElementById('stripePayoutAvailable').textContent = euros(CONNECT.availableCents || 0);
+      document.getElementById('stripePayoutAvailable').textContent = euros((CONNECT.availableCents || 0) + (WALLET.balanceCents || 0));
       stripePayoutOverlay.classList.add('show');
       setTimeout(() => stripePayoutAmountInput.focus(), 50);
     }
     function closeStripePayoutModal(){ stripePayoutOverlay.classList.remove('show'); }
 
+    // La connexion Stripe n'est demandée qu'ICI, au moment de retirer — jamais
+    // pour vendre. Si le joueur n'a encore rien gagné, pas besoin de le
+    // pousser à connecter quoi que ce soit.
     document.getElementById('withdrawBtn').addEventListener('click', () => {
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
-      if (!WALLET.stripeConnectReady) { showToast('Connectez votre compte pour pouvoir retirer.'); return; }
+      if (!WALLET.stripeConnectReady) {
+        if (WALLET.hasStripeConnectAccount) {
+          showToast('Terminez la connexion de votre compte pour pouvoir retirer.');
+        } else if ((WALLET.balanceCents || 0) <= 0) {
+          showToast("Vous n'avez rien à retirer pour l'instant.");
+        } else if (confirm('Pour retirer vos gains vers votre banque, connectez votre compte de paiement (2 minutes, sécurisé par Stripe). Connecter maintenant ?')) {
+          startStripeConnect();
+        }
+        return;
+      }
       openStripePayoutModal();
     });
     document.getElementById('stripePayoutCancelBtn').addEventListener('click', closeStripePayoutModal);
@@ -720,7 +736,7 @@
       if (!Number.isFinite(amount) || amount <= 0) { stripePayoutError.textContent = 'Montant invalide.'; return; }
       const amountCents = Math.round(amount * 100);
       if (amountCents < STRIPE_PAYOUT_MIN_CENTS) { stripePayoutError.textContent = `Le retrait minimum est de ${euros(STRIPE_PAYOUT_MIN_CENTS)}.`; return; }
-      if (amountCents > (CONNECT.availableCents || 0)) { stripePayoutError.textContent = 'Solde insuffisant.'; return; }
+      if (amountCents > (CONNECT.availableCents || 0) + (WALLET.balanceCents || 0)) { stripePayoutError.textContent = 'Solde insuffisant.'; return; }
       stripePayoutError.textContent = '';
       stripePayoutConfirmBtn.disabled = true;
       stripePayoutConfirmBtn.textContent = 'Envoi en cours…';
@@ -731,6 +747,7 @@
         const data = await res.json();
         if (!data.ok) {
           stripePayoutError.textContent = data.error === 'insufficient_balance' ? 'Solde insuffisant.'
+            : data.error === 'funds_settling' ? 'Transfert de vos gains en cours — réessayez dans quelques instants.'
             : data.error === 'connect_not_ready' ? 'Votre compte doit être connecté et vérifié.'
             : data.error === 'invalid_amount' ? `Le retrait minimum est de ${euros(STRIPE_PAYOUT_MIN_CENTS)}.`
             : 'Erreur inattendue.';
@@ -931,20 +948,13 @@
       document.getElementById('sellDrawerOverlay').classList.remove('show');
       document.getElementById('sellDrawer').classList.remove('show');
     }
-    // Avant d'ouvrir le tiroir de vente : le joueur doit avoir connecté son
-    // compte de paiement, sinon aucune de ses cartes ne pourrait vraiment se
-    // vendre. On ne le bloque pas sèchement — on l'invite à connecter en 2
-    // minutes, en mettant en avant le bénéfice (être payé), pas la contrainte.
+    // Vendre ne demande AUCUNE connexion préalable : le gain de chaque vente
+    // est crédité sur le solde Astrocomptoir du vendeur, quel que soit son
+    // état de connexion. La connexion Stripe (identité + IBAN) n'est
+    // demandée qu'au moment de RETIRER de l'argent vers sa banque (voir le
+    // bouton "Retirer" plus haut) — jamais avant, jamais pour vendre.
     document.getElementById('openSellDrawerBtn').addEventListener('click', () => {
       if (!WALLET.agreementAccepted) { openLegalModal(); return; }
-      if (!WALLET.stripeConnectReady) {
-        if (WALLET.hasStripeConnectAccount) {
-          showToast('Terminez la connexion de votre compte pour pouvoir vendre.');
-        } else if (confirm("Pour vendre vos cartes et être payé, connectez votre compte de paiement (2 minutes, sécurisé par Stripe). Connecter maintenant ?")) {
-          startStripeConnect();
-        }
-        return;
-      }
       openSellDrawer();
     });
     document.getElementById('sellDrawerCloseBtn').addEventListener('click', closeSellDrawer);

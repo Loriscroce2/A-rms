@@ -303,7 +303,7 @@ const qListingByPaypalOrderId = db.prepare('SELECT * FROM market_listings WHERE 
 // mélanger les deux identifiants.
 const qReserveListingForStripeCheckout = db.prepare(`
   UPDATE market_listings
-  SET status = 'pending', stripe_session_id = ?, reserved_until = datetime('now', '+30 minutes')
+  SET status = 'pending', stripe_session_id = ?, settle_via = ?, reserved_until = datetime('now', '+30 minutes')
   WHERE id = ? AND status = 'active'
 `);
 const qListingByStripeSession = db.prepare('SELECT * FROM market_listings WHERE stripe_session_id = ?');
@@ -2015,6 +2015,30 @@ async function stripeRetrieveConnectedBalance(accountId) {
   return res.json();
 }
 
+// Transfère un montant du solde du compte PLATEFORME (celui de
+// STRIPE_SECRET_KEY) vers le compte Stripe Connect d'un vendeur — utilisé
+// uniquement pour rattraper les ventes conclues AVANT que ce vendeur ait
+// connecté son compte (settle_via='platform', voir /cards/:code/buy et
+// /connect/payout) : l'argent était encaissé chez nous le temps qu'il se
+// connecte, on le lui reverse ici dès qu'il veut retirer.
+async function stripeCreateTransfer(accountId, amountCents) {
+  const params = new URLSearchParams();
+  params.append('amount', String(amountCents));
+  params.append('currency', 'eur');
+  params.append('destination', accountId);
+  const res = await fetch('https://api.stripe.com/v1/transfers', {
+    method: 'POST',
+    headers: { 'Authorization': stripeAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString(),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('[stripe connect] transfert de rattrapage échoué', res.status, errBody);
+    throw new Error(`stripe_connect_transfer_failed_${res.status}`);
+  }
+  return res.json();
+}
+
 async function stripeCreatePayoutForAccount(accountId, amountCents) {
   const params = new URLSearchParams();
   params.append('amount', String(amountCents));
@@ -2139,7 +2163,7 @@ async function paypalSendPayout(email, amountEuros, note, senderBatchId) {
 // incrémente cette valeur (ex. 'v2') — chaque joueur devra alors le
 // réaccepter avant de pouvoir de nouveau acheter/vendre/retirer, même s'il
 // avait déjà coché la version précédente.
-const ASTRO_AGREEMENT_VERSION = 'v3'; // v3 = accord réécrit (protection juridique renforcée, plus aucune mention PayPal), tous les joueurs doivent réaccepter.
+const ASTRO_AGREEMENT_VERSION = 'v4'; // v4 = la connexion Stripe n'est plus exigée pour vendre, seulement pour retirer (voir /listings, /cards/:code/buy, /connect/payout) — tous les joueurs doivent réaccepter.
 function hasAcceptedAgreement(userId) {
   const row = qGetWallet.get(userId);
   return !!row && row.astro_agreement_version === ASTRO_AGREEMENT_VERSION;
@@ -2296,9 +2320,28 @@ app.post('/api/astrocomptoir/connect/payout', authMiddleware, async (req, res) =
     if (!Number.isFinite(amountCents) || amountCents < STRIPE_MIN_PAYOUT_CENTS) {
       return res.status(400).json({ ok: false, error: 'invalid_amount' });
     }
+    // Rattrapage des ventes conclues AVANT que ce vendeur ne connecte son
+    // compte (settle_via='platform') : leur gain dort sur real_balance_cents
+    // depuis la vente — on le transfère maintenant vers son compte Stripe
+    // Connect fraîchement prêt, puis on vide le solde interne. Fait à chaque
+    // tentative de retrait, jamais automatiquement avant (pas de connexion =
+    // pas de transfert possible).
+    const pendingPlatformCents = wallet.real_balance_cents || 0;
+    if (pendingPlatformCents > 0) {
+      await stripeCreateTransfer(wallet.stripe_connect_account_id, pendingPlatformCents);
+      qSpendRealBalance.run(pendingPlatformCents, req.user.id, pendingPlatformCents);
+    }
     const balance = await stripeRetrieveConnectedBalance(wallet.stripe_connect_account_id);
     const availableCents = (balance.available || []).filter(b => b.currency === 'eur').reduce((sum, b) => sum + b.amount, 0);
     if (amountCents > availableCents) {
+      // Un transfert de rattrapage qu'on vient de déclencher (ci-dessus) peut
+      // mettre quelques instants avant d'apparaître en solde "disponible"
+      // côté Stripe (il transite d'abord par "en attente") — dans ce cas
+      // précis, on le signale distinctement pour que le joueur sache qu'il
+      // ne s'agit pas d'un manque réel, juste d'un délai à réessayer.
+      if (pendingPlatformCents > 0 && amountCents <= availableCents + pendingPlatformCents) {
+        return res.status(402).json({ ok: false, error: 'funds_settling' });
+      }
       return res.status(402).json({ ok: false, error: 'insufficient_balance' });
     }
     const payout = await stripeCreatePayoutForAccount(wallet.stripe_connect_account_id, amountCents);
@@ -2423,15 +2466,14 @@ app.post('/api/astrocomptoir/listings', authMiddleware, (req, res) => {
     if (!hasAcceptedAgreement(req.user.id)) {
       return res.status(403).json({ ok: false, error: 'agreement_required' });
     }
-    // Un vendeur doit avoir terminé la connexion de son compte Stripe avant
-    // de pouvoir mettre une carte en vente, sinon un acheteur ne pourrait
-    // jamais finaliser le paiement (la destination charge exige un compte
-    // de destination valide). C'est la SEULE étape supplémentaire demandée
-    // aux vendeurs — jamais aux acheteurs, jamais à l'inscription.
-    const sellerWallet = qGetWallet.get(req.user.id);
-    if (!sellerWallet || !sellerWallet.stripe_connect_ready) {
-      return res.status(403).json({ ok: false, error: 'connect_required' });
-    }
+    // Aucune connexion Stripe requise pour mettre en vente : un vendeur peut
+    // lister et vendre des cartes sans jamais connecter son compte. Si un
+    // acheteur se présente avant qu'il soit connecté, le paiement est encaissé
+    // sur le compte du jeu (settle_via='platform', voir /cards/:code/buy) et
+    // son gain est crédité sur real_balance_cents — il ne connectera son
+    // compte Stripe qu'au moment où il voudra réellement RETIRER de l'argent
+    // (voir /connect/payout), jamais avant. C'est ce qui évite l'écran
+    // "Informations sur l'entreprise" à quiconque vend juste pour le plaisir.
     const code = String(req.body?.code || '');
     const priceCents = Math.round(Number(req.body?.priceCents));
     if (!/^\d{4}$/.test(code)) return res.status(400).json({ ok: false, error: 'invalid_code' });
@@ -2518,14 +2560,17 @@ app.post('/api/astrocomptoir/cards/:code/buy', authMiddleware, async (req, res) 
     if (!listing) {
       return res.status(404).json({ ok: false, error: 'no_listing_available' });
     }
-    // Filet de sécurité : la mise en vente exige déjà stripe_connect_ready,
-    // mais un vendeur pourrait en théorie avoir perdu cet état entre-temps
-    // (compte Stripe suspendu, etc.) — on ne crée jamais de session de
-    // paiement vers un compte qui ne peut plus recevoir de virement.
+    // Deux cas possibles selon que le vendeur a déjà connecté (ou non) son
+    // compte Stripe : s'il est connecté, on répartit automatiquement le
+    // paiement dès l'encaissement (destination charge, settle_via='connect').
+    // Sinon, l'argent est simplement encaissé sur le compte du jeu
+    // (settle_via='platform') et son gain sera crédité sur son solde interne
+    // (real_balance_cents) à la confirmation — il pourra le récupérer plus
+    // tard en connectant son compte au moment de retirer (voir
+    // /connect/payout). Jamais bloqué à l'achat par l'état de connexion du
+    // vendeur.
     const sellerWallet = qGetWallet.get(listing.seller_id);
-    if (!sellerWallet || !sellerWallet.stripe_connect_account_id || !sellerWallet.stripe_connect_ready) {
-      return res.status(409).json({ ok: false, error: 'seller_not_connected' });
-    }
+    const sellerConnected = !!(sellerWallet && sellerWallet.stripe_connect_account_id && sellerWallet.stripe_connect_ready);
     const origin = `${req.protocol}://${req.get('host')}`;
     const commission = Math.max(Math.round(listing.price_cents * ASTRO_COMMISSION_RATE), ASTRO_MIN_COMMISSION_CENTS);
     const session = await stripeCreateCheckoutSession(
@@ -2534,9 +2579,10 @@ app.post('/api/astrocomptoir/cards/:code/buy', authMiddleware, async (req, res) 
       `${origin}/astrocomptoir.html?buy=stripe_return&session_id={CHECKOUT_SESSION_ID}`,
       `${origin}/astrocomptoir.html?buy=stripe_cancel&session_id={CHECKOUT_SESSION_ID}`,
       `${origin}/cartes/${listing.code}.png`,
-      { destinationAccountId: sellerWallet.stripe_connect_account_id, applicationFeeAmount: commission }
+      sellerConnected ? { destinationAccountId: sellerWallet.stripe_connect_account_id, applicationFeeAmount: commission } : undefined
     );
-    const reserved = qReserveListingForStripeCheckout.run(session.id, listing.id);
+    const settleVia = sellerConnected ? 'connect' : 'platform';
+    const reserved = qReserveListingForStripeCheckout.run(session.id, settleVia, listing.id);
     if (reserved.changes === 0) {
       // Vendue/réservée entre-temps (cas extrêmement rare) : la session
       // Stripe créée ne sera jamais confirmée côté jeu, et tant que le
@@ -2571,15 +2617,24 @@ app.post('/api/astrocomptoir/cards/confirm-purchase', authMiddleware, async (req
     if (marked.changes === 0) {
       return res.status(409).json({ ok: false, error: 'already_sold' });
     }
-    // Avec une destination charge, le montant reçu par le vendeur (prix -
-    // commission) est FIXÉ AU MOMENT DE LA CRÉATION de la session (voir
-    // /cards/:code/buy) et versé intégralement, sans autre déduction — donc
-    // ce calcul est exact, pas une estimation comme du temps de PayPal.
+    // Que la vente ait été réglée en destination charge directe (le vendeur
+    // était connecté) ou encaissée sur le compte du jeu (settle_via=
+    // 'platform', vendeur pas encore connecté), le gain net du vendeur est
+    // FIXÉ AU MOMENT DE LA CRÉATION de la session (voir /cards/:code/buy) —
+    // exact dans les deux cas, jamais une estimation.
     const commission = Math.max(Math.round(listing.price_cents * ASTRO_COMMISSION_RATE), ASTRO_MIN_COMMISSION_CENTS);
     const sellerGain = listing.price_cents - commission;
     qUpsertCard.run(req.user.id, listing.code, 1);
-    // seller_gain_cents = montant exact versé directement sur le compte
-    // Stripe du vendeur (aucun passage par notre solde interne désormais).
+    // Si le paiement est passé par le compte du jeu (vendeur pas encore
+    // connecté), on crédite son solde interne : il pourra le récupérer en
+    // connectant son compte Stripe au moment de retirer (voir
+    // /connect/payout, qui transfère alors ce solde vers son compte).
+    if (listing.settle_via === 'platform') {
+      qAddRealBalance.run(sellerGain, listing.seller_id);
+    }
+    // seller_gain_cents = montant net réellement acquis par le vendeur,
+    // versé directement (settle_via='connect') ou en attente sur son solde
+    // interne jusqu'au retrait (settle_via='platform').
     qInsertTransaction.run(listing.id, listing.seller_id, req.user.id, listing.code, listing.price_cents, commission, sellerGain);
     res.json({ ok: true, code: listing.code, priceCents: listing.price_cents });
   } catch (e) {

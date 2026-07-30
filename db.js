@@ -354,6 +354,15 @@ if (!marketListingCols.includes('paypal_order_id')) {
 if (!marketListingCols.includes('reserved_until')) {
   db.exec('ALTER TABLE market_listings ADD COLUMN reserved_until TEXT');
 }
+// settle_via : comment l'argent de CETTE vente a été réparti au moment du
+// paiement — 'connect' = destination charge directe vers le compte Stripe
+// du vendeur (il était déjà connecté), 'platform' = paiement encaissé sur le
+// compte Stripe du jeu car le vendeur n'était pas encore connecté au moment
+// de la vente ; son gain est alors crédité sur real_balance_cents (users) en
+// attendant qu'il connecte son compte pour le retirer (voir /connect/payout).
+if (!marketListingCols.includes('settle_via')) {
+  db.exec("ALTER TABLE market_listings ADD COLUMN settle_via TEXT NOT NULL DEFAULT 'connect'");
+}
 
 // Migration douce : si la base existait déjà avant l'ajout de "coins" (anciennes
 // installations), on ajoute la colonne sans effacer les comptes existants.
