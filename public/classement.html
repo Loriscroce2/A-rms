@@ -145,13 +145,15 @@
     }
 
     /* ---- Skin de dos de carte offert en récompense de palier (voir
-       SEASON_SKINS) — même gabarit visuel que .roadSeasonCard juste
-       au-dessus (grisé + cadenas tant que non débloqué), simplement décalé
-       plus à droite pour ne jamais chevaucher une carte WIN sur le même
-       rang. ---- */
+       SEASON_SKINS) — EXACTEMENT le même gabarit et la même colonne que
+       .roadSeasonCard ci-dessus (grisé + cadenas tant que non débloqué).
+       Un seul gain par palier désormais (voir SEASON_COIN_REWARDS/
+       SEASON_SKINS/SEASON_CARDS, jamais deux sur le même rang), donc les
+       trois types de récompense partagent le même `left` : la Voie reste
+       parfaitement alignée sur toute sa hauteur. ---- */
     .roadSkinBadge{
-      position:absolute; left:270px; top:0; transform:translateY(-50%); width:44px; height:62px;
-      border-radius:8px; overflow:hidden; z-index:2; cursor:help;
+      position:absolute; left:210px; top:0; transform:translateY(-50%); width:44px; height:62px;
+      border-radius:8px; overflow:hidden; z-index:2; cursor:pointer;
       border:1.5px solid rgba(255,255,255,.18); box-shadow:0 4px 12px rgba(0,0,0,.5);
       background:#0a1a22;
     }
@@ -164,25 +166,35 @@
       background:#7df9ff; color:#04150c; font-size:12px; font-weight:900; line-height:18px; text-align:center;
       box-shadow:0 0 6px rgba(125,249,255,.8), 0 1px 3px rgba(0,0,0,.6); border:1.5px solid #0a1a22; z-index:3;
     }
-    @media (max-width:640px){ .roadSkinBadge{ left:196px; width:36px; height:50px; } }
 
     /* ---- Récompense en PIÈCES de fin de saison (voir SEASON_COIN_REWARDS)
-       — une pastille à droite de tout le reste (carte WIN + skin), grisée
-       tant que le palier n'est pas atteint. Contrairement aux cartes/skins,
-       l'état "obtenu" ici est simplement "ce rang est-il atteint ?" (le
-       versement réel se fait via le bouton admin, mais visuellement on
-       affiche la récompense comme acquise dès que le rang l'est, cohérent
-       avec le reste de la Voie). ---- */
+       — même gabarit/colonne que les deux ci-dessus (voir note d'alignement
+       plus haut), grisée tant que le palier n'est pas atteint. Contrairement
+       aux cartes/skins, l'état "obtenu" ici est simplement "ce rang est-il
+       atteint ?" (le versement réel se fait via le bouton admin, mais
+       visuellement on affiche la récompense comme acquise dès que le rang
+       l'est, cohérent avec le reste de la Voie). ---- */
     .roadCoinBadge{
-      position:absolute; left:330px; top:0; transform:translateY(-50%); white-space:nowrap;
-      display:flex; align-items:center; gap:4px; padding:5px 10px; border-radius:999px; z-index:2; cursor:help;
+      position:absolute; left:210px; top:0; transform:translateY(-50%); width:44px; height:62px;
+      border-radius:8px; z-index:2; cursor:pointer; overflow:hidden;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
       border:1.5px solid rgba(255,217,61,.3); background:linear-gradient(180deg,#3a2f0a,#1e1706);
-      color:#ffe98a; font-weight:800; font-size:11.5px; opacity:.42; filter:grayscale(.5);
+      color:#ffe98a; font-weight:800; font-size:10.5px; opacity:.42; filter:grayscale(.5);
       transition:opacity .2s ease, filter .2s ease, box-shadow .2s ease, border-color .2s ease;
     }
-    .roadCoinBadge img{ height:15px; width:auto; flex:none; }
+    .roadCoinBadge img{ height:20px; width:auto; flex:none; }
     .roadCoinBadge.owned{ opacity:1; filter:none; border-color:rgba(255,217,61,.65); box-shadow:0 0 10px rgba(255,217,61,.35); }
-    @media (max-width:640px){ .roadCoinBadge{ left:196px; top:26px; font-size:10px; padding:3px 8px; } }
+    .roadCoinBadge.owned::after{
+      content:'✓'; position:absolute; top:-5px; right:-5px; width:18px; height:18px; border-radius:50%;
+      background:#ffd93d; color:#2a1c00; font-size:12px; font-weight:900; line-height:18px; text-align:center;
+      box-shadow:0 0 6px rgba(255,217,61,.8), 0 1px 3px rgba(0,0,0,.6); border:1.5px solid #0a1a22; z-index:3;
+    }
+
+    @media (max-width:640px){
+      .roadSkinBadge, .roadCoinBadge{ left:150px; width:36px; height:50px; }
+      .roadCoinBadge{ font-size:9px; }
+      .roadCoinBadge img{ height:16px; }
+    }
 
     /* ---- Inverxion (W0003) — Graal de fin de saison : pedestal spécial
        affiché TOUT EN HAUT de la Voie de la Menace, hors du système de rang
@@ -828,9 +840,10 @@
         if (skinReward) {
           const skinOwned = MY_UNLOCKED_SKINS.has(skinReward.file);
           html += `
-            <div class="roadSkinBadge${skinOwned ? ' owned' : ''}" style="top:${y}px;" title="Dos de carte : récompense de fin de saison au rang ${r.label}${skinOwned ? ' (débloqué)' : ', distribué par l’administrateur une fois ce rang atteint'}">
+            <div class="roadSkinBadge${skinOwned ? ' owned' : ''}" data-skin-file="${skinReward.file}" data-owned="${skinOwned ? '1' : '0'}" style="top:${y}px;">
               <img src="/assets/Skin/${encodeURIComponent(skinReward.file)}" alt="Dos de carte" loading="lazy">
               ${skinOwned ? '' : '<div class="roadSeasonLock">🔒</div>'}
+              <div class="roadSeasonLabel">Dos de carte</div>
             </div>`;
         }
 
@@ -838,8 +851,10 @@
         if (coinReward) {
           const coinOwned = myRankIndex != null && i <= myRankIndex;
           html += `
-            <div class="roadCoinBadge${coinOwned ? ' owned' : ''}" style="top:${y}px;" title="${coinReward.coins} pièces — récompense de fin de saison au rang ${r.label}${coinOwned ? ' (rang atteint)' : ', distribuées par l’administrateur une fois ce rang atteint'}">
+            <div class="roadCoinBadge${coinOwned ? ' owned' : ''}" data-coins="${coinReward.coins}" data-owned="${coinOwned ? '1' : '0'}" style="top:${y}px;">
               <img src="/assets/monnaie.png" alt="Pièces"> ${coinReward.coins}
+              ${coinOwned ? '' : '<div class="roadSeasonLock">🔒</div>'}
+              <div class="roadSeasonLabel">Pièces</div>
             </div>`;
         }
       });
@@ -851,6 +866,14 @@
 
       track.querySelectorAll('.roadSeasonCard').forEach(node => {
         attachSeasonCardZoom(node, node.dataset.code, node.dataset.owned === '1');
+      });
+
+      track.querySelectorAll('.roadSkinBadge').forEach(node => {
+        attachRoadRewardZoom(node, `/assets/Skin/${encodeURIComponent(node.dataset.skinFile)}`, node.dataset.owned === '1');
+      });
+
+      track.querySelectorAll('.roadCoinBadge').forEach(node => {
+        attachRoadRewardZoom(node, '/assets/monnaie.png', node.dataset.owned === '1', `${node.dataset.coins} pièces`);
       });
 
       showRoadDetail(myRankIndex != null ? myRankIndex : 0);
@@ -908,6 +931,40 @@
             sh.className = 'zoomStat shield'; sh.textContent = info.shield;
             seasonZoomEl.appendChild(sh);
           }
+        }
+        if (!owned) {
+          const lock = document.createElement('div');
+          lock.className = 'zoomLockIcon'; lock.textContent = '🔒';
+          seasonZoomEl.appendChild(lock);
+        } else {
+          const check = document.createElement('div');
+          check.className = 'zoomOwnedCheck'; check.textContent = '✓';
+          seasonZoomEl.appendChild(check);
+        }
+        seasonZoomEl.classList.add('show');
+      });
+      cardEl.addEventListener('mouseleave', () => seasonZoomEl.classList.remove('show'));
+    }
+
+    // Même zoom au survol que attachSeasonCardZoom ci-dessus (même élément
+    // partagé #seasonCardZoom), mais générique pour les récompenses skin/
+    // pièces de la Voie — un seul gain par palier désormais (voir
+    // renderRoad), donc les trois types de badge (carte WIN / skin / pièces)
+    // partagent exactement la même colonne et le même comportement de survol.
+    function attachRoadRewardZoom(cardEl, imageUrl, owned, badgeText){
+      cardEl.addEventListener('mousemove', (e) => {
+        seasonZoomEl.style.backgroundImage = `url('${imageUrl}')`;
+        seasonZoomEl.classList.toggle('locked', !owned);
+        let x = e.clientX + 26, y = e.clientY - 60;
+        if (x + 300 > window.innerWidth) x = e.clientX - 326;
+        if (y < 10) y = 10;
+        seasonZoomEl.style.left = x + 'px'; seasonZoomEl.style.top = y + 'px';
+
+        seasonZoomEl.querySelectorAll('.zoomStat, .zoomLockIcon, .zoomOwnedCheck, .zoomCopiesBadge').forEach(n => n.remove());
+        if (badgeText) {
+          const badge = document.createElement('div');
+          badge.className = 'zoomCopiesBadge'; badge.textContent = badgeText;
+          seasonZoomEl.appendChild(badge);
         }
         if (!owned) {
           const lock = document.createElement('div');
