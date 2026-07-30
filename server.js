@@ -2139,7 +2139,7 @@ async function paypalSendPayout(email, amountEuros, note, senderBatchId) {
 // incrémente cette valeur (ex. 'v2') — chaque joueur devra alors le
 // réaccepter avant de pouvoir de nouveau acheter/vendre/retirer, même s'il
 // avait déjà coché la version précédente.
-const ASTRO_AGREEMENT_VERSION = 'v2'; // v2 = passage à Stripe Connect (paiement/retrait), tous les joueurs doivent réaccepter.
+const ASTRO_AGREEMENT_VERSION = 'v3'; // v3 = accord réécrit (protection juridique renforcée, plus aucune mention PayPal), tous les joueurs doivent réaccepter.
 function hasAcceptedAgreement(userId) {
   const row = qGetWallet.get(userId);
   return !!row && row.astro_agreement_version === ASTRO_AGREEMENT_VERSION;
