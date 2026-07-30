@@ -183,7 +183,11 @@
     }
     .graalPedestal.locked .graalStage{ filter:grayscale(1) brightness(.62); }
     .graalStage::after{
-      content:''; position:absolute; inset:-25%; z-index:3; pointer-events:none; border-radius:16px;
+      /* CORRIGÉ : `inset:-25%` débordait très largement des bords de la
+         carte (zone lumineuse ~1.7× trop grande). Le reflet doit balayer
+         EXACTEMENT la surface de la carte, comme .graalFace juste à côté
+         (inset:0, même border-radius). */
+      content:''; position:absolute; inset:0; z-index:3; pointer-events:none; border-radius:13px;
       background:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.4) 50%, transparent 58%);
       background-size:260% 260%; mix-blend-mode:overlay; animation:graalShimmer 4s ease-in-out infinite;
     }
@@ -269,6 +273,13 @@
       display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:900;
       background:#3ddc84; color:#04150c; border:3px solid #0a1a22; filter:none;
       box-shadow:0 0 14px rgba(61,220,132,.8), 0 3px 8px rgba(0,0,0,.6);
+    }
+    .seasonCardZoom .zoomCopiesBadge{
+      position:absolute; left:50%; bottom:-16px; transform:translateX(-50%);
+      padding:5px 14px; border-radius:999px; white-space:nowrap; filter:none;
+      background:rgba(6,20,26,.92); border:1.5px solid rgba(255,217,61,.6); color:#ffd93d;
+      font-size:12px; font-weight:800; font-family:'Manrope',system-ui,sans-serif;
+      box-shadow:0 4px 12px rgba(0,0,0,.55), 0 0 10px rgba(255,217,61,.3);
     }
     .seasonCardZoom .zoomStat{
       position:absolute; right:-14px; display:flex; align-items:center; justify-content:center;
@@ -464,7 +475,7 @@
         <div class="statsTabPane active" data-pane="road">
           <div class="section">
             <h2>🗺 La Voie de la Menace</h2>
-            <p class="sectionSub">Votre position actuelle est marquée sur le chemin. Cliquez sur n'importe quel palier pour en savoir plus.</p>
+            <p class="sectionSub">Votre position actuelle est marquée sur le chemin. Cliquez sur n'importe quel palier pour en savoir plus.<br>Chaque carte WIN débloquée sur ce chemin vous est offerte en <strong>2 exemplaires</strong> (le maximum autorisé par carte dans un deck).</p>
 
             <div class="graalPedestal locked" id="graalPedestal" title="Inverxion — Graal de fin de saison">
               <div class="graalTitle">👑 Graal de fin de saison</div>
@@ -733,7 +744,7 @@
         if (seasonCard) {
           const owned = MY_OWNED_CODES.has(seasonCard.code);
           html += `
-            <div class="roadSeasonCard${owned ? ' owned' : ''}" data-code="${seasonCard.code}" data-owned="${owned ? '1' : '0'}" style="top:${y}px;" title="Carte WIN : ${seasonCard.name} — récompense de fin de saison au rang ${r.label}${owned ? ' (obtenue)' : ', distribuée par l’administrateur une fois ce rang atteint'}">
+            <div class="roadSeasonCard${owned ? ' owned' : ''}" data-code="${seasonCard.code}" data-owned="${owned ? '1' : '0'}" style="top:${y}px;" title="Carte WIN : ${seasonCard.name} — récompense de fin de saison au rang ${r.label}, offerte en 2 exemplaires${owned ? ' (obtenue)' : ', distribués par l’administrateur une fois ce rang atteint'}">
               <img src="/cartes/${seasonCard.code}.png" alt="${seasonCard.name}" loading="lazy">
               <div class="roadSeasonLock">🔒</div>
               <div class="roadSeasonLabel">${seasonCard.name}</div>
@@ -785,7 +796,15 @@
         if (y < 10) y = 10;
         seasonZoomEl.style.left = x + 'px'; seasonZoomEl.style.top = y + 'px';
 
-        seasonZoomEl.querySelectorAll('.zoomStat, .zoomLockIcon, .zoomOwnedCheck').forEach(n => n.remove());
+        seasonZoomEl.querySelectorAll('.zoomStat, .zoomLockIcon, .zoomOwnedCheck, .zoomCopiesBadge').forEach(n => n.remove());
+        // Rappel du nombre d'exemplaires offerts pour cette carte WIN —
+        // toutes sauf Inverxion (W0003), qui est un Graal UNIQUE numéroté
+        // (1 seul exemplaire par joueur, voir graalDesc plus haut).
+        if (code !== 'W0003') {
+          const copies = document.createElement('div');
+          copies.className = 'zoomCopiesBadge'; copies.textContent = '× 2 exemplaires';
+          seasonZoomEl.appendChild(copies);
+        }
         // PV/PB uniquement pour les cartes 'personnage' (un combattant) —
         // les cartes 'action' n'ont pas de PV/PB à afficher.
         if (info && info.type === 'personnage') {

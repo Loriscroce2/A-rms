@@ -612,9 +612,12 @@ app.post('/api/admin/season-cards/unlock-all', authMiddleware, adminMiddleware, 
           if (typeof c.requiredRankIndex !== 'number' || myRankIndex < c.requiredRankIndex) return;
           if (qSeasonGrantExists.get(u.id, c.code)) return;
           qInsertSeasonGrant.run(u.id, c.code);
-          qUpsertCard.run(u.id, c.code, 1);
+          // 2 exemplaires par joueur (le maximum autorisé pour une même
+          // carte dans un deck, voir regles.html) — pas 1 seul, sinon la
+          // carte gagnée ne serait jamais jouable à son plein potentiel.
+          qUpsertCard.run(u.id, c.code, 2);
           grantedCount++;
-          perCard[c.code] = (perCard[c.code] || 0) + 1;
+          perCard[c.code] = (perCard[c.code] || 0) + 2;
         });
       });
     });
