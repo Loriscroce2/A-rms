@@ -275,6 +275,11 @@ const qSpendRealBalance = db.prepare('UPDATE users SET real_balance_cents = real
 const qSetStripeConnectAccount = db.prepare('UPDATE users SET stripe_connect_account_id = ? WHERE id = ?');
 const qSetStripeConnectReady = db.prepare('UPDATE users SET stripe_connect_ready = ? WHERE id = ?');
 const qUserByStripeConnectAccount = db.prepare('SELECT id FROM users WHERE stripe_connect_account_id = ?');
+// Remise à zéro de l'état Stripe Connect de TOUS les comptes (admin
+// uniquement, voir /api/admin/astrocomptoir/reset-stripe-connect) — utile en
+// phase de test après un changement de logique de connexion, pour repartir
+// d'un état propre sans compte "à moitié connecté" issu d'anciens essais.
+const qAdminResetAllStripeConnect = db.prepare("UPDATE users SET stripe_connect_account_id = '', stripe_connect_ready = 0");
 
 const qInsertListing = db.prepare('INSERT INTO market_listings (seller_id, code, price_cents) VALUES (?, ?, ?)');
 const qListingById = db.prepare('SELECT * FROM market_listings WHERE id = ?');
@@ -2883,6 +2888,23 @@ app.post('/api/admin/astrocomptoir/reset-history', authMiddleware, adminMiddlewa
   try {
     qResetMarketTransactions.run();
     res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// --- Remise à zéro de l'état Stripe Connect de TOUS les comptes (admin
+// uniquement) --- Efface stripe_connect_account_id et stripe_connect_ready
+// pour chaque joueur : ils devront reconnecter leur compte Stripe depuis
+// zéro au prochain retrait. Utile en phase de test pour repartir d'un état
+// propre (ex. comptes restés bloqués "en cours de vérification" après un
+// essai avant l'ajustement du flux de connexion). N'affecte ni les soldes
+// (real_balance_cents), ni les annonces, ni l'historique des ventes.
+app.post('/api/admin/astrocomptoir/reset-stripe-connect', authMiddleware, adminMiddleware, (req, res) => {
+  try {
+    const info = qAdminResetAllStripeConnect.run();
+    res.json({ ok: true, affected: info.changes });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });

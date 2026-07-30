@@ -97,6 +97,14 @@
     <div id="withdrawalsZone" class="loadingState">Chargement…</div>
 
     <div class="hero" style="margin-top:46px;">
+      <h1>🔌 Connexions Stripe (Astrocomptoir)</h1>
+      <p>Déconnecte le compte Stripe de TOUS les joueurs (identifiant + statut "prêt" remis à zéro) — ils devront reconnecter depuis zéro à leur prochain retrait. N'affecte ni les soldes, ni les annonces, ni l'historique des ventes. Utile en phase de test pour repartir sur un état propre après un essai de connexion resté incomplet.</p>
+    </div>
+    <div style="text-align:center;">
+      <button class="miniBtn delete" id="resetStripeConnectBtn" style="padding:10px 18px;font-size:12.5px;">Réinitialiser toutes les connexions Stripe</button>
+    </div>
+
+    <div class="hero" style="margin-top:46px;">
       <h1>🗑 Historique des ventes</h1>
       <p>Efface définitivement toutes les ventes conclues de l'historique général et des historiques personnels des joueurs. N'affecte ni les soldes, ni les annonces actives, ni les retraits.</p>
     </div>
@@ -366,6 +374,17 @@
       }catch(e){ showToast('Erreur réseau.', true); }
     }
     document.getElementById('resetHistoryBtn').addEventListener('click', resetSalesHistory);
+
+    async function resetStripeConnect(){
+      if (!confirm("Déconnecter le compte Stripe de TOUS les joueurs ? Ils devront reconnecter depuis zéro à leur prochain retrait. Les soldes, annonces et l'historique des ventes ne sont pas affectés.")) return;
+      try{
+        const res = await fetch('/api/admin/astrocomptoir/reset-stripe-connect', { method:'POST' });
+        const data = await res.json();
+        if (data.ok) showToast(`Connexions Stripe réinitialisées (${data.affected} compte(s)).`);
+        else showToast('Erreur lors de la réinitialisation.', true);
+      }catch(e){ showToast('Erreur réseau.', true); }
+    }
+    document.getElementById('resetStripeConnectBtn').addEventListener('click', resetStripeConnect);
 
     async function unlockSeasonCards(){
       if (!confirm("Distribuer les cartes WIN à tous les joueurs ayant atteint le rang requis (et pas déjà reçues) ? Cette action modifie réellement les collections des joueurs.")) return;
