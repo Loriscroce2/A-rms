@@ -178,6 +178,7 @@
     }
     .graalStage{
       position:relative; z-index:1; width:150px; height:212px; perspective:1100px;
+      filter:drop-shadow(0 18px 26px rgba(0,0,0,.6));
       transition:filter .4s ease;
     }
     .graalPedestal.locked .graalStage{ filter:grayscale(1) brightness(.62); }
@@ -193,23 +194,34 @@
        la carte est vue par la tranche (90°/270°) pour simuler un vrai reflet
        de studio — et une tenue franche sur chaque face pour la laisser bien
        lisible avant d'enchaîner. ---- */
+    /* IMPORTANT : `filter` ne doit JAMAIS être animé sur le même élément que
+       `transform-style:preserve-3d` (ici .graalCard) — combiner les deux
+       force certains moteurs (Chrome/WebKit) à créer un nouveau contexte de
+       composition qui APLATIT le rendu 3D des faces enfants, empêchant le
+       verso de jamais s'afficher correctement. Le drop-shadow doré est donc
+       porté par .graalStage (un simple wrapper, jamais transformé en 3D),
+       pendant que .graalCard n'anime plus QUE `transform` (rotateY + scale),
+       seule combinaison garantie stable avec preserve-3d + backface-visibility.
+       Préfixes -webkit- ajoutés en plus par robustesse (Safari). */
     .graalCard{
-      position:relative; width:100%; height:100%; transform-style:preserve-3d;
+      position:relative; width:100%; height:100%;
+      transform-style:preserve-3d; -webkit-transform-style:preserve-3d;
       animation:graalFlip 7.5s cubic-bezier(.65,0,.35,1) infinite;
     }
     @keyframes graalFlip{
-      0%,   9%  { transform:rotateY(0deg)    scale(1);   filter:drop-shadow(0 18px 26px rgba(0,0,0,.6)) brightness(1); }
-      21%       { transform:rotateY(78deg)   scale(.93); filter:drop-shadow(0 14px 22px rgba(0,0,0,.55)) brightness(1); }
-      25%       { transform:rotateY(90deg)   scale(.87); filter:drop-shadow(0 8px 30px rgba(255,217,61,.95)) brightness(1.7); }
-      29%       { transform:rotateY(102deg)  scale(.93); filter:drop-shadow(0 14px 22px rgba(0,0,0,.55)) brightness(1); }
-      41%,  59% { transform:rotateY(180deg)  scale(1);   filter:drop-shadow(0 18px 26px rgba(0,0,0,.6)) brightness(1); }
-      71%       { transform:rotateY(258deg)  scale(.93); filter:drop-shadow(0 14px 22px rgba(0,0,0,.55)) brightness(1); }
-      75%       { transform:rotateY(270deg)  scale(.87); filter:drop-shadow(0 8px 30px rgba(255,217,61,.95)) brightness(1.7); }
-      79%       { transform:rotateY(282deg)  scale(.93); filter:drop-shadow(0 14px 22px rgba(0,0,0,.55)) brightness(1); }
-      91%, 100% { transform:rotateY(360deg)  scale(1);   filter:drop-shadow(0 18px 26px rgba(0,0,0,.6)) brightness(1); }
+      0%,   9%  { transform:rotateY(0deg)    scale(1);   }
+      21%       { transform:rotateY(78deg)   scale(.93); }
+      25%       { transform:rotateY(90deg)   scale(.87); }
+      29%       { transform:rotateY(102deg)  scale(.93); }
+      41%,  59% { transform:rotateY(180deg)  scale(1);   }
+      71%       { transform:rotateY(258deg)  scale(.93); }
+      75%       { transform:rotateY(270deg)  scale(.87); }
+      79%       { transform:rotateY(282deg)  scale(.93); }
+      91%, 100% { transform:rotateY(360deg)  scale(1);   }
     }
     .graalFace{
-      position:absolute; inset:0; border-radius:13px; overflow:hidden; backface-visibility:hidden;
+      position:absolute; inset:0; border-radius:13px; overflow:hidden;
+      backface-visibility:hidden; -webkit-backface-visibility:hidden;
       border:2px solid rgba(255,217,61,.6); box-shadow:0 0 26px rgba(255,217,61,.4);
     }
     .graalFace img{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -628,12 +640,18 @@
         const catalogData = await catalogRes.json();
         const statsData = await statsRes.json().catch(() => ({}));
         Object.entries(catalogData || {}).forEach(([code, info]) => {
-          if (info && typeof info.requiredRankIndex === 'number') {
-            const st = (statsData || {})[code] || {};
-            const entry = { code, name: info.name || code, type: info.type || '', hp: st.hp ?? 0, shield: st.shield ?? 0 };
+          if (!info) return;
+          const st = (statsData || {})[code] || {};
+          const entry = { code, name: info.name || code, type: info.type || '', hp: st.hp ?? 0, shield: st.shield ?? 0 };
+          // Le pedestal Graal (Inverxion, W0003) n'a PAS de rang requis (voir
+          // requiredRankIndex null côté serveur) — on le garde donc bien dans
+          // SEASON_CARD_BY_CODE (utilisé par le zoom au survol), simplement
+          // absent de SEASON_CARD_BY_RANK (qui, lui, gouverne uniquement le
+          // placement automatique des .roadSeasonCard le long de la Voie).
+          if (typeof info.requiredRankIndex === 'number') {
             SEASON_CARD_BY_RANK[info.requiredRankIndex] = entry;
-            SEASON_CARD_BY_CODE[code] = entry;
           }
+          SEASON_CARD_BY_CODE[code] = entry;
         });
       }catch(e){ console.error('Impossible de charger le catalogue des cartes WIN :', e); }
     }
@@ -653,6 +671,7 @@
     // côté serveur) : son état obtenue/verrouillée dépend UNIQUEMENT de
     // MY_OWNED_CODES (déjà chargé pour les .roadSeasonCard normales),
     // aucun appel réseau supplémentaire nécessaire.
+    let graalZoomAttached = false;
     function updateGraalPedestal(){
       const el = document.getElementById('graalPedestal');
       const badge = document.getElementById('graalEditionBadge');
@@ -660,6 +679,16 @@
       const owned = MY_OWNED_CODES.has('W0003');
       el.classList.toggle('locked', !owned);
       if (badge) badge.textContent = owned ? 'Possédée ✓' : 'Verrouillée';
+      // Zoom au survol : le pedestal Graal est un noeud statique (jamais
+      // reconstruit comme les .roadSeasonCard via track.innerHTML), donc on
+      // n'attache le listener qu'une seule fois, sur le stage (zone visible
+      // au survol), tout en gardant `owned` à jour à chaque appel via la
+      // closure ci-dessous.
+      const stage = el.querySelector('.graalStage');
+      if (stage && !graalZoomAttached) {
+        attachSeasonCardZoom(stage, 'W0003', owned);
+        graalZoomAttached = true;
+      }
     }
 
     // ===== La Voie de la Menace (chemin de progression) =====
