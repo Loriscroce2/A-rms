@@ -7369,6 +7369,50 @@ function playActionC204(owner, actionCard, doll){
   fullRender();
 }
 
+// ===================================================================
+// WADOO : liens de Poupée — mécanisme UNIFIÉ, toutes cartes confondues.
+// Les Poupées "classiques" (C202/C203/C212/C215/C220, Cousus T05/T06/T07)
+// stockent leur unique lien dans `card.wadooLink` (un seul id de cible).
+// Mais deux Poupées SAISON s'en écartent : Nomya (C249) accumule PLUSIEURS
+// liens au fil de ses tours dans `card.nomyaLinkedIds` (tableau), et
+// Poltogba (W9) se lie à TOUS les combattants adverses en une fois à son
+// entrée en jeu, également dans un tableau : `card.poltogbaLinkedIds`.
+// Toute carte qui doit réagir à "quels combattants adverses sont liés à
+// mes Poupées" (Rompre le lien, Ombre Vaudou, Piqûre Rituelle, Mama
+// Cecil...) doit donc lire les TROIS mécanismes, pas seulement wadooLink —
+// cette fonction centralise ça pour ne plus jamais avoir à le refaire.
+// Renvoie un tableau de { doll, targets } (targets = combattants adverses
+// encore réellement en jeu, liens inactifs déjà filtrés).
+function getActiveWadooLinks(owner){
+  const line = getLineByOwner(owner);
+  const opp = (owner === 'top') ? 'bottom' : 'top';
+  const oppLine = getLineByOwner(opp);
+  const result = [];
+  line.forEach(doll => {
+    if (!hasTag(doll, 'poupée')) return;
+    const targetIds = [];
+    if (doll.wadooLink) targetIds.push(doll.wadooLink);
+    if (Array.isArray(doll.nomyaLinkedIds)) targetIds.push(...doll.nomyaLinkedIds);
+    if (Array.isArray(doll.poltogbaLinkedIds)) targetIds.push(...doll.poltogbaLinkedIds);
+    if (targetIds.length === 0) return;
+    const seen = new Set();
+    const targets = targetIds
+      .filter(id => !seen.has(id) && seen.add(id))
+      .map(id => oppLine.find(c => c.id === id))
+      .filter(Boolean);
+    if (targets.length > 0) result.push({ doll, targets });
+  });
+  return result;
+}
+// Variante pratique : liste à plat (dédupliquée) de tous les combattants
+// adverses actuellement liés à AU MOINS une Poupée du joueur, toutes
+// Poupées et tous mécanismes de lien confondus.
+function getActiveWadooLinkTargets(owner){
+  const seen = new Map();
+  getActiveWadooLinks(owner).forEach(({ targets }) => targets.forEach(t => seen.set(t.id, t)));
+  return [...seen.values()];
+}
+
 // === WADOO : "Ombre Vaudou" (C210) ===
 function openC210Prompt(owner, actionCard, anchorEl){
   if (!canPlayThisCardNow(owner, actionCard)) return;
@@ -7388,8 +7432,7 @@ function playActionC210(owner, actionCard){
   discardCard(actionCard, owner, 'action');
 
   drawOneFor(owner);
-  const line = getLineByOwner(owner);
-  const hasLinkedDoll = line.some(c => hasTag(c, 'poupée') && c.wadooLink);
+  const hasLinkedDoll = getActiveWadooLinkTargets(owner).length > 0;
 
   pushHistory('action', `${cardAnchor('C210')} est jouée : pioche 1 carte.`);
   if (hasLinkedDoll) {
@@ -7400,15 +7443,13 @@ function playActionC210(owner, actionCard){
 }
 
 // === WADOO 2e lot : "Rompre le lien" (C219) ===
-// Détruit tous les combattants adverses qui sont actuellement liés à une des poupées du joueur.
+// Détruit tous les combattants adverses qui sont actuellement liés à une des
+// poupées du joueur — TOUTES les Poupées et TOUS les mécanismes de lien
+// confondus (wadooLink classique, nomyaLinkedIds, poltogbaLinkedIds : voir
+// getActiveWadooLinkTargets).
 function openC219Prompt(owner, actionCard, anchorEl){
   if (!canPlayThisCardNow(owner, actionCard)) return;
-  const line = getLineByOwner(owner);
-  const opp = (owner === 'top') ? 'bottom' : 'top';
-  const oppLine = getLineByOwner(opp);
-  const linkedDolls = line.filter(c => hasTag(c, 'poupée') && c.wadooLink);
-  const targetIds = [...new Set(linkedDolls.map(d => d.wadooLink))];
-  const targets = targetIds.map(id => oppLine.find(t => t.id === id)).filter(Boolean);
+  const targets = getActiveWadooLinkTargets(owner);
 
   if (targets.length === 0) {
     openButtonsPrompt('Rompre le lien', "Aucun combattant adverse n'est actuellement lié à une de vos Poupées.", anchorEl, [
@@ -7433,12 +7474,9 @@ function playActionC219(owner, actionCard){
   if (idx !== -1) hand.splice(idx, 1);
   discardCard(actionCard, owner, 'action');
 
-  const line = getLineByOwner(owner);
   const opp = (owner === 'top') ? 'bottom' : 'top';
   const oppLine = getLineByOwner(opp);
-  const linkedDolls = line.filter(c => hasTag(c, 'poupée') && c.wadooLink);
-  const targetIds = [...new Set(linkedDolls.map(d => d.wadooLink))];
-  const targets = targetIds.map(id => oppLine.find(t => t.id === id)).filter(Boolean);
+  const targets = getActiveWadooLinkTargets(owner);
 
   if (targets.length === 0) {
     pushHistory('info', `${cardAnchor('C219')} est jouée, mais aucun combattant adverse lié n'est plus sur le plateau.`);
@@ -21203,7 +21241,8 @@ function showVictoryOverlay(winner, reason, iWon){
                   (reason==='bibliotempz') ? '20 cartes en main grâce à Bibliotempz' :
                   (reason==='gazocubateu') ? '20 charges accumulées sur Gazocubateur' :
                   (reason==='disconnect') ? 'Déconnexion de l\u2019adversaire (30s écoulées)' :
-                  (reason==='surrender') ? 'Abandon de la partie' : 'victoire';
+                  (reason==='surrender') ? 'Abandon de la partie' :
+                  (reason==='inverxion') ? 'Le sortilège d’Inverxion a retourné le résultat de la partie contre son camp initialement vainqueur' : 'victoire';
 
   const profiles = window.PLAYER_PROFILES;
   const winnerName = profiles && profiles[winner] ? profiles[winner].name : (winner === 'bottom' ? 'Joueur 1' : 'Joueur 2');
@@ -21531,7 +21570,13 @@ function endGame(winner, reason, opts = {}){
     if (inverxionInPlay && (winner === 'top' || winner === 'bottom')) {
       const intendedWinner = winner;
       winner = (winner === 'top') ? 'bottom' : 'top';
-      pushHistory('action', `${cardAnchor('W3')} inverse le résultat de la partie : ${playerLabel(intendedWinner)} aurait dû gagner, mais c'est ${playerLabel(winner)} qui remporte la victoire !`);
+      // Le motif affiché sur l'écran de victoire (voir showVictoryOverlay)
+      // doit refléter la VRAIE cause de la victoire finale : afficher le
+      // motif d'origine (ex: "5 A'rms forgés") serait trompeur, puisque
+      // c'est justement le camp qui a rempli cette condition qui perd à
+      // cause d'Inverxion. On écrase donc `reason` avec 'inverxion'.
+      reason = 'inverxion';
+      pushHistory('action', `${cardAnchor('W3')} retourne le sort du combat : ${playerLabel(intendedWinner)} remplissait la condition de victoire, mais Inverxion en fait le perdant — c'est ${playerLabel(winner)} qui remporte la partie !`);
     }
   } catch(err) { console.error('[Inverxion] inversion du résultat impossible :', err); }
 
