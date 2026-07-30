@@ -270,6 +270,19 @@ db.exec(`
     PRIMARY KEY (user_id, season_end_at),
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
   );
+
+  -- Skins de dos de carte (voir SEASON_SKINS dans cards-catalog.js) —
+  -- même principe que season_card_grants : trace chaque skin déjà débloqué
+  -- pour un joueur (récompense de palier de Menace), pour ne jamais le
+  -- redistribuer/revérifier inutilement. Le compte admin n'a pas besoin de
+  -- ligne ici : il a accès à tous les skins en permanence (voir server.js).
+  CREATE TABLE IF NOT EXISTS card_back_unlocks (
+    user_id INTEGER NOT NULL,
+    filename TEXT NOT NULL,
+    granted_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, filename),
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+  );
 `);
 
 // Migration douce pour les bases coin_purchases créées avant l'ajout du
@@ -319,6 +332,12 @@ if (!userCols.includes('coins')) {
 }
 if (!userCols.includes('avatar')) {
   db.exec("ALTER TABLE users ADD COLUMN avatar TEXT NOT NULL DEFAULT ''");
+}
+// Skin de dos de carte équipé (nom de fichier dans public/assets/Skin/,
+// voir card_back_unlocks pour la liste des skins débloqués par ce joueur).
+// Vide = dos de carte classique (Versobasic.png), toujours disponible.
+if (!userCols.includes('card_back')) {
+  db.exec("ALTER TABLE users ADD COLUMN card_back TEXT NOT NULL DEFAULT ''");
 }
 // Système de classement "Menace" (parties classées) : points de menace +
 // quelques statistiques affichées sur le profil/classement.

@@ -27131,6 +27131,14 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
       if (/\.(png|jpe?g|webp|gif)$/i.test(avatar)) return `/assets/Avatar/${encodeURIComponent(avatar)}`;
       return `/cartes/${avatar}.png`; // ancien avatar "carte" (compte existant)
     }
+    // Même principe que vsAvatarUrl ci-dessus, mais pour le dos de carte
+    // (skin de la carte tirée au sort, voir SEASON_SKINS/card_back côté
+    // serveur) — index.html n'inclut pas auth.js, donc on redéfinit
+    // localement le même mapping que armsCardBackUrl.
+    function vsCardBackUrl(cardBack) {
+      if (!cardBack) return '/cartes/Versobasic.png';
+      return `/assets/Skin/${encodeURIComponent(cardBack)}`;
+    }
     // L'IA a sa propre image dédiée (/assets/IA.png), toujours prioritaire
     // sur la résolution générique d'avatar ci-dessus.
     const topAvatarUrl = (typeof AI_SEAT !== 'undefined' && AI_SEAT === 'top') ? '/assets/IA.png' : vsAvatarUrl(profiles.top.avatar);
@@ -27146,6 +27154,13 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
     const opponentProfile = profiles[oppSeatForVs];
     const myAvatarUrl = (mySeatForVs === 'top') ? topAvatarUrl : bottomAvatarUrl;
     const opponentAvatarUrl = (oppSeatForVs === 'top') ? topAvatarUrl : bottomAvatarUrl;
+
+    // Dos de carte équipé par chaque joueur pour l'écran de tirage au sort
+    // (voir vsDrawCardTop = MA carte, vsDrawCardBottom = celle de
+    // l'adversaire — même logique gauche/droite que les avatars ci-dessus).
+    // Pas de skin dédié pour l'IA : elle utilise toujours le dos classique.
+    const myCardBackUrl = vsCardBackUrl(myProfile?.cardBack);
+    const opponentCardBackUrl = vsCardBackUrl(opponentProfile?.cardBack);
 
     // SAISON : en partie CLASSÉE (mode === 'ranked'), le serveur a déjà
     // calculé le rang actuel de chaque joueur ainsi qu'un aperçu du gain/
@@ -27213,7 +27228,7 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
           <div class="vsDrawCards">
             <div class="vsDrawCard vsSlideTop" id="vsDrawCardTop">
               <div class="vsDrawCardFlipper" id="vsDrawFlipperTop">
-                <div class="vsDrawCardFace vsDrawCardBack"></div>
+                <div class="vsDrawCardFace vsDrawCardBack" style="background-image:url('${myCardBackUrl}')"></div>
                 <div class="vsDrawCardFace vsDrawCardFront"><img id="vsDrawImgTop" src="" alt=""></div>
               </div>
               <div class="vsDrawCardLabel" id="vsDrawLabelTop"></div>
@@ -27221,7 +27236,7 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
             <div class="vsDrawVs" id="vsDrawVsWord">contre</div>
             <div class="vsDrawCard vsSlideBottom" id="vsDrawCardBottom">
               <div class="vsDrawCardFlipper" id="vsDrawFlipperBottom">
-                <div class="vsDrawCardFace vsDrawCardBack"></div>
+                <div class="vsDrawCardFace vsDrawCardBack" style="background-image:url('${opponentCardBackUrl}')"></div>
                 <div class="vsDrawCardFace vsDrawCardFront"><img id="vsDrawImgBottom" src="" alt=""></div>
               </div>
               <div class="vsDrawCardLabel" id="vsDrawLabelBottom"></div>

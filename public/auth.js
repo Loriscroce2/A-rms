@@ -18,6 +18,17 @@ function armsApplyAvatar(el, avatar) {
   el.textContent = '';
 }
 
+// Renvoie l'URL d'image à utiliser pour un dos de carte. Si aucun skin n'a
+// été choisi (chaîne vide), on utilise le dos de carte classique du jeu.
+function armsCardBackUrl(cardBack) {
+  if (!cardBack) return '/cartes/Versobasic.png';
+  return `/assets/Skin/${encodeURIComponent(cardBack)}`;
+}
+
+function armsApplyCardBack(el, cardBack) {
+  el.style.backgroundImage = `url('${armsCardBackUrl(cardBack)}')`;
+}
+
 // Chemin du logo officiel (fourni par l'utilisateur) pour un rang donné.
 // Convention "rank-{palier}-{niveau}.png" — nouveaux noms de fichiers,
 // garantis sans collision avec d'anciens caches de navigateur/CDN.
@@ -143,6 +154,10 @@ function armsBuildAccountModal(user) {
           <span class="lbl">🖼️ Changer d'avatar</span>
           <span class="val">Modifier →</span>
         </div>
+        <div class="armsRowBtn" id="changeCardBackBtn">
+          <span class="lbl">🎴 Changer le dos de carte</span>
+          <span class="val">Modifier →</span>
+        </div>
         <div class="armsRowBtn" id="goCollectionBtn">
           <span class="lbl">🗂️ Ma collection / decks</span>
           <span class="val">Ouvrir →</span>
@@ -158,6 +173,7 @@ function armsBuildAccountModal(user) {
     armsApplyAvatar(overlay.querySelector('#profileAvatarBig'), user.avatar);
     overlay.querySelector('#armsModalCloseBtn').addEventListener('click', closeModal);
     overlay.querySelector('#changeAvatarBtn').addEventListener('click', renderAvatarPicker);
+    overlay.querySelector('#changeCardBackBtn').addEventListener('click', renderCardBackPicker);
     overlay.querySelector('#goRankingBtn').addEventListener('click', () => { window.location.href = '/classement.html'; });
     overlay.querySelector('#goCollectionBtn').addEventListener('click', () => { window.location.href = '/play.html'; });
     overlay.querySelector('#goShopBtn').addEventListener('click', () => { window.location.href = '/boutique.html'; });
@@ -230,6 +246,95 @@ function armsBuildAccountModal(user) {
     }
   }
 
+  async function renderCardBackPicker() {
+    overlay.innerHTML = `
+      <div class="armsModal">
+        <button class="armsModalClose" id="armsModalCloseBtn">✕</button>
+        <div class="backLink" id="backToProfile">← Retour au profil</div>
+        <div class="profileName" style="text-align:center;margin-bottom:14px;">Choisissez votre dos de carte</div>
+
+        <div id="cardBackPreview" style="width:104px;height:138px;border-radius:12px;background-size:cover;background-position:center;
+          border:3px solid rgba(125,249,255,.6);box-shadow:0 0 24px rgba(0,230,255,.4);margin:0 auto 18px;"></div>
+
+        <div id="cardBackGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:12px;">
+          <div style="grid-column:1/-1;text-align:center;opacity:.7;font-size:13px;">Chargement…</div>
+        </div>
+      </div>
+    `;
+    armsApplyCardBack(overlay.querySelector('#cardBackPreview'), user.cardBack);
+    overlay.querySelector('#armsModalCloseBtn').addEventListener('click', closeModal);
+    overlay.querySelector('#backToProfile').addEventListener('click', renderProfileView);
+
+    const grid = overlay.querySelector('#cardBackGrid');
+
+    function makeCell(opts) {
+      // opts: { filename, unlocked, requiredRankLabel, equipped }
+      const cell = document.createElement('div');
+      cell.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:5px;';
+      const thumb = document.createElement('div');
+      thumb.style.cssText = 'width:80px;height:106px;border-radius:10px;background-size:cover;background-position:center;'
+        + 'border:2px solid rgba(125,249,255,.35);cursor:pointer;transition:border-color .15s ease,transform .15s ease;position:relative;';
+      thumb.style.backgroundImage = `url('${armsCardBackUrl(opts.filename)}')`;
+      if (opts.equipped) thumb.style.borderColor = '#7df9ff';
+      if (!opts.unlocked) {
+        thumb.style.filter = 'grayscale(1) brightness(.55)';
+        thumb.style.cursor = 'not-allowed';
+        const lock = document.createElement('div');
+        lock.textContent = '🔒';
+        lock.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:22px;';
+        thumb.appendChild(lock);
+      } else {
+        thumb.addEventListener('mouseenter', () => thumb.style.transform = 'scale(1.06)');
+        thumb.addEventListener('mouseleave', () => thumb.style.transform = 'scale(1)');
+        thumb.addEventListener('click', async () => {
+          try {
+            const r = await fetch('/api/profile/card-back', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename: opts.filename })
+            });
+            const d = await r.json();
+            if (d.ok) {
+              user.cardBack = d.cardBack;
+              armsRefreshCardBackDisplays(d.cardBack);
+              renderCardBackPicker();
+            } else {
+              alert("Impossible de sélectionner ce dos de carte (" + (d.error || 'erreur') + ").");
+            }
+          } catch (err) {
+            console.error(err);
+            alert("Erreur de connexion lors du changement de dos de carte.");
+          }
+        });
+      }
+      cell.appendChild(thumb);
+      if (!opts.unlocked && opts.requiredRankLabel) {
+        const lbl = document.createElement('div');
+        lbl.textContent = `Débloqué à ${opts.requiredRankLabel}`;
+        lbl.style.cssText = 'font-size:10.5px;color:#9fd6e6;opacity:.8;text-align:center;line-height:1.2;';
+        cell.appendChild(lbl);
+      }
+      grid.appendChild(cell);
+    }
+
+    try {
+      const res = await fetch('/api/skins');
+      const data = await res.json();
+      grid.innerHTML = '';
+
+      // Le dos de carte classique (par défaut) est toujours disponible pour tout le monde.
+      makeCell({ filename: '', unlocked: true, requiredRankLabel: null, equipped: !user.cardBack });
+
+      const skins = (data.ok && Array.isArray(data.skins)) ? data.skins : [];
+      const equipped = data.ok ? data.equipped : user.cardBack;
+      skins.forEach(s => {
+        makeCell({ filename: s.file, unlocked: s.unlocked, requiredRankLabel: s.requiredRankLabel, equipped: equipped === s.file });
+      });
+    } catch (err) {
+      console.error(err);
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;opacity:.7;font-size:13px;">Erreur de chargement des dos de carte.</div>`;
+    }
+  }
+
   function closeModal() { overlay.classList.remove('show'); }
 
   renderProfileView();
@@ -240,6 +345,10 @@ function armsBuildAccountModal(user) {
 
 function armsRefreshAvatarDisplays(avatar) {
   document.querySelectorAll('.js-avatar-img').forEach(el => armsApplyAvatar(el, avatar));
+}
+
+function armsRefreshCardBackDisplays(cardBack) {
+  document.querySelectorAll('.js-cardback-img').forEach(el => armsApplyCardBack(el, cardBack));
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -268,6 +377,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (response.ok && data.user) {
       // --- L'UTILISATEUR EST CONNECTÉ ---
       const user = data.user;
+      // Exposé globalement pour que d'autres pages (ex: play.html pour la
+      // vignette de deck, index.html pour l'écran de tirage) puissent lire
+      // le dos de carte équipé sans devoir refaire leur propre appel à
+      // /api/me. `arms:user-ready` permet à ces pages de réagir même si leur
+      // propre rendu a lieu avant que ce fetch ne soit terminé.
+      window.armsCurrentUser = user;
+      window.dispatchEvent(new CustomEvent('arms:user-ready', { detail: user }));
       navMenu.innerHTML = `
         <span class="coinsPill" id="coinsPill" title="Vos pièces"><img class="coinIcon" src="/assets/monnaie.png" alt="Pièces"> <strong id="coinsAmount">${user.coins ?? 0}</strong></span>
         <div class="accountGroup">

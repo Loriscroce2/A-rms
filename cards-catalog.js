@@ -171,4 +171,17 @@ const SEASON_CARDS = [
   { code: 'W0003', num: 3, faction: 'Impy', requiredRankIndex: null }, // Inverxion — Graal de fin de saison
 ];
 
-module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };
+// ===================================================================
+// SAISON — skins de dos de carte, récompenses de palier de Menace (même
+// principe que SEASON_CARDS ci-dessus : requiredRankIndex = index (0-14)
+// du rang qui doit être ATTEINT). Fichiers dans public/assets/Skin/,
+// débloqués via le même bouton admin "débloquer toutes les cartes/skins de
+// rang atteint" (voir /api/admin/season-cards/unlock-all dans server.js),
+// puis équipables librement par le joueur une fois débloqués (voir
+// /api/profile/card-back). Le compte admin a TOUJOURS accès à tous les
+// skins, sans passer par ce système (voir isAdminEmail côté server.js).
+const SEASON_SKINS = [
+  { file: 'versoimpy1.png', requiredRankIndex: 5 }, // Hostile III
+];
+
+module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, SEASON_SKINS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };

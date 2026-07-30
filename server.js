@@ -123,8 +123,12 @@ function coinsForResponse(req) {
 }
 
 // --- Requêtes SQL préparées (profil / avatar) ---
-const qGetProfile = db.prepare('SELECT id, name, coins, avatar, has_seen_tutorial, chat_color FROM users WHERE id = ?');
+const qGetProfile = db.prepare('SELECT id, name, coins, avatar, card_back, has_seen_tutorial, chat_color FROM users WHERE id = ?');
 const qSetAvatar = db.prepare('UPDATE users SET avatar = ? WHERE id = ?');
+const qSetCardBack = db.prepare('UPDATE users SET card_back = ? WHERE id = ?');
+const qSkinUnlockExists = db.prepare('SELECT 1 FROM card_back_unlocks WHERE user_id = ? AND filename = ?');
+const qInsertSkinUnlock = db.prepare('INSERT OR IGNORE INTO card_back_unlocks (user_id, filename) VALUES (?, ?)');
+const qSkinUnlocksForUser = db.prepare('SELECT filename FROM card_back_unlocks WHERE user_id = ?');
 const qSetChatColor = db.prepare('UPDATE users SET chat_color = ? WHERE id = ?');
 const qMarkTutorialSeen = db.prepare('UPDATE users SET has_seen_tutorial = 1 WHERE id = ?');
 
@@ -447,7 +451,7 @@ app.get('/api/me', authMiddleware, (req, res) => {
   const row = qGetProfile.get(req.user.id);
   const tpRow = qGetThreatPoints.get(req.user.id);
   const rank = getRankInfo(tpRow ? tpRow.threat_points : 0);
-  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '', chatColor: row ? row.chat_color : '#7df9ff', rank, hasSeenTutorial: row ? !!row.has_seen_tutorial : false, isAdmin: isAdminEmail(req.user.email) } });
+  res.json({ ok: true, user: { id: req.user.id, email: req.user.email, name: req.user.name, coins: coinsForResponse(req), avatar: row ? row.avatar : '', cardBack: row ? row.card_back : '', chatColor: row ? row.chat_color : '#7df9ff', rank, hasSeenTutorial: row ? !!row.has_seen_tutorial : false, isAdmin: isAdminEmail(req.user.email) } });
 });
 
 // ===================================================================
@@ -603,6 +607,13 @@ app.post('/api/admin/season-cards/unlock-all', authMiddleware, adminMiddleware, 
     let grantedCount = 0;
     const perCard = {};
     (catalog.SEASON_CARDS || []).forEach(c => { perCard[c.code] = 0; });
+    // Skins de dos de carte (voir SEASON_SKINS) : même mécanisme de
+    // distribution par seuil de rang, dans le même bouton admin — pas
+    // besoin d'une action séparée pour ce qui est, au fond, la même
+    // logique de "récompense de palier de Menace".
+    let grantedSkins = 0;
+    const perSkin = {};
+    (catalog.SEASON_SKINS || []).forEach(s => { perSkin[s.file] = 0; });
 
     const run = db.transaction(() => {
       users.forEach(u => {
@@ -619,11 +630,18 @@ app.post('/api/admin/season-cards/unlock-all', authMiddleware, adminMiddleware, 
           grantedCount++;
           perCard[c.code] = (perCard[c.code] || 0) + 2;
         });
+        (catalog.SEASON_SKINS || []).forEach(s => {
+          if (typeof s.requiredRankIndex !== 'number' || myRankIndex < s.requiredRankIndex) return;
+          if (qSkinUnlockExists.get(u.id, s.file)) return;
+          qInsertSkinUnlock.run(u.id, s.file);
+          grantedSkins++;
+          perSkin[s.file] = (perSkin[s.file] || 0) + 1;
+        });
       });
     });
     run();
 
-    res.json({ ok: true, grantedCount, perCard, playersChecked: users.length });
+    res.json({ ok: true, grantedCount, perCard, grantedSkins, perSkin, playersChecked: users.length });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -809,6 +827,97 @@ app.post('/api/profile/avatar', authMiddleware, (req, res) => {
     }
     qSetAvatar.run(f, req.user.id);
     res.json({ ok: true, avatar: f });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+// ===================================================================
+// Skins de dos de carte — même principe que les avatars ci-dessus (dossier
+// lu dynamiquement, validation stricte contre la liste réelle), mais avec
+// en plus une notion de déblocage : chaque skin (voir SEASON_SKINS dans
+// cards-catalog.js) est une récompense de palier de Menace, débloquée pour
+// un joueur donné via card_back_unlocks (rempli par le bouton admin
+// "débloquer les récompenses de rang atteint", voir plus bas). Le compte
+// admin, lui, a accès à TOUS les skins en permanence, sans jamais passer
+// par card_back_unlocks (comme pour sa collection complète de cartes).
+// ===================================================================
+const SKIN_DIR = path.join(__dirname, 'public', 'assets', 'Skin');
+const SKIN_EXT_RE = /\.(png|jpe?g|webp|gif)$/i;
+
+function listSkinFiles() {
+  try {
+    return fs.readdirSync(SKIN_DIR).filter(f => SKIN_EXT_RE.test(f)).sort();
+  } catch (e) {
+    console.error('Impossible de lire le dossier skins:', e);
+    return [];
+  }
+}
+
+function rankLabelForIndex(idx) {
+  const tierIndex = Math.floor(idx / 3);
+  const subLevel = (idx % 3) + 1;
+  return `${RANK_TIER_NAMES[tierIndex]} ${['I', 'II', 'III'][subLevel - 1]}`;
+}
+
+// Renvoie la liste des skins DÉBLOQUÉS pour un joueur donné (fichiers
+// réellement présents sur le disque uniquement) — admin = tous, sinon
+// filtré par card_back_unlocks.
+function unlockedSkinFilesFor(userId, isAdmin) {
+  const allFiles = listSkinFiles();
+  if (isAdmin) return allFiles;
+  const unlockedSet = new Set(qSkinUnlocksForUser.all(userId).map(r => r.filename));
+  return allFiles.filter(f => unlockedSet.has(f));
+}
+
+app.get('/api/skins', authMiddleware, (req, res) => {
+  try {
+    const isAdmin = isAdminEmail(req.user.email);
+    const userRow = qGetProfile.get(req.user.id);
+    const unlockedSet = new Set(unlockedSkinFilesFor(req.user.id, isAdmin));
+    const catalogByFile = new Map((catalog.SEASON_SKINS || []).map(s => [s.file, s]));
+
+    const skins = listSkinFiles().map(file => {
+      const info = catalogByFile.get(file);
+      const unlocked = isAdmin || unlockedSet.has(file);
+      return {
+        file,
+        unlocked,
+        requiredRankLabel: (!unlocked && info && typeof info.requiredRankIndex === 'number')
+          ? rankLabelForIndex(info.requiredRankIndex)
+          : null,
+      };
+    });
+
+    res.json({ ok: true, skins, equipped: (userRow && userRow.card_back) || '' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/profile/card-back', authMiddleware, (req, res) => {
+  try {
+    const { filename } = req.body || {};
+    const f = String(filename || '');
+
+    // Chaîne vide = revenir au dos de carte classique (Versobasic.png),
+    // toujours disponible pour tout le monde, aucune vérification requise.
+    if (f === '') {
+      qSetCardBack.run('', req.user.id);
+      return res.json({ ok: true, cardBack: '' });
+    }
+
+    if (!listSkinFiles().includes(f)) {
+      return res.status(400).json({ ok: false, error: 'invalid_skin' });
+    }
+    const isAdmin = isAdminEmail(req.user.email);
+    if (!isAdmin && !qSkinUnlockExists.get(req.user.id, f)) {
+      return res.status(403).json({ ok: false, error: 'skin_locked' });
+    }
+    qSetCardBack.run(f, req.user.id);
+    res.json({ ok: true, cardBack: f });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
@@ -1500,8 +1609,8 @@ function createInitialGameState(players, mode) {
     mode: isRanked ? 'ranked' : 'casual',
     pointsPreview,
     profiles: {
-      bottom: { name: profileBottom?.name || 'Joueur 1', avatar: profileBottom?.avatar ?? '', rank: rankBottom },
-      top: { name: profileTop?.name || 'Joueur 2', avatar: profileTop?.avatar ?? '', rank: rankTop },
+      bottom: { name: profileBottom?.name || 'Joueur 1', avatar: profileBottom?.avatar ?? '', cardBack: profileBottom?.card_back ?? '', rank: rankBottom },
+      top: { name: profileTop?.name || 'Joueur 2', avatar: profileTop?.avatar ?? '', cardBack: profileTop?.card_back ?? '', rank: rankTop },
     },
   };
 }

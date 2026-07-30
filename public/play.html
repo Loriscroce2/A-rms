@@ -744,6 +744,22 @@
       deckDrop?.closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // Applique le dos de carte équipé par le joueur connecté sur la vignette
+    // ".box" d'un deck (même principe visuel que la règle CSS ".box" — trois
+    // couches de fond superposées — mais avec l'image du milieu remplacée par
+    // le skin choisi). Sans skin équipé, armsCardBackUrl() renvoie le même
+    // Versobasic.png que la CSS d'origine, donc l'appel est toujours sûr.
+    function applyDeckBoxSkin(boxEl) {
+      const cardBack = window.armsCurrentUser ? window.armsCurrentUser.cardBack : '';
+      const url = (typeof armsCardBackUrl === 'function') ? armsCardBackUrl(cardBack) : '/cartes/Versobasic.png';
+      boxEl.style.backgroundImage = `radial-gradient(120% 120% at 10% -10%,rgba(255,255,255,.08),transparent 60%), url('${url}'), linear-gradient(180deg,#0e2b35,#0a222b)`;
+    }
+    // Si /api/me répond après que les decks aient déjà été affichés, on
+    // réapplique le skin sur toutes les vignettes déjà présentes.
+    window.addEventListener('arms:user-ready', () => {
+      document.querySelectorAll('#shelf .box').forEach(applyDeckBoxSkin);
+    });
+
     function renderShelf(decks = []) {
       shelf.innerHTML = '';
       if(decks.length === 0) {
@@ -772,6 +788,7 @@
             </div>
           </div>
         `;
+        applyDeckBoxSkin(pack.querySelector('.box'));
         pack.querySelector('.play-btn').addEventListener('click', () => {
           openModeChoice(d.id, d.name, d.cards);
         });
