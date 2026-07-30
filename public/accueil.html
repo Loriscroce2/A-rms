@@ -489,8 +489,11 @@
 
   <footer>
     <div class="container" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-      <div>© A’rms — Tous droits réservés.</div>
-      <div style="display:flex; gap:10px;">
+      <div>
+        <div>© A’rms — Tous droits réservés.</div>
+        <div style="font-size:11.5px; opacity:.6; margin-top:2px;">Un jeu créé par <strong>Monarch Digital Studio</strong>.</div>
+      </div>
+      <div id="footerAuthBar" style="display:flex; gap:10px;">
         <a class="btn-secondary" href="login.html">Se connecter</a>
         <a class="btn-secondary" href="register.html">Créer un compte</a>
         <a class="btn-secondary" href="regles.html">Règles</a>
@@ -519,6 +522,16 @@
     </div>
   </dialog>
 
+  <script>
+    // La barre "Se connecter / Créer un compte / Règles" du pied de page
+    // n'a de sens que pour un visiteur NON connecté (la nav en haut de page
+    // affiche déjà le compte une fois connecté, via auth.js) — on l'écoute
+    // ici plutôt que de refaire un appel réseau à /api/me.
+    window.addEventListener('arms:auth-state', (e) => {
+      const bar = document.getElementById('footerAuthBar');
+      if (bar) bar.style.display = (e.detail && e.detail.loggedIn) ? 'none' : 'flex';
+    });
+  </script>
   <script src="/auth.js"></script>
   <script src="/sitenav.js"></script>
   <script src="/socket.io/socket.io.js"></script>

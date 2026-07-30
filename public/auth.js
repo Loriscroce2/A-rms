@@ -287,6 +287,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const modal = armsBuildAccountModal(user);
       document.getElementById('accountMenuBtn').addEventListener('click', () => modal.classList.add('show'));
 
+      // Diffuse l'état "connecté" pour que d'autres scripts de la page
+      // (ex. la barre de connexion du pied de page sur accueil.html) puissent
+      // réagir sans refaire leur propre appel à /api/me.
+      window.dispatchEvent(new CustomEvent('arms:auth-state', { detail: { loggedIn: true, user } }));
+
     } else {
       // --- L'UTILISATEUR N'EST PAS CONNECTÉ ---
       // "Règles" est déjà proposée dans la nav principale (voir sitenav.js) —
@@ -295,6 +300,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         <a class="btn-secondary" href="/login.html">Se connecter</a>
         <a class="btn-secondary" href="/register.html">Créer un compte</a>
       `;
+      window.dispatchEvent(new CustomEvent('arms:auth-state', { detail: { loggedIn: false, user: null } }));
     }
   } catch (error) {
     console.error("Erreur lors de la vérification de l'état de connexion :", error);
@@ -302,5 +308,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       <a class="btn-secondary" href="/login.html">Se connecter</a>
       <a class="btn-secondary" href="/register.html">Créer un compte</a>
     `;
+    window.dispatchEvent(new CustomEvent('arms:auth-state', { detail: { loggedIn: false, user: null } }));
   }
 });

@@ -125,8 +125,180 @@
         background:rgba(125,249,255,.06);color:#e8fdff;font-size:13px;cursor:pointer;}
       .cwMiniBtn.accept{border-color:rgba(61,220,132,.5);color:#3ddc84;}
       .cwMiniBtn.decline{border-color:rgba(255,92,92,.5);color:#ff5c5c;}
+
+      /* ---- Défi 1v1 entre amis (SAISON) ---- */
+      .cwDuelBtn{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,217,61,.5);
+        background:rgba(255,217,61,.1);color:#ffd93d;font-size:14px;cursor:pointer;transition:transform .15s ease, background .15s ease;}
+      .cwDuelBtn:hover{background:rgba(255,217,61,.22);transform:scale(1.08);}
+
+      .cwModalOverlay{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;
+        background:rgba(2,8,11,.72);backdrop-filter:blur(4px);padding:20px;}
+      .cwModalOverlay.show{display:flex;}
+      .cwModal{width:min(360px,92vw);max-height:82vh;overflow:auto;border-radius:18px;border:1px solid rgba(125,249,255,.3);
+        background:linear-gradient(160deg,#051821,#072d38);box-shadow:0 30px 70px rgba(0,0,0,.6), 0 0 40px rgba(0,230,255,.15);
+        padding:24px;color:#e8fdff;position:relative;font-family:'Manrope',sans-serif;}
+      .cwModalTitle{font-family:'Cinzel',serif;font-weight:800;font-size:18px;margin:0 0 6px;text-align:center;color:#fff9e0;}
+      .cwModalSub{font-size:12.5px;color:#9fd6e6;opacity:.9;text-align:center;margin:0 0 16px;line-height:1.5;}
+      .cwModalClose{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.25);
+        background:rgba(255,255,255,.06);color:#fff;font-size:14px;cursor:pointer;}
+      .cwDeckOption{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;margin-bottom:8px;
+        border-radius:12px;border:1.5px solid rgba(125,249,255,.25);background:rgba(125,249,255,.05);cursor:pointer;
+        transition:border-color .15s ease, background .15s ease;}
+      .cwDeckOption:hover{border-color:rgba(125,249,255,.6);background:rgba(125,249,255,.12);}
+      .cwDeckOptionName{font-weight:800;font-size:13.5px;}
+      .cwDeckOptionMeta{font-size:11px;color:#8fb8c4;}
+      .cwModalActions{display:flex;gap:10px;justify-content:center;margin-top:14px;}
+      .cwModalBtn{padding:10px 22px;border-radius:999px;font-weight:800;font-size:13px;cursor:pointer;border:none;}
+      .cwModalBtn.accept{background:linear-gradient(180deg,#3ddc84,#1b7a45);color:#04150c;}
+      .cwModalBtn.decline{background:rgba(255,92,92,.15);border:1.5px solid rgba(255,92,92,.5);color:#ff8080;}
+      .cwDuelWaiting{display:flex;flex-direction:column;align-items:center;gap:14px;padding:6px 0 4px;}
+      .cwDuelSpinner{width:38px;height:38px;border-radius:50%;border:3px solid rgba(255,217,61,.25);border-top-color:#ffd93d;
+        animation:cwSpin 1s linear infinite;}
+      @keyframes cwSpin{to{transform:rotate(360deg);}}
+
+      #cwToastStack{position:fixed;bottom:22px;left:22px;z-index:9600;display:flex;flex-direction:column;gap:8px;}
+      .cwToast{padding:11px 18px;border-radius:12px;background:linear-gradient(160deg,#0e2e39,#0a222a);
+        border:1.5px solid rgba(125,249,255,.4);color:#e8fdff;font-size:12.5px;font-weight:700;box-shadow:0 10px 26px rgba(0,0,0,.5);
+        opacity:0;transform:translateY(8px);transition:opacity .25s ease, transform .25s ease;max-width:280px;}
+      .cwToast.show{opacity:1;transform:translateY(0);}
+      .cwToast.error{border-color:rgba(255,92,92,.5);}
     `;
     document.head.appendChild(style);
+  }
+
+  // -------------------------------------------------------------
+  // Défi 1v1 entre amis (SAISON) — non classé, lancé depuis le tchat.
+  // -------------------------------------------------------------
+  let cwActiveIncomingChallenge = null; // { challengeId, fromUserId, fromName }
+
+  function showCwToast(msg, isError) {
+    let stack = document.getElementById('cwToastStack');
+    if (!stack) {
+      stack = document.createElement('div');
+      stack.id = 'cwToastStack';
+      document.body.appendChild(stack);
+    }
+    const el = document.createElement('div');
+    el.className = 'cwToast' + (isError ? ' error' : '');
+    el.textContent = msg;
+    stack.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 300);
+    }, 4200);
+  }
+
+  function closeCwModal() {
+    const ov = document.getElementById('cwModalOverlay');
+    if (ov) ov.remove();
+  }
+
+  function openCwModal(innerHtml) {
+    closeCwModal();
+    const ov = document.createElement('div');
+    ov.className = 'cwModalOverlay show';
+    ov.id = 'cwModalOverlay';
+    ov.innerHTML = `<div class="cwModal">${innerHtml}</div>`;
+    document.body.appendChild(ov);
+    ov.addEventListener('click', (e) => { if (e.target === ov) closeCwModal(); });
+    return ov;
+  }
+
+  async function fetchMyDecks() {
+    try {
+      const res = await fetch('/api/decks');
+      const data = await res.json();
+      return (data && data.ok && Array.isArray(data.decks)) ? data.decks : [];
+    } catch (e) { return []; }
+  }
+
+  // Ouvre le choix de deck — utilisé à la fois pour ENVOYER un défi (onPick
+  // émet 'duel:challenge') et pour l'ACCEPTER (onPick émet 'duel:respond').
+  async function openCwDeckPicker(title, sub, onPick) {
+    const decks = await fetchMyDecks();
+    if (!decks.length) {
+      openCwModal(`
+        <button class="cwModalClose" id="cwModalCloseBtn">✕</button>
+        <div class="cwModalTitle">${esc(title)}</div>
+        <div class="cwModalSub">Vous n'avez aucun deck sauvegardé — créez-en un depuis la page Jouer avant de défier un ami.</div>
+      `);
+      document.getElementById('cwModalCloseBtn').addEventListener('click', closeCwModal);
+      return;
+    }
+    const ov = openCwModal(`
+      <button class="cwModalClose" id="cwModalCloseBtn">✕</button>
+      <div class="cwModalTitle">${esc(title)}</div>
+      <div class="cwModalSub">${esc(sub)}</div>
+      <div id="cwDeckList"></div>
+    `);
+    document.getElementById('cwModalCloseBtn').addEventListener('click', closeCwModal);
+    const list = ov.querySelector('#cwDeckList');
+    list.innerHTML = decks.map(d => `
+      <div class="cwDeckOption" data-deck-id="${d.id}">
+        <div><div class="cwDeckOptionName">${esc(d.name)}</div><div class="cwDeckOptionMeta">${d.cards.length} cartes</div></div>
+        <div>▶</div>
+      </div>
+    `).join('');
+    list.querySelectorAll('.cwDeckOption').forEach(opt => {
+      opt.addEventListener('click', () => {
+        const deck = decks.find(d => String(d.id) === opt.dataset.deckId);
+        if (deck) onPick(deck);
+      });
+    });
+  }
+
+  function openCwDuelWaiting(friendName) {
+    openCwModal(`
+      <button class="cwModalClose" id="cwModalCloseBtn">✕</button>
+      <div class="cwModalTitle">Défi envoyé</div>
+      <div class="cwDuelWaiting">
+        <div class="cwDuelSpinner"></div>
+        <div class="cwModalSub" style="margin:0;">En attente de la réponse de <strong>${esc(friendName)}</strong>…</div>
+      </div>
+    `);
+    document.getElementById('cwModalCloseBtn').addEventListener('click', closeCwModal);
+  }
+
+  function startCwDuel(friend) {
+    openCwDeckPicker('Défier ' + friend.name, 'Choisissez le deck avec lequel vous voulez jouer ce duel (partie non classée).', (deck) => {
+      closeCwModal();
+      if (State.socket) State.socket.emit('duel:challenge', { toUserId: friend.id, deckId: deck.id });
+      openCwDuelWaiting(friend.name);
+    });
+  }
+
+  function openCwIncomingChallenge(payload) {
+    cwActiveIncomingChallenge = payload;
+    openCwModal(`
+      <button class="cwModalClose" id="cwModalCloseBtn">✕</button>
+      <div class="cwModalTitle">⚔ Défi reçu !</div>
+      <div class="cwModalSub"><strong>${esc(payload.fromName)}</strong> vous défie en 1v1 (partie non classée). Acceptez-vous ?</div>
+      <div class="cwModalActions">
+        <button class="cwModalBtn accept" id="cwChallengeAcceptBtn">Accepter</button>
+        <button class="cwModalBtn decline" id="cwChallengeDeclineBtn">Refuser</button>
+      </div>
+    `);
+    document.getElementById('cwModalCloseBtn').addEventListener('click', () => {
+      // Fermer sans répondre laisse le défi ouvert côté serveur (il expirera
+      // tout seul) — l'utilisateur pourra le retrouver via un futur rappel
+      // s'il rouvre le tchat, mais pour rester simple on considère ici que
+      // fermer la croix équivaut à ignorer, pas à refuser explicitement.
+      closeCwModal();
+    });
+    document.getElementById('cwChallengeDeclineBtn').addEventListener('click', () => {
+      if (State.socket) State.socket.emit('duel:respond', { challengeId: payload.challengeId, accept: false });
+      cwActiveIncomingChallenge = null;
+      closeCwModal();
+    });
+    document.getElementById('cwChallengeAcceptBtn').addEventListener('click', () => {
+      openCwDeckPicker('Choisissez votre deck', `Duel contre ${payload.fromName} — partie non classée.`, (deck) => {
+        if (State.socket) State.socket.emit('duel:respond', { challengeId: payload.challengeId, accept: true, deckId: deck.id });
+        cwActiveIncomingChallenge = null;
+        closeCwModal();
+        showCwToast('Duel accepté, préparation de la partie…');
+      });
+    });
   }
 
   // -------------------------------------------------------------
@@ -265,6 +437,7 @@
             <div class="cwFriendLast">${f.lastMessage ? esc(f.lastMessage) : 'Aucun message'}</div>
           </div>
           ${f.unread ? `<div class="cwUnreadBadge">${f.unread}</div>` : ''}
+          ${f.online ? `<button class="cwDuelBtn" data-duel-id="${f.id}" data-duel-name="${esc(f.name)}" title="Défier ${esc(f.name)} en 1v1 (non classé)">⚔</button>` : ''}
         </div>
       `).join('');
     } else {
@@ -282,6 +455,10 @@
     body.querySelectorAll('.cwMiniBtn.decline[data-cancel]').forEach(b => b.addEventListener('click', () => cancelFriendRequest(parseInt(b.dataset.cancel, 10))));
     body.querySelectorAll('.cwFriendRow[data-friend-id]').forEach(row => row.addEventListener('click', () => {
       openThread({ id: parseInt(row.dataset.friendId, 10), name: row.dataset.friendName, avatar: row.dataset.friendAvatar });
+    }));
+    body.querySelectorAll('.cwDuelBtn[data-duel-id]').forEach(btn => btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      startCwDuel({ id: parseInt(btn.dataset.duelId, 10), name: btn.dataset.duelName });
     }));
   }
 
@@ -535,6 +712,32 @@
     socket.on('chat:friendRequestReceived', () => loadFriends());
     socket.on('chat:friendAccepted', () => loadFriends());
     socket.on('chat:friendRemoved', () => loadFriends());
+
+    // ---- Défi 1v1 entre amis (SAISON) ----
+    socket.on('duel:challengeReceived', (payload) => {
+      openCwIncomingChallenge(payload);
+    });
+    socket.on('duel:challengeDeclined', () => {
+      closeCwModal();
+      showCwToast('Votre défi a été refusé.', true);
+    });
+    socket.on('duel:matchReady', ({ matchId, seat }) => {
+      closeCwModal();
+      showCwToast('Adversaire prêt — la partie démarre !');
+      setTimeout(() => {
+        window.location.href = `/index.html?${new URLSearchParams({ matchId, seat: seat || 'bottom' }).toString()}`;
+      }, 400);
+    });
+    socket.on('duel:error', ({ error } = {}) => {
+      const messages = {
+        not_friends: "Vous n'êtes plus amis avec ce joueur.",
+        deck_not_found: 'Deck introuvable.',
+        friend_offline: 'Ce joueur vient de se déconnecter.',
+        missing_deck: 'Choisissez un deck.',
+      };
+      closeCwModal();
+      showCwToast(messages[error] || 'Le défi a échoué.', true);
+    });
   }
 
   // -------------------------------------------------------------

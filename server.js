@@ -1439,13 +1439,34 @@ function shuffleCodes(codes) {
   return arr;
 }
 
-function createInitialGameState(players) {
+function createInitialGameState(players, mode) {
   const playerBottom = players.find(p => p.seat === 'bottom');
   const playerTop = players.find(p => p.seat === 'top');
   const deckBottomRow = qDeckById.get(playerBottom.deckId);
   const deckTopRow = qDeckById.get(playerTop.deckId);
   const profileBottom = qGetProfile.get(playerBottom.userId);
   const profileTop = qGetProfile.get(playerTop.userId);
+
+  // Écran de Versus (voir showVersusIntro côté client) : en Classée, on
+  // veut y afficher le rang ACTUEL de chaque joueur ainsi qu'un aperçu du
+  // gain/perte de Menace en jeu pour CE match précis — calculé avec la
+  // même formule que le vrai calcul de fin de partie (computeThreatDifferential,
+  // voir plus haut), sur les points figés à cet instant. Volontairement
+  // `null` en Non classée (aucun rang/point n'est en jeu, rien à montrer).
+  const isRanked = mode === 'ranked';
+  let rankBottom = null, rankTop = null, pointsPreview = null;
+  if (isRanked) {
+    const tpBottomRow = qGetThreatPoints.get(playerBottom.userId);
+    const tpTopRow = qGetThreatPoints.get(playerTop.userId);
+    const tpBottom = tpBottomRow ? tpBottomRow.threat_points : 0;
+    const tpTop = tpTopRow ? tpTopRow.threat_points : 0;
+    rankBottom = getRankInfo(tpBottom);
+    rankTop = getRankInfo(tpTop);
+    pointsPreview = {
+      bottom: { win: computeThreatDifferential(tpBottom, tpTop, true), loss: computeThreatDifferential(tpBottom, tpTop, false) },
+      top: { win: computeThreatDifferential(tpTop, tpBottom, true), loss: computeThreatDifferential(tpTop, tpBottom, false) },
+    };
+  }
 
   // Tirage au sort pour déterminer qui commence : chaque joueur tire une
   // carte au hasard parmi les 250 emplacements de la Saison 1 — le numéro
@@ -1473,9 +1494,11 @@ function createInitialGameState(players) {
       bottom: shuffleCodes(JSON.parse(deckBottomRow.cards)),
       top: shuffleCodes(JSON.parse(deckTopRow.cards)),
     },
+    mode: isRanked ? 'ranked' : 'casual',
+    pointsPreview,
     profiles: {
-      bottom: { name: profileBottom?.name || 'Joueur 1', avatar: profileBottom?.avatar ?? '' },
-      top: { name: profileTop?.name || 'Joueur 2', avatar: profileTop?.avatar ?? '' },
+      bottom: { name: profileBottom?.name || 'Joueur 1', avatar: profileBottom?.avatar ?? '', rank: rankBottom },
+      top: { name: profileTop?.name || 'Joueur 2', avatar: profileTop?.avatar ?? '', rank: rankTop },
     },
   };
 }
@@ -1539,7 +1562,7 @@ function tryMakeMatch() {
       { userId: a.userId, deckId: a.deckId, seat: seatA },
       { userId: b.userId, deckId: b.deckId, seat: seatB }
     ];
-    const initialGameState = createInitialGameState(players);
+    const initialGameState = createInitialGameState(players, a.mode);
 
     mmTickets.get(a.ticket).matched = true;
     mmTickets.get(a.ticket).matchId = matchId;
@@ -2679,6 +2702,20 @@ io.on('connection', (socket) => {
 const chatNsp = io.of('/chat');
 const chatOnlineSockets = new Map(); // userId -> Set<socketId>
 
+// SAISON : défis entre amis en attente de réponse (voir 'duel:challenge' /
+// 'duel:respond' plus bas) — challengeId -> { fromUserId, fromDeckId,
+// toUserId, createdAt }. Nettoyage paresseux (pruneDuelChallenges, appelé à
+// chaque nouveau défi/réponse) plutôt qu'un setInterval dédié : un défi
+// abandonné ne fait de toute façon rien tant que personne n'y touche.
+const duelChallenges = new Map();
+const DUEL_CHALLENGE_TTL_MS = 2 * 60 * 1000;
+function pruneDuelChallenges() {
+  const now = Date.now();
+  for (const [id, c] of duelChallenges) {
+    if (now - c.createdAt > DUEL_CHALLENGE_TTL_MS) duelChallenges.delete(id);
+  }
+}
+
 function isUserOnline(userId) {
   const set = chatOnlineSockets.get(userId);
   return !!set && set.size > 0;
@@ -2757,6 +2794,77 @@ chatNsp.on('connection', (socket) => {
       };
       chatNsp.to(`user:${toId}`).emit('chat:private', message);
       chatNsp.to(`user:${userId}`).emit('chat:private', message);
+    } catch (e) { console.error(e); }
+  });
+
+  // =================================================================
+  // SAISON : Défi entre amis — 1v1 NON CLASSÉ lancé directement depuis le
+  // tchat (voir chat-widget.js "Défier"), sans passer par la file de
+  // matchmaking classique. Un défi en attente vit dans duelChallenges
+  // (voir déclaration plus haut), identifié par un id aléatoire, expire
+  // tout seul (pruneDuelChallenges) si jamais répondu, et ne peut être
+  // accepté/refusé QUE par le destinataire visé.
+  // =================================================================
+  socket.on('duel:challenge', (payload) => {
+    try {
+      pruneDuelChallenges();
+      const toUserId = parseInt(payload?.toUserId, 10);
+      const deckId = payload?.deckId;
+      if (!Number.isFinite(toUserId) || toUserId === userId || !deckId) return;
+      if (!areFriends(userId, toUserId)) {
+        socket.emit('duel:error', { error: 'not_friends' });
+        return;
+      }
+      const deck = qDeckById.get(deckId);
+      if (!deck || deck.user_id !== userId) {
+        socket.emit('duel:error', { error: 'deck_not_found' });
+        return;
+      }
+      if (!isUserOnline(toUserId)) {
+        socket.emit('duel:error', { error: 'friend_offline' });
+        return;
+      }
+      const challengeId = randomUUID();
+      duelChallenges.set(challengeId, { fromUserId: userId, fromDeckId: deckId, toUserId, createdAt: Date.now() });
+      const u = qUserBasic.get(userId);
+      const profile = qGetProfile.get(userId);
+      notifyUser(toUserId, 'duel:challengeReceived', {
+        challengeId, fromUserId: userId, fromName: u.name, fromAvatar: profile?.avatar || '',
+      });
+      socket.emit('duel:challengeSent', { challengeId, toUserId });
+    } catch (e) { console.error(e); }
+  });
+
+  socket.on('duel:respond', (payload) => {
+    try {
+      pruneDuelChallenges();
+      const challengeId = payload?.challengeId;
+      const accept = !!payload?.accept;
+      const challenge = duelChallenges.get(challengeId);
+      if (!challenge || challenge.toUserId !== userId) return;
+      duelChallenges.delete(challengeId);
+
+      if (!accept) {
+        notifyUser(challenge.fromUserId, 'duel:challengeDeclined', { challengeId });
+        return;
+      }
+      const deckId = payload?.deckId;
+      if (!deckId) { socket.emit('duel:error', { error: 'missing_deck' }); return; }
+      const deck = qDeckById.get(deckId);
+      if (!deck || deck.user_id !== userId) { socket.emit('duel:error', { error: 'deck_not_found' }); return; }
+
+      const matchId = randomUUID();
+      const seatChallenger = Math.random() < 0.5 ? 'bottom' : 'top';
+      const seatAccepter = seatChallenger === 'bottom' ? 'top' : 'bottom';
+      const players = [
+        { userId: challenge.fromUserId, deckId: challenge.fromDeckId, seat: seatChallenger },
+        { userId, deckId, seat: seatAccepter },
+      ];
+      const initialGameState = createInitialGameState(players, 'casual');
+      mmMatches.set(matchId, { createdAt: Date.now(), players, gameState: initialGameState, mode: 'casual', ratingsAtStart: null });
+
+      notifyUser(challenge.fromUserId, 'duel:matchReady', { matchId, seat: seatChallenger });
+      notifyUser(userId, 'duel:matchReady', { matchId, seat: seatAccepter });
     } catch (e) { console.error(e); }
   });
 

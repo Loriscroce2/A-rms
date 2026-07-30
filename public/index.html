@@ -26876,7 +26876,7 @@ logSysInfo("<strong>Astuce :</strong> vous avez 90 secondes par tour — le bout
 // Déplacée ici (hors du bloc if (ONLINE_MODE)) pour être accessible aussi
 // en mode "Contre l'IA", qui a besoin exactement de la même présentation
 // Versus qu'une vraie partie en ligne.
-function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDone) {
+function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDone, mode, pointsPreview) {
     const style = document.createElement('style');
     style.textContent = `
       #versusIntro{position:fixed;inset:0;z-index:9600;overflow:hidden;font-family:'Manrope',system-ui,sans-serif;background:#020608;}
@@ -26932,6 +26932,20 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
       .vsNamePlate::before{left:-5px;} .vsNamePlate::after{right:-5px;}
       .vsName{font-family:'Cinzel',serif;font-weight:800;font-size:clamp(17px,2.2vw,25px);color:#fff9e0;text-shadow:0 2px 6px rgba(0,0,0,.8);
         white-space:nowrap;letter-spacing:.03em;}
+
+      /* ---- Partie CLASSÉE : rang actuel + aperçu du gain/perte de Menace
+         en jeu, affichés sous la plaque de pseudo de chaque joueur. Absents
+         en Non classée (vsRankBlockHtml renvoie une chaîne vide). ---- */
+      .vsRankRow{display:flex; flex-direction:column; align-items:center; gap:6px; opacity:0; transform:translateY(8px);
+        transition:opacity .5s ease, transform .5s ease; transition-delay:.85s; margin-top:2px;}
+      #versusIntro.show .vsRankRow{opacity:1; transform:translateY(0);}
+      .vsPointsPreview{display:inline-flex; align-items:center; gap:6px; padding:3px 12px; border-radius:999px;
+        background:linear-gradient(180deg,#182226,#0c1517); border:1px solid rgba(255,255,255,.14);
+        font-family:'Manrope',system-ui,sans-serif; font-weight:900; font-size:12.5px; letter-spacing:.02em;
+        box-shadow:0 4px 10px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06);}
+      .vsPtsWin{color:#7dffb0; text-shadow:0 0 8px rgba(61,220,132,.55);}
+      .vsPtsLoss{color:#ff8080; text-shadow:0 0 8px rgba(255,80,80,.5);}
+      .vsPtsSep{color:rgba(255,255,255,.35); font-weight:700;}
 
       /* IMPORTANT : .vsCenter n'est qu'une ANCRE de positionnement (inset:0),
          PLUS un conteneur flex avec plusieurs enfants — chaque phase
@@ -27044,6 +27058,27 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
     const opponentProfile = profiles[oppSeatForVs];
     const myAvatarUrl = (mySeatForVs === 'top') ? topAvatarUrl : bottomAvatarUrl;
     const opponentAvatarUrl = (oppSeatForVs === 'top') ? topAvatarUrl : bottomAvatarUrl;
+
+    // SAISON : en partie CLASSÉE (mode === 'ranked'), le serveur a déjà
+    // calculé le rang actuel de chaque joueur ainsi qu'un aperçu du gain/
+    // perte de Menace en jeu pour CE match précis (voir createInitialGameState
+    // côté serveur) — on les affiche sous chaque plaque de pseudo. En Non
+    // classée (amicale, IA, défi entre amis...), ces deux blocs restent
+    // simplement absents (mode/pointsPreview non fournis).
+    const vsIsRanked = mode === 'ranked';
+    const vsMyPreview = (vsIsRanked && pointsPreview) ? pointsPreview[mySeatForVs] : null;
+    const vsOppPreview = (vsIsRanked && pointsPreview) ? pointsPreview[oppSeatForVs] : null;
+    function vsRankBlockHtml(profile, preview){
+      if (!vsIsRanked || !profile || !profile.rank) return '';
+      const rankHtml = (typeof armsRankPillHtml === 'function') ? armsRankPillHtml(profile.rank) : '';
+      const previewHtml = preview ? `
+        <div class="vsPointsPreview">
+          <span class="vsPtsWin">+${preview.win}</span>
+          <span class="vsPtsSep">/</span>
+          <span class="vsPtsLoss">${preview.loss}</span>
+        </div>` : '';
+      return `<div class="vsRankRow">${rankHtml}${previewHtml}</div>`;
+    }
     // Les animations du jeu ne sont plus configurables par le joueur : elles
     // sont toujours jouées en entier (voir suppression du réglage "Réduire
     // les animations" dans auth.js).
@@ -27068,6 +27103,7 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
           <div class="vsAvatarRing" style="background-image:url('${opponentAvatarUrl}')"></div>
         </div>
         <div class="vsNamePlate"><div class="vsName">${opponentProfile.name}</div></div>
+        ${vsRankBlockHtml(opponentProfile, vsOppPreview)}
       </div>
 
       <div class="vsAvatarWrap vsBottom">
@@ -27076,6 +27112,7 @@ function showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, onDo
           <div class="vsAvatarRing" style="background-image:url('${myAvatarUrl}')"></div>
         </div>
         <div class="vsNamePlate"><div class="vsName">${myProfile.name}</div></div>
+        ${vsRankBlockHtml(myProfile, vsMyPreview)}
       </div>
 
       <div class="vsCenter">
@@ -27326,6 +27363,8 @@ if (VS_AI_MODE) {
 
     try {
       if (typeof showVersusIntro === 'function') {
+        // Partie contre l'IA/entraînement : jamais classée, aucun rang/point
+        // en jeu — mode et pointsPreview restent volontairement omis.
         showVersusIntro(profiles, drawReveal, firstSeat, compensationSeat, beginGame);
       } else {
         beginGame();
@@ -27644,7 +27683,7 @@ if (ONLINE_MODE) {
         };
 
         if (state.profiles) {
-          showVersusIntro(state.profiles, state.drawReveal, state.firstSeat, state.compensationSeat, revealBoard);
+          showVersusIntro(state.profiles, state.drawReveal, state.firstSeat, state.compensationSeat, revealBoard, state.mode, state.pointsPreview);
         } else {
           revealBoard();
         }
