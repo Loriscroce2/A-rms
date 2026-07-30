@@ -16466,6 +16466,13 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
 
         if (isFaceDown) {
             el.classList.add('back');
+            // SAISON : la main vue de dos (celle de l'ADVERSAIRE pour le
+            // joueur local) affiche le dos de carte équipé par SON
+            // propriétaire (owner, calculé plus haut depuis l'id du
+            // conteneur) — donc "notre adversaire voit notre main avec
+            // notre dos de carte", pas le sien ni le dos classique.
+            const ownerProfile = window.PLAYER_PROFILES && window.PLAYER_PROFILES[owner];
+            el.style.backgroundImage = `url('${deckSkinUrl(ownerProfile && ownerProfile.cardBack)}')`;
         } else {
             applyCardFace(el, card);
             attachHP(el, card);
@@ -19026,7 +19033,20 @@ function addToExile(card, context = {}){
     fullRender();
 
 }
-function updateExileUI(){ exileStack.setAttribute('data-count', exilePile.length); renderExileCarousel(); }
+function updateExileUI(){
+  exileStack.setAttribute('data-count', exilePile.length);
+  // SAISON : le dessus de la pile d'Exil (la carte la plus récemment
+  // exilée, tout devant grâce à exilePile.unshift() plus haut) affiche le
+  // dos de carte équipé par SON propriétaire d'origine (card.playOwner),
+  // pas forcément MY_SEAT — contrairement à la pioche (toujours la mienne
+  // uniquement), l'Exil est une pile PARTAGÉE où les cartes des deux
+  // joueurs se mélangent, donc le skin visible change à chaque carte.
+  const topExiled = exilePile[0];
+  const ownerSeat = topExiled && topExiled.playOwner;
+  const ownerProfile = ownerSeat && window.PLAYER_PROFILES && window.PLAYER_PROFILES[ownerSeat];
+  exileStack.style.backgroundImage = `url('${deckSkinUrl(ownerProfile && ownerProfile.cardBack)}')`;
+  renderExileCarousel();
+}
 
 function renderExileCarousel(){
   exileCarousel.innerHTML = '';
@@ -27407,6 +27427,7 @@ if (VS_AI_MODE) {
   (async function startAIMatchWithVersusIntro(){
     let myName = 'Joueur';
     let myAvatar = '';
+    let myCardBack = '';
     // CORRECTIF BLOCAGE AU LANCEMENT : sans limite de temps, un simple appel
     // réseau lent ou qui ne répond jamais (serveur qui met du temps à
     // répondre, connexion capricieuse...) bloquait TOUT ce bloc async
@@ -27425,14 +27446,15 @@ if (VS_AI_MODE) {
       if (res.ok && data.user) {
         if (data.user.name) myName = data.user.name;
         if (data.user.avatar) myAvatar = data.user.avatar;
+        if (data.user.cardBack) myCardBack = data.user.cardBack;
       }
     } catch(e){
       console.warn('[Versus intro] /api/me indisponible ou trop lent — démarrage avec un profil par défaut :', e);
     }
 
     const profiles = {
-      bottom: { name: myName, avatar: myAvatar },
-      top: { name: 'IA', avatar: '' },
+      bottom: { name: myName, avatar: myAvatar, cardBack: myCardBack },
+      top: { name: 'IA', avatar: '', cardBack: '' },
     };
 
     const pad4 = (n) => String(n).padStart(4, '0');
