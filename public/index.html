@@ -15018,7 +15018,20 @@ function detachFamiliarsOnHost(hostCard, hostOwner, isDeath = true){
           updateMithril();
         }
 
-        if(familiar.label === 'C10'){
+        if (familiar.label === 'C128'){
+          // SAVAGE (2e lot) : Truchøn (C128) — texte exact : "Une fois
+          // rattaché, Truchøn le reste également dans la défausse et dans
+          // l'exil." Contrairement à TOUS les autres familiers (qui se
+          // détachent et rejoignent leur PROPRE défausse dès que l'hôte
+          // quitte la zone de combat, quelle qu'en soit la raison — retour
+          // en main, exil, mort...), Truchøn ne se détache JAMAIS : il reste
+          // rattaché à son hôte, où que celui-ci aille ensuite (main,
+          // défausse, exil...). On le laisse donc simplement disparaître du
+          // suivi actif (déjà retiré de famTop/famBottom par le splice
+          // ci-dessus) sans l'envoyer nulle part — le bonus RAPIDE/+2PV déjà
+          // appliqué à l'hôte lors de l'attache reste, lui, permanent.
+          pushHistory('familier', `${cardAnchor('C128')} reste attaché à ${cardAnchor(hostCard.label)}, où qu'il aille.`);
+        } else if(familiar.label === 'C10'){
           addToExile(familiar);
           pushHistory('exil', `${cardAnchor(familiar.label)} part en EXIL (son hôte ${cardAnchor(hostCard.label)} a été retiré).`);
         } else if (familiar.label === 'C89'){
@@ -26048,6 +26061,36 @@ function drawPrismisLinks() {
         nomya.nomyaLinkedIds.forEach(targetId => {
             const targetEl = document.querySelector(`.card.placed[data-id="${targetId}"]`);
             if (!targetEl) return; // lien inactif : la cible n'est plus en jeu
+            const end = centerOf(targetEl);
+
+            linkCtx.beginPath();
+            linkCtx.moveTo(start.x, start.y);
+            linkCtx.quadraticCurveTo((start.x + end.x) / 2, (start.y + end.y) / 2 + 40, end.x, end.y);
+            linkCtx.strokeStyle = 'rgba(255, 217, 61, 0.85)';
+            linkCtx.setLineDash([6, 6]);
+            linkCtx.lineWidth = 3;
+            linkCtx.shadowColor = 'rgba(255, 217, 61, 0.9)';
+            linkCtx.shadowBlur = 8;
+            linkCtx.stroke();
+            linkCtx.setLineDash([]);
+        });
+    });
+
+    // SAISON : liens de Poltogba (W9, Poupée Wadoo) — même défaut que Nomya
+    // ci-dessus : le rendu ne lisait que .wadooLink (un seul lien), donc les
+    // liens de Poltogba (posés en une fois, tous en même temps, dans
+    // poltogbaLinkedIds) n'étaient JAMAIS dessinés à l'écran — Poltogba
+    // semblait donc ne se lier à aucun combattant adverse. Même style visuel
+    // que Nomya, un fil par lien encore ACTIF (cible toujours en jeu).
+    const poltogbaDolls = allPlayableCards.filter(c => c.label === 'W9' && Array.isArray(c.poltogbaLinkedIds) && c.poltogbaLinkedIds.length > 0);
+    poltogbaDolls.forEach(poltogba => {
+        const dollEl = document.querySelector(`.card.placed[data-id="${poltogba.id}"]`);
+        if (!dollEl) return;
+        const start = centerOf(dollEl);
+        poltogba.poltogbaLinkedIds.forEach(targetId => {
+            const targetEl = document.querySelector(`.card.placed[data-id="${targetId}"]`);
+            if (!targetEl) return; // lien inactif : la cible n'est plus en jeu
+
             const end = centerOf(targetEl);
 
             linkCtx.beginPath();
