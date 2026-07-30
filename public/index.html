@@ -3626,6 +3626,32 @@ function hideZoom(){
   zoom.style.display='none'; zoomCard.style.backgroundImage=''; zoomCard.textContent='';
 }
 
+// SAISON : zoom au survol des piles de pioche (#deckTop/#deckBottom), pour
+// mieux apprécier le dos de carte réellement affiché dessus (le mien, ou
+// celui — par défaut — de l'adversaire) — même overlay #zoom que toutes les
+// autres cartes de la zone de jeu, simplement alimenté par l'image de fond
+// ACTUELLE de la pile plutôt que par le label d'une carte (une pioche n'a
+// pas de "face", juste un dos). Les piles sont des éléments STATIQUES
+// (jamais reconstruites via innerHTML comme les cartes de main), donc ces
+// écouteurs ne sont attachés qu'une seule fois, ici, au chargement du script.
+function showDeckZoom(deckEl, side='right'){
+  const bg = deckEl.style.backgroundImage || getComputedStyle(deckEl).backgroundImage;
+  const match = /url\(["']?([^"')]+)["']?\)/.exec(bg || '');
+  const url = match ? match[1] : '/cartes/Versobasic.png';
+  zoomCard.innerHTML = '';
+  zoomCard.textContent = '';
+  delete zoomCard.dataset.ctype;
+  zoom.classList.toggle('zoomLeft', side === 'left');
+  zoomCard.style.backgroundImage = `url("${url}")`;
+  zoom.style.display = 'flex';
+}
+['deckTop', 'deckBottom'].forEach(id => {
+  const deckEl = document.getElementById(id);
+  if (!deckEl) return;
+  deckEl.addEventListener('mouseenter', () => showDeckZoom(deckEl));
+  deckEl.addEventListener('mouseleave', hideZoom);
+});
+
 /* ---------- Audio : musique de partie + jingles de victoire/défaite (robuste) ---------- */
 const MATCH_MUSIC_URL = new URL('/assets/Arms.mp3', location.href).href;
 const VICTORY_SFX_URL = new URL('/assets/Armsvictory.mp3', location.href).href;
