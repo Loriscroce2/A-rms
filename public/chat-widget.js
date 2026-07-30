@@ -40,6 +40,28 @@
     if (typeof armsAvatarUrl === 'function') return armsAvatarUrl(avatar);
     return avatar ? `/assets/Avatar/${encodeURIComponent(avatar)}` : '/assets/avatarbase.png';
   }
+  // Même mapping que armsCardBackUrl (auth.js) — dos de carte affiché sur
+  // les vignettes de deck du sélecteur de défi (voir openCwDeckPicker).
+  function cardBackUrl(cardBack) {
+    if (typeof armsCardBackUrl === 'function') return armsCardBackUrl(cardBack);
+    return cardBack ? `/assets/Skin/${encodeURIComponent(cardBack)}` : '/cartes/Versobasic.png';
+  }
+  // Répartition par faction d'un deck (même découpage numérique que
+  // factionOf() dans play.html/boutique.html), utilisée pour les petites
+  // pastilles colorées sur chaque vignette du sélecteur de défi.
+  const CW_FACTION_COLORS = { Krylls:'#3ddc84', Impy:'#ff5a5f', Savage:'#ff9d3d', Chimeria:'#b06bff', Wadoo:'#ffd93d' };
+  function cwFactionOf(code) {
+    const num = parseInt(code, 10);
+    if (num <= 50) return 'Krylls';
+    if (num <= 100) return 'Impy';
+    if (num <= 150) return 'Savage';
+    if (num <= 200) return 'Chimeria';
+    return 'Wadoo';
+  }
+  function cwDeckFactions(cards) {
+    const set = new Set((cards || []).map(cwFactionOf));
+    return [...set];
+  }
 
   // -------------------------------------------------------------
   // Styles
@@ -143,12 +165,33 @@
       .cwModalSub{font-size:12.5px;color:#9fd6e6;opacity:.9;text-align:center;margin:0 0 16px;line-height:1.5;}
       .cwModalClose{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.25);
         background:rgba(255,255,255,.06);color:#fff;font-size:14px;cursor:pointer;}
-      .cwDeckOption{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;margin-bottom:8px;
-        border-radius:12px;border:1.5px solid rgba(125,249,255,.25);background:rgba(125,249,255,.05);cursor:pointer;
-        transition:border-color .15s ease, background .15s ease;}
-      .cwDeckOption:hover{border-color:rgba(125,249,255,.6);background:rgba(125,249,255,.12);}
-      .cwDeckOptionName{font-weight:800;font-size:13.5px;}
-      .cwDeckOptionMeta{font-size:11px;color:#8fb8c4;}
+      /* ---- Sélecteur de deck (défi entre amis) : galerie de vignettes,
+         chacune montrant le dos de carte réellement équipé, le nom du deck,
+         le nombre de cartes et les factions qui le composent — bien plus
+         parlant qu'une simple liste de noms. ---- */
+      .cwDeckGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:12px;margin-top:2px;}
+      .cwDeckCard{display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 8px 12px;border-radius:16px;
+        cursor:pointer;text-align:center;border:1.5px solid rgba(125,249,255,.22);
+        background:linear-gradient(160deg,#0b2530,#051820);position:relative;overflow:hidden;
+        transition:transform .16s cubic-bezier(.2,.8,.3,1.2), border-color .16s ease, box-shadow .16s ease;}
+      .cwDeckCard:hover{transform:translateY(-5px);border-color:rgba(125,249,255,.7);
+        box-shadow:0 14px 28px rgba(0,0,0,.45), 0 0 22px rgba(125,249,255,.25);}
+      .cwDeckCard:active{transform:translateY(-2px);}
+      .cwDeckCardBox{width:66px;height:90px;border-radius:10px;background-size:cover;background-position:center;
+        border:1px solid rgba(125,249,255,.35);box-shadow:0 8px 16px rgba(0,0,0,.45),inset 0 0 12px rgba(125,249,255,.1);
+        position:relative;overflow:hidden;flex:none;}
+      .cwDeckCardBox::after{content:'';position:absolute;inset:0;
+        background:linear-gradient(100deg,transparent 42%,rgba(255,255,255,.2) 50%,transparent 58%);
+        transform:translateX(-130%);opacity:0;}
+      .cwDeckCard:hover .cwDeckCardBox::after{opacity:1;transform:translateX(130%);transition:transform .85s ease;}
+      .cwDeckCardName{font-weight:800;font-size:12.5px;color:#e8fdff;max-width:112px;overflow:hidden;
+        text-overflow:ellipsis;white-space:nowrap;}
+      .cwDeckCardMeta{font-size:10.5px;color:#8fb8c4;}
+      .cwDeckCardFacs{display:flex;gap:4px;justify-content:center;}
+      .cwDeckCardFac{width:8px;height:8px;border-radius:50%;box-shadow:0 0 5px currentColor;background:currentColor;}
+      .cwDeckEmpty{text-align:center;padding:28px 10px;color:#9fd6e6;font-size:13px;opacity:.85;}
+      .cwModalWide{width:min(480px,94vw) !important;}
+      @keyframes cwPopIn{from{opacity:0;transform:translateY(10px) scale(.94);}to{opacity:1;transform:translateY(0) scale(1);}}
       .cwModalActions{display:flex;gap:10px;justify-content:center;margin-top:14px;}
       .cwModalBtn{padding:10px 22px;border-radius:999px;font-weight:800;font-size:13px;cursor:pointer;border:none;}
       .cwModalBtn.accept{background:linear-gradient(180deg,#3ddc84,#1b7a45);color:#04150c;}
@@ -228,21 +271,33 @@
       document.getElementById('cwModalCloseBtn').addEventListener('click', closeCwModal);
       return;
     }
+    // Le dos de carte affiché sur chaque vignette est celui équipé par le
+    // joueur (même compte pour tous ses decks) — voir armsCurrentUser,
+    // exposé par auth.js (chargé avant ce script sur toutes les pages).
+    const myCardBack = (typeof window !== 'undefined' && window.armsCurrentUser) ? window.armsCurrentUser.cardBack : '';
+    const boxUrl = cardBackUrl(myCardBack);
+
     const ov = openCwModal(`
       <button class="cwModalClose" id="cwModalCloseBtn">✕</button>
       <div class="cwModalTitle">${esc(title)}</div>
       <div class="cwModalSub">${esc(sub)}</div>
-      <div id="cwDeckList"></div>
+      <div class="cwDeckGrid" id="cwDeckList"></div>
     `);
+    ov.querySelector('.cwModal').classList.add('cwModalWide');
     document.getElementById('cwModalCloseBtn').addEventListener('click', closeCwModal);
     const list = ov.querySelector('#cwDeckList');
-    list.innerHTML = decks.map(d => `
-      <div class="cwDeckOption" data-deck-id="${d.id}">
-        <div><div class="cwDeckOptionName">${esc(d.name)}</div><div class="cwDeckOptionMeta">${d.cards.length} cartes</div></div>
-        <div>▶</div>
+    list.innerHTML = decks.map((d, i) => {
+      const facs = cwDeckFactions(d.cards);
+      return `
+      <div class="cwDeckCard" data-deck-id="${d.id}" style="animation:cwPopIn .35s cubic-bezier(.2,.8,.3,1.2) backwards; animation-delay:${i * 0.05}s;">
+        <div class="cwDeckCardBox" style="background-image:url('${boxUrl}')"></div>
+        <div class="cwDeckCardName" title="${esc(d.name)}">${esc(d.name)}</div>
+        <div class="cwDeckCardMeta">${d.cards.length} cartes</div>
+        <div class="cwDeckCardFacs">${facs.map(f => `<span class="cwDeckCardFac" style="color:${CW_FACTION_COLORS[f] || '#7df9ff'}" title="${f}"></span>`).join('')}</div>
       </div>
-    `).join('');
-    list.querySelectorAll('.cwDeckOption').forEach(opt => {
+    `;
+    }).join('');
+    list.querySelectorAll('.cwDeckCard').forEach(opt => {
       opt.addEventListener('click', () => {
         const deck = decks.find(d => String(d.id) === opt.dataset.deckId);
         if (deck) onPick(deck);

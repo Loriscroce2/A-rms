@@ -119,6 +119,10 @@ function armsInjectAccountStyles() {
       border:1px solid rgba(255,90,90,.4);color:#ffb3b3;font-weight:800;cursor:pointer;font-size:14px;}
     .logoutBtnModal:hover{background:linear-gradient(180deg,#4a1a1a,#2e0a0a);}
 
+    .quitGameBtnModal{width:100%;margin-top:10px;padding:11px;border-radius:12px;background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.15);color:#9fb3b8;font-weight:800;cursor:pointer;font-size:13.5px;}
+    .quitGameBtnModal:hover{background:rgba(255,255,255,.08);color:#dfeef2;}
+
     .backLink{display:inline-flex;align-items:center;gap:6px;color:#7df9ff;font-weight:700;font-size:13px;cursor:pointer;margin-bottom:6px;}
   `;
   document.head.appendChild(style);
@@ -168,6 +172,7 @@ function armsBuildAccountModal(user) {
         </div>
 
         <button class="logoutBtnModal" id="logoutBtnModal">Se déconnecter</button>
+        <button class="quitGameBtnModal" id="quitGameBtnModal">🚪 Quitter le jeu</button>
       </div>
     `;
     armsApplyAvatar(overlay.querySelector('#profileAvatarBig'), user.avatar);
@@ -181,6 +186,7 @@ function armsBuildAccountModal(user) {
       await fetch('/api/logout', { method: 'POST' });
       window.location.href = '/accueil.html';
     });
+    overlay.querySelector('#quitGameBtnModal').addEventListener('click', armsQuitGame);
   }
 
   async function renderAvatarPicker() {
@@ -349,6 +355,27 @@ function armsRefreshAvatarDisplays(avatar) {
 
 function armsRefreshCardBackDisplays(cardBack) {
   document.querySelectorAll('.js-cardback-img').forEach(el => armsApplyCardBack(el, cardBack));
+}
+
+// Quitte et ferme complètement le jeu (bouton du profil). window.close()
+// est la seule action qu'une page web puisse déclencher elle-même — les
+// navigateurs l'honorent sans réserve pour une fenêtre ouverte par un
+// script (cas de l'application de bureau téléchargeable, /telecharger.html,
+// un simple habillage natif d'un navigateur), mais bloquent en général la
+// fermeture d'un onglet classique ouvert normalement par l'utilisateur. Le
+// petit filet de sécurité ci-dessous prévient la personne au lieu de la
+// laisser croire que le clic n'a rien fait si la fermeture est refusée.
+function armsQuitGame(){
+  if (!confirm('Voulez-vous vraiment quitter et fermer le jeu ?')) return;
+  try {
+    window.open('', '_self');
+    window.close();
+  } catch (e) { /* ignoré — voir filet de sécurité ci-dessous */ }
+  setTimeout(() => {
+    if (!document.hidden) {
+      alert("Impossible de fermer automatiquement la fenêtre depuis le navigateur. Fermez l'onglet ou l'application manuellement.");
+    }
+  }, 350);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
