@@ -6097,6 +6097,7 @@ let c114TargetMode = null;
 let c231TargetMode = null; // WADOO 5e lot : Doolia (C231) — capacité "renvoyer un ennemi en main"
 let wadooLinkMode = null; // WADOO : mode de ciblage pour lier une Poupée à un ennemi
 let dollyHealMode = null;
+let c4HealMode = null; // KRYLLS : Blubool (C4) — mode de ciblage pour donner +6 PV
 let warzazathEffect = { top: false, bottom: false };
 // NOUVEAU : État pour le ciblage de Prismis (C152)
 let prismisTargetMode = null;
@@ -6763,6 +6764,119 @@ function openC5Prompt(owner, card, anchorEl){
     { label:'Annuler', className:'cancel', onClick:()=>{} },
   ]);
 }
+
+/* ---- KRYLLS : Action C4 "Blubool" ---- */
+function openC4Prompt(owner, card, anchorEl){
+  if(!canPlayThisCardNow(owner, card)) return;
+  openButtonsPrompt('Blubool', 'Jouer <strong>Blubool</strong> ?<br><small>Effet : Faites gagner +6 PV à un combattant de votre choix.</small>', anchorEl, [
+    { label:'Valider', className:'confirm', onClick:()=>playActionC4(owner, card) },
+    { label:'Annuler', className:'cancel', onClick:()=>{} },
+  ]);
+}
+
+function playActionC4(owner, actionCard){
+  if(!canPlayThisCardNow(owner, actionCard)) return;
+  consumeAllowanceIfNeeded(owner, actionCard);
+
+  const hand = getHandByOwner(owner);
+  const idx = hand.findIndex(c => c.id === actionCard.id);
+  if (idx !== -1) hand.splice(idx, 1);
+  discardCard(actionCard, owner, 'action');
+
+  fullRender();
+  startC4Heal(owner, () => { fullRender(); });
+}
+
+function startC4Heal(owner, onComplete) {
+  const allCombatants = topLine.concat(botLine);
+  const validTargets = allCombatants.filter(c => getType(c.label) === 'personnage');
+
+  if (validTargets.length === 0) {
+    pushHistory('info', `Effet de ${cardAnchor('C4')} : aucune cible sur le plateau à soigner.`);
+    if (typeof onComplete === 'function') onComplete();
+    return;
+  }
+
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(owner)) {
+    // Blubool appartient à l'IA : elle soigne son propre combattant le plus
+    // abîmé en priorité, jamais au joueur humain de choisir à sa place.
+    const mine = validTargets.filter(c => (topLine.includes(c) ? 'top' : 'bottom') === owner);
+    const chosen = aiPickLowestHP(mine.length ? mine : validTargets);
+    if (chosen) resolveC4Heal(chosen.id);
+    if (typeof onComplete === 'function') onComplete();
+    return;
+  }
+
+  // Partie en ligne : Blubool n'est pas la mienne — ce choix appartient à son
+  // propriétaire, je délègue et j'attends sa réponse.
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && MY_SEAT !== owner) {
+    showWaitOverlay(`Patientez : l'adversaire choisit l'effet de ${cardName('C4')}...`);
+    requestOpponentChoice('c4heal', { targetIds: validTargets.map(c => c.id) }, (chosenId) => {
+      hideWaitOverlay();
+      if (chosenId) resolveC4Heal(chosenId);
+      if (typeof onComplete === 'function') onComplete();
+    });
+    return;
+  }
+
+  c4HealMode = { owner, onComplete };
+  buildC4Prompt();
+  fullRender();
+}
+
+function buildC4Prompt() {
+  closeActionPrompt();
+  const promptEl = document.createElement('div');
+  promptEl.id = 'c4-prompt';
+  promptEl.className = 'actionPrompt';
+  promptEl.style.bottom = '100px';
+  promptEl.style.left = '50%';
+  promptEl.style.transform = 'translateX(-50%)';
+  promptEl.style.zIndex = '2000';
+  promptEl.innerHTML = `
+    <div class="apTitle">Effet : Blubool</div>
+    <div class="apMsg">Choisissez un combattant pour lui donner +<strong>6 PV</strong>.</div>
+  `;
+  document.body.appendChild(promptEl);
+  actionPromptEl = promptEl;
+}
+
+function resolveC4Heal(targetId) {
+  const targetCard = findCardOnBoard(targetId);
+  if (targetCard && typeof targetCard.hp === 'number' && targetCard.label !== 'C62') {
+    targetCard.hp += 6;
+    playHPHitEffect(targetCard);
+    pushHistory('pv', `${cardAnchor(targetCard.label)} regagne 6 PV grâce à l'effet de ${cardAnchor('C4')}.`);
+  }
+  fullRender();
+}
+
+function handleC4TargetSelection(targetCard) {
+  if (!c4HealMode) return;
+
+  if (remoteChoiceMode && remoteChoiceMode.kind === 'c4heal') {
+    const rid = remoteChoiceMode.requestId;
+    remoteChoiceMode = null;
+    c4HealMode = null;
+    closeActionPrompt();
+    hideChoiceNotice();
+    window.__socket.emit('choiceResponse', { matchId: ONLINE_MATCH_ID, seat: MY_SEAT, requestId: rid, choice: targetCard.id });
+    fullRender();
+    return;
+  }
+
+  resolveC4Heal(targetCard.id);
+  const callback = c4HealMode.onComplete;
+  endC4HealCleanup(callback);
+}
+
+function endC4HealCleanup(onComplete) {
+  c4HealMode = null;
+  closeActionPrompt();
+  if (typeof onComplete === 'function') onComplete();
+  fullRender();
+}
+/* FIN Blubool (C4) */
 
 /* ---- SAISON : Action W2 "Trou de ver" ---- */
 function openW2Prompt(owner, card, anchorEl) {
@@ -8669,7 +8783,7 @@ function memoryReplayAnyBlockingUiOpen(){
   const carouselOpen = !!(carousel && carousel.style.display && carousel.style.display !== 'none');
   const modesActive = !!(
     (venusylvaDestroyMode && venusylvaDestroyMode.active) ||
-    c112TargetMode || c114TargetMode || c231TargetMode || wadooLinkMode || dollyHealMode ||
+    c112TargetMode || c114TargetMode || c231TargetMode || wadooLinkMode || dollyHealMode || c4HealMode ||
     prismisTargetMode || liensSelectionMode || freedaTargetMode || furyoTargetMode || miroirTargetMode ||
     hitAndRunMode || peinturlurerMode || explorationMode || chargeboxTargetMode ||
     c59DestroyMode || c51SelectMode || c58HealingMode ||
@@ -14597,7 +14711,7 @@ let remoteChoiceMode = null; // { requestId, kind, picks? }
 function isAnyTargetSelectionActive(){
   return !!(
     (venusylvaDestroyMode && venusylvaDestroyMode.active) ||
-    c112TargetMode || c114TargetMode || c231TargetMode || wadooLinkMode || dollyHealMode ||
+    c112TargetMode || c114TargetMode || c231TargetMode || wadooLinkMode || dollyHealMode || c4HealMode ||
     prismisTargetMode || liensSelectionMode || freedaTargetMode || furyoTargetMode || miroirTargetMode ||
     hitAndRunMode || peinturlurerMode || explorationMode || chargeboxTargetMode ||
     c59DestroyMode || c51SelectMode || c58HealingMode ||
@@ -14807,6 +14921,20 @@ function handleIncomingChoiceRequest(requestId, kind, payload) {
     closeActionPrompt();
     showChoiceNotice(`${cardName('C117')} déclenche son effet : à vous de choisir qui soigner.`);
     buildDollyPrompt();
+    fullRender();
+  }
+
+  if (kind === 'c4heal') {
+    const validTargets = (payload.targetIds || []).map(id => findCardOnBoard(id)).filter(Boolean);
+    if (validTargets.length === 0) {
+      window.__socket.emit('choiceResponse', { matchId: ONLINE_MATCH_ID, seat: MY_SEAT, requestId, choice: null });
+      return;
+    }
+    remoteChoiceMode = { requestId, kind: 'c4heal' };
+    c4HealMode = { owner: MY_SEAT, onComplete: null };
+    closeActionPrompt();
+    showChoiceNotice(`${cardName('C4')} déclenche son effet : à vous de choisir qui soigner.`);
+    buildC4Prompt();
     fullRender();
   }
 
@@ -16584,6 +16712,7 @@ function renderHand(container, hand, opts = { faceDown: false, draggable: true }
             if (card.label === 'C51') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC51Prompt(owner, card, el)); }); }
             if (card.label === 'C19') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC19Prompt(owner, card, el)); }); }
             if (card.label === 'C5') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC5Prompt(owner, card, el)); }); }
+            if (card.label === 'C4') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC4Prompt(owner, card, el)); }); }
             if (card.label === 'C18') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC18Prompt(owner, card, el)); }); }
             if (card.label === 'C16') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC16Prompt(owner, card)); }); }
             if (card.label === 'C30') { el.addEventListener('click', () => { if (currentTurn !== owner) return; attemptParactionCounter(owner, card, () => openC30Prompt(owner, card, el)); }); }
@@ -17144,6 +17273,10 @@ if (hitAndRunMode) {
     el.classList.add('positiveTargetHint');
     el.style.cursor = 'pointer';
   }
+  if (c4HealMode && getType(card.label) === 'personnage') {
+    el.classList.add('positiveTargetHint');
+    el.style.cursor = 'pointer';
+  }
   if (freedaTargetMode && getType(card.label) === 'personnage') {
     el.classList.add('positiveTargetHint');
     el.style.cursor = 'pointer';
@@ -17231,6 +17364,7 @@ if (hitAndRunMode) {
     if (freedaTargetMode) { handleFreedaTargetSelection(card, owner); return; }
     if (furyoTargetMode) { handleFuryoTargetSelection(card, owner); return; }
     if (dollyHealMode) { handleDollyHealSelection(card); return; } // CORRIGÉ : clic pour Dolly
+    if (c4HealMode) { handleC4TargetSelection(card); return; } // KRYLLS : clic pour Blubool
     if (hitAndRunMode) { handleHitAndRunSelection(card, owner); return; }
     if (chargeboxTargetMode) { handleChargeboxTargetSelection(card, owner); return; }
     if (peinturlurerMode) { handlePeinturlurerSelection(card); return; }
@@ -22054,7 +22188,7 @@ function aiForceCancelAllTargetModes(){
   try {
     venusylvaDestroyMode = { active: false, venusylvaId: null };
     c112TargetMode = null; c114TargetMode = null; c231TargetMode = null;
-    wadooLinkMode = null; dollyHealMode = null; prismisTargetMode = null;
+    wadooLinkMode = null; dollyHealMode = null; c4HealMode = null; prismisTargetMode = null;
     liensSelectionMode = null; freedaTargetMode = null; furyoTargetMode = null; miroirTargetMode = null;
     hitAndRunMode = null; peinturlurerMode = null; explorationMode = null;
     chargeboxTargetMode = null; c59DestroyMode = null;
