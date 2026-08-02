@@ -815,26 +815,131 @@
   overflow:visible; 
 }
 
-    /* PV + Bouclier — gemmes stylées : rond rubis (PV) / écusson saphir (PB) */
+    /* ===================================================================
+       PV + Bouclier — refonte "premium" (v2) : gemme de puissance facettée
+       (PV, rouge/or) et écusson métallique (PB, bleu/argent), chacun avec
+       une réaction visuelle au changement de valeur (pulsation verte pour
+       un gain, pulsation rouge pour une perte) et un effet de "vitre qui
+       casse" (flash + fragments qui volent) quand la valeur tombe à 0.
+       Le nombre est toujours porté par un <span class="statNum"> injecté
+       en JS (voir attachHP) pour garantir qu'il reste visible AU-DESSUS
+       des calques décoratifs (::before/::after), quel que soit l'ordre de
+       peinture du navigateur. =============================================== */
+    .hp, .shield{ overflow:visible; }
+    .hp .statNum, .shield .statNum{ position:relative; z-index:2; }
+
     .hp{
-      position:absolute; right:-7px; top:50%; transform:translateY(-50%); width:29px; height:29px;
+      position:absolute; right:-8px; top:50%; transform:translateY(-50%); width:30px; height:30px;
       border-radius:50%;
-      background: radial-gradient(circle at 30% 24%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #ff5c5c 55%, #8a0000);
-      border:2px solid rgba(255,190,190,.95);
-      box-shadow:0 0 12px rgba(255,40,40,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.35), inset 0 2px 3px rgba(255,255,255,.4);
-      color:#fff; font-weight:900; font-size:13px; font-family:'Manrope',sans-serif;
-      text-shadow:0 1px 2px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:15; pointer-events:none;
+      background:
+        radial-gradient(circle at 32% 22%, rgba(255,255,255,.85), transparent 40%),
+        radial-gradient(circle at 68% 82%, rgba(110,0,0,.55), transparent 58%),
+        radial-gradient(closest-side, #ff6a5c 45%, #8a0f0f 100%);
+      border:2px solid #ffcf7a;
+      box-shadow:
+        0 0 3px rgba(255,215,120,.9),
+        0 0 14px rgba(255,50,40,.6),
+        0 3px 6px rgba(0,0,0,.6),
+        inset 0 -4px 6px rgba(0,0,0,.45),
+        inset 0 3px 4px rgba(255,255,255,.5);
+      color:#fff8ec; font-weight:900; font-size:13px; font-family:'Manrope',sans-serif;
+      text-shadow:0 1px 2px rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.7);
+      display:flex; align-items:center; justify-content:center; z-index:15; pointer-events:none;
+    }
+    .hp::before{
+      content:''; position:absolute; inset:2px; border-radius:50%;
+      background:
+        conic-gradient(from -40deg at 50% 50%, rgba(255,255,255,.35), transparent 22%, transparent 78%, rgba(255,255,255,.2)),
+        linear-gradient(155deg, rgba(255,255,255,.4), transparent 40%);
+      mix-blend-mode:screen; pointer-events:none;
     }
     #zoom .hp{ right:-14px; width:46px; height:46px; font-size:19px; }
+
     .shield{
-      position:absolute; right:-7px; top:calc(50% + 23px); width:27px; height:27px;
-      border-radius:50% 50% 22% 22% / 64% 64% 30% 30%;
-      background: radial-gradient(circle at 30% 22%, rgba(255,255,255,.75), transparent 42%), radial-gradient(closest-side, #55d6ff 55%, #0a4f8a);
-      border:2px solid rgba(195,238,255,.95);
-      box-shadow:0 0 12px rgba(70,195,255,.65), 0 3px 5px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.3), inset 0 2px 3px rgba(255,255,255,.4);
-      color:#eafcff; font-weight:900; font-size:12px; font-family:'Manrope',sans-serif; text-shadow:0 1px 2px rgba(0,0,0,.9), 0 0 3px rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:15; pointer-events:none; overflow:visible;
+      position:absolute; right:-9px; top:calc(50% + 24px); width:30px; height:32px;
+      display:flex; align-items:center; justify-content:center; padding-top:2px;
+      color:#eafcff; font-weight:900; font-size:12px; font-family:'Manrope',sans-serif;
+      text-shadow:0 1px 2px rgba(0,0,0,.95), 0 0 4px rgba(0,0,0,.7);
+      z-index:15; pointer-events:none;
+      filter: drop-shadow(0 3px 5px rgba(0,0,0,.55)) drop-shadow(0 0 9px rgba(70,195,255,.55));
     }
-    #zoom .shield{ right:-14px; width:46px; height:46px; font-size:17px; top:calc(50% + 44px); }
+    .shield::before{
+      content:''; position:absolute; inset:0;
+      clip-path: polygon(50% 0%, 100% 16%, 100% 58%, 50% 100%, 0% 58%, 0% 16%);
+      background:
+        linear-gradient(200deg, #eaf8ff 0%, #7dd0ff 32%, #2489c9 68%, #0a3f66 100%);
+      box-shadow: inset 0 2px 3px rgba(255,255,255,.6), inset 0 -5px 7px rgba(0,0,0,.45);
+      border:1.5px solid rgba(220,245,255,.9);
+    }
+    .shield::after{
+      content:''; position:absolute; left:6px; right:6px; top:4px; height:38%;
+      background:linear-gradient(160deg, rgba(255,255,255,.55), transparent 75%);
+      border-radius:50%; opacity:.85; pointer-events:none;
+    }
+    #zoom .shield{ right:-15px; width:48px; height:50px; font-size:17px; top:calc(50% + 44px); }
+
+    /* --- Réactions au changement de valeur --- */
+    @keyframes statGainPulseHp{
+      0%{ transform:translateY(-50%) scale(1); filter:brightness(1); }
+      28%{ transform:translateY(-50%) scale(1.32); filter:brightness(1.7) saturate(1.3); box-shadow:0 0 4px rgba(255,215,120,1), 0 0 26px 8px rgba(90,255,140,.9), 0 3px 6px rgba(0,0,0,.6), inset 0 -4px 6px rgba(0,0,0,.45), inset 0 3px 4px rgba(255,255,255,.5); }
+      100%{ transform:translateY(-50%) scale(1); filter:brightness(1); }
+    }
+    @keyframes statLossPulseHp{
+      0%{ transform:translateY(-50%) scale(1); filter:brightness(1); }
+      20%{ transform:translateY(-50%) scale(.86) rotate(-4deg); filter:brightness(.65) saturate(1.4); box-shadow:0 0 4px rgba(255,80,80,1), 0 0 24px 8px rgba(255,30,20,.9), 0 3px 6px rgba(0,0,0,.6), inset 0 -4px 6px rgba(0,0,0,.45), inset 0 3px 4px rgba(255,255,255,.5); }
+      45%{ transform:translateY(-50%) scale(1.06) rotate(3deg); }
+      100%{ transform:translateY(-50%) scale(1) rotate(0deg); filter:brightness(1); }
+    }
+    .hp.statGain{ animation: statGainPulseHp .5s ease; }
+    .hp.statLoss{ animation: statLossPulseHp .42s ease; }
+
+    @keyframes statGainPulseShield{
+      0%{ transform:scale(1); filter:brightness(1); }
+      28%{ transform:scale(1.32); filter:brightness(1.7) saturate(1.3) drop-shadow(0 0 22px rgba(90,255,140,.95)); }
+      100%{ transform:scale(1); filter:brightness(1); }
+    }
+    @keyframes statLossPulseShield{
+      0%{ transform:scale(1) rotate(0deg); filter:brightness(1); }
+      20%{ transform:scale(.86) rotate(-5deg); filter:brightness(.6) saturate(1.4) drop-shadow(0 0 20px rgba(255,30,20,.95)); }
+      45%{ transform:scale(1.06) rotate(4deg); }
+      100%{ transform:scale(1) rotate(0deg); filter:brightness(1); }
+    }
+    .shield.statGain{ animation: statGainPulseShield .5s ease; }
+    .shield.statLoss{ animation: statLossPulseShield .42s ease; }
+
+    /* --- "Vitre qui casse" : flash blanc, secousse, puis disparition en
+       fondu — joué quand la valeur tombe à 0 (mort du combattant pour PV,
+       Bouclier totalement percé pour PB). Les fragments volants (voir
+       .statShardBit / spawnStatShatter en JS) complètent l'illusion de
+       verre brisé. --- */
+    @keyframes statShatterHp{
+      0%{ transform:translateY(-50%) scale(1) rotate(0deg); filter:brightness(1); opacity:1; }
+      12%{ transform:translateY(-50%) scale(1.35) rotate(-3deg); filter:brightness(3) saturate(0); opacity:1; }
+      30%{ transform:translateY(-50%) scale(1.05) rotate(6deg); filter:brightness(1.4); opacity:1; }
+      100%{ transform:translateY(-50%) scale(.15) rotate(35deg); filter:brightness(1); opacity:0; }
+    }
+    @keyframes statShatterShield{
+      0%{ transform:scale(1) rotate(0deg); filter:brightness(1); opacity:1; }
+      12%{ transform:scale(1.35) rotate(-3deg); filter:brightness(3) saturate(0); opacity:1; }
+      30%{ transform:scale(1.05) rotate(6deg); filter:brightness(1.4); opacity:1; }
+      100%{ transform:scale(.15) rotate(35deg); filter:brightness(1); opacity:0; }
+    }
+    .hp.statShatter{ animation: statShatterHp .6s cubic-bezier(.3,.1,.4,1) forwards; z-index:16; }
+    .shield.statShatter{ animation: statShatterShield .6s cubic-bezier(.3,.1,.4,1) forwards; z-index:16; }
+
+    /* Fragments volants générés en JS (spawnStatShatter) au moment du bris */
+    .statShardBit{
+      position:absolute; left:50%; top:50%; width:6px; height:6px;
+      clip-path: polygon(0 0, 100% 0, 60% 100%);
+      transform: translate(-50%,-50%);
+      animation: statShardFly .55s cubic-bezier(.2,.8,.3,1) forwards;
+      pointer-events:none; z-index:20;
+      box-shadow:0 0 4px rgba(255,255,255,.85);
+    }
+    @keyframes statShardFly{
+      0%{ transform:translate(-50%,-50%) translate(0,0) rotate(0deg) scale(1); opacity:1; }
+      100%{ transform:translate(-50%,-50%) translate(var(--tx),var(--ty)) rotate(var(--rot)) scale(.2); opacity:0; }
+    }
 
     /* Bouton fin de tour + minuteur de tour — conçu comme un petit bloc
        compact (bouton + fine barre) plutôt qu'un anneau circulaire autour
@@ -5463,15 +5568,60 @@ function getATK(card){
 function loadImage(url){
   return new Promise((resolve,reject)=>{ const im=new Image(); im.onload=()=>resolve(url); im.onerror=reject; im.src=url; });
 }
-/* --- PV + Bouclier (affiche le bouclier effectif avec aura C17) --- */
+/* --- PV + Bouclier (affiche le bouclier effectif avec aura C17) ---
+   Chaque badge est recréé à chaque rendu (comme avant), mais on compare
+   désormais la nouvelle valeur à la dernière valeur connue pour CETTE
+   carte (cache __hpShieldFxCache, clé = card.id) afin de rejouer
+   automatiquement une pulsation verte (gain), rouge (perte) ou un effet
+   de "vitre qui casse" (chute à 0/disparition), sans avoir à modifier les
+   dizaines d'endroits du code qui mutent card.hp / card.shield. */
+const __hpShieldFxCache = {};
+
+function spawnStatShatter(anchorEl, kind){
+  const palette = (kind === 'shield')
+    ? ['#eaf8ff', '#7dd0ff', '#bfe9ff']
+    : ['#ffe9b0', '#ff6a5c', '#ffcf7a'];
+  const shardCount = 7;
+  for (let i = 0; i < shardCount; i++){
+    const shard = document.createElement('div');
+    shard.className = 'statShardBit';
+    const angle = (i / shardCount) * 360 + (Math.random() * 26 - 13);
+    const dist = 15 + Math.random() * 12;
+    const rad = angle * Math.PI / 180;
+    const tx = Math.cos(rad) * dist;
+    const ty = Math.sin(rad) * dist;
+    shard.style.setProperty('--tx', tx.toFixed(1) + 'px');
+    shard.style.setProperty('--ty', ty.toFixed(1) + 'px');
+    shard.style.setProperty('--rot', (Math.random() * 300 - 150).toFixed(0) + 'deg');
+    shard.style.background = palette[i % palette.length];
+    anchorEl.appendChild(shard);
+    setTimeout(() => { if (shard.parentNode) shard.remove(); }, 580);
+  }
+}
+
 function attachHP(el, card){
   el.querySelectorAll('.hp,.shield').forEach(n=>n.remove());
   const isPerso = (getType(card.label) === 'personnage');
 
+  const fx = __hpShieldFxCache[card.id] || {};
   const hpVal = getEffectiveHP(card);
   if (isPerso){
-    const hp = document.createElement('div'); hp.className='hp'; hp.textContent = hpVal; el.appendChild(hp);
+    const hp = document.createElement('div'); hp.className='hp';
+    const hpNum = document.createElement('span'); hpNum.className='statNum'; hpNum.textContent = hpVal;
+    hp.appendChild(hpNum);
+    if (typeof fx.hp === 'number' && fx.hp !== hpVal){
+      if (hpVal <= 0 && fx.hp > 0){
+        hp.classList.add('statShatter');
+        spawnStatShatter(hp, 'hp');
+      } else if (hpVal > fx.hp){
+        hp.classList.add('statGain');
+      } else {
+        hp.classList.add('statLoss');
+      }
+    }
+    el.appendChild(hp);
   } else {
+    __hpShieldFxCache[card.id] = { hp: hpVal, shield: fx.shield };
     return;
   }
 
@@ -5483,9 +5633,23 @@ function attachHP(el, card){
   if (isBruitzeurActive()) {
     effectiveShield = 0;
   }
-  if (effectiveShield > 0){
-    const sh = document.createElement('div'); sh.className='shield'; sh.textContent = effectiveShield; el.appendChild(sh);
+
+  const shieldJustBroke = (typeof fx.shield === 'number' && fx.shield > 0 && effectiveShield <= 0);
+  if (effectiveShield > 0 || shieldJustBroke){
+    const sh = document.createElement('div'); sh.className='shield';
+    const shNum = document.createElement('span'); shNum.className='statNum'; shNum.textContent = Math.max(effectiveShield, 0);
+    sh.appendChild(shNum);
+    if (shieldJustBroke){
+      sh.classList.add('statShatter');
+      spawnStatShatter(sh, 'shield');
+      setTimeout(() => { if (sh.parentNode) sh.remove(); }, 620);
+    } else if (typeof fx.shield === 'number' && fx.shield !== effectiveShield){
+      sh.classList.add(effectiveShield > fx.shield ? 'statGain' : 'statLoss');
+    }
+    el.appendChild(sh);
   }
+
+  __hpShieldFxCache[card.id] = { hp: hpVal, shield: effectiveShield };
 }
 
 // NOUVEAU : Affiche le compteur de BUTS pour Flavio VII (C154)
@@ -13799,8 +13963,7 @@ function handleVakxzinTargetSelection(targetCard, targetCardOwner){
   const idx = line.findIndex(c => c.id === targetCard.id);
   if (idx !== -1) line.splice(idx, 1);
   discardCard(targetCard, targetCardOwner, 'destroyed');
-  addMithril(casterOwner);
-  addMithril(casterOwner);
+  addMithril(casterOwner, 2);
   pushHistory('action', `${cardAnchor('C31')} détruit ${cardAnchor(targetCard.label)} (Poison) : +2 Mithril.`);
   fullRender();
 }
@@ -18858,7 +19021,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       if (card.label === 'C2' && (fromId==='handTop' || fromId==='handBottom')) { addMithril(who); }
       // SAISON : Cosplay (W8) — JOUER : +2 Mithril.
       if (card.label === 'W8' && (fromId==='handTop' || fromId==='handBottom')) {
-        addMithril(who); addMithril(who);
+        addMithril(who, 2);
         pushHistory('mithril', `${cardAnchor('W8')} rapporte +2 Mithril à ${playerLabel(who)}.`);
       }
       if (card.label === 'C6') { nonKryllsAllowance[who] = (nonKryllsAllowance[who]||0) + 1; }
@@ -18910,8 +19073,7 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       if (card.label === 'C109') {
         const whoLabelText = playerLabel(who);
 
-        addMithril(who);
-        addMithril(who);
+        addMithril(who, 2);
         pushHistory('mithril', `${whoLabelText} gagne 2 Mithril grâce à ${cardAnchor('C109')}.`);
 
         const allCombatants = topLine.concat(botLine);
@@ -20614,18 +20776,41 @@ const armColors = ["#aaffaa", "#55dd55", "#ffeb3b", "#ff9800", "#ff3030"];
 // qui descend pour une perte. Fonctionne aussi en ligne, puisque updateMithril()
 // est appelée après CHAQUE synchronisation d'état reçue de l'adversaire.
 let lastKnownMithril = { top: null, bottom: null };
+// CORRECTIF : plusieurs effets accordent du Mithril via des appels successifs
+// à addMithril() dans la même salve synchrone (ex. deux addMithril(owner)
+// à la suite, ou une boucle for pour un multiplicateur comme Coq Six) — avec
+// l'ancienne logique, CHAQUE appel déclenchait immédiatement son propre popup
+// "+1", qui se superposaient exactement au même endroit et donnaient
+// l'impression trompeuse qu'un seul Mithril avait été gagné au lieu du vrai
+// total (ex. "+1" affiché pour un gain de +2). Pour corriger ça sans devoir
+// traquer chaque site d'appel un par un, le popup est désormais différé d'un
+// tick (setTimeout 0) : le compteur numérique se met à jour instantanément à
+// chaque appel (aucun délai visuel là-dessus), mais un seul popup — calculé
+// sur le delta total entre le début et la fin de la salve — s'affiche une
+// fois que tous les appels synchrones de cette salve sont terminés.
+let mithrilPopupFlushScheduled = { top: false, bottom: false };
 function updateMithril(){
   ['top', 'bottom'].forEach(owner => {
     const elId = (owner === 'top') ? 'mithrilTop' : 'mithrilBottom';
     const el = document.getElementById(elId);
     if (el) el.textContent = mithril[owner];
-    const prev = lastKnownMithril[owner];
-    if (prev !== null && mithril[owner] !== prev) {
-      const delta = mithril[owner] - prev;
-      if (delta > 0) showResourceHit(elId, delta, 'gold', 'up');
-      else showResourceHit(elId, delta, 'redDown', 'down');
+    if (lastKnownMithril[owner] === null) {
+      lastKnownMithril[owner] = mithril[owner];
+      return;
     }
-    lastKnownMithril[owner] = mithril[owner];
+    if (mithrilPopupFlushScheduled[owner]) return;
+    mithrilPopupFlushScheduled[owner] = true;
+    const before = lastKnownMithril[owner];
+    setTimeout(() => {
+      mithrilPopupFlushScheduled[owner] = false;
+      const after = mithril[owner];
+      if (after !== before) {
+        const delta = after - before;
+        if (delta > 0) showResourceHit(elId, delta, 'gold', 'up');
+        else showResourceHit(elId, delta, 'redDown', 'down');
+      }
+      lastKnownMithril[owner] = after;
+    }, 0);
   });
 }
 function renderArms(){
@@ -28508,8 +28693,7 @@ function startTutorialCoach(){
         { label: 'Continuer', onClick: () => {
           hideDialogue();
           highlight(box);
-          addMithril('bottom');
-          addMithril('bottom');
+          addMithril('bottom', 2);
           showBanner('Le Mithril', `Vous venez d'en gagner. Regardez le compteur.`);
           setTimeout(step6_Attack, 1600);
         } }
