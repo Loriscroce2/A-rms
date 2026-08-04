@@ -7646,7 +7646,7 @@ function openC204Prompt(owner, actionCard, anchorEl){
   });
   buttons.push({ label:'Annuler', className:'cancel', onClick:()=>{} });
 
-  openButtonsPrompt('Piqûre Rituelle', 'Choisissez la Poupée liée dont vous activez le lien.<br><small>Effet : 2 dégâts à sa cible liée, où qu\'elle soit (ignore Provocation).</small>', anchorEl, buttons);
+  openButtonsPrompt('Piqûre Rituelle', 'Choisissez la Poupée liée dont vous activez le lien.<br><small>Effet : 8 dégâts à sa cible liée, où qu\'elle soit (ignore Provocation). S\'il meurt, piochez 2 cartes.</small>', anchorEl, buttons);
 }
 
 function playActionC204(owner, actionCard, doll){
@@ -7668,8 +7668,10 @@ function playActionC204(owner, actionCard, doll){
     return;
   }
 
-  pushHistory('action', `${cardAnchor('C204')} active le lien de ${cardAnchor(doll.label)} : ${cardAnchor(targetCard.label)} subit 2 dégâts !`);
-  const res = applyDamageWithShield(targetCard, 2);
+  // CORRIGÉ (texte final imprimé) : -8 PV (pas -2), et pioche 2 cartes si la
+  // cible meurt de cet effet.
+  pushHistory('action', `${cardAnchor('C204')} active le lien de ${cardAnchor(doll.label)} : ${cardAnchor(targetCard.label)} subit 8 dégâts !`);
+  const res = applyDamageWithShield(targetCard, 8);
   playHPHitEffect(targetCard);
   onHPDamaged(targetOwner, targetCard, res.hpLost, 'action');
 
@@ -7680,6 +7682,8 @@ function playActionC204(owner, actionCard, doll){
       detachFamiliarsOnHost(targetCard, targetOwner);
       discardCard(targetCard, targetOwner, 'death');
     }
+    const drawn = drawNFor(owner, 2);
+    pushHistory('action', `${cardAnchor('C204')} : ${cardAnchor(targetCard.label)} est mort, ${playerLabel(owner)} pioche ${drawn} carte${drawn > 1 ? 's' : ''} !`);
   }
   fullRender();
 }
@@ -9907,11 +9911,19 @@ function startAiming(card, owner, fromEl){
     return;
   }
 
-// WADOO : Golgoth (C215) est une carte purement défensive, elle ne peut jamais attaquer
-// (seulement miner, ou utiliser son rituel de liaison à l'entrée en jeu).
-  if (card.label === 'C215') {
-    pushHistory('info', `${cardAnchor('C215')} est une Poupée défensive : elle ne peut pas attaquer.`);
-    return;
+// WADOO 7e lot : CORRIGÉ — le texte final imprimé de Golgoth (C215) ne
+// restreint PAS sa propre capacité à attaquer (elle est seulement
+// PROVOCATEUR) ; c'est le combattant ENNEMI auquel elle est liée qui ne peut
+// plus attaquer tant que le lien reste actif. Voir le bloc symétrique
+// ci-dessous, qui bloque désormais CE combattant s'il est la cible liée
+// d'une Golgoth adverse.
+  {
+    const golgothOpp = (owner === 'top') ? 'bottom' : 'top';
+    const linkingGolgoth = getLineByOwner(golgothOpp).find(c => c.label === 'C215' && c.wadooLink === card.id);
+    if (linkingGolgoth) {
+      pushHistory('info', `${cardAnchor(card.label)} est lié à ${cardAnchor('C215')} : il ne peut pas attaquer.`);
+      return;
+    }
   }
 
 // IMPY (dernier lot) : Eggrreur (C93) est PROVOCATEUR mais purement défensif,
@@ -10166,7 +10178,7 @@ function startWadooLinkTargeting(owner, dollCard) {
   promptEl.style.transform = 'translateX(-50%)';
   promptEl.style.zIndex = '2000';
   const linkRewardText = (dollCard.label === 'C215')
-    ? 'Golgoth elle-même deviendra <strong>PROVOCATEUR</strong> (elle ne peut de toute façon pas attaquer).'
+    ? 'Golgoth elle-même est <strong>PROVOCATEUR</strong>, et le combattant lié ne pourra plus attaquer tant que le lien reste actif.'
     : `Vous gagnerez immédiatement +${(dollCard.label === 'C202') ? 2 : 1} Mithril.`;
   promptEl.innerHTML = `
     <div class="apTitle">Rituel de liaison — ${cardName(dollCard.label)}</div>
@@ -11618,13 +11630,14 @@ function performBalogrunMinaMinaMining(owner, card){
 
 // ===================================================================
 // WADOO 7e lot : MSmith (C240) — capacité : joue ou utilise une carte Impy
-// de la main de son propriétaire ; MSmith se duplique alors dans l'EXIL
-// (une COPIE rejoint l'Exil, l'original reste en jeu). Réutilise le
-// dispatcher générique déjà en place pour Long Voyage (C104,
-// handleLongVoyageChoice) pour jouer la carte Impy choisie, quel que soit
-// son type. Choix automatique (première carte Impy trouvée) si MSmith
-// appartient à l'IA, pour ne jamais ouvrir de fenêtre qu'elle ne pourrait
-// pas résoudre elle-même.
+// de la main de son propriétaire ; CORRIGÉ (texte final imprimé) : c'est une
+// COPIE de la carte Impy jouée/utilisée qui rejoint l'Exil (pas une copie de
+// MSmith elle-même — "cette carte" dans le texte fait référence à la carte
+// Impy mentionnée juste avant). Réutilise le dispatcher générique déjà en
+// place pour Long Voyage (C104, handleLongVoyageChoice) pour jouer la carte
+// Impy choisie, quel que soit son type. Choix automatique (première carte
+// Impy trouvée) si MSmith appartient à l'IA, pour ne jamais ouvrir de
+// fenêtre qu'elle ne pourrait pas résoudre elle-même.
 // ===================================================================
 function useMSmithAbility(owner, card){
   if (!canPlayThisCardNow(owner, card)) return;
@@ -11644,10 +11657,10 @@ function useMSmithAbility(owner, card){
     if (hIdx !== -1) hand.splice(hIdx, 1);
 
     const prefix = (owner === 'top') ? 'T' : 'B';
-    const duplicate = createCard(card.label, prefix);
+    const duplicate = createCard(chosenCard.label, prefix);
     addToExile(duplicate);
 
-    pushHistory('action', `${cardAnchor('C240')} joue/utilise ${cardAnchor(chosenCard.label)} depuis la main de ${playerLabel(owner)} ; une copie de MSmith rejoint l'Exil !`);
+    pushHistory('action', `${cardAnchor('C240')} joue/utilise ${cardAnchor(chosenCard.label)} depuis la main de ${playerLabel(owner)} ; une copie de ${cardAnchor(chosenCard.label)} rejoint l'Exil !`);
     closeActionPrompt();
     fullRender();
     handleLongVoyageChoice(owner, chosenCard, []);
@@ -17884,20 +17897,11 @@ if (card.label === 'W10') { // SAISON : Âme-Rtume
   ]);
 }
 
-if (card.label === 'C213') { // WADOO : Gousset
-  if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
-  if(artifactExhausted[owner].has(card.id)){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
-  if(!isCardAllowedThisTurn(owner, card)){
-    el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260);
-    pushHistory('info', `Utilisation refusée : ${cardAnchor('C213')} n’appartient pas à la faction active de ce tour.`);
-    return;
-  }
-  const dollCount = getLineByOwner(owner).filter(c => hasTag(c, 'poupée')).length;
-  openButtonsPrompt('Gousset', `Activer Gousset ?<br><small>Effet : réduit de ${dollCount} Mithril (min. 1) le coût de forge d'une A'rms ce tour-ci (${dollCount} Poupée${dollCount>1?'s':''} en jeu).</small>`, el, [
-    { label:'Activer', className:'confirm', onClick:()=>useGousset(owner, card) },
-    { label:'Annuler', className:'cancel', onClick:()=>{} },
-  ]);
-}
+// WADOO 7e lot : CORRIGÉ — Gousset (C213) n'est plus une capacité activable
+// manuellement : le texte final imprimé ("JOUER : forgez 1 A'rms...") en
+// fait un effet automatique déclenché à l'entrée en jeu, voir
+// setupArtifactDrops (le point d'entrée unique, humain ET IA, pour la pose
+// d'un Artefact).
 
 if (card.label === 'C27') { // KRYLLS : Mine E.M.I
   if(currentTurn !== owner){ el.classList.add('deny'); setTimeout(()=>el.classList.remove('deny'), 260); return; }
@@ -19253,6 +19257,13 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
       if (card.label === 'C177') {
         const drawn = drawNFor(who, 5);
         pushHistory('artefact', `${cardAnchor('C177')} fait piocher ${drawn} carte${drawn > 1 ? 's' : ''} à ${playerLabel(who)}.`);
+      }
+
+      // WADOO 7e lot : Gousset (C213) — CORRIGÉ (texte final imprimé) : JOUER,
+      // forge automatiquement 1 A'rms avec un rabais de 1 Mithril par Poupée
+      // présente dans la zone de combat (voir triggerGoussetOnPlay).
+      if (card.label === 'C213') {
+        triggerGoussetOnPlay(who);
       }
 
       fullRender();
@@ -23126,7 +23137,13 @@ function aiTryCycleDeadHandCards(){
 function aiCanAttackWith(card, owner){
   if (hasAttacked(owner, card)) return false;
   if (isAnyTargetSelectionActive()) return false;
-  if (['T02','T10','C215'].includes(card.label)) return false;
+  if (['T02','T10'].includes(card.label)) return false;
+  // WADOO 7e lot : CORRIGÉ — Golgoth (C215) peut désormais attaquer
+  // normalement (seule sa cible liée en est empêchée, voir startAiming).
+  {
+    const golgothOpp = (owner === 'top') ? 'bottom' : 'top';
+    if (getLineByOwner(golgothOpp).some(c => c.label === 'C215' && c.wadooLink === card.id)) return false;
+  }
   if (getFamiliersOnHost(card).some(f => f.label === 'C70')) return false;
   // CHIMERIA (dernier lot) : Blokméria (C187) bloque aussi l'attaque (voir
   // startAiming, qui applique la même règle côté joueur humain) — sans ce
@@ -23449,15 +23466,9 @@ function aiArtifactUsefulnessScore(card){
       return eligible ? 55 : -1;
     }
 
-    // WADOO — Gousset : réduit le coût de forge de CE tour uniquement (1
-    // Mithril par Poupée en jeu, minimum 1). Gaspillé si la forge n'a aucune
-    // chance d'avoir lieu ce tour-ci : ne s'active donc que si l'IA est
-    // déjà proche du seuil de forge.
-    case 'C213': {
-      const dollCount = myLine.filter(c => hasTag(c, 'poupée')).length;
-      if (dollCount <= 0) return -1;
-      return urgency.myMissing <= dollCount + 1 ? 85 : -1;
-    }
+    // WADOO 7e lot : CORRIGÉ — Gousset (C213) n'est plus une capacité
+    // activable manuellement (voir setupArtifactDrops pour son effet
+    // automatique à la pose), donc plus rien à évaluer ici.
 
     // KRYLLS — Rescelleur : scelle la carte du dessus du deck adverse (léger
     // ralentissement de sa pioche). Toujours légèrement positif, mais bas de
@@ -25523,7 +25534,8 @@ function applyPrismisEffect() {
     endPrismisTargetingCleanup();
 }
 // === WADOO : quand une Poupée liée meurt, si son propriétaire contrôle Grand Baron Samedi (C205),
-// sa cible liée subit 3 dégâts avant que le lien ne soit rompu ===
+// sa cible liée subit 5 dégâts avant que le lien ne soit rompu (CORRIGÉ : le
+// texte final imprimé indique -5PV, pas -3PV) ===
 function triggerWadooDollDeath(card, owner) {
   if (!hasTag(card, 'poupée') || !card.wadooLink) return;
   const line = getLineByOwner(owner);
@@ -25535,8 +25547,8 @@ function triggerWadooDollDeath(card, owner) {
   const targetCard = targetLine.find(c => c.id === card.wadooLink);
   if (!targetCard) return;
 
-  pushHistory('action', `${cardAnchor('C205')} venge ${cardAnchor(card.label)} : ${cardAnchor(targetCard.label)} subit 3 dégâts !`);
-  const res = applyDamageWithShield(targetCard, 3);
+  pushHistory('action', `${cardAnchor('C205')} venge ${cardAnchor(card.label)} : ${cardAnchor(targetCard.label)} subit 5 dégâts !`);
+  const res = applyDamageWithShield(targetCard, 5);
   playHPHitEffect(targetCard);
   onHPDamaged(targetOwner, targetCard, res.hpLost, 'action');
 
@@ -25599,18 +25611,28 @@ function useAmeRtume(owner, card) {
   fullRender();
 }
 
-// WADOO : Gousset (C213) — réduit le coût de forge de ce tour, -1 Mithril par Poupée en jeu
+// WADOO 7e lot : Gousset (C213) — CORRIGÉ pour coller au texte final imprimé
+// ("JOUER : forgez 1 A'rms en réduisant son coût de 1 Mithril pour chaque
+// Poupée présente dans votre zone de combat.") : ce n'est plus une capacité
+// activable manuellement, mais un effet automatique déclenché à l'entrée en
+// jeu (voir l'appel dans setupArtifactDrops, le point d'entrée unique pour
+// la pose d'un Artefact, humain ET IA). Réutilise gousseDiscountActive et
+// checkForge/computeForgeCost — la SEULE source de vérité pour le calcul du
+// coût de forge — plutôt que de dupliquer cette logique.
 let gousseDiscountActive = { top: false, bottom: false };
-function useGousset(owner, card) {
-  if (currentTurn !== owner) return;
-  if (artifactExhausted[owner].has(card.id)) return;
-  exhaustArtifact(owner, card);
-
-  gousseDiscountActive[owner] = true;
+function triggerGoussetOnPlay(owner) {
   const dollCount = getLineByOwner(owner).filter(c => hasTag(c, 'poupée')).length;
-  pushHistory('info', `${cardAnchor('C213')} est activé : la prochaine forge de ce tour coûtera ${dollCount} Mithril de moins (minimum 1).`);
-  closeActionPrompt();
-  fullRender();
+  gousseDiscountActive[owner] = true;
+  const armsBefore = arms[owner];
+  checkForge(owner);
+  if (arms[owner] === armsBefore) {
+    // La forge n'a pas pu avoir lieu (Mithril insuffisant, 5 A'rms déjà
+    // atteintes, ou une forge a déjà eu lieu ce tour-ci) : le rabais ne doit
+    // pas rester actif pour une forge manuelle ultérieure, qui ne
+    // correspondrait plus au texte de la carte.
+    gousseDiscountActive[owner] = false;
+    pushHistory('info', `${cardAnchor('C213')} entre en jeu, mais la forge est impossible dans l'immédiat (Mithril insuffisant, 5 A'rms déjà atteintes, ou forge déjà utilisée ce tour-ci).`);
+  }
 }
 
 // KRYLLS : Mine E.M.I (C27) — défaussée à l'activation (usage unique), rapporte
