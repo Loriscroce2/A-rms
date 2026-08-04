@@ -810,10 +810,47 @@
   justify-content:center; 
   font-weight:900; 
   font-size:34px;
-  background-size:cover; 
-  background-position:center; 
-  overflow:visible; 
+  background-size:cover;
+  background-position:center;
+  overflow:visible;
 }
+
+    /* ===================================================================
+       RÉVÉLATION DE CARTE JOUÉE : à chaque fois qu'une carte (joueur OU IA)
+       est jouée en zone de combat, en zone d'Artefacts, rattachée à un
+       combattant ciblé, ou comme Action, elle est d'abord présentée en
+       grand au centre de l'écran (le temps de la lire), puis "vole" en se
+       réduisant vers sa zone/cible finale — voir flyCardReveal() en JS.
+       =============================================================== */
+    .cardRevealOverlay{ position:fixed; inset:0; z-index:9600; pointer-events:none; }
+    .cardRevealClone{
+      position:fixed; left:50%; top:50%;
+      width:130px; height:186px;
+      transform:translate(-50%,-50%) scale(.3);
+      opacity:0;
+      background-color:#141414; background-size:cover; background-position:center;
+      border:3px solid var(--cy); border-radius:14px;
+      box-shadow:0 0 30px var(--cy), 0 0 60px #000;
+      display:flex; align-items:center; justify-content:center; text-align:center;
+      color:#fff; font-weight:900; font-size:16px; padding:10px; box-sizing:border-box;
+      transition:opacity .22s ease, transform .22s ease, width .22s ease, height .22s ease;
+    }
+    .cardRevealClone.revealed{
+      width:min(360px, 60vw); height:min(510px, 78vw);
+      transform:translate(-50%,-50%) scale(1);
+      opacity:1;
+    }
+    .cardRevealClone.flying{
+      left:var(--flyX, 50%); top:var(--flyY, 50%);
+      width:var(--flyW, 86px); height:var(--flyH, 124px);
+      transform:translate(-50%,-50%) scale(1);
+      opacity:1;
+      border-radius:8px;
+      transition:left .48s cubic-bezier(.35,0,.25,1), top .48s cubic-bezier(.35,0,.25,1),
+                 width .48s cubic-bezier(.35,0,.25,1), height .48s cubic-bezier(.35,0,.25,1),
+                 opacity .3s ease .18s, border-radius .3s ease;
+    }
+    .cardRevealClone.faded{ opacity:0; transform:translate(-50%,-50%) scale(.55); transition:opacity .35s ease, transform .35s ease; }
 
     /* ===================================================================
        PV + Bouclier — refonte "premium" (v2) : gemme de puissance facettée
@@ -3729,6 +3766,77 @@ function showZoom(label, card=null, side='right'){
 }
 function hideZoom(){
   zoom.style.display='none'; zoomCard.style.backgroundImage=''; zoomCard.textContent='';
+}
+
+// ===================================================================
+// RÉVÉLATION DE CARTE JOUÉE (joueur ET IA) : chaque fois qu'une carte
+// quitte la main pour entrer en jeu — combattant en zone de combat,
+// artefact en zone d'Artefacts, Action ciblant un combattant (glisser sur
+// une cible), ou Action classique jouée par clic — elle est d'abord
+// présentée en grand au centre de l'écran (le temps de la lire), puis
+// "vole" en se réduisant vers sa zone/cible finale, comme si elle y était
+// physiquement déplacée. Fonctionne à l'identique pour l'IA, qui simule
+// ses coups via de VRAIS événements DOM (dispatchEvent('drop')/el.click())
+// passant par exactement les mêmes points d'entrée que le joueur humain —
+// voir aiSimulateDrop/aiSimulateDropOnCard/aiClickHandCard.
+//
+// Retourne une Promise résolue une fois l'animation terminée : les
+// appelants doivent y placer la suite de la résolution (retrait de la
+// carte de la main, effets, fullRender()) dans le .then().
+//
+// targetEl : élément DOM de la zone/carte de destination (sert à calculer
+// le point d'arrivée du vol). Si absent/introuvable, la carte s'efface
+// simplement sur place plutôt que de planter.
+function flyCardReveal(label, cardData, targetEl){
+  return new Promise(resolve => {
+    if (typeof lockGameDuringAnimation === 'function') lockGameDuringAnimation();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'cardRevealOverlay';
+    const clone = document.createElement('div');
+    clone.className = 'cardRevealClone';
+    const url = getCardImage(label);
+    if (url){
+      clone.style.backgroundImage = `url(${url})`;
+    } else {
+      clone.textContent = cardName(label);
+    }
+    overlay.appendChild(clone);
+    document.body.appendChild(overlay);
+
+    const READ_MS = 900;
+    const FLY_MS = 480;
+
+    // Un frame vide avant d'ajouter la classe pour garantir que la
+    // transition CSS (depuis l'état initial scale(.3)/opacity:0) se joue
+    // bien, plutôt que de sauter directement à l'état final.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => clone.classList.add('revealed'));
+    });
+
+    setTimeout(() => {
+      let rect = null;
+      try { rect = (targetEl && targetEl.getBoundingClientRect) ? targetEl.getBoundingClientRect() : null; } catch(e){}
+      if (!rect || (rect.width < 2 && rect.height < 2)) {
+        clone.classList.remove('revealed');
+        clone.classList.add('faded');
+      } else {
+        const rootStyle = getComputedStyle(document.documentElement);
+        const fallbackW = parseFloat(rootStyle.getPropertyValue('--cardW')) || 86;
+        const fallbackH = parseFloat(rootStyle.getPropertyValue('--cardH')) || 124;
+        clone.style.setProperty('--flyX', `${rect.left + rect.width / 2}px`);
+        clone.style.setProperty('--flyY', `${rect.top + rect.height / 2}px`);
+        clone.style.setProperty('--flyW', `${Math.max(rect.width, 40) || fallbackW}px`);
+        clone.style.setProperty('--flyH', `${Math.max(rect.height, 56) || fallbackH}px`);
+        clone.classList.add('flying');
+      }
+      setTimeout(() => {
+        overlay.remove();
+        if (typeof unlockGameAfterAnimation === 'function') unlockGameAfterAnimation();
+        resolve();
+      }, FLY_MS + 40);
+    }, READ_MS);
+  });
 }
 
 // SAISON : zoom au survol des piles de pioche (#deckTop/#deckBottom), pour
@@ -14968,7 +15076,23 @@ function hideChoiceNotice() {
 // est invité à décider s'il la dépense pour annuler l'Action. `resolveFn`
 // n'est appelé QUE si l'Action n'est pas contrée.
 // ===================================================================
-function attemptParactionCounter(actingOwner, actionCard, resolveFn){
+// Point d'entrée unique de TOUTES les cartes Action du jeu (~50 cartes,
+// cliquées en main ou glissées sur une cible). Avant toute logique de jeu
+// (taxe Ronflon, contre de Paraction, effet), on présente d'abord la carte
+// jouée en grand au centre de l'écran puis on l'anime vers sa destination —
+// voir flyCardReveal(). flyTargetEl est optionnel : par défaut la carte
+// "s'envole" vers la défausse de son propriétaire (destination réelle de la
+// quasi-totalité des Actions une fois résolues) ; les 4 Actions ciblées par
+// glisser-déposer sur un combattant (Blubool/Necrobsorb/Why Me/Couronnement)
+// passent explicitement l'élément DOM du combattant ciblé à la place.
+function attemptParactionCounter(actingOwner, actionCard, resolveFn, flyTargetEl){
+  const dumpEl = document.getElementById(actingOwner === 'top' ? 'dumpTop' : 'dumpBottom');
+  flyCardReveal(actionCard.label, actionCard, flyTargetEl || dumpEl).then(() => {
+    attemptParactionCounterResolved(actingOwner, actionCard, resolveFn);
+  });
+}
+
+function attemptParactionCounterResolved(actingOwner, actionCard, resolveFn){
   const actionLabel = actionCard.label;
   const opp = (actingOwner === 'top') ? 'bottom' : 'top';
 
@@ -17683,6 +17807,9 @@ if (hitAndRunMode) {
       // aucun appel à attemptParactionCounter n'existait sur ce chemin. On
       // passe maintenant par le même point d'entrée unique que TOUTES les
       // autres cartes Action du jeu, AVANT de retirer la carte de la main.
+      // On précise ici le combattant ciblé (el) comme destination du vol de
+      // la carte révélée, plutôt que la défausse par défaut : ces 4 Actions
+      // se rattachent visuellement à leur cible, elles n'y sont pas défaussées.
       attemptParactionCounter(playingOwner, draggedCard, () => {
         consumeAllowanceIfNeeded(playingOwner, draggedCard);
         const actionCard = takeCardFromSource(fromId, draggedCard.id);
@@ -17723,7 +17850,7 @@ if (hitAndRunMode) {
           pushHistory('info', `${cardAnchor(card.label)} gagne <strong>PROVOCATION</strong>, <strong>+2 PB permanents</strong>, et peut <strong>miner sans coût</strong>.`);
         }
         fullRender();
-      });
+      }, el);
     }
   });
 
@@ -19034,6 +19161,14 @@ function setupDrops(dropLeft, dropRight, lineArray, who){
       const type  = getType(card.label);
       if (type === 'action' || type === 'familier' || type === 'artefact') { flashDenied(drop); return; }
 
+      // Révélation au centre de l'écran puis vol vers la zone de combat
+      // (voir flyCardReveal) : purement visuel/en surimpression, ne bloque
+      // pas la suite (l'état du jeu et fullRender() ci-dessous s'exécutent
+      // normalement, la carte réelle apparaît donc instantanément dans sa
+      // zone — le clone animé, au-dessus de tout, masque cette instantanéité
+      // le temps de son vol puis s'efface en la laissant apparaître).
+      flyCardReveal(card.label, card, drop);
+
       consumeAllowanceIfNeeded(who, card);
 
       resetStatsToBaseWhenEnteringBattle(card, who);
@@ -19254,6 +19389,10 @@ function setupArtifactDrops(dropLeft, dropRight, arr, who){
       consumeAllowanceIfNeeded(who, peek.card);
       const card = takeCardFromSource(fromId, currentDragInfo.id);
       if (!card) return;
+
+      // Révélation au centre de l'écran puis vol vers la zone d'Artefacts
+      // (voir flyCardReveal, même principe non bloquant que setupDrops).
+      flyCardReveal(card.label, card, drop);
 
       initArtifactChargesOnEntry(card);
 
