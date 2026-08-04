@@ -2756,11 +2756,16 @@
     }
 
     /* Épuisement visuel — version unique */
+    /* CORRIGÉ : ne plus afficher le curseur "interdit" (rond barré) sur une
+       carte épuisée — l'épuisement empêche seulement d'ATTAQUER avec elle,
+       mais elle reste très souvent cliquable (capacité ACTION: propre à la
+       carte, cible valide pour un effet/ciblage adverse...). Le curseur
+       "interdit" suggérait à tort qu'il ne fallait jamais cliquer dessus. */
     .card.placed.exhausted{
       opacity:.92;
       filter: grayscale(.55) contrast(.95);
       transform: rotate(8deg);
-      cursor:not-allowed;
+      cursor:pointer;
       transition: transform .12s ease, filter .12s ease, opacity .12s ease;
     }
     .card.placed.exhausted:hover{
@@ -2836,9 +2841,12 @@
 }
 
 .card.placed.is-frozen {
-  /* On rend la carte inutilisable */
-  cursor: not-allowed !important;
-  
+  /* CORRIGÉ : GEL empêche la carte d'attaquer/miner, mais elle reste
+     cliquable comme cible d'effets adverses ou pour consulter/activer
+     certaines capacités — le curseur "interdit" laissait croire à tort
+     qu'il ne fallait jamais cliquer dessus. */
+  cursor: pointer !important;
+
   /* Apparence glacée */
   border: 3px solid rgba(173, 216, 230, 0.7) !important; /* Bordure bleu glacier */
   filter: grayscale(60%) brightness(1.1); /* Désature et éclaircit l'image */
