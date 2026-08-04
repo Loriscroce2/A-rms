@@ -22259,14 +22259,20 @@ function endGame(winner, reason, opts = {}){
 }
 
 // ===================================================================
-// PARTAGE SOCIAL : pop-up "partage A'rms, gagne un booster gratuit",
-// proposé une seule fois dans la vie d'un compte (voir endGame ci-dessus).
-// Le serveur (endpoint /prompt) garantit à lui seul le "une seule fois",
-// même en cas de rechargement de page entre deux parties.
+// PARTAGE SOCIAL (Facebook uniquement) : pop-up "partage A'rms sur
+// Facebook, gagne 350 pièces", proposé une seule fois dans la vie d'un
+// compte (voir endGame ci-dessus). Le serveur (endpoint /prompt) garantit
+// à lui seul le "une seule fois", même en cas de rechargement de page
+// entre deux parties.
+//
+// IMPORTANT : Facebook ne fournit aucun callback confirmant qu'un post a
+// réellement été publié depuis la fenêtre sharer.php — impossible de le
+// vérifier avec certitude. La meilleure approximation honnête disponible :
+// ne créditer les pièces qu'APRÈS la fermeture de cette fenêtre (jamais au
+// simple clic sur le bouton), voir shareOnFacebookForReward ci-dessous.
 // ===================================================================
 const SOCIAL_SHARE_URL = 'https://a-rms-tcg.up.railway.app/accueil.html';
 const SOCIAL_SHARE_TEXT_FB = "Je teste en ce moment A'rms, un jeu de cartes à collectionner gratuit, jouable directement dans le navigateur (bêta en cours) — venez essayer avec moi !";
-const SOCIAL_SHARE_TEXT_IG = "Je teste A'rms, un TCG gratuit jouable dans le navigateur ⚔️ Bêta en cours, venez essayer !";
 
 function maybeOfferSocialShareReward(){
   try {
@@ -22285,43 +22291,50 @@ function maybeOfferSocialShareReward(){
 
 function openSocialSharePrompt(){
   openButtonsPrompt(
-    'Un booster offert !',
-    `Partage A'rms sur tes réseaux et reçois un <strong>booster gratuit</strong> (7 cartes) dans ta collection.<br><br>
+    '350 pièces offertes !',
+    `Partage A'rms sur Facebook et reçois <strong>350 pièces</strong> sur ton compte, créditées dès que tu refermes la fenêtre de partage.<br><br>
      <em style="opacity:.8;font-size:.92em;">« ${SOCIAL_SHARE_TEXT_FB} »</em>`,
     null,
     [
-      { label: 'Partager sur Facebook', className: 'confirm', onClick: () => claimSocialShareReward('facebook') },
-      { label: 'Partager sur Instagram', className: 'confirm', onClick: () => claimSocialShareReward('instagram') },
+      { label: 'Partager sur Facebook', className: 'confirm', onClick: shareOnFacebookForReward },
       { label: 'Plus tard', className: 'cancel', onClick: () => {} },
     ]
   );
 }
 
-function claimSocialShareReward(network){
-  if (network === 'facebook') {
-    const shareUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(SOCIAL_SHARE_URL) + '&quote=' + encodeURIComponent(SOCIAL_SHARE_TEXT_FB);
-    window.open(shareUrl, '_blank', 'noopener,width=600,height=520');
-  } else if (network === 'instagram') {
-    // CORRIGÉ/IMPORTANT : contrairement à Facebook, Instagram n'offre AUCUN
-    // mécanisme officiel de pré-remplissage d'un post/story depuis un simple
-    // lien web — le mieux qu'on puisse faire honnêtement est de copier la
-    // légende dans le presse-papier et d'ouvrir Instagram, pour que le
-    // joueur la colle lui-même dans sa story/publication.
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(SOCIAL_SHARE_TEXT_IG + ' ' + SOCIAL_SHARE_URL).catch(() => {});
-    }
-    window.open('https://www.instagram.com/', '_blank', 'noopener');
-    pushHistory('info', "Texte de partage copié dans le presse-papier : colle-le dans ta story ou ta publication Instagram.");
+// Ouvre la fenêtre de partage Facebook, puis surveille sa fermeture avant
+// de réclamer la récompense au serveur — voir le commentaire détaillé plus
+// haut. Volontairement SANS 'noopener' dans les features de window.open :
+// il faut garder la référence à la fenêtre pour pouvoir surveiller sa
+// fermeture (noopener ferait retourner null à window.open).
+function shareOnFacebookForReward(){
+  const shareUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(SOCIAL_SHARE_URL) + '&quote=' + encodeURIComponent(SOCIAL_SHARE_TEXT_FB);
+  const popup = window.open(shareUrl, 'arms_fb_share', 'width=600,height=520');
+
+  if (!popup) {
+    // Bloqué par le navigateur (bloqueur de pop-up) : impossible de
+    // surveiller sa fermeture, donc pas de récompense — mieux vaut
+    // prévenir le joueur que rester silencieux.
+    pushHistory('info', "La fenêtre de partage Facebook a été bloquée par ton navigateur. Autorise les pop-ups pour ce site puis réessaie.");
+    return;
   }
 
-  fetch('/api/social-share-reward/claim', { method: 'POST' })
-    .then(r => r.json())
-    .then(data => {
-      if (data && data.ok && !data.alreadyClaimed) {
-        pushHistory('mithril', "Merci pour le partage ! Un booster gratuit (7 cartes) a été ajouté à votre collection.");
-      }
-    })
-    .catch(() => {});
+  pushHistory('info', "Fenêtre de partage Facebook ouverte — les 350 pièces seront créditées une fois que tu l'auras refermée.");
+
+  const pollClosed = setInterval(() => {
+    let isClosed = false;
+    try { isClosed = popup.closed; } catch(e) { isClosed = true; }
+    if (!isClosed) return;
+    clearInterval(pollClosed);
+    fetch('/api/social-share-reward/claim', { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.ok && !data.alreadyClaimed && data.gained > 0) {
+          pushHistory('mithril', `Merci pour le partage ! +${data.gained} pièces créditées sur votre compte.`);
+        }
+      })
+      .catch(() => {});
+  }, 700);
 }
 
 // ===================================================================

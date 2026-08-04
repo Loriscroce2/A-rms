@@ -770,19 +770,25 @@ app.post('/api/tutorial/seen', authMiddleware, (req, res) => {
   }
 });
 
-// PARTAGE SOCIAL : pop-up "partage A'rms sur tes réseaux, gagne un booster
-// gratuit", proposé une seule fois dans la vie d'un compte, juste après sa
-// toute première partie terminée (classée, non classée, ou contre l'IA — le
-// hotseat local pur n'appelle pas cet endpoint, voir index.html/endGame).
+// PARTAGE SOCIAL (Facebook uniquement) : pop-up "partage A'rms sur
+// Facebook, gagne 350 pièces", proposé une seule fois dans la vie d'un
+// compte, juste après sa toute première partie terminée (classée, non
+// classée, ou contre l'IA — le hotseat local pur n'appelle pas cet
+// endpoint, voir index.html/endGame).
 //
 // Deux endpoints séparés et chacun idempotent :
 // - /prompt : à appeler à CHAQUE fin de partie éligible. Ne renvoie
 //   shouldShow=true qu'une seule fois par compte (la toute première fois
 //   qu'il est appelé) ; pose social_share_prompted_at immédiatement pour
 //   que même un rechargement de page ne fasse jamais réapparaître le pop-up.
-// - /claim : appelé uniquement quand le joueur clique réellement sur
-//   Facebook ou Instagram dans le pop-up. N'octroie le booster qu'une seule
-//   fois par compte, quel que soit le nombre de clics/réseaux utilisés.
+// - /claim : appelé côté client UNIQUEMENT après la fermeture de la fenêtre
+//   Facebook (voir index.html/claimSocialShareReward) — donc jamais au
+//   simple clic sur le bouton. Important : Facebook ne renvoie aucune
+//   confirmation qu'un post a réellement été publié (aucun callback
+//   n'existe pour la fenêtre sharer.php), la fermeture de la fenêtre est
+//   donc la meilleure approximation disponible, pas une preuve absolue.
+//   N'octroie les pièces qu'une seule fois par compte.
+const SOCIAL_SHARE_REWARD_COINS = 350;
 app.post('/api/social-share-reward/prompt', authMiddleware, (req, res) => {
   try {
     const row = db.prepare('SELECT social_share_prompted_at FROM users WHERE id = ?').get(req.user.id);
@@ -801,12 +807,12 @@ app.post('/api/social-share-reward/claim', authMiddleware, (req, res) => {
   try {
     const row = db.prepare('SELECT social_share_reward_claimed_at FROM users WHERE id = ?').get(req.user.id);
     if (row && row.social_share_reward_claimed_at) {
-      return res.json({ ok: true, alreadyClaimed: true, codes: [] });
+      return res.json({ ok: true, alreadyClaimed: true, gained: 0 });
     }
     db.prepare("UPDATE users SET social_share_reward_claimed_at = datetime('now') WHERE id = ?").run(req.user.id);
-    const codes = catalog.generateRandomBooster(7);
-    grantCards(req.user.id, codes);
-    res.json({ ok: true, alreadyClaimed: false, codes });
+    qAddCoins.run(SOCIAL_SHARE_REWARD_COINS, req.user.id);
+    const coins = coinsForResponse(req);
+    res.json({ ok: true, alreadyClaimed: false, gained: SOCIAL_SHARE_REWARD_COINS, coins });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, error: 'server_error' });
