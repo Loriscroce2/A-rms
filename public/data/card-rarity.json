@@ -1,5 +1,5 @@
 {
-  "_comment": "Répartition des raretés et taux de drop en booster pour les 250 cartes de la Saison 1. Ces données sont internes/serveur uniquement : la rareté reste masquée aux joueurs pendant la Saison 1 (voir regles.html) et n'est révélée qu'à l'ouverture de la Saison 2. Construit progressivement, tier par tier, au fil des messages de l'utilisateur — pas encore branché sur le tirage réel des boosters (cards-catalog.js utilise toujours un tirage uniforme tant que les 250 cartes n'ont pas toutes une rareté assignée).",
+  "_comment": "Répartition COMPLÈTE des raretés et taux de drop en booster pour les 250 cartes de la Saison 1. Légendaire/Épique/Rare : listées explicitement par l'utilisateur. Inhabituelle/Commune : les 175 cartes restantes, réparties par Claude (15 Inhabituelle + 20 Commune par faction) selon le type de carte (Artefact/Familier en priorité vers Inhabituelle, car ce sont des cartes de synergie/build-around plus rares dans la plupart des JCC, puis Actions, puis Personnages ; en cas d'égalité de type, priorité aux cartes dont l'implémentation JS est la plus riche/complexe). Taux de drop en progression arithmétique de +8 points à chaque palier (2/10/18/26/34%), dans la continuité exacte des 3 premiers paliers fixés par l'utilisateur. Ces données sont internes/serveur uniquement : la rareté reste masquée aux joueurs pendant la Saison 1 (voir regles.html) et n'est révélée qu'à l'ouverture de la Saison 2. Pas encore branché sur le tirage réel des boosters (cards-catalog.js utilise toujours un tirage uniforme).",
   "season": 1,
   "totalCards": 250,
   "rarityTiers": {
@@ -10,102 +10,1527 @@
     },
     "epique": {
       "label": "Épique",
-      "dropRatePerCard": 0.10,
+      "dropRatePerCard": 0.1,
       "note": "10% de taux de drop en booster PAR carte révélée."
     },
     "rare": {
       "label": "Rare",
       "dropRatePerCard": 0.18,
       "note": "18% de taux de drop en booster PAR carte révélée."
+    },
+    "inhabituelle": {
+      "label": "Inhabituelle",
+      "dropRatePerCard": 0.26,
+      "note": "26% de taux de drop en booster PAR carte révélée."
+    },
+    "commune": {
+      "label": "Commune",
+      "dropRatePerCard": 0.34,
+      "note": "34% de taux de drop en booster PAR carte révélée."
     }
   },
-  "cardsAssigned": 75,
-  "cardsRemaining": 175,
+  "cardsAssigned": 250,
+  "cardsRemaining": 0,
   "cards": {
-    "0006": { "code": "C6", "name": "Myzor", "faction": "Krylls", "rarity": "legendaire" },
-    "0045": { "code": "C45", "name": "Babykween", "faction": "Krylls", "rarity": "legendaire" },
-    "0071": { "code": "C71", "name": "Soubrsot", "faction": "Impy", "rarity": "legendaire" },
-    "0066": { "code": "C66", "name": "Boomba", "faction": "Impy", "rarity": "legendaire" },
-    "0146": { "code": "C146", "name": "Dragoons N", "faction": "Savage", "rarity": "legendaire" },
-    "0109": { "code": "C109", "name": "Queeneptune", "faction": "Savage", "rarity": "legendaire" },
-    "0177": { "code": "C177", "name": "Caisse Folle", "faction": "Chimeria", "rarity": "legendaire" },
-    "0191": { "code": "C191", "name": "Temple d'Aphrodite", "faction": "Chimeria", "rarity": "legendaire" },
-    "0213": { "code": "C213", "name": "Gousset", "faction": "Wadoo", "rarity": "legendaire" },
-    "0250": { "code": "C250", "name": "Étroite Sagesse", "faction": "Wadoo", "rarity": "legendaire" },
-
-    "0028": { "code": "C28", "name": "Kabba le zunt", "faction": "Krylls", "rarity": "epique" },
-    "0032": { "code": "C32", "name": "Bobyz", "faction": "Krylls", "rarity": "epique" },
-    "0037": { "code": "C37", "name": "Arakcube", "faction": "Krylls", "rarity": "epique" },
-    "0042": { "code": "C42", "name": "Vers l'infini", "faction": "Krylls", "rarity": "epique" },
-    "0050": { "code": "C50", "name": "Temkorisk", "faction": "Krylls", "rarity": "epique" },
-
-    "0078": { "code": "C78", "name": "Fou-Ego", "faction": "Impy", "rarity": "epique" },
-    "0083": { "code": "C83", "name": "Syphon", "faction": "Impy", "rarity": "epique" },
-    "0097": { "code": "C97", "name": "Ronflon", "faction": "Impy", "rarity": "epique" },
-    "0086": { "code": "C86", "name": "Jackorn", "faction": "Impy", "rarity": "epique" },
-    "0075": { "code": "C75", "name": "Horde toxique", "faction": "Impy", "rarity": "epique" },
-
-    "0110": { "code": "C110", "name": "Exorlupi", "faction": "Savage", "rarity": "epique" },
-    "0130": { "code": "C130", "name": "Mère", "faction": "Savage", "rarity": "epique" },
-    "0131": { "code": "C131", "name": "Blacksun", "faction": "Savage", "rarity": "epique" },
-    "0135": { "code": "C135", "name": "Pister sa proie", "faction": "Savage", "rarity": "epique" },
-    "0149": { "code": "C149", "name": "Tarot machina", "faction": "Savage", "rarity": "epique" },
-
-    "0154": { "code": "C154", "name": "Flavio VII", "faction": "Chimeria", "rarity": "epique" },
-    "0170": { "code": "C170", "name": "Symone", "faction": "Chimeria", "rarity": "epique" },
-    "0188": { "code": "C188", "name": "Dragoons V", "faction": "Chimeria", "rarity": "epique" },
-    "0197": { "code": "C197", "name": "Boudhya", "faction": "Chimeria", "rarity": "epique" },
-    "0166": { "code": "C166", "name": "Harvey", "faction": "Chimeria", "rarity": "epique" },
-
-    "0208": { "code": "C208", "name": "Autel aux Ossements", "faction": "Wadoo", "rarity": "epique" },
-    "0249": { "code": "C249", "name": "Nomya", "faction": "Wadoo", "rarity": "epique" },
-    "0217": { "code": "C217", "name": "Skapé", "faction": "Wadoo", "rarity": "epique" },
-    "0243": { "code": "C243", "name": "Rollback", "faction": "Wadoo", "rarity": "epique" },
-    "0236": { "code": "C236", "name": "Fusionner les tous", "faction": "Wadoo", "rarity": "epique" },
-
-    "0002": { "code": "C2", "name": "Zykmu", "faction": "Krylls", "rarity": "rare" },
-    "0013": { "code": "C13", "name": "Narzbok", "faction": "Krylls", "rarity": "rare" },
-    "0048": { "code": "C48", "name": "Kzunade", "faction": "Krylls", "rarity": "rare" },
-    "0049": { "code": "C49", "name": "Kyraza", "faction": "Krylls", "rarity": "rare" },
-    "0039": { "code": "C39", "name": "Bibliotempz", "faction": "Krylls", "rarity": "rare" },
-    "0016": { "code": "C16", "name": "Mooltypazz", "faction": "Krylls", "rarity": "rare" },
-    "0009": { "code": "C9", "name": "Zcyvenger", "faction": "Krylls", "rarity": "rare" },
-    "0035": { "code": "C35", "name": "Tokzik", "faction": "Krylls", "rarity": "rare" },
-
-    "0054": { "code": "C54", "name": "Paradlex", "faction": "Impy", "rarity": "rare" },
-    "0060": { "code": "C60", "name": "Silent'arms", "faction": "Impy", "rarity": "rare" },
-    "0068": { "code": "C68", "name": "Malocux", "faction": "Impy", "rarity": "rare" },
-    "0099": { "code": "C99", "name": "Exdote", "faction": "Impy", "rarity": "rare" },
-    "0077": { "code": "C77", "name": "Healard", "faction": "Impy", "rarity": "rare" },
-    "0087": { "code": "C87", "name": "Bugbug", "faction": "Impy", "rarity": "rare" },
-    "0088": { "code": "C88", "name": "Sucepince", "faction": "Impy", "rarity": "rare" },
-    "0092": { "code": "C92", "name": "Damnia", "faction": "Impy", "rarity": "rare" },
-
-    "0103": { "code": "C103", "name": "Totemoon", "faction": "Savage", "rarity": "rare" },
-    "0116": { "code": "C116", "name": "Gaiany", "faction": "Savage", "rarity": "rare" },
-    "0136": { "code": "C136", "name": "Arc du néant", "faction": "Savage", "rarity": "rare" },
-    "0144": { "code": "C144", "name": "Dragoons P", "faction": "Savage", "rarity": "rare" },
-    "0141": { "code": "C141", "name": "Dravalier", "faction": "Savage", "rarity": "rare" },
-    "0148": { "code": "C148", "name": "Serpentø", "faction": "Savage", "rarity": "rare" },
-    "0117": { "code": "C117", "name": "Dolly", "faction": "Savage", "rarity": "rare" },
-    "0114": { "code": "C114", "name": "Anamars", "faction": "Savage", "rarity": "rare" },
-
-    "0151": { "code": "C151", "name": "Mantyra", "faction": "Chimeria", "rarity": "rare" },
-    "0155": { "code": "C155", "name": "Freeda", "faction": "Chimeria", "rarity": "rare" },
-    "0162": { "code": "C162", "name": "Peinturlurer", "faction": "Chimeria", "rarity": "rare" },
-    "0167": { "code": "C167", "name": "Reyna", "faction": "Chimeria", "rarity": "rare" },
-    "0195": { "code": "C195", "name": "Memory", "faction": "Chimeria", "rarity": "rare" },
-    "0185": { "code": "C185", "name": "Ouraboréas", "faction": "Chimeria", "rarity": "rare" },
-    "0184": { "code": "C184", "name": "Insuffler le Rythme", "faction": "Chimeria", "rarity": "rare" },
-    "0192": { "code": "C192", "name": "Boy's band", "faction": "Chimeria", "rarity": "rare" },
-
-    "0219": { "code": "C219", "name": "Rompre le lien", "faction": "Wadoo", "rarity": "rare" },
-    "0223": { "code": "C223", "name": "Bukaku", "faction": "Wadoo", "rarity": "rare" },
-    "0227": { "code": "C227", "name": "Paraction", "faction": "Wadoo", "rarity": "rare" },
-    "0231": { "code": "C231", "name": "Doolia", "faction": "Wadoo", "rarity": "rare" },
-    "0233": { "code": "C233", "name": "Tribut Poupesque", "faction": "Wadoo", "rarity": "rare" },
-    "0246": { "code": "C246", "name": "Balogrun", "faction": "Wadoo", "rarity": "rare" },
-    "0245": { "code": "C245", "name": "Artayc", "faction": "Wadoo", "rarity": "rare" },
-    "0234": { "code": "C234", "name": "Wagneto", "faction": "Wadoo", "rarity": "rare" }
+    "0001": {
+      "code": "C1",
+      "name": "Zyrka",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0002": {
+      "code": "C2",
+      "name": "Zykmu",
+      "faction": "Krylls",
+      "rarity": "rare"
+    },
+    "0003": {
+      "code": "C3",
+      "name": "Bzyrk",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0004": {
+      "code": "C4",
+      "name": "Blubool",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0005": {
+      "code": "C5",
+      "name": "Vortex",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0006": {
+      "code": "C6",
+      "name": "Myzor",
+      "faction": "Krylls",
+      "rarity": "legendaire"
+    },
+    "0007": {
+      "code": "C7",
+      "name": "Zwyffer",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0008": {
+      "code": "C8",
+      "name": "Rescelleur",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0009": {
+      "code": "C9",
+      "name": "Zcyvenger",
+      "faction": "Krylls",
+      "rarity": "rare"
+    },
+    "0010": {
+      "code": "C10",
+      "name": "Mozkyto",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0011": {
+      "code": "C11",
+      "name": "Barbara",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0012": {
+      "code": "C12",
+      "name": "Rat-Ky",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0013": {
+      "code": "C13",
+      "name": "Narzbok",
+      "faction": "Krylls",
+      "rarity": "rare"
+    },
+    "0014": {
+      "code": "C14",
+      "name": "Wyrz-M",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0015": {
+      "code": "C15",
+      "name": "Zancredy",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0016": {
+      "code": "C16",
+      "name": "Mooltypazz",
+      "faction": "Krylls",
+      "rarity": "rare"
+    },
+    "0017": {
+      "code": "C17",
+      "name": "Holozhyeld",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0018": {
+      "code": "C18",
+      "name": "Azpiryne",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0019": {
+      "code": "C19",
+      "name": "Imposytion",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0020": {
+      "code": "C20",
+      "name": "Yzerta",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0021": {
+      "code": "C21",
+      "name": "Kontinued",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0022": {
+      "code": "C22",
+      "name": "Khromafayl",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0023": {
+      "code": "C23",
+      "name": "Réveillez vous",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0024": {
+      "code": "C24",
+      "name": "Tentacuz",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0025": {
+      "code": "C25",
+      "name": "Krouzpier",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0026": {
+      "code": "C26",
+      "name": "Kony",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0027": {
+      "code": "C27",
+      "name": "Mine E.M.I",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0028": {
+      "code": "C28",
+      "name": "Kabba le zunt",
+      "faction": "Krylls",
+      "rarity": "epique"
+    },
+    "0029": {
+      "code": "C29",
+      "name": "Hypnotikaa",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0030": {
+      "code": "C30",
+      "name": "Toujours Serein",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0031": {
+      "code": "C31",
+      "name": "Vakxzin",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0032": {
+      "code": "C32",
+      "name": "Bobyz",
+      "faction": "Krylls",
+      "rarity": "epique"
+    },
+    "0033": {
+      "code": "C33",
+      "name": "Pour le bien de tous",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0034": {
+      "code": "C34",
+      "name": "Ozokshi",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0035": {
+      "code": "C35",
+      "name": "Tokzik",
+      "faction": "Krylls",
+      "rarity": "rare"
+    },
+    "0036": {
+      "code": "C36",
+      "name": "Cénewz",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0037": {
+      "code": "C37",
+      "name": "Arakcube",
+      "faction": "Krylls",
+      "rarity": "epique"
+    },
+    "0038": {
+      "code": "C38",
+      "name": "Kryo",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0039": {
+      "code": "C39",
+      "name": "Bibliotempz",
+      "faction": "Krylls",
+      "rarity": "rare"
+    },
+    "0040": {
+      "code": "C40",
+      "name": "Zyzy",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0041": {
+      "code": "C41",
+      "name": "Mezamorph",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0042": {
+      "code": "C42",
+      "name": "Vers l'infini",
+      "faction": "Krylls",
+      "rarity": "epique"
+    },
+    "0043": {
+      "code": "C43",
+      "name": "Etendardz",
+      "faction": "Krylls",
+      "rarity": "inhabituelle"
+    },
+    "0044": {
+      "code": "C44",
+      "name": "Loozoxe",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0045": {
+      "code": "C45",
+      "name": "Babykween",
+      "faction": "Krylls",
+      "rarity": "legendaire"
+    },
+    "0046": {
+      "code": "C46",
+      "name": "Zock-lee",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0047": {
+      "code": "C47",
+      "name": "Pezske",
+      "faction": "Krylls",
+      "rarity": "commune"
+    },
+    "0048": {
+      "code": "C48",
+      "name": "Kzunade",
+      "faction": "Krylls",
+      "rarity": "rare"
+    },
+    "0049": {
+      "code": "C49",
+      "name": "Kyraza",
+      "faction": "Krylls",
+      "rarity": "rare"
+    },
+    "0050": {
+      "code": "C50",
+      "name": "Temkorisk",
+      "faction": "Krylls",
+      "rarity": "epique"
+    },
+    "0051": {
+      "code": "C51",
+      "name": "Violence",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0052": {
+      "code": "C52",
+      "name": "Styx",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0053": {
+      "code": "C53",
+      "name": "Idole de fiel",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0054": {
+      "code": "C54",
+      "name": "Paradlex",
+      "faction": "Impy",
+      "rarity": "rare"
+    },
+    "0055": {
+      "code": "C55",
+      "name": "Loloth",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0056": {
+      "code": "C56",
+      "name": "Bruitzeur",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0057": {
+      "code": "C57",
+      "name": "Necrobsorb",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0058": {
+      "code": "C58",
+      "name": "Demon Core",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0059": {
+      "code": "C59",
+      "name": "Chitinox",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0060": {
+      "code": "C60",
+      "name": "Silent'arms",
+      "faction": "Impy",
+      "rarity": "rare"
+    },
+    "0061": {
+      "code": "C61",
+      "name": "Pestrass",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0062": {
+      "code": "C62",
+      "name": "Decebale",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0063": {
+      "code": "C63",
+      "name": "Coupe-Jarret",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0064": {
+      "code": "C64",
+      "name": "Sanik Edgefog",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0065": {
+      "code": "C65",
+      "name": "Crassyopea",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0066": {
+      "code": "C66",
+      "name": "Boomba",
+      "faction": "Impy",
+      "rarity": "legendaire"
+    },
+    "0067": {
+      "code": "C67",
+      "name": "Malux",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0068": {
+      "code": "C68",
+      "name": "Malocux",
+      "faction": "Impy",
+      "rarity": "rare"
+    },
+    "0069": {
+      "code": "C69",
+      "name": "Ouvrir les plaies",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0070": {
+      "code": "C70",
+      "name": "Entravax",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0071": {
+      "code": "C71",
+      "name": "Soubrsot",
+      "faction": "Impy",
+      "rarity": "legendaire"
+    },
+    "0072": {
+      "code": "C72",
+      "name": "Oraclex",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0073": {
+      "code": "C73",
+      "name": "Zayuka",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0074": {
+      "code": "C74",
+      "name": "Gazocubateur",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0075": {
+      "code": "C75",
+      "name": "Horde toxique",
+      "faction": "Impy",
+      "rarity": "epique"
+    },
+    "0076": {
+      "code": "C76",
+      "name": "Corbrax",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0077": {
+      "code": "C77",
+      "name": "Healard",
+      "faction": "Impy",
+      "rarity": "rare"
+    },
+    "0078": {
+      "code": "C78",
+      "name": "Fou-Ego",
+      "faction": "Impy",
+      "rarity": "epique"
+    },
+    "0079": {
+      "code": "C79",
+      "name": "Vilunion",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0080": {
+      "code": "C80",
+      "name": "Imuna",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0081": {
+      "code": "C81",
+      "name": "Desaxe",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0082": {
+      "code": "C82",
+      "name": "Feufo",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0083": {
+      "code": "C83",
+      "name": "Syphon",
+      "faction": "Impy",
+      "rarity": "epique"
+    },
+    "0084": {
+      "code": "C84",
+      "name": "Shmilblix",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0085": {
+      "code": "C85",
+      "name": "Rencontre inattendue",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0086": {
+      "code": "C86",
+      "name": "Jackorn",
+      "faction": "Impy",
+      "rarity": "epique"
+    },
+    "0087": {
+      "code": "C87",
+      "name": "Bugbug",
+      "faction": "Impy",
+      "rarity": "rare"
+    },
+    "0088": {
+      "code": "C88",
+      "name": "Sucepince",
+      "faction": "Impy",
+      "rarity": "rare"
+    },
+    "0089": {
+      "code": "C89",
+      "name": "Negatron",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0090": {
+      "code": "C90",
+      "name": "Copie des Enfers",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0091": {
+      "code": "C91",
+      "name": "Fossoyeur",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0092": {
+      "code": "C92",
+      "name": "Damnia",
+      "faction": "Impy",
+      "rarity": "rare"
+    },
+    "0093": {
+      "code": "C93",
+      "name": "Eggrreur",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0094": {
+      "code": "C94",
+      "name": "Couveuse",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0095": {
+      "code": "C95",
+      "name": "Obstructeur",
+      "faction": "Impy",
+      "rarity": "inhabituelle"
+    },
+    "0096": {
+      "code": "C96",
+      "name": "Varyce",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0097": {
+      "code": "C97",
+      "name": "Ronflon",
+      "faction": "Impy",
+      "rarity": "epique"
+    },
+    "0098": {
+      "code": "C98",
+      "name": "Pas Deux Fois",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0099": {
+      "code": "C99",
+      "name": "Exdote",
+      "faction": "Impy",
+      "rarity": "rare"
+    },
+    "0100": {
+      "code": "C100",
+      "name": "Roi-D-Roi",
+      "faction": "Impy",
+      "rarity": "commune"
+    },
+    "0101": {
+      "code": "C101",
+      "name": "Jupithors",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0102": {
+      "code": "C102",
+      "name": "Why Me",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0103": {
+      "code": "C103",
+      "name": "Totemoon",
+      "faction": "Savage",
+      "rarity": "rare"
+    },
+    "0104": {
+      "code": "C104",
+      "name": "Long Voyage",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0105": {
+      "code": "C105",
+      "name": "Venusylva",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0106": {
+      "code": "C106",
+      "name": "Baro",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0107": {
+      "code": "C107",
+      "name": "Zero",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0108": {
+      "code": "C108",
+      "name": "Rocketurne",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0109": {
+      "code": "C109",
+      "name": "Queeneptune",
+      "faction": "Savage",
+      "rarity": "legendaire"
+    },
+    "0110": {
+      "code": "C110",
+      "name": "Exorlupi",
+      "faction": "Savage",
+      "rarity": "epique"
+    },
+    "0111": {
+      "code": "C111",
+      "name": "Lyogâ",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0112": {
+      "code": "C112",
+      "name": "Eclesprit",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0113": {
+      "code": "C113",
+      "name": "Wholfkell",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0114": {
+      "code": "C114",
+      "name": "Anamars",
+      "faction": "Savage",
+      "rarity": "rare"
+    },
+    "0115": {
+      "code": "C115",
+      "name": "Couronnement",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0116": {
+      "code": "C116",
+      "name": "Gaiany",
+      "faction": "Savage",
+      "rarity": "rare"
+    },
+    "0117": {
+      "code": "C117",
+      "name": "Dolly",
+      "faction": "Savage",
+      "rarity": "rare"
+    },
+    "0118": {
+      "code": "C118",
+      "name": "Warzazath",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0119": {
+      "code": "C119",
+      "name": "Noxroc",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0120": {
+      "code": "C120",
+      "name": "Salomon II",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0121": {
+      "code": "C121",
+      "name": "Sceptrale",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0122": {
+      "code": "C122",
+      "name": "Shivart",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0123": {
+      "code": "C123",
+      "name": "Combo-griffes",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0124": {
+      "code": "C124",
+      "name": "Gargantua",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0125": {
+      "code": "C125",
+      "name": "Harpon Géant",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0126": {
+      "code": "C126",
+      "name": "Orion",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0127": {
+      "code": "C127",
+      "name": "Brise bouclier",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0128": {
+      "code": "C128",
+      "name": "Truchøn",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0129": {
+      "code": "C129",
+      "name": "Haine chimérale",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0130": {
+      "code": "C130",
+      "name": "Mère",
+      "faction": "Savage",
+      "rarity": "epique"
+    },
+    "0131": {
+      "code": "C131",
+      "name": "Blacksun",
+      "faction": "Savage",
+      "rarity": "epique"
+    },
+    "0132": {
+      "code": "C132",
+      "name": "Valérien",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0133": {
+      "code": "C133",
+      "name": "Pierre Dragoons",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0134": {
+      "code": "C134",
+      "name": "Toundrä",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0135": {
+      "code": "C135",
+      "name": "Pister sa proie",
+      "faction": "Savage",
+      "rarity": "epique"
+    },
+    "0136": {
+      "code": "C136",
+      "name": "Arc du néant",
+      "faction": "Savage",
+      "rarity": "rare"
+    },
+    "0137": {
+      "code": "C137",
+      "name": "Dragoons B",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0138": {
+      "code": "C138",
+      "name": "Dragoons S",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0139": {
+      "code": "C139",
+      "name": "Oeuf de Dragoons",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0140": {
+      "code": "C140",
+      "name": "Maximilien",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0141": {
+      "code": "C141",
+      "name": "Dravalier",
+      "faction": "Savage",
+      "rarity": "rare"
+    },
+    "0142": {
+      "code": "C142",
+      "name": "Couveuse Temporelle",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0143": {
+      "code": "C143",
+      "name": "Vitiligø",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0144": {
+      "code": "C144",
+      "name": "Dragoons P",
+      "faction": "Savage",
+      "rarity": "rare"
+    },
+    "0145": {
+      "code": "C145",
+      "name": "W pour Wendetta",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0146": {
+      "code": "C146",
+      "name": "Dragoons N",
+      "faction": "Savage",
+      "rarity": "legendaire"
+    },
+    "0147": {
+      "code": "C147",
+      "name": "Lanceløt",
+      "faction": "Savage",
+      "rarity": "commune"
+    },
+    "0148": {
+      "code": "C148",
+      "name": "Serpentø",
+      "faction": "Savage",
+      "rarity": "rare"
+    },
+    "0149": {
+      "code": "C149",
+      "name": "Tarot machina",
+      "faction": "Savage",
+      "rarity": "epique"
+    },
+    "0150": {
+      "code": "C150",
+      "name": "Écorcheuse",
+      "faction": "Savage",
+      "rarity": "inhabituelle"
+    },
+    "0151": {
+      "code": "C151",
+      "name": "Mantyra",
+      "faction": "Chimeria",
+      "rarity": "rare"
+    },
+    "0152": {
+      "code": "C152",
+      "name": "Prismis",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0153": {
+      "code": "C153",
+      "name": "Liens",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0154": {
+      "code": "C154",
+      "name": "Flavio VII",
+      "faction": "Chimeria",
+      "rarity": "epique"
+    },
+    "0155": {
+      "code": "C155",
+      "name": "Freeda",
+      "faction": "Chimeria",
+      "rarity": "rare"
+    },
+    "0156": {
+      "code": "C156",
+      "name": "Harpess",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0157": {
+      "code": "C157",
+      "name": "Miroir Papillon",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0158": {
+      "code": "C158",
+      "name": "Saphia",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0159": {
+      "code": "C159",
+      "name": "Coqsix",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0160": {
+      "code": "C160",
+      "name": "Buay",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0161": {
+      "code": "C161",
+      "name": "Hit & Run",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0162": {
+      "code": "C162",
+      "name": "Peinturlurer",
+      "faction": "Chimeria",
+      "rarity": "rare"
+    },
+    "0163": {
+      "code": "C163",
+      "name": "Scaracy",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0164": {
+      "code": "C164",
+      "name": "Zampano",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0165": {
+      "code": "C165",
+      "name": "Lucia",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0166": {
+      "code": "C166",
+      "name": "Harvey",
+      "faction": "Chimeria",
+      "rarity": "epique"
+    },
+    "0167": {
+      "code": "C167",
+      "name": "Reyna",
+      "faction": "Chimeria",
+      "rarity": "rare"
+    },
+    "0168": {
+      "code": "C168",
+      "name": "Exploration",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0169": {
+      "code": "C169",
+      "name": "Glugangel",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0170": {
+      "code": "C170",
+      "name": "Symone",
+      "faction": "Chimeria",
+      "rarity": "epique"
+    },
+    "0171": {
+      "code": "C171",
+      "name": "Hasarder",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0172": {
+      "code": "C172",
+      "name": "Entraver",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0173": {
+      "code": "C173",
+      "name": "Freyd",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0174": {
+      "code": "C174",
+      "name": "Chargbox",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0175": {
+      "code": "C175",
+      "name": "Eevee",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0176": {
+      "code": "C176",
+      "name": "Hypopillon",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0177": {
+      "code": "C177",
+      "name": "Caisse Folle",
+      "faction": "Chimeria",
+      "rarity": "legendaire"
+    },
+    "0178": {
+      "code": "C178",
+      "name": "Grenade Sonore",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0179": {
+      "code": "C179",
+      "name": "Sirvantes",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0180": {
+      "code": "C180",
+      "name": "Lutaroth",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0181": {
+      "code": "C181",
+      "name": "Acrylik",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0182": {
+      "code": "C182",
+      "name": "Fungasyte",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0183": {
+      "code": "C183",
+      "name": "Lancer le Refrain",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0184": {
+      "code": "C184",
+      "name": "Insuffler le Rythme",
+      "faction": "Chimeria",
+      "rarity": "rare"
+    },
+    "0185": {
+      "code": "C185",
+      "name": "Ouraboréas",
+      "faction": "Chimeria",
+      "rarity": "rare"
+    },
+    "0186": {
+      "code": "C186",
+      "name": "Funarium",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0187": {
+      "code": "C187",
+      "name": "Blokméria",
+      "faction": "Chimeria",
+      "rarity": "inhabituelle"
+    },
+    "0188": {
+      "code": "C188",
+      "name": "Dragoons V",
+      "faction": "Chimeria",
+      "rarity": "epique"
+    },
+    "0189": {
+      "code": "C189",
+      "name": "Homère",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0190": {
+      "code": "C190",
+      "name": "Explose rock",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0191": {
+      "code": "C191",
+      "name": "Temple d'Aphrodite",
+      "faction": "Chimeria",
+      "rarity": "legendaire"
+    },
+    "0192": {
+      "code": "C192",
+      "name": "Boy's band",
+      "faction": "Chimeria",
+      "rarity": "rare"
+    },
+    "0193": {
+      "code": "C193",
+      "name": "Talhim",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0194": {
+      "code": "C194",
+      "name": "Jetvils",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0195": {
+      "code": "C195",
+      "name": "Memory",
+      "faction": "Chimeria",
+      "rarity": "rare"
+    },
+    "0196": {
+      "code": "C196",
+      "name": "Diviser pour régner",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0197": {
+      "code": "C197",
+      "name": "Boudhya",
+      "faction": "Chimeria",
+      "rarity": "epique"
+    },
+    "0198": {
+      "code": "C198",
+      "name": "Mhia Kimeria",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0199": {
+      "code": "C199",
+      "name": "Dr.Melvina",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0200": {
+      "code": "C200",
+      "name": "Lugula",
+      "faction": "Chimeria",
+      "rarity": "commune"
+    },
+    "0201": {
+      "code": "C201",
+      "name": "Assiba",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0202": {
+      "code": "C202",
+      "name": "Petit Fétiche",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0203": {
+      "code": "C203",
+      "name": "Doudou Épineux",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0204": {
+      "code": "C204",
+      "name": "Piqûre Rituelle",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0205": {
+      "code": "C205",
+      "name": "Grand Baron Samedi",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0206": {
+      "code": "C206",
+      "name": "Mama Cecil",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0207": {
+      "code": "C207",
+      "name": "Négociateur des Brumes",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0208": {
+      "code": "C208",
+      "name": "Autel aux Ossements",
+      "faction": "Wadoo",
+      "rarity": "epique"
+    },
+    "0209": {
+      "code": "C209",
+      "name": "Chat Noir",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0210": {
+      "code": "C210",
+      "name": "Ombre Vaudou",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0211": {
+      "code": "C211",
+      "name": "Barbatruk",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0212": {
+      "code": "C212",
+      "name": "Linkrevable",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0213": {
+      "code": "C213",
+      "name": "Gousset",
+      "faction": "Wadoo",
+      "rarity": "legendaire"
+    },
+    "0214": {
+      "code": "C214",
+      "name": "Dégourat",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0215": {
+      "code": "C215",
+      "name": "Golgoth",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0216": {
+      "code": "C216",
+      "name": "Mlle Pilate",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0217": {
+      "code": "C217",
+      "name": "Skapé",
+      "faction": "Wadoo",
+      "rarity": "epique"
+    },
+    "0218": {
+      "code": "C218",
+      "name": "Shrman",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0219": {
+      "code": "C219",
+      "name": "Rompre le lien",
+      "faction": "Wadoo",
+      "rarity": "rare"
+    },
+    "0220": {
+      "code": "C220",
+      "name": "Mboria",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0221": {
+      "code": "C221",
+      "name": "Cyblax",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0222": {
+      "code": "C222",
+      "name": "N\\",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0223": {
+      "code": "C223",
+      "name": "Bukaku",
+      "faction": "Wadoo",
+      "rarity": "rare"
+    },
+    "0224": {
+      "code": "C224",
+      "name": "Qasar",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0225": {
+      "code": "C225",
+      "name": "Mirikou",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0226": {
+      "code": "C226",
+      "name": "Blusyte",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0227": {
+      "code": "C227",
+      "name": "Paraction",
+      "faction": "Wadoo",
+      "rarity": "rare"
+    },
+    "0228": {
+      "code": "C228",
+      "name": "Sororité",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0229": {
+      "code": "C229",
+      "name": "Glaraneith",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0230": {
+      "code": "C230",
+      "name": "Mburno",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0231": {
+      "code": "C231",
+      "name": "Doolia",
+      "faction": "Wadoo",
+      "rarity": "rare"
+    },
+    "0232": {
+      "code": "C232",
+      "name": "Rking",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0233": {
+      "code": "C233",
+      "name": "Tribut Poupesque",
+      "faction": "Wadoo",
+      "rarity": "rare"
+    },
+    "0234": {
+      "code": "C234",
+      "name": "Wagneto",
+      "faction": "Wadoo",
+      "rarity": "rare"
+    },
+    "0235": {
+      "code": "C235",
+      "name": "Scapoo",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0236": {
+      "code": "C236",
+      "name": "Fusionner les tous",
+      "faction": "Wadoo",
+      "rarity": "epique"
+    },
+    "0237": {
+      "code": "C237",
+      "name": "Chasse à l\\",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0238": {
+      "code": "C238",
+      "name": "Cyclor",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0239": {
+      "code": "C239",
+      "name": "Dembelaid",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0240": {
+      "code": "C240",
+      "name": "MSmith",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0241": {
+      "code": "C241",
+      "name": "Cloonay",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0242": {
+      "code": "C242",
+      "name": "Fridoll",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0243": {
+      "code": "C243",
+      "name": "Rollback",
+      "faction": "Wadoo",
+      "rarity": "epique"
+    },
+    "0244": {
+      "code": "C244",
+      "name": "Startare",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0245": {
+      "code": "C245",
+      "name": "Artayc",
+      "faction": "Wadoo",
+      "rarity": "rare"
+    },
+    "0246": {
+      "code": "C246",
+      "name": "Balogrun",
+      "faction": "Wadoo",
+      "rarity": "rare"
+    },
+    "0247": {
+      "code": "C247",
+      "name": "Mina Mina",
+      "faction": "Wadoo",
+      "rarity": "inhabituelle"
+    },
+    "0248": {
+      "code": "C248",
+      "name": "Mliche",
+      "faction": "Wadoo",
+      "rarity": "commune"
+    },
+    "0249": {
+      "code": "C249",
+      "name": "Nomya",
+      "faction": "Wadoo",
+      "rarity": "epique"
+    },
+    "0250": {
+      "code": "C250",
+      "name": "Étroite Sagesse",
+      "faction": "Wadoo",
+      "rarity": "legendaire"
+    }
   }
 }
