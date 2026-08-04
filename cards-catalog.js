@@ -70,10 +70,47 @@ function cardsByFaction(faction) {
   return ALL_CARDS.filter(c => c.faction === faction);
 }
 
-// Utilisée pour la boutique et les boosters achetés : équiprobabilité sur les
-// 250 emplacements de la Saison 1, implémentés ou non.
+// Utilisée pour la boutique (rotation horaire) et la collection de départ :
+// équiprobabilité sur les 250 emplacements de la Saison 1, implémentés ou non.
+// Les BOOSTERS, eux, utilisent weightedRandomCard() ci-dessous (raretés).
 function randomCard() {
   return SEASON_1_ALL_SLOTS[Math.floor(Math.random() * SEASON_1_ALL_SLOTS.length)];
+}
+
+// ===================================================================
+// RARETÉ / TAUX DE DROP EN BOOSTER — voir public/data/card-rarity.json pour
+// le détail carte par carte (rempli progressivement avec l'utilisateur :
+// Légendaire 2%, Épique 10%, Rare 18%, Inhabituelle 26%, Commune 34%, par
+// carte révélée). Ces données restent INTERNES au serveur : la rareté n'est
+// jamais exposée aux joueurs avant la fin de la Saison 1 (voir regles.html).
+// On les utilise ici comme des POIDS RELATIFS de tirage pondéré (et non comme
+// des probabilités indépendantes qui pourraient donner 0 ou plusieurs cartes
+// par emplacement) : chaque emplacement de booster tire 1 carte parmi les 250
+// avec une chance proportionnelle à son taux — une Commune (34%) a donc ~17x
+// plus de chances qu'une Légendaire (2%) de sortir sur un emplacement donné.
+// ===================================================================
+const CARD_RARITY_DATA = require('./public/data/card-rarity.json');
+
+function dropWeightFor(code) {
+  const entry = CARD_RARITY_DATA.cards[code];
+  if (!entry) return 1; // filet de sécurité : ne devrait jamais arriver (les 250 codes sont couverts)
+  const tier = CARD_RARITY_DATA.rarityTiers[entry.rarity];
+  return tier ? tier.dropRatePerCard : 1;
+}
+
+const SEASON_1_DROP_WEIGHTS = SEASON_1_ALL_SLOTS.map(c => dropWeightFor(c.code));
+const SEASON_1_TOTAL_WEIGHT = SEASON_1_DROP_WEIGHTS.reduce((sum, w) => sum + w, 0);
+
+// Tirage pondéré selon la rareté — LA fonction utilisée par les boosters
+// (voir generateRandomBooster ci-dessous). Sélection par intervalle cumulé :
+// standard, O(n), largement suffisant pour 250 emplacements.
+function weightedRandomCard() {
+  let r = Math.random() * SEASON_1_TOTAL_WEIGHT;
+  for (let i = 0; i < SEASON_1_ALL_SLOTS.length; i++) {
+    r -= SEASON_1_DROP_WEIGHTS[i];
+    if (r <= 0) return SEASON_1_ALL_SLOTS[i];
+  }
+  return SEASON_1_ALL_SLOTS[SEASON_1_ALL_SLOTS.length - 1]; // filet anti-arrondi flottant
 }
 
 function shuffle(arr) {
@@ -126,11 +163,12 @@ function generateStarterCollection() {
   return { factions: chosenFactions, codes: shuffled, boosters };
 }
 
-// Génère un booster "standard" (boutique / achat) : 7 cartes purement aléatoires,
-// toutes factions confondues, sans garantie de cohérence.
+// Génère un booster "standard" (boutique / achat) : `size` cartes tirées
+// TOUTES FACTIONS CONFONDUES, chacune selon son taux de drop réel (voir
+// weightedRandomCard ci-dessus) — plus un tirage purement uniforme.
 function generateRandomBooster(size = 7) {
   const codes = [];
-  for (let i = 0; i < size; i++) codes.push(randomCard().code);
+  for (let i = 0; i < size; i++) codes.push(weightedRandomCard().code);
   return codes;
 }
 
@@ -204,4 +242,4 @@ const SEASON_COIN_REWARDS = [
   { requiredRankIndex: 4, coins: 450 },  // Hostile II
 ];
 
-module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, SEASON_SKINS, SEASON_COIN_REWARDS, FACTIONS, cardsByFaction, randomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle };
+module.exports = { ALL_CARDS, SEASON_1_ALL_SLOTS, SEASON_1_MAX_CODE, SEASON_CARDS, SEASON_SKINS, SEASON_COIN_REWARDS, FACTIONS, cardsByFaction, randomCard, weightedRandomCard, maxCopiesFor, pad4, factionOf, generateStarterCollection, generateRandomBooster, shuffle, CARD_RARITY_DATA };
