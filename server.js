@@ -770,6 +770,49 @@ app.post('/api/tutorial/seen', authMiddleware, (req, res) => {
   }
 });
 
+// PARTAGE SOCIAL : pop-up "partage A'rms sur tes réseaux, gagne un booster
+// gratuit", proposé une seule fois dans la vie d'un compte, juste après sa
+// toute première partie terminée (classée, non classée, ou contre l'IA — le
+// hotseat local pur n'appelle pas cet endpoint, voir index.html/endGame).
+//
+// Deux endpoints séparés et chacun idempotent :
+// - /prompt : à appeler à CHAQUE fin de partie éligible. Ne renvoie
+//   shouldShow=true qu'une seule fois par compte (la toute première fois
+//   qu'il est appelé) ; pose social_share_prompted_at immédiatement pour
+//   que même un rechargement de page ne fasse jamais réapparaître le pop-up.
+// - /claim : appelé uniquement quand le joueur clique réellement sur
+//   Facebook ou Instagram dans le pop-up. N'octroie le booster qu'une seule
+//   fois par compte, quel que soit le nombre de clics/réseaux utilisés.
+app.post('/api/social-share-reward/prompt', authMiddleware, (req, res) => {
+  try {
+    const row = db.prepare('SELECT social_share_prompted_at FROM users WHERE id = ?').get(req.user.id);
+    const alreadyPrompted = !!(row && row.social_share_prompted_at);
+    if (!alreadyPrompted) {
+      db.prepare("UPDATE users SET social_share_prompted_at = datetime('now') WHERE id = ?").run(req.user.id);
+    }
+    res.json({ ok: true, shouldShow: !alreadyPrompted });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
+app.post('/api/social-share-reward/claim', authMiddleware, (req, res) => {
+  try {
+    const row = db.prepare('SELECT social_share_reward_claimed_at FROM users WHERE id = ?').get(req.user.id);
+    if (row && row.social_share_reward_claimed_at) {
+      return res.json({ ok: true, alreadyClaimed: true, codes: [] });
+    }
+    db.prepare("UPDATE users SET social_share_reward_claimed_at = datetime('now') WHERE id = ?").run(req.user.id);
+    const codes = catalog.generateRandomBooster(7);
+    grantCards(req.user.id, codes);
+    res.json({ ok: true, alreadyClaimed: false, codes });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, error: 'server_error' });
+  }
+});
+
 // Classement "Menace" : le haut du tableau (100 joueurs par défaut), plus la
 // position exacte du joueur connecté (utile même s'il est hors du top 100).
 app.get('/api/leaderboard', authMiddleware, (req, res) => {

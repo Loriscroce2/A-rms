@@ -426,6 +426,19 @@ if (!userCols.includes('stripe_connect_ready')) {
 if (!userCols.includes('chat_color')) {
   db.exec("ALTER TABLE users ADD COLUMN chat_color TEXT NOT NULL DEFAULT '#7df9ff'");
 }
+// PARTAGE SOCIAL (pop-up "partage A'rms, gagne un booster") : deux colonnes
+// distinctes pour ne jamais réafficher le pop-up une fois déjà proposé
+// (social_share_prompted_at, posée dès la 1ère fin de partie détectée,
+// qu'il y ait eu clic ou non), et pour ne jamais octroyer le booster deux
+// fois (social_share_reward_claimed_at, posée uniquement si le joueur a
+// effectivement cliqué Facebook ou Instagram). Nullable : NULL = pas encore
+// atteint cette étape.
+if (!userCols.includes('social_share_prompted_at')) {
+  db.exec('ALTER TABLE users ADD COLUMN social_share_prompted_at TEXT');
+}
+if (!userCols.includes('social_share_reward_claimed_at')) {
+  db.exec('ALTER TABLE users ADD COLUMN social_share_reward_claimed_at TEXT');
+}
 
 // PSEUDOS UNIQUES (insensible à la casse) — nécessaire pour que l'ajout
 // d'ami par pseudo dans le tchat soit toujours sans ambiguïté. Comme des

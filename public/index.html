@@ -22246,6 +22246,82 @@ function endGame(winner, reason, opts = {}){
       if (zone) zone.textContent = 'Impossible de calculer les récompenses pour le moment.';
     });
   }
+
+  // PARTAGE SOCIAL : propose le pop-up "partage A'rms, gagne un booster"
+  // une seule fois par compte, juste après la toute première partie
+  // terminée en ligne (classée/non classée) ou contre l'IA — voir
+  // maybeOfferSocialShareReward(). Le hotseat local pur (deux joueurs sur
+  // un seul écran partagé, sans notion de "mon" compte unique côté serveur)
+  // est volontairement exclu.
+  if ((ONLINE_MODE && ONLINE_MATCH_ID) || VS_AI_MODE) {
+    maybeOfferSocialShareReward();
+  }
+}
+
+// ===================================================================
+// PARTAGE SOCIAL : pop-up "partage A'rms, gagne un booster gratuit",
+// proposé une seule fois dans la vie d'un compte (voir endGame ci-dessus).
+// Le serveur (endpoint /prompt) garantit à lui seul le "une seule fois",
+// même en cas de rechargement de page entre deux parties.
+// ===================================================================
+const SOCIAL_SHARE_URL = 'https://a-rms-tcg.up.railway.app/accueil.html';
+const SOCIAL_SHARE_TEXT_FB = "Je teste en ce moment A'rms, un jeu de cartes à collectionner gratuit, jouable directement dans le navigateur (bêta en cours) — venez essayer avec moi !";
+const SOCIAL_SHARE_TEXT_IG = "Je teste A'rms, un TCG gratuit jouable dans le navigateur ⚔️ Bêta en cours, venez essayer !";
+
+function maybeOfferSocialShareReward(){
+  try {
+    fetch('/api/social-share-reward/prompt', { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.ok && data.shouldShow) {
+          // Petit délai pour laisser l'écran de victoire/défaite se mettre
+          // en place avant de superposer ce second pop-up par-dessus.
+          setTimeout(openSocialSharePrompt, 1400);
+        }
+      })
+      .catch(() => {});
+  } catch (e) { console.error('[Partage social] vérification impossible :', e); }
+}
+
+function openSocialSharePrompt(){
+  openButtonsPrompt(
+    'Un booster offert !',
+    `Partage A'rms sur tes réseaux et reçois un <strong>booster gratuit</strong> (7 cartes) dans ta collection.<br><br>
+     <em style="opacity:.8;font-size:.92em;">« ${SOCIAL_SHARE_TEXT_FB} »</em>`,
+    null,
+    [
+      { label: 'Partager sur Facebook', className: 'confirm', onClick: () => claimSocialShareReward('facebook') },
+      { label: 'Partager sur Instagram', className: 'confirm', onClick: () => claimSocialShareReward('instagram') },
+      { label: 'Plus tard', className: 'cancel', onClick: () => {} },
+    ]
+  );
+}
+
+function claimSocialShareReward(network){
+  if (network === 'facebook') {
+    const shareUrl = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(SOCIAL_SHARE_URL) + '&quote=' + encodeURIComponent(SOCIAL_SHARE_TEXT_FB);
+    window.open(shareUrl, '_blank', 'noopener,width=600,height=520');
+  } else if (network === 'instagram') {
+    // CORRIGÉ/IMPORTANT : contrairement à Facebook, Instagram n'offre AUCUN
+    // mécanisme officiel de pré-remplissage d'un post/story depuis un simple
+    // lien web — le mieux qu'on puisse faire honnêtement est de copier la
+    // légende dans le presse-papier et d'ouvrir Instagram, pour que le
+    // joueur la colle lui-même dans sa story/publication.
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(SOCIAL_SHARE_TEXT_IG + ' ' + SOCIAL_SHARE_URL).catch(() => {});
+    }
+    window.open('https://www.instagram.com/', '_blank', 'noopener');
+    pushHistory('info', "Texte de partage copié dans le presse-papier : colle-le dans ta story ou ta publication Instagram.");
+  }
+
+  fetch('/api/social-share-reward/claim', { method: 'POST' })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.ok && !data.alreadyClaimed) {
+        pushHistory('mithril', "Merci pour le partage ! Un booster gratuit (7 cartes) a été ajouté à votre collection.");
+      }
+    })
+    .catch(() => {});
 }
 
 // ===================================================================
