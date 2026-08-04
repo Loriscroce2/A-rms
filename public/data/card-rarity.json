@@ -7,10 +7,15 @@
       "label": "Légendaire",
       "dropRatePerCard": 0.02,
       "note": "2% de taux de drop en booster PAR carte révélée (pas 2% à répartir entre elles)."
+    },
+    "epique": {
+      "label": "Épique",
+      "dropRatePerCard": 0.10,
+      "note": "10% de taux de drop en booster PAR carte révélée."
     }
   },
-  "cardsAssigned": 10,
-  "cardsRemaining": 240,
+  "cardsAssigned": 35,
+  "cardsRemaining": 215,
   "cards": {
     "0006": { "code": "C6", "name": "Myzor", "faction": "Krylls", "rarity": "legendaire" },
     "0045": { "code": "C45", "name": "Babykween", "faction": "Krylls", "rarity": "legendaire" },
@@ -21,6 +26,36 @@
     "0177": { "code": "C177", "name": "Caisse Folle", "faction": "Chimeria", "rarity": "legendaire" },
     "0191": { "code": "C191", "name": "Temple d'Aphrodite", "faction": "Chimeria", "rarity": "legendaire" },
     "0213": { "code": "C213", "name": "Gousset", "faction": "Wadoo", "rarity": "legendaire" },
-    "0250": { "code": "C250", "name": "Étroite Sagesse", "faction": "Wadoo", "rarity": "legendaire" }
+    "0250": { "code": "C250", "name": "Étroite Sagesse", "faction": "Wadoo", "rarity": "legendaire" },
+
+    "0028": { "code": "C28", "name": "Kabba le zunt", "faction": "Krylls", "rarity": "epique" },
+    "0032": { "code": "C32", "name": "Bobyz", "faction": "Krylls", "rarity": "epique" },
+    "0037": { "code": "C37", "name": "Arakcube", "faction": "Krylls", "rarity": "epique" },
+    "0042": { "code": "C42", "name": "Vers l'infini", "faction": "Krylls", "rarity": "epique" },
+    "0050": { "code": "C50", "name": "Temkorisk", "faction": "Krylls", "rarity": "epique" },
+
+    "0078": { "code": "C78", "name": "Fou-Ego", "faction": "Impy", "rarity": "epique" },
+    "0083": { "code": "C83", "name": "Syphon", "faction": "Impy", "rarity": "epique" },
+    "0097": { "code": "C97", "name": "Ronflon", "faction": "Impy", "rarity": "epique" },
+    "0086": { "code": "C86", "name": "Jackorn", "faction": "Impy", "rarity": "epique" },
+    "0075": { "code": "C75", "name": "Horde toxique", "faction": "Impy", "rarity": "epique" },
+
+    "0110": { "code": "C110", "name": "Exorlupi", "faction": "Savage", "rarity": "epique" },
+    "0130": { "code": "C130", "name": "Mère", "faction": "Savage", "rarity": "epique" },
+    "0131": { "code": "C131", "name": "Blacksun", "faction": "Savage", "rarity": "epique" },
+    "0135": { "code": "C135", "name": "Pister sa proie", "faction": "Savage", "rarity": "epique" },
+    "0149": { "code": "C149", "name": "Tarot machina", "faction": "Savage", "rarity": "epique" },
+
+    "0154": { "code": "C154", "name": "Flavio VII", "faction": "Chimeria", "rarity": "epique" },
+    "0170": { "code": "C170", "name": "Symone", "faction": "Chimeria", "rarity": "epique" },
+    "0188": { "code": "C188", "name": "Dragoons V", "faction": "Chimeria", "rarity": "epique" },
+    "0197": { "code": "C197", "name": "Boudhya", "faction": "Chimeria", "rarity": "epique" },
+    "0166": { "code": "C166", "name": "Harvey", "faction": "Chimeria", "rarity": "epique" },
+
+    "0208": { "code": "C208", "name": "Autel aux Ossements", "faction": "Wadoo", "rarity": "epique" },
+    "0249": { "code": "C249", "name": "Nomya", "faction": "Wadoo", "rarity": "epique" },
+    "0217": { "code": "C217", "name": "Skapé", "faction": "Wadoo", "rarity": "epique" },
+    "0243": { "code": "C243", "name": "Rollback", "faction": "Wadoo", "rarity": "epique" },
+    "0236": { "code": "C236", "name": "Fusionner les tous", "faction": "Wadoo", "rarity": "epique" }
   }
 }
