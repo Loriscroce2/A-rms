@@ -11919,19 +11919,21 @@ function useZwavAbility(owner, card){
 }
 
 // SAISON : Gems (W7) — ACTION : infiltration. Passe dans la zone de combat
-// ADVERSE (y prend une place, voir getMaxCombatantsForOwner) ; le joueur qui
-// LA REÇOIT (le nouveau contrôleur) choisit l'extrémité d'insertion (tout à
-// gauche ou tout à droite — voir requestGemsInsertionChoice). Une fois
-// infiltrée, elle est jouable normalement par ce nouveau contrôleur (Miner /
-// Attaque), à condition qu'il ait Chimeria comme faction active ce tour-là :
-// cette restriction est déjà garantie automatiquement par
-// isCardAllowedThisTurn/hasTag + activeFaction dès qu'elle appartient à sa
-// zone de combat (ownerOfCardOnBoard se base uniquement sur l'appartenance
-// à topLine/botLine), donc aucune logique supplémentaire n'est nécessaire
-// ici. Son propriétaire D'ORIGINE (celui qui a joué cette ACTION, conservé
-// dans card.gemsOriginalOwner) continue lui de bénéficier de son effet
-// récurrent de destruction des voisins, au début de CHACUN de ses propres
-// tours (voir startTurn).
+// ADVERSE (y prend une place, voir getMaxCombatantsForOwner) ; c'est celui
+// qui JOUE l'infiltration (le lanceur, propriétaire d'origine) qui choisit
+// l'extrémité d'insertion (tout à gauche ou tout à droite — voir
+// requestGemsInsertionChoice) : c'est lui qui infiltre, c'est donc lui qui
+// décide où sa carte se glisse dans la zone adverse — pas la victime qui la
+// reçoit malgré elle. Une fois infiltrée, elle est jouable normalement par
+// le nouveau contrôleur (Miner / Attaque), à condition qu'il ait Chimeria
+// comme faction active ce tour-là : cette restriction est déjà garantie
+// automatiquement par isCardAllowedThisTurn/hasTag + activeFaction dès
+// qu'elle appartient à sa zone de combat (ownerOfCardOnBoard se base
+// uniquement sur l'appartenance à topLine/botLine), donc aucune logique
+// supplémentaire n'est nécessaire ici. Son propriétaire D'ORIGINE (celui qui
+// a joué cette ACTION, conservé dans card.gemsOriginalOwner) continue lui de
+// bénéficier de son effet récurrent de destruction des voisins, au début de
+// CHACUN de ses propres tours (voir startTurn).
 function useGemsInfiltration(owner, card){
   if(!canPlayThisCardNow(owner, card)) return;
   if(hasAttacked(owner, card)) return;
@@ -11949,25 +11951,25 @@ function useGemsInfiltration(owner, card){
   card.gemsOriginalOwner = owner;
   closeActionPrompt();
 
-  requestGemsInsertionChoice(gemsOpp, (side) => {
+  requestGemsInsertionChoice(owner, (side) => {
     completeGemsInfiltration(owner, gemsOpp, card, side);
   });
 }
 
-// Demande au NOUVEAU contrôleur (celui qui reçoit Gems) de choisir
-// l'extrémité d'insertion dans sa propre zone de combat. Même schéma à 3
-// branches que handlePestrassDeathrattle : IA (décision automatique), partie
-// en ligne où ce choix appartient à l'adversaire (délégation via
-// requestOpponentChoice), ou choix local direct (hotseat, ou en ligne si
-// c'est bien mon propre choix).
-function requestGemsInsertionChoice(newController, callback) {
-  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(newController)) {
+// Demande au LANCEUR (celui qui joue Gems, propriétaire d'origine) de
+// choisir l'extrémité d'insertion dans la zone de combat ADVERSE. Même
+// schéma à 3 branches que handlePestrassDeathrattle : IA (décision
+// automatique), partie en ligne où ce choix appartient à l'adversaire
+// (délégation via requestOpponentChoice), ou choix local direct (hotseat, ou
+// en ligne si c'est bien mon propre choix).
+function requestGemsInsertionChoice(caster, callback) {
+  if (typeof isAIOwnedChoice === 'function' && isAIOwnedChoice(caster)) {
     setTimeout(() => callback('left'), 600);
     return;
   }
 
-  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && MY_SEAT !== newController) {
-    showWaitOverlay(`Patientez : l'adversaire choisit où insérer ${cardName('W7')} infiltrée dans sa zone de combat...`);
+  if (typeof ONLINE_MODE !== 'undefined' && ONLINE_MODE && MY_SEAT !== caster) {
+    showWaitOverlay(`Patientez : l'adversaire choisit où insérer ${cardName('W7')} dans votre zone de combat...`);
     requestOpponentChoice('gems', {}, (side) => {
       hideWaitOverlay();
       callback(side === 'right' ? 'right' : 'left');
@@ -11981,7 +11983,7 @@ function requestGemsInsertionChoice(newController, callback) {
 function openGemsInsertionPrompt(callback) {
   openButtonsPrompt(
     'Infiltration : Gems',
-    `${cardAnchor('W7')} s'infiltre dans votre zone de combat ! Choisissez où l'insérer.`,
+    `${cardAnchor('W7')} s'infiltre dans la zone de combat adverse ! Choisissez où l'insérer.`,
     null,
     [
       { label: 'Tout à gauche', className: 'confirm', onClick: () => callback('left') },
@@ -15297,10 +15299,10 @@ function handleIncomingChoiceRequest(requestId, kind, payload) {
   }
 
   if (kind === 'gems') {
-    // SAISON : Gems (W7) s'infiltre dans MA zone de combat (celle du
-    // destinataire de cette requête) — c'est à moi de choisir l'extrémité
-    // d'insertion, pas au joueur qui vient d'activer son ACTION.
-    showChoiceNotice(`${cardName('W7')} s'infiltre dans votre zone de combat : à vous de choisir où l'insérer.`);
+    // SAISON : Gems (W7) — je suis le LANCEUR (destinataire de cette
+    // requête = celui qui a joué l'infiltration) : c'est à moi de choisir
+    // l'extrémité d'insertion dans la zone de combat de mon adversaire.
+    showChoiceNotice(`${cardName('W7')} s'infiltre dans la zone de combat adverse : à vous de choisir où l'insérer.`);
     openGemsInsertionPrompt((side) => {
       hideChoiceNotice();
       closeActionPrompt();
