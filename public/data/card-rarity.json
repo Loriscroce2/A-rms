@@ -12,10 +12,15 @@
       "label": "Épique",
       "dropRatePerCard": 0.10,
       "note": "10% de taux de drop en booster PAR carte révélée."
+    },
+    "rare": {
+      "label": "Rare",
+      "dropRatePerCard": 0.18,
+      "note": "18% de taux de drop en booster PAR carte révélée."
     }
   },
-  "cardsAssigned": 35,
-  "cardsRemaining": 215,
+  "cardsAssigned": 75,
+  "cardsRemaining": 175,
   "cards": {
     "0006": { "code": "C6", "name": "Myzor", "faction": "Krylls", "rarity": "legendaire" },
     "0045": { "code": "C45", "name": "Babykween", "faction": "Krylls", "rarity": "legendaire" },
@@ -56,6 +61,51 @@
     "0249": { "code": "C249", "name": "Nomya", "faction": "Wadoo", "rarity": "epique" },
     "0217": { "code": "C217", "name": "Skapé", "faction": "Wadoo", "rarity": "epique" },
     "0243": { "code": "C243", "name": "Rollback", "faction": "Wadoo", "rarity": "epique" },
-    "0236": { "code": "C236", "name": "Fusionner les tous", "faction": "Wadoo", "rarity": "epique" }
+    "0236": { "code": "C236", "name": "Fusionner les tous", "faction": "Wadoo", "rarity": "epique" },
+
+    "0002": { "code": "C2", "name": "Zykmu", "faction": "Krylls", "rarity": "rare" },
+    "0013": { "code": "C13", "name": "Narzbok", "faction": "Krylls", "rarity": "rare" },
+    "0048": { "code": "C48", "name": "Kzunade", "faction": "Krylls", "rarity": "rare" },
+    "0049": { "code": "C49", "name": "Kyraza", "faction": "Krylls", "rarity": "rare" },
+    "0039": { "code": "C39", "name": "Bibliotempz", "faction": "Krylls", "rarity": "rare" },
+    "0016": { "code": "C16", "name": "Mooltypazz", "faction": "Krylls", "rarity": "rare" },
+    "0009": { "code": "C9", "name": "Zcyvenger", "faction": "Krylls", "rarity": "rare" },
+    "0035": { "code": "C35", "name": "Tokzik", "faction": "Krylls", "rarity": "rare" },
+
+    "0054": { "code": "C54", "name": "Paradlex", "faction": "Impy", "rarity": "rare" },
+    "0060": { "code": "C60", "name": "Silent'arms", "faction": "Impy", "rarity": "rare" },
+    "0068": { "code": "C68", "name": "Malocux", "faction": "Impy", "rarity": "rare" },
+    "0099": { "code": "C99", "name": "Exdote", "faction": "Impy", "rarity": "rare" },
+    "0077": { "code": "C77", "name": "Healard", "faction": "Impy", "rarity": "rare" },
+    "0087": { "code": "C87", "name": "Bugbug", "faction": "Impy", "rarity": "rare" },
+    "0088": { "code": "C88", "name": "Sucepince", "faction": "Impy", "rarity": "rare" },
+    "0092": { "code": "C92", "name": "Damnia", "faction": "Impy", "rarity": "rare" },
+
+    "0103": { "code": "C103", "name": "Totemoon", "faction": "Savage", "rarity": "rare" },
+    "0116": { "code": "C116", "name": "Gaiany", "faction": "Savage", "rarity": "rare" },
+    "0136": { "code": "C136", "name": "Arc du néant", "faction": "Savage", "rarity": "rare" },
+    "0144": { "code": "C144", "name": "Dragoons P", "faction": "Savage", "rarity": "rare" },
+    "0141": { "code": "C141", "name": "Dravalier", "faction": "Savage", "rarity": "rare" },
+    "0148": { "code": "C148", "name": "Serpentø", "faction": "Savage", "rarity": "rare" },
+    "0117": { "code": "C117", "name": "Dolly", "faction": "Savage", "rarity": "rare" },
+    "0114": { "code": "C114", "name": "Anamars", "faction": "Savage", "rarity": "rare" },
+
+    "0151": { "code": "C151", "name": "Mantyra", "faction": "Chimeria", "rarity": "rare" },
+    "0155": { "code": "C155", "name": "Freeda", "faction": "Chimeria", "rarity": "rare" },
+    "0162": { "code": "C162", "name": "Peinturlurer", "faction": "Chimeria", "rarity": "rare" },
+    "0167": { "code": "C167", "name": "Reyna", "faction": "Chimeria", "rarity": "rare" },
+    "0195": { "code": "C195", "name": "Memory", "faction": "Chimeria", "rarity": "rare" },
+    "0185": { "code": "C185", "name": "Ouraboréas", "faction": "Chimeria", "rarity": "rare" },
+    "0184": { "code": "C184", "name": "Insuffler le Rythme", "faction": "Chimeria", "rarity": "rare" },
+    "0192": { "code": "C192", "name": "Boy's band", "faction": "Chimeria", "rarity": "rare" },
+
+    "0219": { "code": "C219", "name": "Rompre le lien", "faction": "Wadoo", "rarity": "rare" },
+    "0223": { "code": "C223", "name": "Bukaku", "faction": "Wadoo", "rarity": "rare" },
+    "0227": { "code": "C227", "name": "Paraction", "faction": "Wadoo", "rarity": "rare" },
+    "0231": { "code": "C231", "name": "Doolia", "faction": "Wadoo", "rarity": "rare" },
+    "0233": { "code": "C233", "name": "Tribut Poupesque", "faction": "Wadoo", "rarity": "rare" },
+    "0246": { "code": "C246", "name": "Balogrun", "faction": "Wadoo", "rarity": "rare" },
+    "0245": { "code": "C245", "name": "Artayc", "faction": "Wadoo", "rarity": "rare" },
+    "0234": { "code": "C234", "name": "Wagneto", "faction": "Wadoo", "rarity": "rare" }
   }
 }
