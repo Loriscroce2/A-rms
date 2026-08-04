@@ -822,23 +822,36 @@
        grand au centre de l'écran (le temps de la lire), puis "vole" en se
        réduisant vers sa zone/cible finale — voir flyCardReveal() en JS.
        =============================================================== */
-    .cardRevealOverlay{ position:fixed; inset:0; z-index:9600; pointer-events:none; }
+    .cardRevealOverlay{
+      position:fixed; inset:0; z-index:9600; pointer-events:none;
+      background:radial-gradient(ellipse at center, rgba(0,0,0,.0) 0%, rgba(0,0,0,.0) 100%);
+      opacity:0;
+      transition:opacity .32s ease;
+    }
+    .cardRevealOverlay.dimmed{ background:radial-gradient(ellipse at center, rgba(0,0,0,.0) 0%, rgba(0,0,0,.45) 100%); opacity:1; }
     .cardRevealClone{
       position:fixed; left:50%; top:50%;
       width:130px; height:186px;
-      transform:translate(-50%,-50%) scale(.3);
+      transform:translate(-50%,-50%) scale(.35);
       opacity:0;
       background-color:#141414; background-size:cover; background-position:center;
       border:3px solid var(--cy); border-radius:14px;
       box-shadow:0 0 30px var(--cy), 0 0 60px #000;
       display:flex; align-items:center; justify-content:center; text-align:center;
       color:#fff; font-weight:900; font-size:16px; padding:10px; box-sizing:border-box;
-      transition:opacity .22s ease, transform .22s ease, width .22s ease, height .22s ease;
+      will-change:left, top, width, height, transform, opacity;
+      transition:opacity .38s cubic-bezier(.22,1,.36,1), transform .38s cubic-bezier(.22,1,.36,1),
+                 width .38s cubic-bezier(.22,1,.36,1), height .38s cubic-bezier(.22,1,.36,1);
     }
     .cardRevealClone.revealed{
-      width:min(360px, 60vw); height:min(510px, 78vw);
+      width:min(370px, 60vw); height:min(524px, 78vw);
       transform:translate(-50%,-50%) scale(1);
       opacity:1;
+      animation:cardRevealBreathe 2.2s ease-in-out .38s infinite;
+    }
+    @keyframes cardRevealBreathe{
+      0%,100%{ box-shadow:0 0 30px var(--cy), 0 0 60px #000; }
+      50%{ box-shadow:0 0 44px var(--cy), 0 0 84px #000; }
     }
     .cardRevealClone.flying{
       left:var(--flyX, 50%); top:var(--flyY, 50%);
@@ -846,11 +859,17 @@
       transform:translate(-50%,-50%) scale(1);
       opacity:1;
       border-radius:8px;
-      transition:left .48s cubic-bezier(.35,0,.25,1), top .48s cubic-bezier(.35,0,.25,1),
-                 width .48s cubic-bezier(.35,0,.25,1), height .48s cubic-bezier(.35,0,.25,1),
-                 opacity .3s ease .18s, border-radius .3s ease;
+      animation:none;
+      box-shadow:0 0 16px var(--cy), 0 10px 24px rgba(0,0,0,.5);
+      transition:left .56s cubic-bezier(.4,0,.2,1), top .56s cubic-bezier(.4,0,.2,1),
+                 width .56s cubic-bezier(.4,0,.2,1), height .56s cubic-bezier(.4,0,.2,1),
+                 box-shadow .56s cubic-bezier(.4,0,.2,1), border-radius .3s ease,
+                 opacity .32s ease .26s;
     }
-    .cardRevealClone.faded{ opacity:0; transform:translate(-50%,-50%) scale(.55); transition:opacity .35s ease, transform .35s ease; }
+    .cardRevealClone.faded{
+      opacity:0; transform:translate(-50%,-50%) scale(.6); animation:none;
+      transition:opacity .4s cubic-bezier(.4,0,.2,1), transform .4s cubic-bezier(.4,0,.2,1);
+    }
 
     /* ===================================================================
        PV + Bouclier — refonte "premium" (v2) : gemme de puissance facettée
@@ -3795,47 +3814,68 @@ function flyCardReveal(label, cardData, targetEl){
     overlay.className = 'cardRevealOverlay';
     const clone = document.createElement('div');
     clone.className = 'cardRevealClone';
-    const url = getCardImage(label);
-    if (url){
-      clone.style.backgroundImage = `url(${url})`;
-    } else {
-      clone.textContent = cardName(label);
-    }
     overlay.appendChild(clone);
     document.body.appendChild(overlay);
 
-    const READ_MS = 900;
-    const FLY_MS = 480;
+    // Allongé (900ms → 1500ms) pour laisser vraiment le temps de lire la
+    // carte, et démarré seulement une fois l'image RÉELLEMENT affichée (voir
+    // plus bas) — sur une connexion lente, le temps de chargement ne vient
+    // donc jamais rogner ce temps de lecture.
+    const READ_MS = 1500;
+    const FLY_MS = 560;
 
-    // Un frame vide avant d'ajouter la classe pour garantir que la
-    // transition CSS (depuis l'état initial scale(.3)/opacity:0) se joue
-    // bien, plutôt que de sauter directement à l'état final.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => clone.classList.add('revealed'));
-    });
-
-    setTimeout(() => {
-      let rect = null;
-      try { rect = (targetEl && targetEl.getBoundingClientRect) ? targetEl.getBoundingClientRect() : null; } catch(e){}
-      if (!rect || (rect.width < 2 && rect.height < 2)) {
-        clone.classList.remove('revealed');
-        clone.classList.add('faded');
-      } else {
-        const rootStyle = getComputedStyle(document.documentElement);
-        const fallbackW = parseFloat(rootStyle.getPropertyValue('--cardW')) || 86;
-        const fallbackH = parseFloat(rootStyle.getPropertyValue('--cardH')) || 124;
-        clone.style.setProperty('--flyX', `${rect.left + rect.width / 2}px`);
-        clone.style.setProperty('--flyY', `${rect.top + rect.height / 2}px`);
-        clone.style.setProperty('--flyW', `${Math.max(rect.width, 40) || fallbackW}px`);
-        clone.style.setProperty('--flyH', `${Math.max(rect.height, 56) || fallbackH}px`);
-        clone.classList.add('flying');
-      }
+    const startFlight = () => {
       setTimeout(() => {
-        overlay.remove();
-        if (typeof unlockGameAfterAnimation === 'function') unlockGameAfterAnimation();
-        resolve();
-      }, FLY_MS + 40);
-    }, READ_MS);
+        let rect = null;
+        try { rect = (targetEl && targetEl.getBoundingClientRect) ? targetEl.getBoundingClientRect() : null; } catch(e){}
+        overlay.classList.remove('dimmed');
+        if (!rect || (rect.width < 2 && rect.height < 2)) {
+          clone.classList.remove('revealed');
+          clone.classList.add('faded');
+        } else {
+          const rootStyle = getComputedStyle(document.documentElement);
+          const fallbackW = parseFloat(rootStyle.getPropertyValue('--cardW')) || 86;
+          const fallbackH = parseFloat(rootStyle.getPropertyValue('--cardH')) || 124;
+          clone.style.setProperty('--flyX', `${rect.left + rect.width / 2}px`);
+          clone.style.setProperty('--flyY', `${rect.top + rect.height / 2}px`);
+          clone.style.setProperty('--flyW', `${Math.max(rect.width, 40) || fallbackW}px`);
+          clone.style.setProperty('--flyH', `${Math.max(rect.height, 56) || fallbackH}px`);
+          clone.classList.remove('revealed');
+          clone.classList.add('flying');
+        }
+        setTimeout(() => {
+          overlay.remove();
+          if (typeof unlockGameAfterAnimation === 'function') unlockGameAfterAnimation();
+          resolve();
+        }, FLY_MS + 60);
+      }, READ_MS);
+    };
+
+    // Un frame vide avant d'ajouter les classes pour garantir que la
+    // transition CSS (depuis l'état initial scale(.35)/opacity:0) se joue
+    // bien, plutôt que de sauter directement à l'état final.
+    const revealNow = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          overlay.classList.add('dimmed');
+          clone.classList.add('revealed');
+          startFlight();
+        });
+      });
+    };
+
+    const url = getCardImage(label);
+    if (url && typeof loadImage === 'function'){
+      loadImage(url)
+        .then(() => { clone.style.backgroundImage = `url(${url})`; revealNow(); })
+        .catch(() => { clone.textContent = cardName(label); revealNow(); });
+    } else if (url) {
+      clone.style.backgroundImage = `url(${url})`;
+      revealNow();
+    } else {
+      clone.textContent = cardName(label);
+      revealNow();
+    }
   });
 }
 
@@ -6465,6 +6505,13 @@ function openFactionPrompt(player, onChosen){
   const playerHand = getHandByOwner(player);
   const playerLine = getLineByOwner(player);
   const playerArts = (player === 'top') ? topArts : botArts;
+  // CORRIGÉ : le STOCK (voir STOCKAGE/CONTRE-STOCKAGE, cartes Zwav/Trou de
+  // ver) peut contenir des cartes d'une faction absente du deck de départ
+  // (CONTRE-STOCKAGE pioche dans le deck ADVERSE). Sans ce scan, ces cartes
+  // restaient injouables à vie : leur faction n'était jamais proposée ici,
+  // et il fallait déjà avoir la carte en main pour débloquer la faction —
+  // impossible tant qu'elle dort dans le STOCK.
+  const playerStock = (typeof getStockByOwner === 'function') ? getStockByOwner(player) : [];
 
   const scanCardFactions = (card) => {
     getTags(card.label).filter(tag => FACTIONS.includes(tag)).forEach(f => availableFactionSet.add(f));
@@ -6472,6 +6519,7 @@ function openFactionPrompt(player, onChosen){
   playerHand.forEach(scanCardFactions);
   playerLine.forEach(scanCardFactions);
   playerArts.forEach(scanCardFactions);
+  playerStock.forEach(scanCardFactions);
 
   let availableFactions = Array.from(availableFactionSet);
 
@@ -8903,7 +8951,7 @@ function renderMemoryOverlay(){
     cardEl.innerHTML = `
       <div class="memoryCardInner">
         <div class="memoryCardFace memoryBack"></div>
-        <div class="memoryCardFace memoryFront" style="background-image:url('${CARD_IMAGES[c.label] || ''}')"></div>
+        <div class="memoryCardFace memoryFront" style="background-image:url('${getCardImage(c.label) || ''}')"></div>
       </div>
     `;
     cardEl.addEventListener('click', () => handleMemoryCardClick(i));
@@ -9170,7 +9218,7 @@ function renderMemoryReplayChoice(winner){
     const cardsHtml = arr.length ? arr.map(c => {
       const eligible = isEligible(c);
       return `<div class="memDiscardCard${eligible ? ' eligible' : ''}" data-id="${c.id}" data-side="${side}"
-        style="background-image:url('${CARD_IMAGES[c.label] || ''}')" title="${cardName(c.label)}"></div>`;
+        style="background-image:url('${getCardImage(c.label) || ''}')" title="${cardName(c.label)}"></div>`;
     }).join('') : `<div class="memDiscardEmpty">Défausse vide</div>`;
     return `<div class="memDiscardCol">
       <div class="memDiscardTitle">Défausse — ${playerLabel(side)}</div>
@@ -19895,7 +19943,11 @@ function renderStockWindow(){
     stock.forEach(card => {
       const thumb = document.createElement('div');
       thumb.className = 'stockThumb';
-      const img = (typeof CARD_IMAGES !== 'undefined' && CARD_IMAGES[card.label]) ? CARD_IMAGES[card.label] : '';
+      // CORRIGÉ : indexait directement CARD_IMAGES (sans le repli numérique
+      // ../cartes/XXXX.png de getCardImage) — les cartes absentes de ce
+      // dictionnaire (ex. C201-C214, 1er lot Wadoo) s'affichaient donc en
+      // case noire/vide alors que leur nom (tooltip) restait correct.
+      const img = getCardImage(card.label);
       if (img) thumb.style.backgroundImage = `url('${img}')`;
       thumb.title = cardName(card.label);
       thumb.addEventListener('mouseenter', () => showZoom(card.label, card));
