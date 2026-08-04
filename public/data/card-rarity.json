@@ -1,0 +1,26 @@
+{
+  "_comment": "Répartition des raretés et taux de drop en booster pour les 250 cartes de la Saison 1. Ces données sont internes/serveur uniquement : la rareté reste masquée aux joueurs pendant la Saison 1 (voir regles.html) et n'est révélée qu'à l'ouverture de la Saison 2. Construit progressivement, tier par tier, au fil des messages de l'utilisateur — pas encore branché sur le tirage réel des boosters (cards-catalog.js utilise toujours un tirage uniforme tant que les 250 cartes n'ont pas toutes une rareté assignée).",
+  "season": 1,
+  "totalCards": 250,
+  "rarityTiers": {
+    "legendaire": {
+      "label": "Légendaire",
+      "dropRatePerCard": 0.02,
+      "note": "2% de taux de drop en booster PAR carte révélée (pas 2% à répartir entre elles)."
+    }
+  },
+  "cardsAssigned": 10,
+  "cardsRemaining": 240,
+  "cards": {
+    "0006": { "code": "C6", "name": "Myzor", "faction": "Krylls", "rarity": "legendaire" },
+    "0045": { "code": "C45", "name": "Babykween", "faction": "Krylls", "rarity": "legendaire" },
+    "0071": { "code": "C71", "name": "Soubrsot", "faction": "Impy", "rarity": "legendaire" },
+    "0066": { "code": "C66", "name": "Boomba", "faction": "Impy", "rarity": "legendaire" },
+    "0146": { "code": "C146", "name": "Dragoons N", "faction": "Savage", "rarity": "legendaire" },
+    "0109": { "code": "C109", "name": "Queeneptune", "faction": "Savage", "rarity": "legendaire" },
+    "0177": { "code": "C177", "name": "Caisse Folle", "faction": "Chimeria", "rarity": "legendaire" },
+    "0191": { "code": "C191", "name": "Temple d'Aphrodite", "faction": "Chimeria", "rarity": "legendaire" },
+    "0213": { "code": "C213", "name": "Gousset", "faction": "Wadoo", "rarity": "legendaire" },
+    "0250": { "code": "C250", "name": "Étroite Sagesse", "faction": "Wadoo", "rarity": "legendaire" }
+  }
+}
