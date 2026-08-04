@@ -17677,45 +17677,53 @@ if (hitAndRunMode) {
     const targetableActions = ['C4', 'C57', 'C102', 'C115'];
     if (targetableActions.includes(draggedCard.label)) {
       if (getType(card.label) !== 'personnage') return;
-      consumeAllowanceIfNeeded(playingOwner, draggedCard);
-      const actionCard = takeCardFromSource(fromId, draggedCard.id);
-      if (!actionCard) return;
+      // CORRIGÉ : ces 4 Actions se jouent par glisser-déposer directement sur
+      // leur cible (pas via un clic + fenêtre de confirmation comme les
+      // autres Actions), ce qui contournait entièrement Paraction (C227) —
+      // aucun appel à attemptParactionCounter n'existait sur ce chemin. On
+      // passe maintenant par le même point d'entrée unique que TOUTES les
+      // autres cartes Action du jeu, AVANT de retirer la carte de la main.
+      attemptParactionCounter(playingOwner, draggedCard, () => {
+        consumeAllowanceIfNeeded(playingOwner, draggedCard);
+        const actionCard = takeCardFromSource(fromId, draggedCard.id);
+        if (!actionCard) return;
 
-      if (actionCard.label === 'C4') {
-        if (typeof card.hp === 'number' && card.label !== 'C62') { card.hp += 2; playHPHitEffect(card); }
-        discardCard(actionCard, playingOwner, 'action');
-        pushHistory('pv', `${cardAnchor(card.label)} reçoit +2 PV (soin).`);
-      }
-      if (actionCard.label === 'C102') {
-        card.tempHP = (card.tempHP || 0) + 3;
-        card.tempShield = (card.tempShield || 0) + 3;
-        whyMeBuffs.push(card);
-        playHPHitEffect(card);
-        discardCard(actionCard, playingOwner, 'action');
-        pushHistory('action', `${cardAnchor(card.label)} reçoit un bonus temporaire de +3 PV et +3 Bouclier grâce à ${cardAnchor('C102')}.`);
-      }
-      if (actionCard.label === 'C57') {
-        const shieldToAdd = exilePile.length;
-        if (typeof card.permanentShieldBonus !== 'number') card.permanentShieldBonus = 0;
-        card.permanentShieldBonus += shieldToAdd;
-        card.shield = (card.shield || getBaseShield(card.label)) + shieldToAdd;
-        discardCard(actionCard, playingOwner, 'action');
-        pushHistory('action', `${cardAnchor('C57')} donne +${shieldToAdd} bouclier <strong>permanent</strong> à ${cardAnchor(card.label)}.`);
-      }
-      if (actionCard.label === 'C115') {
-        if (!hasTag(card, 'provocateur')) {
-          if (!Array.isArray(card.addedTags)) card.addedTags = [];
-          card.addedTags.push('provocateur');
+        if (actionCard.label === 'C4') {
+          if (typeof card.hp === 'number' && card.label !== 'C62') { card.hp += 2; playHPHitEffect(card); }
+          discardCard(actionCard, playingOwner, 'action');
+          pushHistory('pv', `${cardAnchor(card.label)} reçoit +2 PV (soin).`);
         }
-        if (typeof card.permanentShieldBonus !== 'number') card.permanentShieldBonus = 0;
-        card.permanentShieldBonus += 2;
-        card.shield += 2;
-        card.canMineFreely = true;
-        discardCard(actionCard, playingOwner, 'action');
-        pushHistory('action', `${cardAnchor('C115')} est joué sur ${cardAnchor(card.label)}.`);
-        pushHistory('info', `${cardAnchor(card.label)} gagne <strong>PROVOCATION</strong>, <strong>+2 PB permanents</strong>, et peut <strong>miner sans coût</strong>.`);
-      }
-      fullRender();
+        if (actionCard.label === 'C102') {
+          card.tempHP = (card.tempHP || 0) + 3;
+          card.tempShield = (card.tempShield || 0) + 3;
+          whyMeBuffs.push(card);
+          playHPHitEffect(card);
+          discardCard(actionCard, playingOwner, 'action');
+          pushHistory('action', `${cardAnchor(card.label)} reçoit un bonus temporaire de +3 PV et +3 Bouclier grâce à ${cardAnchor('C102')}.`);
+        }
+        if (actionCard.label === 'C57') {
+          const shieldToAdd = exilePile.length;
+          if (typeof card.permanentShieldBonus !== 'number') card.permanentShieldBonus = 0;
+          card.permanentShieldBonus += shieldToAdd;
+          card.shield = (card.shield || getBaseShield(card.label)) + shieldToAdd;
+          discardCard(actionCard, playingOwner, 'action');
+          pushHistory('action', `${cardAnchor('C57')} donne +${shieldToAdd} bouclier <strong>permanent</strong> à ${cardAnchor(card.label)}.`);
+        }
+        if (actionCard.label === 'C115') {
+          if (!hasTag(card, 'provocateur')) {
+            if (!Array.isArray(card.addedTags)) card.addedTags = [];
+            card.addedTags.push('provocateur');
+          }
+          if (typeof card.permanentShieldBonus !== 'number') card.permanentShieldBonus = 0;
+          card.permanentShieldBonus += 2;
+          card.shield += 2;
+          card.canMineFreely = true;
+          discardCard(actionCard, playingOwner, 'action');
+          pushHistory('action', `${cardAnchor('C115')} est joué sur ${cardAnchor(card.label)}.`);
+          pushHistory('info', `${cardAnchor(card.label)} gagne <strong>PROVOCATION</strong>, <strong>+2 PB permanents</strong>, et peut <strong>miner sans coût</strong>.`);
+        }
+        fullRender();
+      });
     }
   });
 
