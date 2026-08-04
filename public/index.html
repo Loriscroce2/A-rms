@@ -23832,18 +23832,25 @@ function startTurn(player){
   } catch(err) { console.error('[Sucepince] effet impossible :', err); }
 
   // SAISON : Gems (W7) — au début de CHACUN des tours du joueur qui l'a
-  // actuellement dans SA zone de combat (donc le NOUVEAU contrôleur après
-  // l'infiltration, voir useGemsInfiltration), si elle a déjà infiltré au
-  // moins une fois (card.gemsOriginalOwner posé, empêche le déclenchement
-  // avant toute infiltration), détruit les combattants immédiatement à sa
-  // gauche et à sa droite dans SA rangée actuelle. Contrairement à Miner/
-  // Capacité/Attaque (déjà automatiquement gérés par isCardAllowedThisTurn
-  // via l'appartenance à topLine/botLine), ce déclenchement de début de
-  // tour n'est pas générique : on le cible explicitement ici sur la rangée
-  // de `player`.
+  // actuellement dans SA zone de combat, détruit les combattants
+  // immédiatement à sa gauche et à sa droite dans SA rangée actuelle —
+  // AUCUNE condition d'équipe : que ce soit après infiltration (donc dans
+  // la zone du NOUVEAU contrôleur adverse, voir useGemsInfiltration) OU si
+  // Gems est simplement restée, jamais infiltrée, dans la zone de son
+  // propriétaire d'origine, ce sont TOUJOURS les combattants voisins dans
+  // sa rangée actuelle qui trinquent, y compris ceux de sa propre équipe.
+  // CORRIGÉ : la condition `card.gemsOriginalOwner` bloquait ce
+  // déclenchement tant que l'ACTION d'infiltration n'avait jamais été
+  // utilisée — un joueur qui laissait Gems dans sa propre zone de combat
+  // (sans jamais l'infiltrer chez l'adversaire) échappait alors totalement
+  // à cet effet, alors que ses propres voisins doivent eux aussi être
+  // détruits. Contrairement à Miner/Capacité/Attaque (déjà automatiquement
+  // gérés par isCardAllowedThisTurn via l'appartenance à topLine/botLine),
+  // ce déclenchement de début de tour n'est pas générique : on le cible
+  // explicitement ici sur la rangée de `player`.
   try {
     const gemsLine = getLineByOwner(player);
-    gemsLine.filter(c => c.label === 'W7' && c.gemsOriginalOwner).forEach(gems => {
+    gemsLine.filter(c => c.label === 'W7').forEach(gems => {
         const idx = gemsLine.indexOf(gems);
         if (idx === -1) return;
         const targets = [];
