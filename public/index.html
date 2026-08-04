@@ -6742,6 +6742,17 @@ let ownerTurnCount = { top: 0, bottom: 0 };
 // exactement où il en était si un Flavio VII revient en jeu.
 let flavioGoals = { top: 0, bottom: 0 };
 
+// CHIMERIA (dernier lot) : Lancer le Refrain (C183) — journal des cartes que
+// chaque joueur a fait ENTRER dans la main de son adversaire au cours de la
+// partie (Mantyra/C151, Miroir Papillon/C157, Hypopillon/C176, Acrylik/C181
+// via requestGiveCardToOpponent). Utilisé pour dupliquer chacune de ces
+// cartes dans la main adverse au moment de jouer Lancer le Refrain.
+let cardsGivenAway = { top: [], bottom: [] };
+function recordCardGivenToOpponent(owner, label) {
+  if (!cardsGivenAway[owner]) cardsGivenAway[owner] = [];
+  cardsGivenAway[owner].push(label);
+}
+
 // ===================================================================
 // STREAMING DE POSITION EN DIRECT — l'adversaire, en ligne, voit en temps
 // réel une carte quitter la main de l'autre joueur, se déplacer avec son
@@ -13527,15 +13538,19 @@ function playActionC98(owner, actionCard){
   fullRender();
 }
 
-// CHIMERIA (dernier lot) : Lancer le Refrain (C183) — renvoie dans votre
-// défausse toutes les cartes de la défausse ADVERSE qui vous appartenaient
-// initialement en début de partie (typiquement des cartes qui vous ont été
-// "données" via Hypopillon/Acrylik puis ensuite défaussées par l'adversaire
-// via un autre effet).
+// CHIMERIA (dernier lot) : Lancer le Refrain (C183) — CORRIGÉ pour coller au
+// texte final imprimé sur la carte : crée dans la main de l'adversaire une
+// copie de CHAQUE carte que le joueur lui a donnée au cours de la partie
+// (voir cardsGivenAway/recordCardGivenToOpponent, alimenté par Mantyra/C151,
+// Miroir Papillon/C157, Hypopillon/C176 et Acrylik/C181).
 function openC183Prompt(owner, card, anchorEl){
   if (!canPlayThisCardNow(owner, card)) return;
-  openButtonsPrompt('Lancer le Refrain', `Jouer <strong>Lancer le Refrain</strong> ?<br><small>Effet : récupère dans votre défausse
-    toutes les cartes de la défausse adverse qui vous appartenaient initialement en début de partie.</small>`, anchorEl, [
+  const givenList = cardsGivenAway[owner] || [];
+  const countMsg = givenList.length > 0
+    ? `Crée ${givenList.length} copie${givenList.length > 1 ? 's' : ''} dans la main adverse (une par carte donnée depuis le début de la partie).`
+    : `Vous n'avez donné aucune carte à votre adversaire pour l'instant : l'effet ne créera rien.`;
+  openButtonsPrompt('Lancer le Refrain', `Jouer <strong>Lancer le Refrain</strong> ?<br><small>Effet : crée dans la main de votre
+    adversaire une copie de chaque carte que vous lui avez donnée au cours de la partie.<br>${countMsg}</small>`, anchorEl, [
     { label: 'Jouer', className: 'confirm', onClick: () => playActionC183(owner, card) },
     { label: 'Annuler', className: 'cancel', onClick: ()=>{} },
   ]);
@@ -13547,27 +13562,22 @@ function playActionC183(owner, actionCard){
   const idx = hand.findIndex(c => c.id === actionCard.id);
   if (idx !== -1) hand.splice(idx, 1);
   discardCard(actionCard, owner, 'action');
-  fullRender();
 
   const opp = (owner === 'top') ? 'bottom' : 'top';
-  const oppDiscard = (opp === 'top') ? topDiscard : botDiscard;
-  const ownDiscard = (owner === 'top') ? topDiscard : botDiscard;
+  const oppHand = getHandByOwner(opp);
+  const oppPrefix = (opp === 'top') ? 'T' : 'B';
+  const givenList = (cardsGivenAway[owner] || []).slice();
 
-  let reclaimedCount = 0;
-  for (let i = oppDiscard.length - 1; i >= 0; i--) {
-    if (trueOwnerOf(oppDiscard[i]) === owner) {
-      const reclaimed = oppDiscard.splice(i, 1)[0];
-      ownDiscard.push(reclaimed);
-      reclaimedCount++;
-    }
-  }
-
-  if (reclaimedCount > 0) {
-    pushHistory('action', `${cardAnchor('C183')} récupère ${reclaimedCount} carte${reclaimedCount > 1 ? 's' : ''} dans votre défausse.`);
+  if (givenList.length > 0) {
+    givenList.forEach(label => {
+      oppHand.push(createCard(label, oppPrefix));
+    });
+    const uniqueNames = [...new Set(givenList)].map(l => cardAnchor(l)).join(', ');
+    pushHistory('action', `${cardAnchor('C183')} crée ${givenList.length} copie${givenList.length > 1 ? 's' : ''} (${uniqueNames}) dans la main de ${playerLabel(opp)} !`);
   } else {
-    pushHistory('info', `${cardAnchor('C183')} : aucune carte à récupérer dans la défausse adverse.`);
+    pushHistory('info', `${cardAnchor('C183')} : vous n'avez donné aucune carte à votre adversaire depuis le début de la partie.`);
   }
-  updateDiscardUI();
+  updateHandsUI();
   fullRender();
 }
 
@@ -18349,6 +18359,8 @@ function onCharacterEnterBattlefield_impl(card, owner) {
     const oppPrefix = (opp === 'top') ? 'T' : 'B';
     oppHand.push(createCard('T01', oppPrefix));
     oppHand.push(createCard('T01', oppPrefix));
+    recordCardGivenToOpponent(owner, 'T01');
+    recordCardGivenToOpponent(owner, 'T01');
     pushHistory('jeu', `${cardAnchor('C151')} place deux ${cardAnchor('T01')} dans la main adverse !`);
   }
   // NOUVEAU : Déclenchement de l'effet de Prismis (C152)
@@ -23675,12 +23687,14 @@ function startTurn(player){
       // On choisit une cible au hasard parmi les combattants valides dans la main.
       const targetCard = validTargetsInHand[Math.floor(Math.random() * validTargetsInHand.length)];
 
-      // On réduit ses PV directement. Ce sera son nouveau total de PV de base quand elle sera jouée.
-      targetCard.hp--; 
+      // CORRIGÉ : le texte de la carte indique -3PV (pas -1PV), sans pouvoir
+      // descendre en dessous de 1 PV. On réduit ses PV directement. Ce sera
+      // son nouveau total de PV de base quand elle sera jouée.
+      targetCard.hp = Math.max(1, targetCard.hp - 3);
 
       // On notifie le joueur.
       const possessive = (player === 'bottom') ? 'votre' : 'sa';
-      pushHistory('artefact', `Effet de ${cardAnchor('C156')} : ${cardAnchor(targetCard.label)} dans ${possessive} main subit -1 PV.`);
+      pushHistory('artefact', `Effet de ${cardAnchor('C156')} : ${cardAnchor(targetCard.label)} dans ${possessive} main subit -3PV.`);
     }
   }
   // ===================================================================
@@ -24217,6 +24231,7 @@ function handleMiroirSelection(targetCard, targetOwner) {
   
   // On l'ajoute à la main de l'adversaire
   oppHand.push(newCard);
+  recordCardGivenToOpponent(owner, targetCard.label);
 
   pushHistory('action', `${cardAnchor('C157')} duplique ${cardAnchor(targetCard.label)} dans la main de l'adversaire.`);
   
@@ -26324,6 +26339,7 @@ function processGiveCardToOpponentQueue() {
     const realIdx = hand.findIndex(x => x.id === toGive.id);
     const given = hand.splice(realIdx, 1)[0];
     getHandByOwner(opp).push(given);
+    recordCardGivenToOpponent(owner, given.label);
     pushHistory('action', `${cardAnchor(sourceLabel)} force ${playerLabel(owner)} à donner ${cardAnchor(given.label)} à ${playerLabel(opp)} !`);
     updateHandsUI();
     fullRender();
@@ -26376,6 +26392,7 @@ function handleHypopillonHandCardClick(targetCard, owner) {
   if (realIdx === -1) { hypopillonGiveCardMode = null; closeActionPrompt(); giveCardToOpponentBusy = false; fullRender(); processGiveCardToOpponentQueue(); return; }
   const chosen = liveHand.splice(realIdx, 1)[0];
   getHandByOwner(opp).push(chosen);
+  recordCardGivenToOpponent(owner, chosen.label);
   pushHistory('action', `${cardAnchor(sourceLabel)} force ${playerLabel(owner)} à donner ${cardAnchor(chosen.label)} à ${playerLabel(opp)} !`);
   hypopillonGiveCardMode = null;
   closeActionPrompt();
